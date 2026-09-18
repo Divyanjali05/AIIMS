@@ -101,7 +101,7 @@ const initialLearnerState: LearnerState = {
   analysis: {
     status: 'locked',
     topCapability: 'AI Evaluation & Critical Assessment',
-    growthArea: 'AI Workflow & Autonomous Agent Design'
+    growthArea: 'AI Workflow Design'
   },
   clarity: {
     status: 'locked',
@@ -158,7 +158,7 @@ interface LearnerContextType {
   state: LearnerState;
   saveAssessmentAnswer: (questionId: number, value: any) => void;
   setQuestionIndex: (index: number) => void;
-  completeAssessment: (calculatedScores?: any) => void;
+  completeAssessment: () => void;
   unlockAnalysis: () => void;
   viewAnalysis: () => void;
   selectClarityArea: (areaName: string) => void;
@@ -224,17 +224,76 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  const completeAssessment = (calculatedScores?: any) => {
+  // Dynamic Score Calculation from 25 Questions
+  const calculateScoresFromAnswers = (answers: Record<number, any>) => {
+    const calcSection = (qIds: number[]) => {
+      let sum = 0;
+      let count = 0;
+      qIds.forEach((id) => {
+        const val = answers[id];
+        if (typeof val === 'number') {
+          sum += val * 20; // 1-5 scale -> 20-100
+          count++;
+        } else if (typeof val === 'string') {
+          if (val.endsWith('_a')) sum += 95;
+          else if (val.endsWith('_b')) sum += 75;
+          else if (val.endsWith('_c')) sum += 55;
+          else if (val.endsWith('_d')) sum += 35;
+          else if (val.endsWith('_e')) sum += 15;
+          else if (val.trim().length > 0) sum += 80; // text response given
+          count++;
+        } else if (Array.isArray(val)) {
+          sum += Math.min(100, Math.max(30, val.length * 30));
+          count++;
+        }
+      });
+      return count > 0 ? Math.round(sum / count) : 60;
+    };
+
+    const usageFrequency = calcSection([1, 2, 3, 4, 5]);
+    const evaluationCapability = calcSection([6, 7, 8, 9, 10]);
+    const workflowDesign = calcSection([11, 12, 13, 14, 15]);
+    const strategicVision = calcSection([16, 17, 18, 19, 20]);
+    const mentorshipReadiness = calcSection([21, 22, 23, 24, 25]);
+
+    const dimensions = [
+      { name: 'AI Usage & Frequency', score: usageFrequency },
+      { name: 'AI Evaluation & Critical Assessment', score: evaluationCapability },
+      { name: 'AI Workflow Design', score: workflowDesign },
+      { name: 'Strategic AI Vision', score: strategicVision },
+      { name: 'AI Mentorship Readiness', score: mentorshipReadiness }
+    ];
+
+    dimensions.sort((a, b) => b.score - a.score);
+    const topCap = dimensions[0].name;
+    const growth = dimensions[dimensions.length - 1].name;
+
+    return {
+      scores: {
+        usageFrequency,
+        evaluationCapability,
+        workflowDesign,
+        strategicVision,
+        mentorshipReadiness
+      },
+      topCapability: topCap,
+      growthArea: growth
+    };
+  };
+
+  const completeAssessment = () => {
     const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     const rewardAmount = 50;
     const actionKey = 'ASSESSMENT_COMPLETION';
 
     setState((prev) => {
       if (prev.assessment.status === 'completed' || prev.credits.claimedActions.includes(actionKey)) {
-        return prev; // Prevent idempotent duplicate rewards
+        return prev; // Idempotent check
       }
 
+      const calculated = calculateScoresFromAnswers(prev.assessment.answers || {});
       const newBalance = prev.credits.balance + rewardAmount;
+
       const newTx: CreditTransactionItem = {
         id: `tx-assessment-${Date.now()}`,
         description: 'Assessment Completed Reward',
@@ -246,20 +305,11 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const newNotif: AppNotification = {
         id: `notif-assessment-${Date.now()}`,
-        title: '🎉 Assessment Complete!',
-        message: `You completed your AI baseline assessment and earned +${rewardAmount} AIIMS Credits! Your analysis is now unlocked.`,
+        title: 'Assessment Complete',
+        message: `You completed your AI baseline assessment (+${rewardAmount} Credits)! Your analysis is now unlocked.`,
         timestamp: 'Just now',
         targetTab: 'analysis',
         read: false
-      };
-
-      // Compute actual derived scores if answers exist
-      const defaultScores = {
-        usageFrequency: 68,
-        evaluationCapability: 82,
-        workflowDesign: 54,
-        strategicVision: 70,
-        mentorshipReadiness: 65
       };
 
       return {
@@ -275,21 +325,22 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: 'completed',
           completedAt: nowStr,
           rewardClaimed: true,
-          scores: calculatedScores || defaultScores
+          scores: calculated.scores
         },
         analysis: {
-          ...prev.analysis,
-          status: 'unlocked'
+          status: 'unlocked',
+          topCapability: calculated.topCapability,
+          growthArea: calculated.growthArea
         },
         clarity: {
           ...prev.clarity,
           status: 'unlocked',
-          selectedAreas: ['AI Agents & Autonomous Workflows', 'AI Workflow & Architecture Design']
+          selectedAreas: [calculated.growthArea, 'AI Workflow Design', 'AI Agents & Autonomous Workflows']
         },
         focus: {
           ...prev.focus,
           status: 'unlocked',
-          selectedTrack: 'AI Workflow Design'
+          selectedTrack: null
         },
         credits: {
           balance: newBalance,
@@ -391,6 +442,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
+  // Strictly Idempotent Investigation Reward Handling
   const investigateSignal = (signalId: string, notes?: string) => {
     const rewardAmount = 30;
     const actionKey = `INVESTIGATE_SIGNAL_${signalId}`;
@@ -428,7 +480,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const newNotif: AppNotification = {
         id: `notif-investigate-${Date.now()}`,
-        title: '🔭 Signal Investigated',
+        title: 'Signal Investigated',
         message: `You completed a signal investigation (+${rewardAmount} Credits)! AI Relevance map is now available.`,
         timestamp: 'Just now',
         targetTab: 'relevance',
@@ -462,7 +514,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setState((prev) => {
       if (prev.credits.claimedActions.includes(key)) {
-        return prev; // Duplicate prevention
+        return prev;
       }
       const newBalance = prev.credits.balance + amount;
       const newTx: CreditTransactionItem = {
@@ -546,8 +598,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
         focus: {
           ...prev.focus,
-          status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status,
-          selectedTrack: topicName
+          status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status
         }
       };
     });

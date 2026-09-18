@@ -265,4 +265,30 @@ router.post('/relevance/generate', async (req: Request, res: Response) => {
   res.json(report);
 });
 
+// 11. AI MENTOR BOUNDARY MODULE
+router.post('/ai/mentor', async (req: Request, res: Response) => {
+  const { role, stage, topCapability, growthArea, activeFocus, clarityTopic, hasReflection, hasInvestigation } = req.body;
+
+  let message = `I noticed you are currently focused on ${activeFocus || growthArea || 'understanding your AI profile'}. Continuing your active track will strengthen your workflow integration.`;
+  if (!stage || stage === 'Assessment') {
+    message = "Your AI journey begins with understanding your baseline profile. Completing the diagnostic gives us a clear picture of how you work with AI.";
+  } else if (hasInvestigation) {
+    message = `Your technical signal investigation is recorded! Connect this market shift with your active focus in '${activeFocus || growthArea}'.`;
+  } else if (activeFocus) {
+    message = `Your active focus track is set to '${activeFocus}'. Explore real-time technical shifts in AI Radar to test your understanding.`;
+  }
+
+  res.json({
+    message,
+    observationType: 'observation',
+    relatedStage: stage || 'Command Centre',
+    relatedTopic: activeFocus || growthArea,
+    suggestedAction: {
+      text: activeFocus ? 'Explore AI Radar' : 'Start Assessment',
+      targetTab: activeFocus ? 'radar' : 'assessment'
+    },
+    provider: 'ai_service'
+  });
+});
+
 export default router;

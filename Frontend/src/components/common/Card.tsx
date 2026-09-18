@@ -1,26 +1,20 @@
 import React from 'react';
+import { Surface, SurfaceProps } from './Surface';
 
-interface CardProps {
+export interface CardProps extends SurfaceProps {
   children: React.ReactNode;
-  className?: string;
-  style?: React.CSSProperties;
 }
 
-export const Card: React.FC<CardProps> = ({ children, className = '', style }) => {
+export const Card: React.FC<CardProps> = ({ children, style, ...props }) => {
   return (
-    <div
-      className={className}
-      style={{
-        backgroundColor: '#ffffff',
-        border: '1px solid #e2e8f0',
-        borderRadius: '20px',
-        padding: '28px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.01)',
-        color: '#0f172a',
-        ...style
-      }}
+    <Surface
+      variant="bordered"
+      radius="lg"
+      padding="md"
+      style={style}
+      {...props}
     >
       {children}
-    </div>
+    </Surface>
   );
 };

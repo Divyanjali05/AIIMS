@@ -13,10 +13,17 @@ import { RadarScreen } from './screens/radar/RadarScreen';
 import { InvestigationScreen } from './screens/investigation/InvestigationScreen';
 import { RelevanceScreen } from './screens/relevance/RelevanceScreen';
 import { RadarSignal } from './types';
+import { Surface } from './components/common/Surface';
+import { PageHeader } from './components/common/PageHeader';
+import { MentorMessage } from './components/common/MentorMessage';
+import { MessageCircle, BarChart3, Settings } from 'lucide-react';
+
+import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
+  const { state } = useLearner();
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
@@ -26,27 +33,31 @@ const AppContent: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f4f6fc',
+      backgroundColor: '#f8f7fd',
       color: '#0f172a',
-      fontFamily: "'Inter', sans-serif"
+      fontFamily: "'Nunito', -apple-system, sans-serif"
     }}>
-      {/* Sticky Header */}
+      {/* Sticky Top Header */}
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main Body Layout: Sidebar + Canvas */}
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 72px)' }}>
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
         {/* Left Navigation Sidebar */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* Main Content Area */}
+        {/* Main Content Canvas */}
         <main style={{
           flex: 1,
-          padding: '32px 36px 60px 36px',
+          padding: '24px 32px 48px 32px',
           overflowY: 'auto',
           boxSizing: 'border-box'
         }}>
           {activeTab === 'home' && (
             <HomeScreen setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === 'discover' && (
+            <DiscoverScreen setActiveTab={setActiveTab} />
           )}
 
           {activeTab === 'journey' && (
@@ -59,10 +70,10 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {activeTab === 'analysis' && <AnalysisScreen />}
+          {activeTab === 'analysis' && <AnalysisScreen setActiveTab={setActiveTab} />}
           {activeTab === 'credits' && <CreditsScreen />}
-          {activeTab === 'clarity' && <ClarityScreen />}
-          {activeTab === 'focus' && <FocusScreen />}
+          {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
+          {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
 
           {activeTab === 'radar' && (
             <RadarScreen onInvestigate={handleStartInvestigation} />
@@ -78,23 +89,49 @@ const AppContent: React.FC = () => {
           {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
 
           {activeTab === 'mentor' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '40px', border: '1px solid #eef2f6' }}>
-              <h2 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 700 }}>💬 AIIMS Mentor</h2>
-              <p style={{ color: '#64748b' }}>Interactive AI Mentor chat and advice session...</p>
+            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <PageHeader
+                icon={<MessageCircle size={24} />}
+                title="AIIMS Mentor Workspace"
+                description="Contextual guidance and observations based on your real-time LearnerState."
+              />
+              <MentorMessage
+                title="AIIMS MENTOR ADVICE"
+                message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
+              />
             </div>
           )}
 
           {activeTab === 'insights' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '40px', border: '1px solid #eef2f6' }}>
-              <h2 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 700 }}>📊 Growth Insights</h2>
-              <p style={{ color: '#64748b' }}>Personalized learner growth analytics and progress trends...</p>
+            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <PageHeader
+                icon={<BarChart3 size={24} />}
+                title="Growth Insights"
+                description="Personalized progression trends and capability evaluation history."
+              />
+              <Surface variant="bordered" radius="lg" padding="lg">
+                <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
+                  Insights connect directly to your baseline Assessment and completed Clarity topics.
+                </p>
+              </Surface>
             </div>
           )}
 
           {activeTab === 'settings' && (
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '40px', border: '1px solid #eef2f6' }}>
-              <h2 style={{ margin: '0 0 12px 0', fontSize: '24px', fontWeight: 700 }}>⚙️ Account Settings</h2>
-              <p style={{ color: '#64748b' }}>Manage profile details, preferences, and notifications...</p>
+            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <PageHeader
+                icon={<Settings size={24} />}
+                title="Account Settings"
+                description="Manage your profile settings, preferences, and notifications."
+              />
+              <Surface variant="bordered" radius="lg" padding="lg">
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                  Learner Profile
+                </div>
+                <div style={{ fontSize: '13px', color: '#64748b' }}>
+                  Name: {state.profile.name} | Role: {state.profile.role} | Progression Stage: {state.profile.stage}
+                </div>
+              </Surface>
             </div>
           )}
         </main>

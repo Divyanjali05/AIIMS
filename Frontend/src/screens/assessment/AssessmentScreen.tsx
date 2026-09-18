@@ -13,15 +13,15 @@ import {
   ArrowLeft,
   CheckCircle2,
   Check,
-  ChevronRight,
-  UserCheck,
-  Wallet,
-  FileEdit,
   RotateCcw,
   AlertCircle,
-  HelpCircle,
-  Award
+  Award,
+  Wallet,
+  ClipboardCheck
 } from 'lucide-react';
+import { Surface } from '../../components/common/Surface';
+import { Button } from '../../components/common/Button';
+import { Badge } from '../../components/common/Badge';
 
 export type AssessmentFlowStage =
   | 'WELCOME'
@@ -130,7 +130,6 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
   const handleNext = () => {
     if (!validateCurrentQuestion()) return;
 
-    // Check if section completed (Q5, Q10, Q15, Q20)
     if (currentQuestionIndex === 4 || currentQuestionIndex === 9 || currentQuestionIndex === 14 || currentQuestionIndex === 19) {
       const sectionNum = Math.floor(currentQuestionIndex / 5) + 1;
       setTransitionSection(sectionNum);
@@ -157,250 +156,174 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     setStage('COMPLETE');
   };
 
-  const daylightCardStyle: React.CSSProperties = {
-    backgroundColor: '#ffffff',
-    borderRadius: '24px',
-    padding: '40px 36px',
-    border: '1px solid #eef2f6',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.03)'
-  };
-
-
-  // ---------------------------------------------------------------------------
   // 1. WELCOME SCREEN
-  // ---------------------------------------------------------------------------
   if (stage === 'WELCOME') {
     const hasSavedProgress = totalAnsweredCount > 0;
 
     return (
-      <div style={{ maxWidth: '820px', margin: '32px auto' }}>
-        <div style={daylightCardStyle}>
-          {/* Header Bar */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, padding: '6px 14px', backgroundColor: '#e0e7ff', color: '#4338ca', borderRadius: '20px', letterSpacing: '0.5px' }}>
+      <div style={{ maxWidth: '720px', margin: '24px auto' }}>
+        <Surface variant="bordered" radius="lg" padding="lg">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <Badge variant="primary" icon={<ClipboardCheck size={14} />}>
               AI ASSESSMENT
-            </span>
+            </Badge>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', backgroundColor: '#fef3c7', border: '1px solid #fde68a', borderRadius: '20px', color: '#b45309', fontSize: '13px', fontWeight: 700 }}>
-              <Wallet size={16} /> Wallet: {learnerState.credits.balance} Credits
-            </div>
+            <Badge variant="warning" icon={<Wallet size={14} />}>
+              Wallet: {learnerState.credits.balance} Credits
+            </Badge>
           </div>
 
-          {/* Body */}
-          <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
             <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '24px',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              backgroundColor: '#4f46e5',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              margin: '0 auto 24px',
-              boxShadow: '0 12px 30px rgba(79, 70, 229, 0.3)'
+              margin: '0 auto 20px',
+              color: '#ffffff'
             }}>
-              <Brain style={{ width: '42px', height: '42px', color: '#ffffff' }} />
+              <Brain style={{ width: '32px', height: '32px' }} />
             </div>
 
-            <h1 style={{ fontSize: '34px', fontWeight: 800, color: '#0f172a', margin: '0 0 10px', fontFamily: "'Outfit', sans-serif" }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
               Discover Your AI Profile
             </h1>
 
-            <p style={{ fontSize: '16px', color: '#475569', maxWidth: '620px', margin: '0 auto 28px', lineHeight: 1.6 }}>
-              A short assessment to understand how you currently use, think about and work with AI. Your honest answers help AIIMS build your multidimensional capability profile.
+            <p style={{ fontSize: '14px', color: '#475569', maxWidth: '540px', margin: '0 auto 24px', lineHeight: 1.5 }}>
+              A short assessment to understand how you currently use, think about and work with AI. Your honest answers help AIIMS build your personal capability profile.
             </p>
 
-            {/* Assessment Facts */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', maxWidth: '620px', margin: '0 auto 32px' }}>
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#4f46e5' }}>25</div>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Questions</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', maxWidth: '540px', margin: '0 auto 28px' }}>
+              <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#4f46e5' }}>25</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Questions</div>
               </div>
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#7c3aed' }}>10–15</div>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Minutes Duration</div>
+              <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#7c3aed' }}>10–15</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Minutes</div>
               </div>
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#059669' }}>+50 AC</div>
-                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Completion Reward</div>
-              </div>
-            </div>
-
-            {/* Mentor Reassurance */}
-            <div style={{
-              padding: '16px 20px',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '16px',
-              border: '1px solid #bbf7d0',
-              maxWidth: '620px',
-              margin: '0 auto 36px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              textAlign: 'left'
-            }}>
-              <UserCheck style={{ width: '22px', height: '22px', color: '#047857', flexShrink: 0 }} />
-              <div style={{ fontSize: '13px', color: '#166534', lineHeight: 1.5 }}>
-                <strong>AIIMS Mentor:</strong> "Take your time. This is about your actual behavior and thinking rather than finding perfect test answers."
+              <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#059669' }}>+50 AC</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Completion Reward</div>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               {hasSavedProgress && (
-                <button
+                <Button
+                  variant="outline"
+                  size="md"
+                  icon={<RotateCcw size={15} />}
                   onClick={() => setStage('QUESTION')}
-                  style={{
-                    padding: '16px 32px',
-                    borderRadius: '16px',
-                    backgroundColor: '#e0e7ff',
-                    color: '#3730a3',
-                    border: '1px solid #c7d2fe',
-                    fontSize: '16px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
                 >
-                  <RotateCcw size={18} /> Resume ({totalAnsweredCount}/25 Saved)
-                </button>
+                  Resume ({totalAnsweredCount}/25 Saved)
+                </Button>
               )}
 
-              <button
+              <Button
+                variant="primary"
+                size="lg"
+                icon={<ArrowRight size={16} />}
                 onClick={() => {
                   setCurrentQuestionIndex(0);
                   setStage('QUESTION');
                 }}
-                style={{
-                  padding: '16px 44px',
-                  borderRadius: '16px',
-                  backgroundColor: '#4f46e5',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '16px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  boxShadow: '0 8px 25px rgba(79, 70, 229, 0.35)'
-                }}
               >
-                <span>{hasSavedProgress ? 'Start Over' : 'Begin Assessment'}</span>
-                <ArrowRight size={18} />
-              </button>
+                {hasSavedProgress ? 'Start Over' : 'Begin Assessment'}
+              </Button>
             </div>
           </div>
-        </div>
+        </Surface>
       </div>
     );
   }
 
-
-  // ---------------------------------------------------------------------------
   // 2. SECTION TRANSITION INTERSTITIAL
-  // ---------------------------------------------------------------------------
   if (stage === 'TRANSITION') {
     const transitionData = SECTION_TRANSITIONS[transitionSection] || SECTION_TRANSITIONS[1];
 
     return (
-      <div style={{ maxWidth: '680px', margin: '60px auto', textAlign: 'center' }}>
-        <div style={daylightCardStyle}>
+      <div style={{ maxWidth: '600px', margin: '48px auto', textAlign: 'center' }}>
+        <Surface variant="bordered" radius="lg" padding="lg">
           <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '20px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
             backgroundColor: '#ecfdf5',
             color: '#059669',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 20px'
+            margin: '0 auto 16px'
           }}>
-            <CheckCircle2 size={36} />
+            <CheckCircle2 size={28} />
           </div>
 
-          <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', fontFamily: "'Outfit', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             {transitionData.title}
           </h2>
 
-          <p style={{ fontSize: '16px', color: '#64748b', lineHeight: 1.6, margin: '0 0 32px' }}>
+          <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.5, margin: '0 0 24px' }}>
             {transitionData.subtitle}
           </p>
 
-          <button
+          <Button
+            variant="primary"
+            size="md"
+            icon={<ArrowRight size={16} />}
             onClick={() => {
               setCurrentQuestionIndex(currentQuestionIndex + 1);
               setStage('QUESTION');
             }}
-            style={{
-              padding: '16px 36px',
-              borderRadius: '16px',
-              backgroundColor: '#4f46e5',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '16px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 8px 24px rgba(79, 70, 229, 0.3)'
-            }}
           >
-            <span>Continue to {transitionData.nextSection}</span>
-            <ArrowRight size={18} />
-          </button>
-        </div>
+            Continue to {transitionData.nextSection}
+          </Button>
+        </Surface>
       </div>
     );
   }
 
-
-  // ---------------------------------------------------------------------------
   // 3. REVIEW STATE
-  // ---------------------------------------------------------------------------
   if (stage === 'REVIEW') {
     return (
-      <div style={{ maxWidth: '840px', margin: '32px auto' }}>
-        <div style={daylightCardStyle}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+      <div style={{ maxWidth: '720px', margin: '24px auto' }}>
+        <Surface variant="bordered" radius="lg" padding="lg">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <div>
-              <span style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', letterSpacing: '0.5px' }}>FINAL REVIEW</span>
-              <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Outfit', sans-serif" }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '0.5px' }}>FINAL REVIEW</span>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '2px 0', fontFamily: "'Fredoka', sans-serif" }}>
                 25 of 25 Completed
               </h2>
             </div>
 
-            <div style={{ padding: '6px 16px', backgroundColor: '#ecfdf5', borderRadius: '20px', color: '#047857', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircle2 size={16} /> All Questions Answered
-            </div>
+            <Badge variant="success" icon={<CheckCircle2 size={14} />}>
+              All Answered
+            </Badge>
           </div>
 
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '28px' }}>
-            You can review or jump back to modify any response before submitting your baseline assessment.
+          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>
+            Review or jump back to modify any response before submitting your baseline assessment.
           </p>
 
-          {/* Section Review Grid */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '36px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
             {QUEST_LEVELS.map((level) => (
               <div
                 key={level.id}
                 style={{
                   backgroundColor: '#f8fafc',
-                  borderRadius: '16px',
-                  padding: '20px',
+                  borderRadius: '12px',
+                  padding: '14px',
                   border: '1px solid #e2e8f0'
                 }}
               >
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '8px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '6px' }}>
                   Section 0{level.id}: {level.title}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
                   {level.challengeIds.map((qId) => {
                     const qIdx = qId - 1;
                     const isAns = answers[qId] !== undefined && answers[qId] !== '';
@@ -412,22 +335,22 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                           setStage('QUESTION');
                         }}
                         style={{
-                          padding: '10px 8px',
-                          borderRadius: '10px',
+                          padding: '8px 4px',
+                          borderRadius: '8px',
                           border: isAns ? '1px solid #a7f3d0' : '1px solid #fecdd3',
                           backgroundColor: isAns ? '#ecfdf5' : '#fff1f2',
                           color: isAns ? '#047857' : '#be123c',
-                          fontSize: '12px',
+                          fontSize: '11px',
                           fontWeight: 700,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: '4px'
+                          gap: '2px'
                         }}
                       >
                         <span>Q{qId}</span>
-                        {isAns ? <Check size={12} /> : <AlertCircle size={12} />}
+                        {isAns ? <Check size={11} /> : <AlertCircle size={11} />}
                       </button>
                     );
                   })}
@@ -436,145 +359,91 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             ))}
           </div>
 
-          {/* Action Buttons */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <button
+            <Button
+              variant="outline"
+              size="md"
+              icon={<ArrowLeft size={15} />}
+              iconPosition="left"
               onClick={() => {
                 setCurrentQuestionIndex(24);
                 setStage('QUESTION');
               }}
-              style={{
-                padding: '14px 24px',
-                borderRadius: '14px',
-                backgroundColor: 'transparent',
-                border: '1px solid #cbd5e1',
-                color: '#475569',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
             >
-              <ArrowLeft size={16} /> Back to Question 25
-            </button>
+              Back to Q25
+            </Button>
 
-            <button
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<ArrowRight size={16} />}
               onClick={handleFinalSubmission}
-              style={{
-                padding: '16px 40px',
-                borderRadius: '16px',
-                backgroundColor: '#4f46e5',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 8px 25px rgba(79, 70, 229, 0.4)'
-              }}
             >
-              <span>Submit Assessment</span>
-              <ArrowRight size={18} />
-            </button>
+              Submit Assessment
+            </Button>
           </div>
-        </div>
+        </Surface>
       </div>
     );
   }
 
-
-  // ---------------------------------------------------------------------------
-  // 4. COMPLETION STATE
-  // ---------------------------------------------------------------------------
+  // 4. COMPLETE STATE
   if (stage === 'COMPLETE') {
     return (
-      <div style={{ maxWidth: '780px', margin: '40px auto' }}>
-        <div style={{ ...daylightCardStyle, textAlign: 'center', padding: '48px 36px' }}>
+      <div style={{ maxWidth: '640px', margin: '32px auto' }}>
+        <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
           <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '28px',
-            background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
+            width: '64px',
+            height: '64px',
+            borderRadius: '20px',
+            backgroundColor: '#059669',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 24px',
-            boxShadow: '0 12px 30px rgba(16, 185, 129, 0.35)'
+            margin: '0 auto 20px'
           }}>
-            <Award style={{ width: '44px', height: '44px', color: '#ffffff' }} />
+            <Award style={{ width: '36px', height: '36px' }} />
           </div>
 
-          <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Outfit', sans-serif" }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
             Your Assessment is Complete
           </h1>
 
-          <p style={{ fontSize: '16px', color: '#475569', maxWidth: '580px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '14px', color: '#475569', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
             AIIMS is ready to show you what it discovered about your current AI profile.
           </p>
 
-          {/* Reward & Wallet Transaction Summary */}
-          <div style={{ backgroundColor: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '20px', padding: '24px', maxWidth: '520px', margin: '0 auto 32px', boxShadow: '0 8px 20px rgba(0,0,0,0.03)' }}>
-            <div style={{ fontSize: '13px', color: '#059669', fontWeight: 700, marginBottom: '6px' }}>
+          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: '14px', padding: '18px', maxWidth: '440px', margin: '0 auto 24px' }}>
+            <div style={{ fontSize: '12px', color: '#047857', fontWeight: 700, marginBottom: '4px' }}>
               ✓ +50 AIIMS Credits Reward Issued
             </div>
-
-            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginTop: '8px' }}>
-              Current Wallet Balance
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+              {learnerState.credits.balance} <span style={{ fontSize: '13px', color: '#4f46e5', fontWeight: 600 }}>Credits</span>
             </div>
-            <div style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: "'Outfit', sans-serif" }}>
-              {learnerState.credits.balance} <span style={{ fontSize: '16px', color: '#4f46e5', fontWeight: 600 }}>Credits</span>
-            </div>
-          </div>
-
-          {/* Mentor Guidance */}
-          <div style={{ padding: '20px 24px', backgroundColor: '#f0fdf4', borderRadius: '16px', border: '1px solid #bbf7d0', maxWidth: '520px', margin: '0 auto 36px', textAlign: 'left' }}>
-            <div style={{ fontSize: '12px', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-              <UserCheck size={16} /> AIIMS Mentor Guidance:
-            </div>
-            <p style={{ margin: 0, fontSize: '15px', color: '#166534', lineHeight: 1.6 }}>
-              "Your multi-dimensional baseline is ready. Let's explore your strengths and skill growth opportunities."
-            </p>
           </div>
 
           <div>
-            <button
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<ArrowRight size={18} />}
               onClick={onComplete}
-              style={{
-                padding: '18px 44px',
-                borderRadius: '16px',
-                backgroundColor: '#4f46e5',
-                color: '#ffffff',
-                border: 'none',
-                fontSize: '17px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '12px',
-                boxShadow: '0 8px 25px rgba(79, 70, 229, 0.4)'
-              }}
             >
-              Reveal My Analysis <ArrowRight size={20} />
-            </button>
+              Reveal My Analysis
+            </Button>
           </div>
-        </div>
+        </Surface>
       </div>
     );
   }
 
-
-  // ---------------------------------------------------------------------------
-  // 5. QUESTION BY QUESTION INTERFACE
-  // ---------------------------------------------------------------------------
+  // 5. QUESTION INTERFACE
   const renderQuestionControl = () => {
     switch (activeQuestion.type) {
       case 'single_select':
         return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {activeQuestion.options?.map((opt) => {
               const isSelected = currentAnswer === opt.id;
               return (
@@ -582,44 +451,32 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                   key={opt.id}
                   onClick={() => handleSelectAnswer(opt.id)}
                   style={{
-                    padding: '18px 24px',
-                    borderRadius: '16px',
+                    padding: '14px 18px',
+                    borderRadius: '12px',
                     backgroundColor: isSelected ? '#e0e7ff' : '#ffffff',
                     border: isSelected ? '2px solid #4f46e5' : '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.15s ease'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    {opt.icon && <span style={{ fontSize: '22px' }}>{opt.icon}</span>}
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#3730a3' : '#1e293b' }}>
-                        {opt.label}
-                      </div>
-                      {opt.sublabel && (
-                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '2px' }}>
-                          {opt.sublabel}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#3730a3' : '#1e293b' }}>
+                    {opt.label}
+                  </span>
 
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      border: isSelected ? '2px solid #4f46e5' : '2px solid #cbd5e1',
-                      backgroundColor: isSelected ? '#4f46e5' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    {isSelected && <Check size={16} color="#ffffff" />}
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    border: isSelected ? '2px solid #4f46e5' : '2px solid #cbd5e1',
+                    backgroundColor: isSelected ? '#4f46e5' : 'transparent',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    {isSelected && <Check size={12} color="#ffffff" />}
                   </div>
                 </div>
               );
@@ -634,16 +491,16 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
 
         return (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', color: '#6366f1', fontWeight: 600 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 600 }}>
                 {max < 99 ? `Select up to ${max} options` : 'Select all that apply'}
               </span>
-              <span style={{ fontSize: '12px', padding: '4px 12px', backgroundColor: '#e0e7ff', color: '#4338ca', borderRadius: '12px', fontWeight: 700 }}>
+              <Badge variant="primary" size="sm">
                 {count} / {max < 99 ? max : 'all'} selected
-              </span>
+              </Badge>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {activeQuestion.options?.map((opt) => {
                 const isSelected = selectedList.includes(opt.id);
                 return (
@@ -651,37 +508,32 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                     key={opt.id}
                     onClick={() => handleMultiSelectToggle(opt.id)}
                     style={{
-                      padding: '18px 24px',
-                      borderRadius: '16px',
+                      padding: '14px 18px',
+                      borderRadius: '12px',
                       backgroundColor: isSelected ? '#e0e7ff' : '#ffffff',
                       border: isSelected ? '2px solid #4f46e5' : '1px solid #e2e8f0',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease'
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      {opt.icon && <span style={{ fontSize: '22px' }}>{opt.icon}</span>}
-                      <span style={{ fontSize: '15px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#3730a3' : '#1e293b' }}>
-                        {opt.label}
-                      </span>
-                    </div>
+                    <span style={{ fontSize: '14px', fontWeight: isSelected ? 700 : 500, color: isSelected ? '#3730a3' : '#1e293b' }}>
+                      {opt.label}
+                    </span>
 
-                    <div
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '6px',
-                        border: isSelected ? '2px solid #4f46e5' : '2px solid #cbd5e1',
-                        backgroundColor: isSelected ? '#4f46e5' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      {isSelected && <Check size={16} color="#ffffff" />}
+                    <div style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      border: isSelected ? '2px solid #4f46e5' : '2px solid #cbd5e1',
+                      backgroundColor: isSelected ? '#4f46e5' : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      {isSelected && <Check size={12} color="#ffffff" />}
                     </div>
                   </div>
                 );
@@ -694,8 +546,8 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
       case 'scale': {
         const val = typeof currentAnswer === 'number' ? currentAnswer : 0;
         return (
-          <div style={{ padding: '16px 0' }}>
-            <div style={{ display: 'flex', gap: '14px', marginBottom: '24px' }}>
+          <div style={{ padding: '8px 0' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
               {[1, 2, 3, 4, 5].map((num) => {
                 const isSelected = val === num;
                 return (
@@ -704,16 +556,14 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                     onClick={() => handleSelectAnswer(num)}
                     style={{
                       flex: 1,
-                      height: '64px',
-                      borderRadius: '16px',
+                      height: '52px',
+                      borderRadius: '12px',
                       border: isSelected ? '2px solid #4f46e5' : '1px solid #cbd5e1',
                       backgroundColor: isSelected ? '#e0e7ff' : '#ffffff',
                       color: isSelected ? '#3730a3' : '#475569',
-                      fontSize: '22px',
+                      fontSize: '18px',
                       fontWeight: 800,
-                      cursor: 'pointer',
-                      boxShadow: isSelected ? '0 6px 20px rgba(79, 70, 229, 0.2)' : 'none',
-                      transition: 'all 0.2s ease'
+                      cursor: 'pointer'
                     }}
                   >
                     {num}
@@ -722,13 +572,9 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
               })}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#64748b', lineHeight: 1.4 }}>
-              <div style={{ maxWidth: '220px' }}>
-                <strong style={{ color: '#ef4444' }}>1:</strong> {activeQuestion.minLabel || 'Strongly Disagree'}
-              </div>
-              <div style={{ maxWidth: '220px', textAlign: 'right' }}>
-                <strong style={{ color: '#10b981' }}>5:</strong> {activeQuestion.maxLabel || 'Strongly Agree'}
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+              <div><strong style={{ color: '#ef4444' }}>1:</strong> {activeQuestion.minLabel || 'Strongly Disagree'}</div>
+              <div><strong style={{ color: '#059669' }}>5:</strong> {activeQuestion.maxLabel || 'Strongly Agree'}</div>
             </div>
           </div>
         );
@@ -739,30 +585,30 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
         return (
           <div>
             {activeQuestion.labNotice && (
-              <div style={{ padding: '16px', backgroundColor: '#e0e7ff', borderRadius: '14px', borderLeft: '4px solid #4f46e5', fontSize: '13px', color: '#3730a3', marginBottom: '20px', lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 700, color: '#4338ca', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={16} /> AI Prompting Challenge
+              <div style={{ padding: '12px 14px', backgroundColor: '#e0e7ff', borderRadius: '10px', borderLeft: '3px solid #4f46e5', fontSize: '12px', color: '#3730a3', marginBottom: '14px' }}>
+                <div style={{ fontWeight: 700, marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Sparkles size={14} /> AI Prompt Challenge
                 </div>
                 {activeQuestion.labNotice}
               </div>
             )}
 
             <textarea
-              rows={6}
+              rows={5}
               value={textVal}
               onChange={(e) => handleSelectAnswer(e.target.value)}
-              placeholder={activeQuestion.placeholder || 'Type your authentic prompt or response here...'}
+              placeholder={activeQuestion.placeholder || 'Type your authentic response here...'}
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
                 backgroundColor: '#ffffff',
                 border: '1px solid #cbd5e1',
-                borderRadius: '16px',
-                padding: '18px',
+                borderRadius: '12px',
+                padding: '14px',
                 color: '#0f172a',
-                fontSize: '15px',
+                fontSize: '14px',
                 fontFamily: "'Inter', sans-serif",
-                lineHeight: 1.6,
+                lineHeight: 1.5,
                 outline: 'none',
                 resize: 'vertical'
               }}
@@ -774,126 +620,96 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
   };
 
   return (
-    <div style={{ maxWidth: '840px', margin: '32px auto' }}>
-      <div style={daylightCardStyle}>
+    <div style={{ maxWidth: '720px', margin: '24px auto' }}>
+      <Surface variant="bordered" radius="lg" padding="lg">
 
-        {/* Top Header Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#4f46e5' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5' }}>
             Question {currentQuestionIndex + 1} of 25 • Section 0{activeLevel.id}: {activeLevel.title}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
-              {Math.round(((currentQuestionIndex + 1) / 25) * 100)}% Complete
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+              {Math.round(((currentQuestionIndex + 1) / 25) * 100)}%
             </span>
-            <div style={{ padding: '4px 10px', backgroundColor: '#fef3c7', borderRadius: '12px', color: '#b45309', fontSize: '12px', fontWeight: 700 }}>
+            <Badge variant="warning" size="sm">
               {learnerState.credits.balance} AC
-            </div>
+            </Badge>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div style={{ height: '8px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden', marginBottom: '28px' }}>
+        <div style={{ height: '6px', width: '100%', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '24px' }}>
           <div
             style={{
               height: '100%',
               width: `${((currentQuestionIndex + 1) / 25) * 100}%`,
-              background: 'linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%)',
-              transition: 'width 0.3s ease'
+              backgroundColor: '#4f46e5',
+              transition: 'width 0.2s ease'
             }}
           />
         </div>
 
-        {/* Main Question Card */}
-        <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '36px', border: '1px solid #e2e8f0', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.04)', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', lineHeight: 1.4 }}>
-            {activeQuestion.title}
-          </h2>
+        {/* Question Prompt */}
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px 0', fontFamily: "'Fredoka', sans-serif", lineHeight: 1.35 }}>
+          {activeQuestion.title}
+        </h2>
 
-          {activeQuestion.subtitle && (
-            <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.5 }}>
-              {activeQuestion.subtitle}
-            </p>
-          )}
+        {activeQuestion.subtitle && (
+          <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+            {activeQuestion.subtitle}
+          </p>
+        )}
 
+        {/* Input Controls */}
+        <div style={{ marginBottom: '24px' }}>
           {renderQuestionControl()}
-
-          {/* Validation Notice */}
-          {validationError && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginTop: '20px',
-              padding: '10px 16px',
-              backgroundColor: '#fff1f2',
-              borderRadius: '12px',
-              border: '1px solid #fecdd3',
-              color: '#be123c',
-              fontSize: '13px',
-              fontWeight: 600
-            }}>
-              <AlertCircle size={16} />
-              <span>{validationError}</span>
-            </div>
-          )}
         </div>
 
-        {/* Calm Mentor Message (Occasional) */}
-        {(currentQuestionIndex === 2 || currentQuestionIndex === 12 || currentQuestionIndex === 22) && (
-          <div style={{ padding: '14px 20px', backgroundColor: '#f0fdf4', borderRadius: '14px', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-            <UserCheck size={18} color="#047857" />
-            <span style={{ fontSize: '13px', color: '#166534', fontWeight: 500 }}>
-              AIIMS Mentor: "Take your time. AIIMS is learning how you actually work with AI."
-            </span>
+        {/* Validation Error Notice */}
+        {validationError && (
+          <div style={{
+            padding: '10px 14px',
+            backgroundColor: '#fff1f2',
+            border: '1px solid #fecdd3',
+            borderRadius: '8px',
+            color: '#be123c',
+            fontSize: '12px',
+            fontWeight: 600,
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            <AlertCircle size={14} /> {validationError}
           </div>
         )}
 
-        {/* Navigation Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <button
-            onClick={handlePrev}
+        {/* Controls */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <Button
+            variant="ghost"
+            size="md"
+            icon={<ArrowLeft size={15} />}
+            iconPosition="left"
             disabled={currentQuestionIndex === 0}
-            style={{
-              padding: '12px 20px',
-              borderRadius: '12px',
-              backgroundColor: 'transparent',
-              border: '1px solid #cbd5e1',
-              color: currentQuestionIndex === 0 ? '#cbd5e1' : '#475569',
-              cursor: currentQuestionIndex === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            onClick={handlePrev}
           >
-            <ArrowLeft size={16} /> Previous
-          </button>
+            Previous
+          </Button>
 
-          <button
+          <Button
+            variant="primary"
+            size="md"
+            icon={<ArrowRight size={15} />}
             onClick={handleNext}
-            style={{
-              padding: '14px 32px',
-              borderRadius: '14px',
-              backgroundColor: '#4f46e5',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '15px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 6px 20px rgba(79, 70, 229, 0.3)'
-            }}
           >
-            <span>{currentQuestionIndex === 24 ? 'Review Answers' : 'Continue'}</span>
-            <ArrowRight size={18} />
-          </button>
+            {currentQuestionIndex === 24 ? 'Review Responses →' : 'Next Question'}
+          </Button>
         </div>
-      </div>
+
+      </Surface>
     </div>
   );
 };

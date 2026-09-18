@@ -41,6 +41,8 @@ export interface RadarSignal {
   id: string;
   title: string;
   category: 'Tech Shift' | 'Workflow' | 'New Tool' | 'Role Shift' | 'Model Release';
+  source?: string;
+  dateTime?: string;
   summary: string;
   scaffold: {
     yesterday: string;
@@ -48,6 +50,10 @@ export interface RadarSignal {
     whatChanged: string;
     whosAffected: string;
   };
+  previousState?: string;
+  currentState?: string;
+  relevanceContext?: string;
+  investigationStatus?: 'uninvestigated' | 'in_progress' | 'completed';
   isFollowed: boolean;
 }
 

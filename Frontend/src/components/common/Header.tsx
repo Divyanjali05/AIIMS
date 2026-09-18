@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, Bell, ChevronDown, Check, Coins, Sparkles, X, ArrowRight } from 'lucide-react';
+import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
+import { Badge } from './Badge';
+import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
+import { MentorService } from '../../services/mentorProvider';
 
 interface HeaderProps {
   activeTab: string;
@@ -18,12 +21,63 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   const unreadCount = state.notifications.filter((n) => !n.read).length;
   const userName = state.profile?.name ? state.profile.name.split(' ')[0] : 'Divya';
 
+  const [mentorTurn, setMentorTurn] = useState<any | null>(null);
+  const [isAskingMentor, setIsAskingMentor] = useState(false);
+
+  // Stage-relevant quick mentor prompts based on activeTab
+  const getStageQuickPrompts = () => {
+    switch (activeTab) {
+      case 'analysis':
+        return [
+          { text: 'What does my top capability mean?', desc: 'Interpret profile strength' },
+          { text: 'Why is this my growth area?', desc: 'Explain development opportunity' }
+        ];
+      case 'focus':
+        return [
+          { text: 'Should I choose this candidate focus?', desc: 'Evaluate focus priority' },
+          { text: 'How long should I stay on a focus?', desc: 'Focus strategy guide' }
+        ];
+      case 'radar':
+        return [
+          { text: 'Why is this signal relevant to my focus?', desc: 'Explain signal connection' },
+          { text: 'What should I investigate first?', desc: 'Prioritize research signals' }
+        ];
+      case 'investigation':
+        return [
+          { text: 'What perspective am I missing?', desc: 'Deepen research scaffold' },
+          { text: 'How do I complete my reflection?', desc: 'Reflection guidance' }
+        ];
+      case 'relevance':
+        return [
+          { text: 'What is my recommended next action?', desc: 'Next step synthesis' },
+          { text: 'How does this connect to my profile?', desc: 'Traceability breakdown' }
+        ];
+      default:
+        return [
+          { text: 'What should I focus on right now?', desc: 'Contextual mentor guidance' },
+          { text: 'How do AIIMS Credits work?', desc: 'Ledger & rewards guide' }
+        ];
+    }
+  };
+
+  const handleAskMentor = async (question: string) => {
+    setIsAskingMentor(true);
+    try {
+      const learnerContext = buildLearnerProfileContext(state);
+      const res = await MentorService.getMentorObservation(learnerContext, state, question);
+      setMentorTurn(res);
+    } catch (e) {
+      console.error('Failed to query mentor', e);
+    } finally {
+      setIsAskingMentor(false);
+    }
+  };
+
   const searchableFeatures = [
     { title: 'Take Baseline Assessment', desc: '25-question multidimensional diagnostic', tab: 'assessment' },
     { title: 'View AI Profile Analysis', desc: 'Individual, comparison, & cohort insights', tab: 'analysis' },
     { title: 'Explore AI Radar', desc: 'Emerging tech shifts & model releases', tab: 'radar' },
     { title: 'AIIMS Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
-    { title: 'Talk to AIIMS Mentor', desc: 'Personalized AI advice & guidance', tab: 'mentor' },
     { title: 'Select Focus Track', desc: 'Prioritize skill development tracks', tab: 'focus' },
     { title: 'My AI Journey', desc: 'Development timeline & milestone history', tab: 'journey' },
   ];
@@ -44,80 +98,107 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
 
   return (
     <header style={{
-      height: '72px',
+      height: '64px',
       backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
-      borderBottom: isDarkMode ? '1px solid #1e293b' : '1px solid #eef2f6',
+      borderBottom: isDarkMode ? '1px solid #1e293b' : '1px solid #e2e8f0',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 32px',
+      padding: '0 24px',
       position: 'sticky',
       top: 0,
       zIndex: 100,
       boxSizing: 'border-box',
-      transition: 'all 0.3s ease'
+      transition: 'all 0.2s ease'
     }}>
-      {/* Brand Logo & Tagline */}
-      <div
-        onClick={() => setActiveTab('home')}
-        style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }}
-      >
-        <div style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #ec4899 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ffffff',
-          fontWeight: 900,
-          fontSize: '20px',
-          fontFamily: "'Outfit', sans-serif",
-          boxShadow: '0 4px 12px rgba(37, 99, 235, 0.25)'
-        }}>
-          A
-        </div>
-        <div>
-          <h1 style={{
-            margin: 0,
-            fontSize: '22px',
+      {/* Brand Logo & Top Primary Navigation */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+        <div
+          onClick={() => setActiveTab('home')}
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+        >
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#ffffff',
             fontWeight: 800,
-            color: isDarkMode ? '#f8fafc' : '#0f172a',
-            fontFamily: "'Outfit', sans-serif",
-            letterSpacing: '-0.3px',
-            lineHeight: 1
+            fontSize: '18px',
+            fontFamily: "'Fredoka', sans-serif",
+            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
           }}>
-            AIIMS
-          </h1>
-          <p style={{
-            margin: '3px 0 0 0',
-            fontSize: '10px',
-            color: isDarkMode ? '#94a3b8' : '#64748b',
-            fontWeight: 500,
-            letterSpacing: '0.3px'
-          }}>
-            Learn • Think • Create • Grow
-          </p>
+            A
+          </div>
+          <div>
+            <span style={{
+              fontSize: '20px',
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #6366f1 0%, #9333ea 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              fontFamily: "'Fredoka', sans-serif",
+              letterSpacing: '-0.3px'
+            }}>
+              AIIMS
+            </span>
+          </div>
         </div>
+
+        {/* Top Primary Navigation Links with Semantic Active Colors */}
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {[
+            { id: 'home', label: 'Home', activeBg: '#eef2ff', activeColor: '#4338ca' },
+            { id: 'journey', label: 'My Journey', activeBg: '#f3e8ff', activeColor: '#6b21a8' },
+            { id: 'discover', label: 'Discover', activeBg: '#e0f2fe', activeColor: '#0369a1' },
+            { id: 'clarity', label: 'Develop', activeBg: '#ecfdf5', activeColor: '#047857' },
+            { id: 'radar', label: 'AI Change', activeBg: '#ecfeff', activeColor: '#155e75' },
+            { id: 'mentor', label: 'Mentor', activeBg: '#f3e8ff', activeColor: '#6b21a8' }
+          ].map((tab) => {
+            const isActive = activeTab === tab.id || (tab.id === 'clarity' && (activeTab === 'clarity' || activeTab === 'focus')) || (tab.id === 'radar' && (activeTab === 'radar' || activeTab === 'investigation' || activeTab === 'relevance'));
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  backgroundColor: isActive ? tab.activeBg : 'transparent',
+                  color: isActive ? tab.activeColor : '#475569',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '7px 15px',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 800 : 600,
+                  fontFamily: "'Nunito', sans-serif",
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      {/* Center Search Pill */}
-      <div style={{ position: 'relative', width: '420px', maxWidth: '40%' }}>
+      {/* Search Input */}
+      <div style={{ position: 'relative', width: '380px', maxWidth: '35%' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
-          backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9',
-          padding: '10px 18px',
+          gap: '8px',
+          backgroundColor: isDarkMode ? '#1e293b' : '#f4f3ff',
+          padding: '8px 14px',
           borderRadius: '9999px',
-          border: '1px solid transparent',
+          border: '1px solid #ede9fe',
           transition: 'all 0.2s ease',
         }}>
-          <Search style={{ width: '16px', height: '16px', color: '#94a3b8' }} />
+          <Search style={{ width: '15px', height: '15px', color: '#6366f1' }} />
           <input
             type="text"
-            placeholder="Ask AIIMS anything..."
+            placeholder="Search / Ask AIIMS..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -129,14 +210,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               backgroundColor: 'transparent',
               outline: 'none',
               fontSize: '13px',
-              color: isDarkMode ? '#f8fafc' : '#1e293b',
+              color: isDarkMode ? '#f8fafc' : '#0f172a',
               width: '100%',
-              fontFamily: "'Inter', sans-serif"
+              fontFamily: "'Nunito', sans-serif",
+              fontWeight: 600
             }}
           />
+
           {searchQuery && (
             <X
-              style={{ width: '16px', height: '16px', color: '#94a3b8', cursor: 'pointer' }}
+              style={{ width: '14px', height: '14px', color: '#94a3b8', cursor: 'pointer' }}
               onClick={() => {
                 setSearchQuery('');
                 setShowSearchModal(false);
@@ -149,24 +232,24 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {showSearchModal && (
           <div style={{
             position: 'absolute',
-            top: '52px',
+            top: '44px',
             left: 0,
             right: 0,
             backgroundColor: '#ffffff',
-            borderRadius: '16px',
-            boxShadow: '0 12px 36px rgba(0, 0, 0, 0.12)',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
             border: '1px solid #e2e8f0',
-            padding: '12px',
+            padding: '8px',
             zIndex: 200,
-            maxHeight: '360px',
+            maxHeight: '320px',
             overflowY: 'auto'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px 10px 10px', borderBottom: '1px solid #f1f5f9' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>AIIMS Quick Search</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 8px 8px', borderBottom: '1px solid #f1f5f9' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Quick Search</span>
               <X style={{ width: '14px', height: '14px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setShowSearchModal(false)} />
             </div>
 
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ marginTop: '4px' }}>
               {filteredSearchResults.map((item, idx) => (
                 <div
                   key={idx}
@@ -176,8 +259,8 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                     setSearchQuery('');
                   }}
                   style={{
-                    padding: '10px 12px',
-                    borderRadius: '12px',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -199,72 +282,37 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         )}
       </div>
 
-      {/* Right User Actions & Dynamic State */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      {/* Right User Actions */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
 
         {/* Live Credits Badge Pill */}
-        <div
-          onClick={() => setActiveTab('credits')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 16px',
-            backgroundColor: '#fef3c7',
-            borderRadius: '9999px',
-            border: '1px solid #fde68a',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: 700,
-            color: '#b45309',
-            boxShadow: '0 2px 8px rgba(217, 119, 6, 0.12)'
-          }}
+        <Badge
+          variant="warning"
+          icon={<Coins style={{ width: '14px', height: '14px', color: '#d97706' }} />}
+          style={{ cursor: 'pointer' }}
         >
-          <Coins style={{ width: '16px', height: '16px', color: '#d97706' }} />
-          <span>{state.credits.balance} Credits</span>
-        </div>
+          <span onClick={() => setActiveTab('credits')}>{state.credits.balance} Credits</span>
+        </Badge>
 
-        {/* Theme Toggle Button */}
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          title="Toggle Daylight / Dark Theme"
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '50%',
-            backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-            border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: isDarkMode ? '#fbbf24' : '#64748b',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          {isDarkMode ? <Moon style={{ width: '18px', height: '18px' }} /> : <Sun style={{ width: '18px', height: '18px' }} />}
-        </button>
-
-        {/* Interactive Notifications Bell */}
+        {/* Notifications Bell */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
             title="Notifications"
             style={{
-              width: '38px',
-              height: '38px',
+              width: '34px',
+              height: '34px',
               borderRadius: '50%',
               backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              border: isDarkMode ? '1px solid #334155' : '1px solid #e2e8f0',
+              border: '1px solid #cbd5e1',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: unreadCount > 0 ? '#4f46e5' : '#64748b',
-              transition: 'all 0.2s ease'
+              color: unreadCount > 0 ? '#4f46e5' : '#64748b'
             }}
           >
-            <Bell style={{ width: '18px', height: '18px' }} />
+            <Bell style={{ width: '16px', height: '16px' }} />
           </button>
           {unreadCount > 0 && (
             <span style={{
@@ -275,34 +323,33 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               color: '#ffffff',
               fontSize: '10px',
               fontWeight: 700,
-              width: '18px',
-              height: '18px',
+              width: '16px',
+              height: '16px',
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              border: '2px solid #ffffff'
+              justifyContent: 'center'
             }}>
               {unreadCount}
             </span>
           )}
 
-          {/* Notifications Dropdown Modal */}
+          {/* Notifications Modal */}
           {showNotifications && (
             <div style={{
               position: 'absolute',
-              top: '48px',
+              top: '42px',
               right: 0,
-              width: '320px',
+              width: '300px',
               backgroundColor: '#ffffff',
-              borderRadius: '20px',
-              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.12)',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
               border: '1px solid #e2e8f0',
-              padding: '16px',
+              padding: '12px',
               zIndex: 200
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>Notifications ({unreadCount} new)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Notifications</span>
                 <span
                   onClick={clearNotifications}
                   style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600, cursor: 'pointer' }}
@@ -311,24 +358,24 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                 </span>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '240px', overflowY: 'auto' }}>
                 {state.notifications.map((notif) => (
                   <div
                     key={notif.id}
                     onClick={() => handleNotificationClick(notif)}
                     style={{
-                      padding: '10px 12px',
-                      borderRadius: '12px',
-                      backgroundColor: notif.read ? '#f8fafc' : '#eef2ff',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      backgroundColor: notif.read ? '#f8fafc' : '#e0e7ff',
                       border: notif.read ? '1px solid #f1f5f9' : '1px solid #c7d2fe',
                       cursor: 'pointer'
                     }}
                   >
                     <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between' }}>
                       <span>{notif.title}</span>
-                      <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>{notif.timestamp}</span>
+                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>{notif.timestamp}</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '4px', lineHeight: 1.35 }}>
+                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>
                       {notif.message}
                     </div>
                   </div>
@@ -338,70 +385,63 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           )}
         </div>
 
-        {/* User Profile dropdown */}
+        {/* Profile Menu Dropdown */}
         <div
           onClick={() => setShowProfileMenu(!showProfileMenu)}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '8px',
             cursor: 'pointer',
-            padding: '4px 8px',
-            borderRadius: '12px',
+            padding: '2px 6px',
+            borderRadius: '8px',
             position: 'relative'
           }}
         >
           <div style={{
-            width: '40px',
-            height: '40px',
+            width: '32px',
+            height: '32px',
             borderRadius: '50%',
-            overflow: 'hidden',
-            border: '2px solid #e2e8f0',
             backgroundColor: '#e0e7ff',
+            color: '#4f46e5',
+            fontWeight: 700,
+            fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            border: '1px solid #c7d2fe'
           }}>
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
-              alt="User profile"
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
+            {userName.charAt(0)}
           </div>
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: isDarkMode ? '#f8fafc' : '#0f172a', lineHeight: '1.2' }}>
-              Hi, {userName}
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
-              {state.profile.role.split('/')[0]}
-            </div>
-          </div>
-          <ChevronDown style={{ width: '16px', height: '16px', color: '#64748b', marginLeft: '2px' }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: isDarkMode ? '#f8fafc' : '#0f172a' }}>
+            {userName}
+          </span>
+          <ChevronDown style={{ width: '14px', height: '14px', color: '#64748b' }} />
 
           {showProfileMenu && (
             <div style={{
               position: 'absolute',
-              top: '50px',
+              top: '42px',
               right: 0,
-              width: '200px',
+              width: '180px',
               backgroundColor: '#ffffff',
-              borderRadius: '16px',
-              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.12)',
+              borderRadius: '12px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
               border: '1px solid #e2e8f0',
-              padding: '8px',
+              padding: '6px',
               zIndex: 200
             }}>
               <div
                 onClick={() => setActiveTab('settings')}
-                style={{ padding: '10px', fontSize: '13px', color: '#0f172a', borderRadius: '8px', cursor: 'pointer' }}
+                style={{ padding: '8px 10px', fontSize: '12px', color: '#0f172a', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                ⚙️ Account Settings
+                <Settings size={14} /> Account Settings
               </div>
               <div
                 onClick={() => setActiveTab('credits')}
-                style={{ padding: '10px', fontSize: '13px', color: '#0f172a', borderRadius: '8px', cursor: 'pointer' }}
+                style={{ padding: '8px 10px', fontSize: '12px', color: '#0f172a', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
-                🪙 Wallet ({state.credits.balance} Credits)
+                <Wallet size={14} /> Wallet ({state.credits.balance} Credits)
               </div>
             </div>
           )}

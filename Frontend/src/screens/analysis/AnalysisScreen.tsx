@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../../components/common/Card';
 import { useLearner } from '../../context/LearnerContext';
 import {
   BarChart3,
@@ -9,11 +8,17 @@ import {
   AlertTriangle,
   Lock,
   ArrowRight,
-  Sparkles,
-  CheckCircle2,
-  Brain,
+  ShieldCheck,
+  Zap,
+  Target,
+  FileText,
   Compass
 } from 'lucide-react';
+import { Surface } from '../../components/common/Surface';
+import { Button } from '../../components/common/Button';
+import { PageHeader } from '../../components/common/PageHeader';
+import { MentorMessage } from '../../components/common/MentorMessage';
+import { Badge } from '../../components/common/Badge';
 
 interface AnalysisScreenProps {
   setActiveTab?: (tab: string) => void;
@@ -38,65 +43,46 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
     }
   };
 
-  // 1. LOCKED STATE (If assessment has not been completed)
+  // LOCKED STATE
   if (!isCompleted) {
     return (
-      <div style={{ maxWidth: '640px', margin: '60px auto', textAlign: 'center' }}>
-        <div style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '28px',
-          padding: '48px 36px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.04)'
-        }}>
+      <div style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center' }}>
+        <Surface variant="bordered" radius="lg" padding="lg">
           <div style={{
-            width: '64px',
-            height: '64px',
-            borderRadius: '20px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
             backgroundColor: '#e0e7ff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 20px',
+            margin: '0 auto 16px',
             color: '#4f46e5'
           }}>
-            <Lock size={32} />
+            <Lock size={28} />
           </div>
 
-          <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', fontFamily: "'Outfit', sans-serif" }}>
-            Your Analysis is Waiting
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            Your AI Profile Report is Waiting
           </h2>
 
-          <p style={{ color: '#64748b', fontSize: '15px', lineHeight: 1.6, margin: '0 0 32px' }}>
-            Complete your AI Assessment first. Your responses will give AIIMS the information it needs to create your profile.
+          <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+            Complete your baseline assessment first. Your responses will give AIIMS the information it needs to construct your personal report.
           </p>
 
-          <button
+          <Button
+            variant="primary"
+            size="lg"
+            icon={<ArrowRight size={16} />}
             onClick={() => setActiveTab && setActiveTab('assessment')}
-            style={{
-              padding: '16px 36px',
-              borderRadius: '16px',
-              backgroundColor: '#4f46e5',
-              color: '#ffffff',
-              border: 'none',
-              fontSize: '16px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 8px 24px rgba(79, 70, 229, 0.35)'
-            }}
           >
-            <span>Start Assessment</span>
-            <ArrowRight size={18} />
-          </button>
-        </div>
+            Start Baseline Assessment
+          </Button>
+        </Surface>
       </div>
     );
   }
 
-  // Real assessment scores derived from LearnerState
   const scores = state.assessment.scores || {
     usageFrequency: 68,
     evaluationCapability: 82,
@@ -105,448 +91,242 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
     mentorshipReadiness: 65
   };
 
+  const topCapability = state.analysis.topCapability || 'AI Evaluation & Critical Oversight';
+  const growthArea = state.analysis.growthArea || 'AI Workflow Design';
+
   return (
-    <div style={{ maxWidth: '1060px', margin: '32px auto', padding: '0 20px' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
-      {/* 2. PAGE HEADER */}
-      <div style={{ marginBottom: '28px' }}>
-        <h1 style={{
-          fontSize: '32px',
-          fontWeight: 800,
-          color: '#0f172a',
-          margin: '0 0 6px 0',
-          fontFamily: "'Outfit', sans-serif"
-        }}>
-          Your AI Profile
-        </h1>
-        <p style={{ color: '#64748b', margin: 0, fontSize: '15px', fontWeight: 500 }}>
-          Here's what AIIMS discovered from your assessment.
-        </p>
-      </div>
+      {/* EDITORIAL REPORT HEADER */}
+      <PageHeader
+        icon={<FileText size={24} />}
+        title="YOUR AI PROFILE"
+        description="Here's what your baseline diagnostic tells us about how you evaluate, interact, and work with AI."
+        badge={{ label: 'Personal Report', variant: 'primary', icon: <BarChart3 size={12} /> }}
+      />
 
-      {/* 3. PERSPECTIVES TAB SELECTOR (ME / COMPARE / OVERALL) */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
-        <button
+      {/* PERSPECTIVE SWITCHER */}
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <Button
+          variant={activeSubTab === 'me' ? 'primary' : 'outline'}
+          size="md"
+          icon={<BarChart3 size={16} />}
           onClick={() => setActiveSubTab('me')}
-          style={{
-            flex: 1,
-            padding: '14px',
-            borderRadius: '14px',
-            border: activeSubTab === 'me' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-            backgroundColor: activeSubTab === 'me' ? '#e0e7ff' : '#ffffff',
-            color: activeSubTab === 'me' ? '#3730a3' : '#475569',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <BarChart3 size={18} /> Me
-        </button>
+          My Profile Report
+        </Button>
 
-        <button
+        <Button
+          variant={activeSubTab === 'compare' ? 'secondary' : 'outline'}
+          size="md"
+          icon={<Users size={16} />}
           onClick={() => setActiveSubTab('compare')}
-          style={{
-            flex: 1,
-            padding: '14px',
-            borderRadius: '14px',
-            border: activeSubTab === 'compare' ? '2px solid #7c3aed' : '1px solid #e2e8f0',
-            backgroundColor: activeSubTab === 'compare' ? '#f3e8ff' : '#ffffff',
-            color: activeSubTab === 'compare' ? '#5b21b6' : '#475569',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <Users size={18} /> Compare
-        </button>
+          Peer Benchmarks
+        </Button>
 
-        <button
+        <Button
+          variant={activeSubTab === 'overall' ? 'secondary' : 'outline'}
+          size="md"
+          icon={<Globe size={16} />}
           onClick={() => setActiveSubTab('overall')}
-          style={{
-            flex: 1,
-            padding: '14px',
-            borderRadius: '14px',
-            border: activeSubTab === 'overall' ? '2px solid #0284c7' : '1px solid #e2e8f0',
-            backgroundColor: activeSubTab === 'overall' ? '#e0f2fe' : '#ffffff',
-            color: activeSubTab === 'overall' ? '#0369a1' : '#475569',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            transition: 'all 0.2s ease'
-          }}
         >
-          <Globe size={18} /> Overall
-        </button>
+          Cohort Overview
+        </Button>
       </div>
 
-
-      {/* 4. PERSPECTIVE 1: ME (INDIVIDUAL PROFILE) */}
       {activeSubTab === 'me' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
-          {/* Dimension Profile Summary Cards */}
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0', fontFamily: "'Outfit', sans-serif" }}>
-              Profile Dimensions
+          {/* SECTION 1: HOW YOU CURRENTLY WORK WITH AI (DIMENSIONS REPORT) */}
+          <Surface variant="bordered" radius="lg" padding="lg">
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+              How You Currently Work With AI
             </h2>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-
-              {/* Dimension 1 */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #eef2f6', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>How you use AI</span>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#4f46e5', margin: '6px 0', fontFamily: "'Outfit', sans-serif" }}>
-                  {scores.usageFrequency} <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 500 }}>/ 100</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-                  Your responses indicate you regularly consult AI tools for drafting and task-level assistance.
-                </p>
-              </div>
-
-              {/* Dimension 2 */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #eef2f6', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>How you evaluate AI</span>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#10b981', margin: '6px 0', fontFamily: "'Outfit', sans-serif" }}>
-                  {scores.evaluationCapability} <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 500 }}>/ 100</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-                  Your responses indicate relatively strong attention to checking and evaluating AI output for accuracy.
-                </p>
-              </div>
-
-              {/* Dimension 3 */}
-              <div style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '24px', border: '1px solid #eef2f6', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>How you work with AI</span>
-                <div style={{ fontSize: '32px', fontWeight: 800, color: '#d97706', margin: '6px 0', fontFamily: "'Outfit', sans-serif" }}>
-                  {scores.workflowDesign} <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 500 }}>/ 100</span>
-                </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-                  You appear comfortable interacting with AI, with room to move from single prompts to repeatable workflows.
-                </p>
-              </div>
-
-            </div>
-          </div>
-
-
-          {/* What you're doing well (Strengths) */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px 32px', border: '1px solid #eef2f6', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <TrendingUp style={{ width: '22px', height: '22px', color: '#10b981' }} />
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>
-                What you're doing well
-              </h2>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ padding: '16px 20px', backgroundColor: '#ecfdf5', borderRadius: '16px', border: '1px solid #a7f3d0' }}>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 700, color: '#047857' }}>
-                  Evaluating AI Output
-                </h3>
-                <p style={{ margin: 0, fontSize: '14px', color: '#166534', lineHeight: 1.5 }}>
-                  Your responses suggest that you pay attention to whether AI-generated information should be trusted or verified before relying on it.
-                </p>
-              </div>
-
-              <div style={{ padding: '16px 20px', backgroundColor: '#ecfdf5', borderRadius: '16px', border: '1px solid #a7f3d0' }}>
-                <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 700, color: '#047857' }}>
-                  Human Oversight & Judgment
-                </h3>
-                <p style={{ margin: 0, fontSize: '14px', color: '#166534', lineHeight: 1.5 }}>
-                  You maintain clear boundaries on where AI tools assist versus where human decision-making remains critical.
-                </p>
-              </div>
-            </div>
-          </div>
-
-
-          {/* Areas worth developing */}
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '28px 32px', border: '1px solid #eef2f6', boxShadow: '0 4px 16px rgba(0,0,0,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <AlertTriangle style={{ width: '22px', height: '22px', color: '#d97706' }} />
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>
-                Areas worth developing
-              </h2>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-              {/* Development Area 1 */}
-              <div style={{
-                padding: '20px',
-                backgroundColor: '#fffbeb',
-                borderRadius: '16px',
-                border: '1px solid #fde68a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#92400e' }}>
-                    AI Workflow Design
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#b45309', lineHeight: 1.5 }}>
-                    You appear comfortable interacting with AI, but there is an opportunity to move from individual AI interactions toward repeatable workflows.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => handleExploreArea('AI Workflow & Architecture Design')}
-                  style={{
-                    padding: '10px 18px',
-                    backgroundColor: '#4f46e5',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '9999px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>Explore this</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-
-              {/* Development Area 2 */}
-              <div style={{
-                padding: '20px',
-                backgroundColor: '#fffbeb',
-                borderRadius: '16px',
-                border: '1px solid #fde68a',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#92400e' }}>
-                    AI Agents & Autonomous Workflows
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#b45309', lineHeight: 1.5 }}>
-                    Opportunity to transition from simple conversational queries to multi-turn agentic task delegation.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => handleExploreArea('AI Agents & Autonomous Workflows')}
-                  style={{
-                    padding: '10px 18px',
-                    backgroundColor: '#4f46e5',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '9999px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <span>Explore this</span>
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-
-            </div>
-          </div>
-
-
-          {/* Conversational "✦ What I noticed" Mentor Card */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            borderRadius: '24px',
-            padding: '28px 32px',
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(49, 46, 129, 0.2)'
-          }}>
-            <div style={{ maxWidth: '680px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <Sparkles style={{ width: '18px', height: '18px', color: '#a5b4fc' }} />
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#c7d2fe', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  WHAT I NOTICED
-                </span>
-              </div>
-              <p style={{ margin: 0, fontSize: '16px', color: '#e0e7ff', lineHeight: 1.55 }}>
-                "You already have experience using AI in your work. One area worth exploring further is how you turn individual AI interactions into a repeatable process."
-              </p>
-            </div>
-
-            <button
-              onClick={() => handleExploreArea('AI Workflow Design')}
-              style={{
-                padding: '12px 24px',
-                backgroundColor: '#ffffff',
-                color: '#312e81',
-                border: 'none',
-                borderRadius: '9999px',
-                fontSize: '14px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.15)'
-              }}
-            >
-              <span>Explore this</span>
-              <ArrowRight size={16} />
-            </button>
-          </div>
-
-
-          {/* What would you like to understand better? Bridge to Clarity */}
-          <div style={{ marginTop: '8px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 16px 0', fontFamily: "'Outfit', sans-serif" }}>
-              What would you like to understand better?
-            </h2>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-
-              <div
-                onClick={() => handleExploreArea('AI Agents & Autonomous Workflows')}
-                style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '20px',
-                  padding: '24px',
-                  border: '1px solid #eef2f6',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.02)'
-                }}
-              >
-                <div>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                    AI Agents & Autonomous Workflows
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                    Understand how agents execute multi-step tasks
-                  </p>
-                </div>
-                <ArrowRight style={{ width: '18px', height: '18px', color: '#4f46e5' }} />
-              </div>
-
-              <div
-                onClick={() => handleExploreArea('AI Workflow & Architecture Design')}
-                style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '20px',
-                  padding: '24px',
-                  border: '1px solid #eef2f6',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.02)'
-                }}
-              >
-                <div>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                    AI Workflow Design
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                    Create structured, repeatable AI execution flows
-                  </p>
-                </div>
-                <ArrowRight style={{ width: '18px', height: '18px', color: '#4f46e5' }} />
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-      )}
-
-
-      {/* 5. PERSPECTIVE 2: COMPARE */}
-      {activeSubTab === 'compare' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '32px', border: '1px solid #eef2f6' }}>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 800, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>
-              Compare
-            </h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px' }}>
-              Understand how your profile relates to a relevant group.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ padding: '20px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5', marginBottom: '4px' }}>
-                  AI Evaluation Comparison
-                </div>
-                <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>
-                  Your responses show stronger emphasis on AI evaluation than the selected group average.
-                </p>
-              </div>
-
-              <div style={{ padding: '20px', backgroundColor: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0284c7', marginBottom: '4px' }}>
-                  Workflow Design Comparison
-                </div>
-                <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: 1.5 }}>
-                  Your workflow design alignment is close to the peer cohort baseline, with opportunities to explore agentic orchestration.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-      {/* 6. PERSPECTIVE 3: OVERALL */}
-      {activeSubTab === 'overall' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ backgroundColor: '#ffffff', borderRadius: '24px', padding: '32px', border: '1px solid #eef2f6' }}>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 800, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>
-              Overall Cohort Insights
-            </h2>
-            <p style={{ margin: '0 0 24px 0', color: '#64748b', fontSize: '14px' }}>
-              Understand what AIIMS is seeing across students.
+            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px' }}>
+              Calculated from your baseline diagnostic responses across 5 core dimensions.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-              <div style={{ padding: '20px', backgroundColor: '#f0fdf4', borderRadius: '16px', border: '1px solid #bbf7d0' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#047857', textTransform: 'uppercase' }}>Common Strength</span>
-                <h3 style={{ margin: '6px 0 0 0', fontSize: '16px', fontWeight: 700, color: '#166534' }}>AI-assisted exploration</h3>
-              </div>
 
-              <div style={{ padding: '20px', backgroundColor: '#fff1f2', borderRadius: '16px', border: '1px solid #fecdd3' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#be123c', textTransform: 'uppercase' }}>Common Development Area</span>
-                <h3 style={{ margin: '6px 0 0 0', fontSize: '16px', fontWeight: 700, color: '#9f1239' }}>AI Workflow & Agent Design</h3>
-              </div>
+              <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #4f46e5' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>Usage Frequency & Variety</span>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {scores.usageFrequency} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+                  Reflects your hands-on daily reliance and diversity of tools used across work tasks.
+                </p>
+              </Surface>
 
-              <div style={{ padding: '20px', backgroundColor: '#e0f2fe', borderRadius: '16px', border: '1px solid #bae6fd' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>Emerging Behaviour</span>
-                <h3 style={{ margin: '6px 0 0 0', fontSize: '16px', fontWeight: 700, color: '#075985' }}>More students using AI daily</h3>
-              </div>
+              <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #059669' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>Evaluation & Verification</span>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {scores.evaluationCapability} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+                  Measures critical scrutiny, hallucination detection, and primary source cross-checking.
+                </p>
+              </Surface>
+
+              <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #d97706' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>Workflow Design</span>
+                <div style={{ fontSize: '32px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {scores.workflowDesign} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+                  Measures how often you build repeatable prompt templates and multi-step processes.
+                </p>
+              </Surface>
+
+            </div>
+          </Surface>
+
+          {/* SECTION 2: YOUR STRENGTHS */}
+          <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: '#f0fdf4', borderLeft: '6px solid #059669' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <TrendingUp style={{ width: '20px', height: '20px', color: '#059669' }} />
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#064e3b', fontFamily: "'Fredoka', sans-serif" }}>
+                YOUR STRENGTHS
+              </h2>
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700, color: '#047857' }}>
+              Primary Strength: {topCapability}
+            </h3>
+
+            <p style={{ margin: '0 0 14px', fontSize: '14px', color: '#166534', lineHeight: 1.5 }}>
+              Your baseline evaluation indicates strong personal accountability and critical scrutiny. You do not accept model outputs at face value, which protects your work quality from hallucinations.
+            </p>
+
+            <div style={{ padding: '12px 14px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '13px', color: '#064e3b' }}>
+              <strong>Key Trait: </strong> Uncompromised human oversight and domain judgment when verifying AI responses.
+            </div>
+          </Surface>
+
+          {/* SECTION 3: YOUR DEVELOPMENT AREAS */}
+          <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: '#fffbeb', borderLeft: '6px solid #d97706' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <AlertTriangle style={{ width: '20px', height: '20px', color: '#d97706' }} />
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#78350f', fontFamily: "'Fredoka', sans-serif" }}>
+                YOUR DEVELOPMENT AREAS
+              </h2>
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 700, color: '#92400e' }}>
+              Primary Opportunity: {growthArea}
+            </h3>
+
+            <p style={{ margin: '0 0 16px', fontSize: '14px', color: '#b45309', lineHeight: 1.5 }}>
+              Your profile shows an opportunity to shift from task-by-task prompting toward designing repeatable, structured AI workflows for recurring work.
+            </p>
+
+            <Button
+              variant="primary"
+              size="md"
+              icon={<ArrowRight size={15} />}
+              onClick={() => handleExploreArea(growthArea)}
+            >
+              Explore {growthArea} in Clarity
+            </Button>
+          </Surface>
+
+          {/* SECTION 4: WHAT THIS COULD MEAN */}
+          <Surface variant="bordered" radius="lg" padding="lg">
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 10px', fontFamily: "'Fredoka', sans-serif" }}>
+              WHAT THIS COULD MEAN FOR YOUR WORK
+            </h2>
+
+            <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.6, margin: '0 0 16px' }}>
+              Because your evaluation capability is strong, you are in an ideal position to delegate multi-step work to AI tools without taking on risk. By building structured prompt templates, you can reduce repetitive setup time while keeping quality high.
+            </p>
+
+            <MentorMessage
+              message={`"Your baseline indicates that you have the critical thinking needed to evaluate AI outputs effectively. Next, let's explore how to turn those evaluation habits into repeatable workflows."`}
+            />
+          </Surface>
+
+          {/* SECTION 5: WHERE TO EXPLORE NEXT */}
+          <Surface variant="highlight" radius="lg" padding="lg">
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#3730a3', margin: '0 0 12px', fontFamily: "'Fredoka', sans-serif" }}>
+              WHERE TO EXPLORE NEXT
+            </h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+              <Surface variant="bordered" radius="md" padding="md" hoverable onClick={() => handleExploreArea('AI Workflow Design')}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '4px' }}>CLARITY LESSON</div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>AI Workflow Design</h3>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#64748b' }}>Learn how to connect inputs, prompts, and checks.</p>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Start Lesson</span> <ArrowRight size={13} />
+                </div>
+              </Surface>
+
+              <Surface variant="bordered" radius="md" padding="md" hoverable onClick={() => handleExploreArea('AI Agents & Autonomous Workflows')}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase', marginBottom: '4px' }}>ADVANCED TOPIC</div>
+                <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>AI Agents & Workflows</h3>
+                <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#64748b' }}>Explore goal-based delegation with safety boundaries.</p>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0284c7', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span>Start Lesson</span> <ArrowRight size={13} />
+                </div>
+              </Surface>
+
+            </div>
+          </Surface>
+
+        </div>
+      )}
+
+      {activeSubTab === 'compare' && (
+        <Surface variant="bordered" radius="lg" padding="lg">
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            Peer Benchmark Comparison
+          </h2>
+          <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px' }}>
+            Comparing your profile dimensions with baseline product & engineering peers.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <strong style={{ color: '#4f46e5' }}>Evaluation Rigor: </strong>
+              Your score of {scores.evaluationCapability}/100 places you in the upper 25% of baseline learners for output verification.
+            </div>
+
+            <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <strong style={{ color: '#0284c7' }}>Workflow Repeatability: </strong>
+              Your score of {scores.workflowDesign}/100 indicates opportunity to adopt multi-step templates used by top engineering teams.
             </div>
           </div>
-        </div>
+        </Surface>
+      )}
+
+      {activeSubTab === 'overall' && (
+        <Surface variant="bordered" radius="lg" padding="lg">
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            Cohort Macro Patterns
+          </h2>
+          <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px' }}>
+            Broad capability trends observed across AIIMS learners.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+            <div style={{ padding: '14px', backgroundColor: '#ecfdf5', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>Common Strength</span>
+              <h3 style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 700, color: '#064e3b' }}>AI-assisted drafting</h3>
+            </div>
+
+            <div style={{ padding: '14px', backgroundColor: '#fff1f2', borderRadius: '10px', border: '1px solid #fecdd3' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: '#be123c', textTransform: 'uppercase' }}>Common Growth Area</span>
+              <h3 style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 700, color: '#881337' }}>Repeatable Workflows</h3>
+            </div>
+
+            <div style={{ padding: '14px', backgroundColor: '#e0f2fe', borderRadius: '10px', border: '1px solid #bae6fd' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>Macro Trend</span>
+              <h3 style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 700, color: '#075985' }}>Daily AI tool usage</h3>
+            </div>
+          </div>
+        </Surface>
       )}
 
     </div>
