@@ -12,7 +12,11 @@ import {
   BarChart3,
   Rocket,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Compass,
+  Zap,
+  Award,
+  Sparkles
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 
@@ -24,10 +28,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const { login, register } = useLearner();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [signInStep, setSignInStep] = useState<'identifier' | 'password'>('identifier');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [reenterPassword, setReenterPassword] = useState('');
   const [name, setName] = useState('');
+  const [college, setCollege] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
+  const [showKeepSignedDetails, setShowKeepSignedDetails] = useState(false);
+  const [showNeedHelp, setShowNeedHelp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -35,60 +45,88 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
 
+  // Amazon Step 1: Continue button handler
+  const handleContinueIdentifier = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!email.trim()) {
+      setErrorMessage('Enter your email');
+      return;
+    }
+
+    if (!email.includes('@')) {
+      setErrorMessage('Enter a valid email address');
+      return;
+    }
+
+    setSignInStep('password');
+  };
+
+  // Amazon Step 2 / Register submit handler
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!email.trim() || !email.includes('@')) {
-      setErrorMessage('Please enter a valid email address');
-      return;
-    }
+    if (mode === 'login') {
+      if (!password.trim()) {
+        setErrorMessage('Enter your password');
+        return;
+      }
 
-    if (!password.trim() || password.length < 4) {
-      setErrorMessage('Password must be at least 4 characters');
-      return;
-    }
+      setIsLoading(true);
 
-    setIsLoading(true);
-
-    try {
-      if (mode === 'login') {
+      try {
         const res = await login(email.trim(), password);
         if (res.success) {
           if (onSuccess) onSuccess();
         } else {
-          setErrorMessage(res.error || 'Failed to sign in. Please check your credentials.');
+          setErrorMessage(res.error || 'Invalid email or password. Please check your credentials.');
         }
-      } else {
-        const res = await register(name.trim() || email.split('@')[0], email.trim(), password);
+      } catch (err: any) {
+        setErrorMessage('An unexpected error occurred. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Amazon Create account validation
+      if (!name.trim()) {
+        setErrorMessage('Enter your name');
+        return;
+      }
+
+      if (!email.trim() || !email.includes('@')) {
+        setErrorMessage('Enter a valid email address');
+        return;
+      }
+
+      if (!password.trim() || password.length < 6) {
+        setErrorMessage('Passwords must be at least 6 characters.');
+        return;
+      }
+
+      if (password !== reenterPassword) {
+        setErrorMessage('Passwords must match.');
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const res = await register(name.trim(), email.trim(), password, college.trim() || 'Engineering & Technology College');
         if (res.success) {
           setSuccessMessage('Account created successfully! Welcome to AIIMS.');
           if (onSuccess) onSuccess();
         } else {
           setErrorMessage(res.error || 'Registration failed. Please try again.');
         }
+      } catch (err: any) {
+        setErrorMessage('An unexpected error occurred. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err: any) {
-      setErrorMessage('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSocialLogin = async (provider: 'google' | 'microsoft') => {
-    setIsLoading(true);
-    setErrorMessage('');
-    const demoEmail = provider === 'google' ? 'alex.chen@gmail.com' : 'alex.chen@microsoft.com';
-    try {
-      const res = await login(demoEmail, 'password123');
-      if (res.success && onSuccess) {
-        onSuccess();
-      }
-    } catch (err) {
-      setErrorMessage('Social login failed. Please try email login.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -110,18 +148,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
       style={{
         minHeight: '100vh',
         width: '100%',
-        backgroundColor: '#f8f9ff',
+        backgroundColor: '#f8fafc',
         backgroundImage: `
-          radial-gradient(at 10% 20%, rgba(224, 231, 255, 0.6) 0px, transparent 50%),
-          radial-gradient(at 90% 10%, rgba(243, 232, 255, 0.7) 0px, transparent 50%),
-          radial-gradient(at 50% 80%, rgba(238, 242, 255, 0.5) 0px, transparent 50%),
-          radial-gradient(at 85% 85%, rgba(245, 208, 254, 0.3) 0px, transparent 50%)
+          radial-gradient(circle at 12% 15%, rgba(99, 102, 241, 0.09) 0%, transparent 45%),
+          radial-gradient(circle at 88% 28%, rgba(139, 92, 246, 0.08) 0%, transparent 42%),
+          radial-gradient(circle at 50% 88%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
+          radial-gradient(circle, #cbd5e1 1px, transparent 1px)
         `,
+        backgroundSize: '100% 100%, 100% 100%, 100% 100%, 28px 28px',
         fontFamily: "'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         color: '#0f172a',
         display: 'flex',
         flexDirection: 'column',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        position: 'relative'
       }}
     >
       {/* 1. TOP NAVIGATION BAR */}
@@ -235,678 +275,206 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.25fr 0.95fr',
-            gap: '48px',
+            gridTemplateColumns: '1.35fr 0.9fr',
+            gap: '52px',
             alignItems: 'center',
             width: '100%'
           }}
         >
-          {/* ================= LEFT COLUMN: Value Proposition + 3D Visual ================= */}
+          {/* ================= LEFT COLUMN: Professional Value Proposition ================= */}
           <div style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {/* System Eyebrow Pill */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 18px',
+                borderRadius: '24px',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.12) 100%)',
+                border: '1px solid rgba(99, 102, 241, 0.28)',
+                color: '#4f46e5',
+                fontSize: '13.5px',
+                fontWeight: 700,
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase',
+                marginBottom: '22px',
+                alignSelf: 'flex-start',
+                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.08)'
+              }}
+            >
+              <Sparkles size={16} color="#6366f1" />
+              AI Intelligence &amp; Mentoring System (AIIMS)
+            </div>
+
             {/* Main Headline */}
             <h1
               style={{
-                fontSize: '52px',
+                fontSize: 'clamp(46px, 4.3vw, 62px)',
                 fontWeight: 900,
                 color: '#0f172a',
-                lineHeight: 1.12,
-                letterSpacing: '-1.5px',
-                margin: '0 0 16px 0'
+                lineHeight: 1.1,
+                letterSpacing: '-2px',
+                margin: '0 0 22px 0'
               }}
             >
-              Learn AI.
+              Master the AI Frontier.
               <br />
-              Build Your Future.
+              Build Verifiable Capability.
               <br />
               <span
                 style={{
-                  background: 'linear-gradient(110deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+                  background: 'linear-gradient(110deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent'
                 }}
               >
-                With AIIMS.
+                With AIIMS Intelligence.
               </span>
             </h1>
 
-            {/* Subtitle */}
+            {/* Clear, Professional Explanation of Project Purpose */}
             <p
               style={{
-                fontSize: '17px',
-                color: '#475569',
-                lineHeight: 1.55,
-                margin: '0 0 32px 0',
-                maxWidth: '460px',
+                fontSize: '18.5px',
+                color: '#334155',
+                lineHeight: 1.68,
+                margin: '0 0 28px 0',
+                maxWidth: '680px',
                 fontWeight: 500
               }}
             >
-              A personalized learning journey to help you understand, apply and grow with AI.
+              AIIMS is an adaptive capability and intelligence ecosystem designed to help you thrive in a rapidly evolving AI landscape. Through continuous technical signal monitoring from ArXiv &amp; model labs, personalized capability diagnostics, and real-time contextual AI mentorship, AIIMS translates complex technological breakthroughs into structured, verifiable growth.
             </p>
-
-            {/* Visual Workspace: Left Feature Badges + 3D Illustration Area */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '240px 1fr',
-                gap: '24px',
-                alignItems: 'center',
-                position: 'relative'
-              }}
-            >
-              {/* Stack of Feature Badges */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', zIndex: 2 }}>
-                {/* 1. Understand Yourself */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '10px 14px',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.9)',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'default'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                >
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      backgroundColor: '#ecfdf5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#10b981',
-                      flexShrink: 0
-                    }}
-                  >
-                    <User size={19} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                      Understand Yourself
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                      Discover your AI profile
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Learn What Matters */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '10px 14px',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.9)',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'default'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                >
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      backgroundColor: '#e0f2fe',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#0284c7',
-                      flexShrink: 0
-                    }}
-                  >
-                    <Lightbulb size={19} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                      Learn What Matters
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                      Build real skills, step by step
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Stay Ahead */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '10px 14px',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.9)',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'default'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                >
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      backgroundColor: '#ffedd5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ea580c',
-                      flexShrink: 0
-                    }}
-                  >
-                    <Target size={19} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                      Stay Ahead
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                      Explore what's changing in AI
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Take Action */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '10px 14px',
-                    borderRadius: '16px',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                    border: '1px solid rgba(255, 255, 255, 0.9)',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'default'
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
-                >
-                  <div
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '10px',
-                      backgroundColor: '#fce7f3',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#db2777',
-                      flexShrink: 0
-                    }}
-                  >
-                    <BarChart3 size={19} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                      Take Action
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-                      Turn insights into progress
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Center 3D Character Illustration Area */}
-              <div
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  minHeight: '340px'
-                }}
-              >
-                {/* Ambient Glow Aura */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    width: '280px',
-                    height: '280px',
-                    borderRadius: '50%',
-                    background: 'radial-gradient(circle, rgba(168, 85, 247, 0.22) 0%, rgba(99, 102, 241, 0.15) 50%, transparent 70%)',
-                    filter: 'blur(20px)',
-                    zIndex: 0
-                  }}
-                />
-
-                {/* Floating Skill Tag 1: Discover (Top Right) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '-10px',
-                    left: '120px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '6px 12px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 20px rgba(99, 102, 241, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    zIndex: 3,
-                    border: '1px solid rgba(255, 255, 255, 0.8)'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      backgroundColor: '#6366f1',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff'
-                    }}
-                  >
-                    <User size={13} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>Discover</div>
-                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>Your AI profile</div>
-                  </div>
-                </div>
-
-                {/* Floating Skill Tag 2: Learn (Top Left) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '40px',
-                    left: '-20px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '6px 12px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 20px rgba(16, 185, 129, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    zIndex: 3,
-                    border: '1px solid rgba(255, 255, 255, 0.8)'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      backgroundColor: '#10b981',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff'
-                    }}
-                  >
-                    <Lightbulb size={13} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>Learn</div>
-                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>New skills</div>
-                  </div>
-                </div>
-
-                {/* Floating Skill Tag 3: Explore (Mid Right) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '85px',
-                    right: '-15px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '6px 12px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 20px rgba(59, 130, 246, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    zIndex: 3,
-                    border: '1px solid rgba(255, 255, 255, 0.8)'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      backgroundColor: '#3b82f6',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff'
-                    }}
-                  >
-                    <Rocket size={13} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>Explore</div>
-                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>What's next</div>
-                  </div>
-                </div>
-
-                {/* Floating Skill Tag 4: Grow (Lower Right) */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '80px',
-                    right: '-20px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    backdropFilter: 'blur(8px)',
-                    padding: '6px 12px',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 20px rgba(217, 70, 239, 0.15)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    zIndex: 3,
-                    border: '1px solid rgba(255, 255, 255, 0.8)'
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '6px',
-                      backgroundColor: '#c026d3',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff'
-                    }}
-                  >
-                    <BarChart3 size={13} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#0f172a' }}>Grow</div>
-                    <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 600 }}>Your potential</div>
-                  </div>
-                </div>
-
-                {/* 3D Student Character Image / Render */}
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '320px',
-                    height: '320px',
-                    borderRadius: '24px',
-                    overflow: 'hidden',
-                    boxShadow: '0 16px 36px -12px rgba(79, 70, 229, 0.25)',
-                    border: '3px solid rgba(255, 255, 255, 0.85)',
-                    zIndex: 1
-                  }}
-                >
-                  <img
-                    src="/api/mascot"
-                    alt="AIIMS AI Learner"
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-
-                {/* Decorative Sparkles */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '80px',
-                    color: '#38bdf8',
-                    zIndex: 4,
-                    fontSize: '18px',
-                    filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.6))'
-                  }}
-                >
-                  ✦
-                </div>
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: '120px',
-                    left: '20px',
-                    color: '#818cf8',
-                    zIndex: 4,
-                    fontSize: '18px',
-                    filter: 'drop-shadow(0 0 6px rgba(129, 140, 248, 0.6))'
-                  }}
-                >
-                  ✦
-                </div>
-              </div>
-            </div>
-
-            {/* Handwritten / Cursive Quotes at bottom of left column */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginTop: '32px',
-                padding: '0 12px'
-              }}
-            >
-              {/* Left Quote */}
-              <div style={{ position: 'relative' }}>
-                <span
-                  style={{
-                    fontFamily: "'Segoe Print', 'Caveat', 'Comic Sans MS', cursive",
-                    fontSize: '18px',
-                    color: '#6366f1',
-                    fontWeight: 600,
-                    display: 'block',
-                    transform: 'rotate(-2deg)'
-                  }}
-                >
-                  A more confident you
-                  <br />
-                  in an AI-powered world.
-                </span>
-                {/* Purple decorative scribble underline */}
-                <svg
-                  width="130"
-                  height="16"
-                  viewBox="0 0 130 16"
-                  fill="none"
-                  style={{ marginTop: '2px', display: 'block' }}
-                >
-                  <path
-                    d="M3 10C35 4 85 14 127 6"
-                    stroke="#8b5cf6"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </div>
-
-              {/* Right Quote */}
-              <div style={{ textAlign: 'right' }}>
-                <span
-                  style={{
-                    fontFamily: "'Segoe Print', 'Caveat', 'Comic Sans MS', cursive",
-                    fontSize: '17px',
-                    color: '#7c3aed',
-                    fontWeight: 600,
-                    display: 'block',
-                    transform: 'rotate(1.5deg)'
-                  }}
-                >
-                  Same you.
-                  <br />
-                  Brighter possibilities.
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* ================= RIGHT COLUMN: Sleek Login Card ================= */}
+          {/* ================= RIGHT COLUMN: Modern AIIMS Auth Card ================= */}
           <div
             style={{
               display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
               justifyContent: 'center',
               width: '100%'
             }}
           >
+            {/* AIIMS Modern Auth Box */}
             <div
               style={{
                 width: '100%',
-                maxWidth: '430px',
+                maxWidth: '400px',
                 backgroundColor: '#ffffff',
-                borderRadius: '28px',
-                padding: '40px 36px',
-                boxShadow: '0 20px 48px -12px rgba(99, 102, 241, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04)',
-                border: '1px solid rgba(226, 232, 240, 0.8)',
+                borderRadius: '16px',
+                padding: '30px 30px',
+                border: '1px solid #e2e8f0',
                 boxSizing: 'border-box',
-                position: 'relative'
+                boxShadow: '0 20px 35px -10px rgba(99, 102, 241, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)'
               }}
             >
-              {/* Card Header */}
-              <div style={{ marginBottom: '28px' }}>
-                <h2
-                  style={{
-                    fontSize: '28px',
-                    fontWeight: 800,
-                    color: '#0f172a',
-                    margin: '0 0 6px 0',
-                    letterSpacing: '-0.4px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {mode === 'login' ? 'Welcome back' : 'Join AIIMS'}
-                  <span style={{ fontSize: '24px' }}>👋</span>
-                </h2>
-                <p
-                  style={{
-                    fontSize: '14px',
-                    color: '#64748b',
-                    margin: 0,
-                    fontWeight: 500
-                  }}
-                >
-                  {mode === 'login'
-                    ? 'Continue your AI learning journey.'
-                    : 'Start your personalized AI growth path today.'}
-                </p>
-              </div>
-
-              {/* Alert Feedback */}
+              {/* Error Box Callout */}
               {errorMessage && (
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
                     backgroundColor: '#fef2f2',
                     border: '1px solid #fecaca',
-                    color: '#b91c1c',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    marginBottom: '20px'
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px'
                   }}
                 >
-                  <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                  <span>{errorMessage}</span>
+                  <AlertCircle size={17} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#991b1b' }}>
+                      Authentication Problem
+                    </span>
+                    <span style={{ fontSize: '12.5px', color: '#b91c1c', lineHeight: 1.4 }}>
+                      {errorMessage}
+                    </span>
+                  </div>
                 </div>
               )}
 
+              {/* Success Callout */}
               {successMessage && (
                 <div
                   style={{
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    marginBottom: '18px',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '8px',
-                    backgroundColor: '#ecfdf5',
-                    border: '1px solid #a7f3d0',
-                    color: '#047857',
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    marginBottom: '20px'
+                    gap: '10px'
                   }}
                 >
-                  <CheckCircle size={16} style={{ flexShrink: 0 }} />
-                  <span>{successMessage}</span>
+                  <CheckCircle size={17} color="#16a34a" style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: '13px', color: '#15803d', fontWeight: 600 }}>
+                    {successMessage}
+                  </span>
                 </div>
               )}
 
-              {/* Authentication Form */}
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Full Name field if registering */}
-                {mode === 'register' && (
-                  <div>
-                    <label
-                      style={{
-                        display: 'block',
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        color: '#334155',
-                        marginBottom: '8px'
-                      }}
-                    >
-                      Full Name
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <User
-                        size={17}
+              {/* ----------------- 1. SIGN IN: STEP 1 (Identifier) ----------------- */}
+              {mode === 'login' && signInStep === 'identifier' && (
+                <div>
+                  <h2
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      margin: '0 0 6px 0',
+                      letterSpacing: '-0.5px'
+                    }}
+                  >
+                    Sign in
+                  </h2>
+                  <p style={{ fontSize: '13.5px', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.4 }}>
+                    Welcome back! Enter your identifier to continue.
+                  </p>
+
+                  <form onSubmit={handleContinueIdentifier}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <label
+                        htmlFor="aiims-email-input"
                         style={{
-                          position: 'absolute',
-                          left: '14px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          color: '#94a3b8'
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          marginBottom: '6px'
                         }}
-                      />
+                      >
+                        Email
+                      </label>
                       <input
-                        type="text"
-                        placeholder="e.g. Divya Kumar"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        type="email"
+                        id="aiims-email-input"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoFocus
+                        placeholder="Enter your email"
                         style={{
                           width: '100%',
-                          padding: '12px 14px 12px 42px',
+                          height: '42px',
+                          padding: '0 14px',
                           fontSize: '14px',
                           fontFamily: 'inherit',
                           border: '1.5px solid #e2e8f0',
-                          borderRadius: '12px',
+                          borderRadius: '10px',
                           outline: 'none',
                           backgroundColor: '#f8fafc',
                           boxSizing: 'border-box',
                           color: '#0f172a',
-                          transition: 'all 0.2s ease'
+                          transition: 'all 0.18s ease'
                         }}
                         onFocus={(e) => {
                           e.target.style.borderColor = '#6366f1';
                           e.target.style.backgroundColor = '#ffffff';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
                         }}
                         onBlur={(e) => {
                           e.target.style.borderColor = '#e2e8f0';
@@ -915,346 +483,787 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                         }}
                       />
                     </div>
-                  </div>
-                )}
 
-                {/* Email Address */}
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      color: '#334155',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    Email address
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Mail
-                      size={17}
-                      style={{
-                        position: 'absolute',
-                        left: '14px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#94a3b8'
-                      }}
-                    />
-                    <input
-                      type="email"
-                      id="login-email-input"
-                      placeholder="yourname@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '12px 14px 12px 42px',
-                        fontSize: '14px',
-                        fontFamily: 'inherit',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '12px',
-                        outline: 'none',
-                        backgroundColor: '#f8fafc',
-                        boxSizing: 'border-box',
-                        color: '#0f172a',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = '#6366f1';
-                        e.target.style.backgroundColor = '#ffffff';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = '#e2e8f0';
-                        e.target.style.backgroundColor = '#f8fafc';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      color: '#334155',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    Password
-                  </label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock
-                      size={17}
-                      style={{
-                        position: 'absolute',
-                        left: '14px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#94a3b8'
-                      }}
-                    />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      id="login-password-input"
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      style={{
-                        width: '100%',
-                        padding: '12px 42px 12px 42px',
-                        fontSize: '14px',
-                        fontFamily: 'inherit',
-                        border: '1.5px solid #e2e8f0',
-                        borderRadius: '12px',
-                        outline: 'none',
-                        backgroundColor: '#f8fafc',
-                        boxSizing: 'border-box',
-                        color: '#0f172a',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.borderColor = '#6366f1';
-                        e.target.style.backgroundColor = '#ffffff';
-                        e.target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.15)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.borderColor = '#e2e8f0';
-                        e.target.style.backgroundColor = '#f8fafc';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    />
                     <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      title={showPassword ? 'Hide password' : 'Show password'}
+                      type="submit"
+                      id="aiims-continue-btn"
                       style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        background: 'none',
+                        width: '100%',
+                        height: '42px',
+                        borderRadius: '10px',
                         border: 'none',
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.28)',
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        letterSpacing: '0.2px',
                         cursor: 'pointer',
-                        color: '#94a3b8',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        padding: '4px'
+                        boxSizing: 'border-box',
+                        transition: 'all 0.18s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(79, 70, 229, 0.38)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.28)';
+                        e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      Continue
                     </button>
+                  </form>
+
+                  {/* Terms Notice */}
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#64748b',
+                      lineHeight: 1.5,
+                      margin: '18px 0 16px 0'
+                    }}
+                  >
+                    By continuing, you agree to AIIMS's{' '}
+                    <span
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                      onClick={() => alert('AIIMS Conditions of Use apply to all student accounts.')}
+                    >
+                      Conditions of Use
+                    </span>{' '}
+                    and{' '}
+                    <span
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                      onClick={() => alert('AIIMS Privacy Notice: All learner states are securely tokenized.')}
+                    >
+                      Privacy Notice
+                    </span>
+                    .
+                  </p>
+
+                  {/* Need Help Accordion */}
+                  <div style={{ marginTop: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '14px' }}>
+                    <div
+                      onClick={() => setShowNeedHelp(!showNeedHelp)}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '13px',
+                        color: '#4f46e5',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span style={{ fontSize: '11px' }}>{showNeedHelp ? '▾' : '▸'}</span>
+                      <span>Need help?</span>
+                    </div>
+
+                    {showNeedHelp && (
+                      <div
+                        style={{
+                          paddingLeft: '14px',
+                          marginTop: '8px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <span
+                          onClick={() => setShowForgotModal(true)}
+                          style={{ fontSize: '13px', color: '#4f46e5', cursor: 'pointer', fontWeight: 500 }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                        >
+                          Forgot your password?
+                        </span>
+                        <span
+                          onClick={() => alert('For other Sign-In issues, make sure your browser allows local storage sessions.')}
+                          style={{ fontSize: '13px', color: '#4f46e5', cursor: 'pointer', fontWeight: 500 }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                        >
+                          Other issues with Sign-In
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ----------------- 2. SIGN IN: STEP 2 (Password) ----------------- */}
+              {mode === 'login' && signInStep === 'password' && (
+                <div>
+                  <h2
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      margin: '0 0 12px 0',
+                      letterSpacing: '-0.5px'
+                    }}
+                  >
+                    Sign in
+                  </h2>
+
+                  {/* Identifier summary row with Change link */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      backgroundColor: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      marginBottom: '16px',
+                      fontSize: '13px',
+                      color: '#0f172a'
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {email}
+                    </span>
+                    <span
+                      onClick={() => {
+                        setSignInStep('identifier');
+                        setErrorMessage('');
+                      }}
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, flexShrink: 0 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                    >
+                      Change
+                    </span>
                   </div>
 
-                  {/* Forgot Password Link */}
-                  {mode === 'login' && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
-                      <span
-                        onClick={() => setShowForgotModal(true)}
+                  <form onSubmit={handleSubmit}>
+                    <div style={{ marginBottom: '16px' }}>
+                      <div
                         style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        <label
+                          htmlFor="aiims-password-input"
+                          style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}
+                        >
+                          Password
+                        </label>
+                        <span
+                          onClick={() => setShowForgotModal(true)}
+                          style={{ fontSize: '12.5px', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                        >
+                          Forgot password?
+                        </span>
+                      </div>
+
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          id="aiims-password-input"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          autoFocus
+                          placeholder="••••••••"
+                          style={{
+                            width: '100%',
+                            height: '42px',
+                            padding: '0 38px 0 14px',
+                            fontSize: '14px',
+                            fontFamily: 'inherit',
+                            border: '1.5px solid #e2e8f0',
+                            borderRadius: '10px',
+                            outline: 'none',
+                            backgroundColor: '#f8fafc',
+                            boxSizing: 'border-box',
+                            color: '#0f172a',
+                            transition: 'all 0.18s ease'
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#6366f1';
+                            e.target.style.backgroundColor = '#ffffff';
+                            e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = '#e2e8f0';
+                            e.target.style.backgroundColor = '#f8fafc';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '10px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#64748b',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      id="aiims-signin-btn"
+                      disabled={isLoading}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.28)',
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        letterSpacing: '0.2px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxSizing: 'border-box',
+                        opacity: isLoading ? 0.7 : 1,
+                        transition: 'all 0.18s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)';
+                          e.currentTarget.style.boxShadow = '0 6px 16px rgba(79, 70, 229, 0.38)';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.28)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {isLoading ? 'Signing in...' : 'Sign in'}
+                    </button>
+                  </form>
+
+                  {/* Keep me signed in checkbox */}
+                  <div style={{ marginTop: '16px' }}>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '13px',
+                        color: '#334155',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={keepSignedIn}
+                        onChange={(e) => setKeepSignedIn(e.target.checked)}
+                        style={{ width: '16px', height: '16px', accentColor: '#4f46e5' }}
+                      />
+                      <span>Keep me signed in</span>
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowKeepSignedDetails(!showKeepSignedDetails);
+                        }}
+                        style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600, marginLeft: 'auto' }}
+                      >
+                        Details {showKeepSignedDetails ? '▴' : '▾'}
+                      </span>
+                    </label>
+
+                    {showKeepSignedDetails && (
+                      <div
+                        style={{
+                          marginTop: '8px',
+                          padding: '10px 12px',
+                          backgroundColor: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          color: '#64748b',
+                          lineHeight: 1.45
+                        }}
+                      >
+                        Choosing "Keep me signed in" preserves your active authentication session on this device. Use this option only on personal devices.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ----------------- 3. CREATE ACCOUNT (REGISTRATION) ----------------- */}
+              {mode === 'register' && (
+                <div>
+                  <h2
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      margin: '0 0 6px 0',
+                      letterSpacing: '-0.5px'
+                    }}
+                  >
+                    Create account
+                  </h2>
+                  <p style={{ fontSize: '13.5px', color: '#64748b', margin: '0 0 18px 0', lineHeight: 1.4 }}>
+                    Start building verifiable AI capability with AIIMS.
+                  </p>
+
+                  <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {/* Your Name */}
+                    <div>
+                      <label
+                        htmlFor="aiims-name-input"
+                        style={{
+                          display: 'block',
                           fontSize: '13px',
                           fontWeight: 600,
-                          color: '#4f46e5',
-                          cursor: 'pointer',
-                          transition: 'color 0.15s ease'
+                          color: '#334155',
+                          marginBottom: '6px'
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = '#3730a3')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = '#4f46e5')}
                       >
-                        Forgot password?
-                      </span>
+                        Your name
+                      </label>
+                      <input
+                        type="text"
+                        id="aiims-name-input"
+                        placeholder="First and last name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 14px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '10px',
+                          outline: 'none',
+                          backgroundColor: '#f8fafc',
+                          boxSizing: 'border-box',
+                          color: '#0f172a',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#6366f1';
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#e2e8f0';
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
                     </div>
-                  )}
+
+                    {/* College / Institution Name */}
+                    <div>
+                      <label
+                        htmlFor="aiims-college-input"
+                        style={{
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        College / Institution
+                      </label>
+                      <input
+                        type="text"
+                        id="aiims-college-input"
+                        placeholder="e.g. Stanford / MIT / IIT / Your College"
+                        value={college}
+                        onChange={(e) => setCollege(e.target.value)}
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 14px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '10px',
+                          outline: 'none',
+                          backgroundColor: '#f8fafc',
+                          boxSizing: 'border-box',
+                          color: '#0f172a',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#6366f1';
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#e2e8f0';
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+
+                    {/* Mobile number or email */}
+                    <div>
+                      <label
+                        htmlFor="aiims-reg-email"
+                        style={{
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        Email address
+                      </label>
+                      <input
+                        type="email"
+                        id="aiims-reg-email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 14px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '10px',
+                          outline: 'none',
+                          backgroundColor: '#f8fafc',
+                          boxSizing: 'border-box',
+                          color: '#0f172a',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#6366f1';
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#e2e8f0';
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label
+                        htmlFor="aiims-reg-password"
+                        style={{
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        id="aiims-reg-password"
+                        placeholder="At least 6 characters"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 14px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '10px',
+                          outline: 'none',
+                          backgroundColor: '#f8fafc',
+                          boxSizing: 'border-box',
+                          color: '#0f172a',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#6366f1';
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#e2e8f0';
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          color: '#64748b',
+                          marginTop: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span style={{ color: '#4f46e5', fontWeight: 700 }}>•</span>
+                        <span>Passwords must be at least 6 characters.</span>
+                      </div>
+                    </div>
+
+                    {/* Re-enter password */}
+                    <div>
+                      <label
+                        htmlFor="aiims-reenter-password"
+                        style={{
+                          display: 'block',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#334155',
+                          marginBottom: '6px'
+                        }}
+                      >
+                        Re-enter password
+                      </label>
+                      <input
+                        type="password"
+                        id="aiims-reenter-password"
+                        placeholder="Re-enter your password"
+                        value={reenterPassword}
+                        onChange={(e) => setReenterPassword(e.target.value)}
+                        required
+                        style={{
+                          width: '100%',
+                          height: '42px',
+                          padding: '0 14px',
+                          fontSize: '14px',
+                          fontFamily: 'inherit',
+                          border: '1.5px solid #e2e8f0',
+                          borderRadius: '10px',
+                          outline: 'none',
+                          backgroundColor: '#f8fafc',
+                          boxSizing: 'border-box',
+                          color: '#0f172a',
+                          transition: 'all 0.18s ease'
+                        }}
+                        onFocus={(e) => {
+                          e.target.style.borderColor = '#6366f1';
+                          e.target.style.backgroundColor = '#ffffff';
+                          e.target.style.boxShadow = '0 0 0 3.5px rgba(99, 102, 241, 0.14)';
+                        }}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = '#e2e8f0';
+                          e.target.style.backgroundColor = '#f8fafc';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      id="aiims-create-acc-btn"
+                      disabled={isLoading}
+                      style={{
+                        width: '100%',
+                        height: '42px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                        boxShadow: '0 4px 12px rgba(79, 70, 229, 0.28)',
+                        color: '#ffffff',
+                        fontSize: '14px',
+                        fontWeight: 700,
+                        letterSpacing: '0.2px',
+                        cursor: isLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: '4px',
+                        boxSizing: 'border-box',
+                        opacity: isLoading ? 0.7 : 1,
+                        transition: 'all 0.18s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isLoading) {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #4338ca 0%, #4f46e5 100%)';
+                          e.currentTarget.style.boxShadow = '0 6px 16px rgba(79, 70, 229, 0.38)';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(79, 70, 229, 0.28)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      {isLoading ? 'Creating account...' : 'Create your AIIMS account'}
+                    </button>
+                  </form>
+
+                  {/* Terms Notice */}
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: '#64748b',
+                      lineHeight: 1.5,
+                      margin: '18px 0 16px 0'
+                    }}
+                  >
+                    By creating an account, you agree to AIIMS's{' '}
+                    <span
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                    >
+                      Conditions of Use
+                    </span>{' '}
+                    and{' '}
+                    <span
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                    >
+                      Privacy Notice
+                    </span>
+                    .
+                  </p>
+
+                  <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '18px 0' }} />
+
+                  {/* Already have an account row */}
+                  <div style={{ fontSize: '13px', color: '#64748b', textAlign: 'center' }}>
+                    <span>Already have an account? </span>
+                    <span
+                      onClick={() => {
+                        setMode('login');
+                        setSignInStep('identifier');
+                        setErrorMessage('');
+                      }}
+                      style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 700 }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'underline')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = 'none')}
+                    >
+                      Sign in ▸
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* "New to AIIMS?" Divider + Secondary Button (Visible in login mode) */}
+            {mode === 'login' && (
+              <div style={{ width: '100%', maxWidth: '400px', marginTop: '20px' }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    textAlign: 'center',
+                    marginBottom: '14px'
+                  }}
+                >
+                  <div style={{ height: '1px', backgroundColor: '#e2e8f0', width: '100%', position: 'absolute', top: '50%' }} />
+                  <span
+                    style={{
+                      position: 'relative',
+                      backgroundColor: '#f8fafc',
+                      padding: '0 12px',
+                      fontSize: '12.5px',
+                      color: '#64748b',
+                      fontWeight: 600,
+                      borderRadius: '4px'
+                    }}
+                  >
+                    New to AIIMS?
+                  </span>
                 </div>
 
-                {/* Primary Action Button: Sign In / Create Account */}
                 <button
-                  type="submit"
-                  id="login-submit-button"
-                  disabled={isLoading}
+                  type="button"
+                  id="aiims-create-switch-btn"
+                  onClick={() => {
+                    setMode('register');
+                    setErrorMessage('');
+                    setSuccessMessage('');
+                  }}
                   style={{
                     width: '100%',
-                    padding: '14px',
-                    borderRadius: '14px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #9333ea 100%)',
-                    color: '#ffffff',
-                    fontSize: '15px',
+                    height: '42px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
+                    color: '#0f172a',
+                    fontSize: '14px',
                     fontWeight: 700,
-                    cursor: isLoading ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
-                    transition: 'all 0.2s ease',
-                    opacity: isLoading ? 0.75 : 1,
-                    marginTop: '4px'
+                    boxSizing: 'border-box',
+                    transition: 'all 0.18s ease'
                   }}
                   onMouseEnter={(e) => {
-                    if (!isLoading) {
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = '0 12px 28px rgba(99, 102, 241, 0.45)';
-                    }
+                    e.currentTarget.style.backgroundColor = '#f8fafc';
+                    e.currentTarget.style.borderColor = '#94a3b8';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
                   }}
                   onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.borderColor = '#cbd5e1';
                     e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.35)';
                   }}
                 >
-                  {isLoading ? (
-                    'Signing in...'
-                  ) : (
-                    <>
-                      <span>{mode === 'login' ? 'Sign in' : 'Create account'}</span>
-                      <ArrowRight size={17} />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              {/* Divider */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  margin: '24px 0',
-                  gap: '14px'
-                }}
-              >
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
-                <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>or continue with</span>
-                <div style={{ flex: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
-              </div>
-
-              {/* Social Login Buttons */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '12px',
-                  marginBottom: '28px'
-                }}
-              >
-                {/* Google Button */}
-                <button
-                  type="button"
-                  onClick={() => handleSocialLogin('google')}
-                  disabled={isLoading}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    padding: '11px',
-                    backgroundColor: '#ffffff',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#1e293b',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
-                    e.currentTarget.style.borderColor = '#cbd5e1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.16 0 9.97 0 12s.45 3.84 1.25 5.42l4.03-3.15z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                    />
-                  </svg>
-                  <span>Google</span>
-                </button>
-
-                {/* Microsoft Button */}
-                <button
-                  type="button"
-                  onClick={() => handleSocialLogin('microsoft')}
-                  disabled={isLoading}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    padding: '11px',
-                    backgroundColor: '#ffffff',
-                    border: '1.5px solid #e2e8f0',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#1e293b',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
-                    e.currentTarget.style.borderColor = '#cbd5e1';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                  }}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24">
-                    <path fill="#F25022" d="M1 1h10v10H1z" />
-                    <path fill="#00A4EF" d="M1 13h10v10H1z" />
-                    <path fill="#7FBA00" d="M13 1h10v10H13z" />
-                    <path fill="#FFB900" d="M13 13h10v10H13z" />
-                  </svg>
-                  <span>Microsoft</span>
+                  Create your AIIMS account
                 </button>
               </div>
+            )}
 
-              {/* Reassurance Footer */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  fontSize: '12px',
-                  color: '#64748b'
+            {/* Quick Demo Login Pill */}
+            <div style={{ marginTop: '18px', textAlign: 'center', fontSize: '13px', color: '#64748b' }}>
+              <span>Need test access? </span>
+              <span
+                onClick={() => {
+                  setEmail('alex.chen@aiims.edu');
+                  setPassword('password123');
+                  setSignInStep('password');
+                  setMode('login');
+                  setErrorMessage('');
                 }}
+                style={{ color: '#4f46e5', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#4338ca')}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#4f46e5')}
               >
-                <ShieldCheck size={16} color="#475569" />
-                <span>Your data is safe with us.</span>
-                <span
-                  style={{ color: '#4f46e5', fontWeight: 600, cursor: 'pointer' }}
-                  onClick={() => alert('AIIMS secures all student progress, diagnostic telemetry, and learner states using end-to-end tokenized sessions.')}
-                >
-                  Learn more
-                </span>
-              </div>
+                Prefill Demo Account
+              </span>
             </div>
           </div>
         </div>

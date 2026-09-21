@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile } from '../types';
+import { apiClient } from '../api/client';
 
 export interface CreditTransactionItem {
   id: string;
@@ -172,7 +173,7 @@ interface LearnerContextType {
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string, college?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
@@ -200,13 +201,46 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return initialLearnerState;
   });
 
+  // Hydrate live state from MongoDB Atlas on mount if authenticated
   useEffect(() => {
+    const token = localStorage.getItem('aiims_auth_token');
+    if (token) {
+      apiClient.getLearnerState()
+        .then((res) => {
+          if (res?.success && res?.state) {
+            setState(res.state);
+            setIsAuthenticated(true);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not hydrate learner state from MongoDB:', err);
+        });
+    }
+  }, []);
+
+  // Sync state to scoped localStorage and MongoDB Atlas on updates
+  useEffect(() => {
+    if (!state.profile?.email) return;
+
     try {
+      const scopedKey = `aiims_learner_state_${state.profile.email.toLowerCase()}`;
+      localStorage.setItem(scopedKey, JSON.stringify(state));
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
-      console.error('Failed to save learner state', e);
+      console.error('Failed to save learner state to localStorage', e);
     }
-  }, [state]);
+
+    // Auto-sync to MongoDB Atlas if authenticated
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
+        apiClient.syncLearnerState(state).catch((err) => {
+          console.warn('Background MongoDB sync warning:', err);
+        });
+      }, 800);
+
+      return () => clearTimeout(timer);
+    }
+  }, [state, isAuthenticated]);
 
   const saveAssessmentAnswer = (questionId: number, value: any) => {
     setState((prev) => ({
@@ -625,7 +659,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       localStorage.setItem('aiims_auth_token', data.token);
       setIsAuthenticated(true);
-      if (data.user) {
+      if (data.state) {
+        setState(data.state);
+      } else if (data.user) {
         setState((prev) => ({
           ...prev,
           profile: {
@@ -656,12 +692,12 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (name: string, email: string, password: string, college?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, password, college })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -669,7 +705,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       localStorage.setItem('aiims_auth_token', data.token);
       setIsAuthenticated(true);
-      if (data.user) {
+      if (data.state) {
+        setState(data.state);
+      } else if (data.user) {
         setState((prev) => ({
           ...prev,
           profile: {
@@ -688,7 +726,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         profile: {
           ...prev.profile,
           name,
-          email
+          email,
+          college: college || 'Engineering & Technology College'
         }
       }));
       return { success: true };
@@ -698,6 +737,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const logout = () => {
     localStorage.removeItem('aiims_auth_token');
     setIsAuthenticated(false);
+    setState(initialLearnerState);
   };
 
   return (

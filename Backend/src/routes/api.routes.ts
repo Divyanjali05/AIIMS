@@ -1,21 +1,91 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds } from '../models/aiims.models';
-import { User } from '../models/User.model';
+import { User, IUser } from '../models/User.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
+import { authenticateStudent, AuthenticatedRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 const claudeService = new ClaudeService();
 
-// In-memory user cache with hashed initial password
+// Apply student authentication middleware to populate req.user from MongoDB Atlas
+router.use(authenticateStudent);
+
+// In-memory fallback cache
 const registeredUsers: Record<string, any> = {
   [mockUser.email.toLowerCase()]: {
     ...mockUser,
+    college: 'Engineering & Technology College',
     password: bcrypt.hashSync('password123', 10)
   }
 };
 
-// 1. AUTH MODULE
+/**
+ * Formats a MongoDB User document into a client-ready state payload
+ */
+const formatUserState = (dbUser: IUser) => {
+  return {
+    profile: {
+      id: dbUser._id ? String(dbUser._id) : dbUser.id,
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+      college: dbUser.college || 'Engineering & Technology College',
+      targetGoal: dbUser.targetGoal,
+      stage: dbUser.stage,
+      xpPoints: dbUser.xpPoints,
+      aiimsCredits: dbUser.aiimsCredits
+    },
+    assessment: dbUser.assessment || {
+      status: 'not_started',
+      answers: {},
+      currentQuestionIndex: 0,
+      completedAt: null,
+      rewardClaimed: false,
+      scores: { usageFrequency: 0, evaluationCapability: 0, workflowDesign: 0, strategicVision: 0, mentorshipReadiness: 0 }
+    },
+    analysis: dbUser.analysis || {
+      status: 'locked',
+      topCapability: 'AI Evaluation & Critical Assessment',
+      growthArea: 'AI Workflow Design'
+    },
+    clarity: dbUser.clarity || {
+      status: 'locked',
+      selectedAreas: [],
+      selectedTopic: null,
+      completedTopics: [],
+      reflections: {}
+    },
+    focus: dbUser.focus || {
+      status: 'locked',
+      selectedTrack: null,
+      history: [],
+      activatedAt: null
+    },
+    radar: dbUser.radar || {
+      status: 'available',
+      investigatedSignalIds: [],
+      followedSignalIds: []
+    },
+    investigation: dbUser.investigation || {
+      status: 'locked',
+      selectedSignalId: null,
+      userNotes: {}
+    },
+    relevance: { status: 'locked' },
+    credits: {
+      balance: dbUser.aiimsCredits,
+      transactions: dbUser.transactions || [],
+      claimedActions: []
+    },
+    notifications: dbUser.notifications || []
+  };
+};
+
+// ==========================================
+// 1. AUTHENTICATION MODULE
+// ==========================================
+
 router.post('/auth/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -29,11 +99,10 @@ router.post('/auth/login', async (req: Request, res: Response) => {
   const normalizedEmail = email.trim().toLowerCase();
 
   try {
-    // 1. Try finding user in MongoDB Atlas
+    // 1. Find or auto-create student in MongoDB Atlas
     let dbUser = await User.findOne({ email: normalizedEmail });
 
     if (!dbUser) {
-      // Auto-register new learner in MongoDB with bcrypt hashed password
       const usernamePart = normalizedEmail.split('@')[0];
       const formattedName = usernamePart
         .split(/[._-]/)
@@ -43,26 +112,26 @@ router.post('/auth/login', async (req: Request, res: Response) => {
       dbUser = await User.create({
         name: formattedName,
         email: normalizedEmail,
-        password: password, // UserSchema pre-save hook will hash this using bcrypt
+        password: password,
         role: 'Student / AI Learner',
+        college: 'Engineering & Technology College',
         targetGoal: 'Master AI Intelligence & Mentoring',
         stage: 'Knowing',
         xpPoints: 100,
         aiimsCredits: 100
       });
-      console.log(`🌿 Created new user in MongoDB Atlas with bcrypt hash: ${normalizedEmail}`);
+      console.log(`🌿 Created new student in MongoDB Atlas: ${normalizedEmail}`);
     } else {
-      console.log(`🌿 Found existing user in MongoDB Atlas: ${normalizedEmail}`);
-      // Validate password against bcrypt hash (also auto-upgrades legacy unhashed passwords)
+      console.log(`🌿 Found student in MongoDB Atlas: ${normalizedEmail}`);
       const isMatch = await dbUser.comparePassword(password);
       if (!isMatch) {
         return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
       }
     }
 
-    // Sync active mockUser session
+    // Sync session mockUser
     Object.assign(mockUser, {
-      id: dbUser._id ? String(dbUser._id) : `usr-${Date.now().toString().slice(-4)}`,
+      id: String(dbUser._id),
       name: dbUser.name,
       email: dbUser.email,
       role: dbUser.role,
@@ -73,22 +142,15 @@ router.post('/auth/login', async (req: Request, res: Response) => {
     });
 
     const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
+    const userState = formatUserState(dbUser);
+
     return res.json({
       token,
-      user: {
-        id: mockUser.id,
-        name: mockUser.name,
-        email: mockUser.email,
-        role: mockUser.role,
-        targetGoal: mockUser.targetGoal,
-        stage: mockUser.stage,
-        xpPoints: mockUser.xpPoints,
-        aiimsCredits: mockUser.aiimsCredits
-      }
+      user: userState.profile,
+      state: userState
     });
   } catch (mongoErr) {
-    console.warn(`MongoDB query fallback to memory:`, mongoErr);
-    // In-memory fallback if Mongo connection is unreachable
+    console.warn(`MongoDB login fallback to memory:`, mongoErr);
     let user = registeredUsers[normalizedEmail];
     if (!user) {
       const usernamePart = normalizedEmail.split('@')[0];
@@ -103,6 +165,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
         name: formattedName,
         email: normalizedEmail,
         role: 'Student / AI Learner',
+        college: 'Engineering & Technology College',
         targetGoal: 'Master AI Intelligence & Mentoring',
         stage: 'Knowing',
         xpPoints: 100,
@@ -129,6 +192,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        college: user.college,
         targetGoal: user.targetGoal,
         stage: user.stage,
         xpPoints: user.xpPoints,
@@ -139,7 +203,7 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 });
 
 router.post('/auth/register', async (req: Request, res: Response) => {
-  const { name, email, password, role, targetGoal } = req.body;
+  const { name, email, password, role, college, targetGoal } = req.body;
 
   if (!email || !email.trim()) {
     return res.status(400).json({ error: 'Email is required' });
@@ -157,19 +221,19 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
     }
 
-    // UserSchema pre-save hook securely hashes password with bcrypt
     dbUser = await User.create({
       name: displayName,
       email: normalizedEmail,
       password,
       role: role || 'AI Practitioner',
+      college: college || 'Engineering & Technology College',
       targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
       aiimsCredits: 100
     });
 
-    console.log(`🌿 Registered new user with bcrypt hashed password in MongoDB Atlas: ${normalizedEmail}`);
+    console.log(`🌿 Registered new student in MongoDB Atlas: ${normalizedEmail} (${dbUser.college})`);
 
     Object.assign(mockUser, {
       id: String(dbUser._id),
@@ -183,18 +247,12 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     });
 
     const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
+    const userState = formatUserState(dbUser);
+
     return res.json({
       token,
-      user: {
-        id: mockUser.id,
-        name: mockUser.name,
-        email: mockUser.email,
-        role: mockUser.role,
-        targetGoal: mockUser.targetGoal,
-        stage: mockUser.stage,
-        xpPoints: mockUser.xpPoints,
-        aiimsCredits: mockUser.aiimsCredits
-      }
+      user: userState.profile,
+      state: userState
     });
   } catch (mongoErr) {
     console.warn(`MongoDB register fallback:`, mongoErr);
@@ -204,6 +262,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       name: displayName,
       email: normalizedEmail,
       role: role || 'AI Practitioner',
+      college: college || 'Engineering & Technology College',
       targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
@@ -222,6 +281,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        college: newUser.college,
         targetGoal: newUser.targetGoal,
         stage: newUser.stage,
         xpPoints: newUser.xpPoints,
@@ -231,20 +291,135 @@ router.post('/auth/register', async (req: Request, res: Response) => {
   }
 });
 
-// 2. USERS MODULE
-router.get('/users/profile', (req: Request, res: Response) => {
+// ==========================================
+// 2. BIDIRECTIONAL LEARNER STATE SYNC
+// ==========================================
+
+router.get('/learner/state', async (req: AuthenticatedRequest, res: Response) => {
+  if (req.user) {
+    return res.json({
+      success: true,
+      state: formatUserState(req.user)
+    });
+  }
+
+  // Fallback to mock session
+  res.json({
+    success: true,
+    state: {
+      profile: mockUser,
+      assessment: {
+        status: 'not_started',
+        answers: {},
+        currentQuestionIndex: 0,
+        completedAt: null,
+        rewardClaimed: false,
+        scores: { usageFrequency: 0, evaluationCapability: 0, workflowDesign: 0, strategicVision: 0, mentorshipReadiness: 0 }
+      },
+      analysis: { status: 'locked', topCapability: 'AI Evaluation', growthArea: 'Workflow Design' },
+      clarity: { status: 'locked', selectedAreas: [], selectedTopic: null, completedTopics: [], reflections: {} },
+      focus: { status: 'locked', selectedTrack: null, history: [] },
+      radar: { status: 'available', investigatedSignalIds: [], followedSignalIds: [] },
+      investigation: { status: 'locked', selectedSignalId: null, userNotes: {} },
+      credits: { balance: mockUser.aiimsCredits, transactions: mockTransactions, claimedActions: [] },
+      notifications: []
+    }
+  });
+});
+
+router.put('/learner/state', async (req: AuthenticatedRequest, res: Response) => {
+  const { state } = req.body;
+  if (!state) {
+    return res.status(400).json({ error: 'State payload is required' });
+  }
+
+  try {
+    if (req.user) {
+      if (state.profile) {
+        if (state.profile.name) req.user.name = state.profile.name;
+        if (state.profile.role) req.user.role = state.profile.role;
+        if (state.profile.college) req.user.college = state.profile.college;
+        if (state.profile.targetGoal) req.user.targetGoal = state.profile.targetGoal;
+        if (state.profile.stage) req.user.stage = state.profile.stage;
+        if (typeof state.profile.xpPoints === 'number') req.user.xpPoints = state.profile.xpPoints;
+        if (typeof state.profile.aiimsCredits === 'number') req.user.aiimsCredits = state.profile.aiimsCredits;
+      }
+      if (state.assessment) req.user.assessment = state.assessment;
+      if (state.analysis) req.user.analysis = state.analysis;
+      if (state.clarity) req.user.clarity = state.clarity;
+      if (state.focus) req.user.focus = state.focus;
+      if (state.radar) req.user.radar = state.radar;
+      if (state.investigation) req.user.investigation = state.investigation;
+      if (state.credits?.transactions) req.user.transactions = state.credits.transactions;
+      if (state.notifications) req.user.notifications = state.notifications;
+
+      await req.user.save();
+      return res.json({ success: true, state: formatUserState(req.user) });
+    }
+
+    // Fallback if DB unavailable
+    if (state.profile) Object.assign(mockUser, state.profile);
+    return res.json({ success: true, state });
+  } catch (err: any) {
+    console.error('Error syncing learner state to MongoDB:', err);
+    return res.status(500).json({ error: 'Failed to sync learner state to DB', details: err.message });
+  }
+});
+
+// ==========================================
+// 3. PROFILE MODULE
+// ==========================================
+
+router.get('/users/profile', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user) {
+    return res.json({
+      id: String(req.user._id),
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role,
+      college: req.user.college || 'Engineering & Technology College',
+      targetGoal: req.user.targetGoal,
+      stage: req.user.stage,
+      xpPoints: req.user.xpPoints,
+      aiimsCredits: req.user.aiimsCredits
+    });
+  }
   res.json(mockUser);
 });
 
-router.put('/users/profile', (req: Request, res: Response) => {
-  const { name, role, targetGoal } = req.body;
+router.put('/users/profile', async (req: AuthenticatedRequest, res: Response) => {
+  const { name, role, college, targetGoal } = req.body;
+
+  if (req.user) {
+    if (name) req.user.name = name;
+    if (role) req.user.role = role;
+    if (college) req.user.college = college;
+    if (targetGoal) req.user.targetGoal = targetGoal;
+    await req.user.save();
+
+    return res.json({
+      id: String(req.user._id),
+      name: req.user.name,
+      email: req.user.email,
+      role: req.user.role,
+      college: req.user.college,
+      targetGoal: req.user.targetGoal,
+      stage: req.user.stage,
+      xpPoints: req.user.xpPoints,
+      aiimsCredits: req.user.aiimsCredits
+    });
+  }
+
   if (name) mockUser.name = name;
   if (role) mockUser.role = role;
   if (targetGoal) mockUser.targetGoal = targetGoal;
   res.json(mockUser);
 });
 
-// 3. ASSESSMENTS MODULE
+// ==========================================
+// 4. ASSESSMENTS & DIAGNOSTICS MODULE
+// ==========================================
+
 router.get('/assessments/questions', (req: Request, res: Response) => {
   res.json([
     {
@@ -265,14 +440,12 @@ router.get('/assessments/questions', (req: Request, res: Response) => {
   ]);
 });
 
-router.post('/assessments/submit', async (req: Request, res: Response) => {
-  const { answers } = req.body;
+router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Response) => {
+  const { answers, scores } = req.body;
   
-  // Extract raw prompts for Q11 & Q12 if submitted
-  const architecturePrompt = answers?.find((a: any) => String(a.questionId) === '11')?.answer || '';
-  const prototypePrompt = answers?.find((a: any) => String(a.questionId) === '12')?.answer || '';
+  // Extract raw prompts if provided
+  const architecturePrompt = answers?.find?.((a: any) => String(a.questionId) === '11')?.answer || '';
 
-  // Optional Anthropic Claude evaluation for open-ended architecture prompt
   let evaluation = null;
   if (architecturePrompt) {
     evaluation = await claudeService.evaluateOpenEndedAnswer(
@@ -282,21 +455,78 @@ router.post('/assessments/submit', async (req: Request, res: Response) => {
     );
   }
 
-  // Award +20 AIIMS Credits as defined in the diagnostic spec
-  const creditReward = 20;
-  mockUser.aiimsCredits += creditReward;
-  mockUser.xpPoints += 100;
+  const creditReward = 50;
+  const xpReward = 100;
 
+  if (req.user) {
+    const previousBalance = req.user.aiimsCredits;
+    req.user.aiimsCredits += creditReward;
+    req.user.xpPoints += xpReward;
+    req.user.stage = 'Understanding';
+
+    const calculatedScores = scores || {
+      usageFrequency: 82,
+      evaluationCapability: 88,
+      workflowDesign: 65,
+      strategicVision: 74,
+      mentorshipReadiness: 70
+    };
+
+    req.user.assessment = {
+      status: 'completed',
+      answers: answers || {},
+      currentQuestionIndex: 12,
+      completedAt: new Date().toISOString(),
+      rewardClaimed: true,
+      scores: calculatedScores
+    };
+
+    req.user.analysis = {
+      status: 'unlocked',
+      topCapability: 'Prompt Engineering & Critical Evaluation',
+      growthArea: 'Agentic Workflows & Multi-Modal Architecture',
+      unlockedAt: new Date().toISOString()
+    };
+
+    const tx = {
+      id: `tx-assess-${Date.now()}`,
+      transactionType: 'LEVEL_COMPLETION',
+      type: 'EARN' as const,
+      source: 'ASSESSMENT',
+      sourceId: 'DIAGNOSTIC_ASSESSMENT',
+      amount: creditReward,
+      description: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      previousBalance,
+      newBalance: req.user.aiimsCredits
+    };
+
+    req.user.transactions.unshift(tx);
+    await req.user.save();
+
+    return res.json({
+      message: 'Assessment completed and saved to MongoDB Atlas!',
+      earnedCredits: creditReward,
+      evaluation,
+      updatedBalance: req.user.aiimsCredits,
+      updatedScores: req.user.assessment.scores,
+      user: formatUserState(req.user).profile
+    });
+  }
+
+  // In-memory fallback
+  mockUser.aiimsCredits += creditReward;
+  mockUser.xpPoints += xpReward;
   mockTransactions.unshift({
     id: `tx-${Date.now()}`,
     type: 'EARN',
     amount: creditReward,
-    description: 'Completed Discover Your AI Profile Diagnostic (+20 AC)',
+    description: 'Completed Discover Your AI Profile Diagnostic (+50 AC)',
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
   });
 
   res.json({
-    message: 'Assessment completed and raw responses recorded successfully',
+    message: 'Assessment recorded',
     earnedCredits: creditReward,
     evaluation,
     updatedBalance: mockUser.aiimsCredits,
@@ -304,11 +534,23 @@ router.post('/assessments/submit', async (req: Request, res: Response) => {
   });
 });
 
-// 4. ANALYSIS MODULE (Individual, Comparative, Overall)
-router.get('/analysis/individual', (req: Request, res: Response) => {
+// ==========================================
+// 5. ANALYSIS MODULE
+// ==========================================
+
+router.get('/analysis/individual', (req: AuthenticatedRequest, res: Response) => {
+  const profile = req.user ? formatUserState(req.user).profile : mockUser;
+  const scores = req.user?.assessment?.scores ? [
+    { dimension: 'Generative AI Tech', score: req.user.assessment.scores.usageFrequency || 82, benchmark: 75 },
+    { dimension: 'Prompt Engineering', score: req.user.assessment.scores.evaluationCapability || 88, benchmark: 80 },
+    { dimension: 'Agentic Workflows', score: req.user.assessment.scores.workflowDesign || 62, benchmark: 78 },
+    { dimension: 'AI Ethics & Alignment', score: req.user.assessment.scores.strategicVision || 70, benchmark: 72 },
+    { dimension: 'Tool Integration', score: req.user.assessment.scores.mentorshipReadiness || 78, benchmark: 74 }
+  ] : mockDimensionScores;
+
   res.json({
-    learner: mockUser,
-    scores: mockDimensionScores,
+    learner: profile,
+    scores,
     strengths: ['Prompt Engineering (88%)', 'Generative AI Tech (82%)'],
     gaps: ['Agentic Workflows (62%)', 'ML Fundamentals (65%)']
   });
@@ -331,30 +573,69 @@ router.get('/analysis/overall', (req: Request, res: Response) => {
   });
 });
 
-// 5. CREDITS MODULE
-router.get('/credits/wallet', (req: Request, res: Response) => {
+// ==========================================
+// 6. CREDITS WALLET MODULE
+// ==========================================
+
+router.get('/credits/wallet', (req: AuthenticatedRequest, res: Response) => {
+  if (req.user) {
+    return res.json({
+      balance: req.user.aiimsCredits,
+      transactions: req.user.transactions || []
+    });
+  }
   res.json({
     balance: mockUser.aiimsCredits,
     transactions: mockTransactions
   });
 });
 
-router.post('/credits/award-level', (req: Request, res: Response) => {
+router.post('/credits/award-level', async (req: AuthenticatedRequest, res: Response) => {
   const { levelId } = req.body;
   const numLevel = Number(levelId);
+  const rewardAmount = 10;
 
-  // Duplicate prevention check
+  if (req.user) {
+    const previousBalance = req.user.aiimsCredits;
+    req.user.aiimsCredits += rewardAmount;
+    req.user.xpPoints += 50;
+
+    const tx = {
+      id: `tx-level-${numLevel}-${Date.now()}`,
+      transactionType: 'LEVEL_COMPLETION',
+      type: 'EARN' as const,
+      source: 'ASSESSMENT',
+      sourceId: `LEVEL_0${numLevel}`,
+      amount: rewardAmount,
+      description: `Completed AI Quest Level 0${numLevel} (+10 AC)`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      previousBalance,
+      newBalance: req.user.aiimsCredits
+    };
+
+    req.user.transactions.unshift(tx);
+    await req.user.save();
+
+    return res.json({
+      awarded: true,
+      amount: rewardAmount,
+      previousBalance,
+      newBalance: req.user.aiimsCredits,
+      transaction: tx
+    });
+  }
+
+  // Fallback
   if (rewardedLevelIds.has(numLevel)) {
     return res.json({
       awarded: false,
-      message: `Level 0${numLevel} completion credits already awarded previously`,
+      message: `Level 0${numLevel} credits already awarded`,
       amount: 0,
       currentBalance: mockUser.aiimsCredits
     });
   }
 
   const previousBalance = mockUser.aiimsCredits;
-  const rewardAmount = 10;
   mockUser.aiimsCredits += rewardAmount;
   rewardedLevelIds.add(numLevel);
 
@@ -369,7 +650,6 @@ router.post('/credits/award-level', (req: Request, res: Response) => {
     previousBalance,
     newBalance: mockUser.aiimsCredits
   };
-
   mockTransactions.unshift(tx as any);
 
   res.json({
@@ -381,8 +661,35 @@ router.post('/credits/award-level', (req: Request, res: Response) => {
   });
 });
 
-router.post('/credits/invest', (req: Request, res: Response) => {
+router.post('/credits/invest', async (req: AuthenticatedRequest, res: Response) => {
   const { amount, description } = req.body;
+
+  if (req.user) {
+    if (req.user.aiimsCredits < amount) {
+      return res.status(400).json({ error: 'Insufficient AIIMS Credits balance' });
+    }
+    const previousBalance = req.user.aiimsCredits;
+    req.user.aiimsCredits -= amount;
+
+    const tx = {
+      id: `tx-invest-${Date.now()}`,
+      transactionType: 'SPEND',
+      type: 'SPEND' as const,
+      source: 'MENTOR',
+      sourceId: 'LAB_INVESTMENT',
+      amount,
+      description: description || 'Invested in mentoring activity',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      previousBalance,
+      newBalance: req.user.aiimsCredits
+    };
+
+    req.user.transactions.unshift(tx);
+    await req.user.save();
+
+    return res.json({ balance: req.user.aiimsCredits, transaction: tx });
+  }
+
   if (mockUser.aiimsCredits < amount) {
     return res.status(400).json({ error: 'Insufficient AIIMS Credits balance' });
   }
@@ -403,7 +710,10 @@ router.post('/credits/invest', (req: Request, res: Response) => {
   res.json({ balance: mockUser.aiimsCredits, transaction: tx });
 });
 
-// 6. CLARITY MODULE (Capability Gaps & Mentor Review)
+// ==========================================
+// 7. CLARITY, FOCUS & RADAR MODULES
+// ==========================================
+
 router.get('/clarity/gaps', (req: Request, res: Response) => {
   res.json(mockCapabilityGaps);
 });
@@ -418,7 +728,6 @@ router.post('/clarity/mentor-override', (req: Request, res: Response) => {
   res.json(gap);
 });
 
-// 7. FOCUS MODULE (Priority Areas)
 router.get('/focus/areas', (req: Request, res: Response) => {
   res.json(mockFocusAreas);
 });
@@ -432,7 +741,6 @@ router.post('/focus/override', (req: Request, res: Response) => {
   res.json(focus);
 });
 
-// 8. RADAR MODULE (Opportunity Signals)
 router.get('/radar/signals', (req: Request, res: Response) => {
   res.json(mockRadarSignals);
 });
@@ -446,16 +754,50 @@ router.post('/radar/follow', (req: Request, res: Response) => {
   res.json(signal);
 });
 
-// 9. INVESTIGATIONS MODULE (Yesterday -> Today -> What Changed -> Who's Affected)
-router.post('/investigations/submit', (req: Request, res: Response) => {
+router.post('/investigations/submit', async (req: AuthenticatedRequest, res: Response) => {
   const { signalId, personalInterpretation } = req.body;
-  // Reward credits for completing an investigation
-  mockUser.aiimsCredits += 30;
+  const reward = 30;
+
+  if (req.user) {
+    const previousBalance = req.user.aiimsCredits;
+    req.user.aiimsCredits += reward;
+    req.user.xpPoints += 100;
+
+    if (!req.user.radar.investigatedSignalIds.includes(signalId)) {
+      req.user.radar.investigatedSignalIds.push(signalId);
+    }
+    req.user.investigation.userNotes[signalId] = personalInterpretation;
+
+    const tx = {
+      id: `tx-inv-${Date.now()}`,
+      transactionType: 'SIGNAL_INVESTIGATION',
+      type: 'EARN' as const,
+      source: 'RADAR',
+      sourceId: signalId,
+      amount: reward,
+      description: `Investigated Signal: ${signalId} (+30 AC)`,
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      previousBalance,
+      newBalance: req.user.aiimsCredits
+    };
+
+    req.user.transactions.unshift(tx);
+    await req.user.save();
+
+    return res.json({
+      message: 'Investigation recorded. 30 AIIMS Credits earned!',
+      personalInterpretation,
+      creditsEarned: reward,
+      newBalance: req.user.aiimsCredits
+    });
+  }
+
+  mockUser.aiimsCredits += reward;
   mockUser.xpPoints += 100;
   const tx = {
     id: `tx-${Date.now()}`,
     type: 'EARN' as const,
-    amount: 30,
+    amount: reward,
     description: `Investigated Signal ${signalId}`,
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
   };
@@ -464,20 +806,22 @@ router.post('/investigations/submit', (req: Request, res: Response) => {
   res.json({
     message: 'Investigation recorded. 30 AIIMS Credits earned!',
     personalInterpretation,
-    creditsEarned: 30,
+    creditsEarned: reward,
     newBalance: mockUser.aiimsCredits
   });
 });
 
-// 10. RELEVANCE MODULE ("Why does this matter to me?")
-router.post('/relevance/generate', async (req: Request, res: Response) => {
+router.post('/relevance/generate', async (req: AuthenticatedRequest, res: Response) => {
   const { signalId } = req.body;
   const signal = mockRadarSignals.find(s => s.id === signalId) || mockRadarSignals[0];
   const gapSummary = mockCapabilityGaps.map(g => g.capabilityArea).join(', ');
 
+  const studentRole = req.user?.role || mockUser.role;
+  const studentGoal = req.user?.targetGoal || mockUser.targetGoal;
+
   const report = await claudeService.generateRelevanceReport(
-    mockUser.role,
-    mockUser.targetGoal,
+    studentRole,
+    studentGoal,
     gapSummary,
     signal.title,
     signal.summary
@@ -486,23 +830,26 @@ router.post('/relevance/generate', async (req: Request, res: Response) => {
   res.json(report);
 });
 
-// 11. AI MENTOR BOUNDARY MODULE
-router.post('/ai/mentor', async (req: Request, res: Response) => {
+router.post('/ai/mentor', async (req: AuthenticatedRequest, res: Response) => {
   const { role, stage, topCapability, growthArea, activeFocus, clarityTopic, hasReflection, hasInvestigation } = req.body;
 
-  let message = `I noticed you are currently focused on ${activeFocus || growthArea || 'understanding your AI profile'}. Continuing your active track will strengthen your workflow integration.`;
-  if (!stage || stage === 'Assessment') {
-    message = "Your AI journey begins with understanding your baseline profile. Completing the diagnostic gives us a clear picture of how you work with AI.";
+  const studentRole = role || req.user?.role || 'Student / AI Learner';
+  const studentCollege = req.user?.college || 'your college';
+
+  let message = `Hello! As an AI learner at ${studentCollege}, I noticed you are focused on ${activeFocus || growthArea || 'mastering AI capability'}. Continuing your active track will strengthen your practical engineering instincts.`;
+  
+  if (!stage || stage === 'Knowing') {
+    message = `Welcome to AIIMS! Your AI journey at ${studentCollege} starts with establishing your baseline capability profile. Completing the diagnostic provides a verifiable radar of your strengths and growth areas.`;
   } else if (hasInvestigation) {
-    message = `Your technical signal investigation is recorded! Connect this market shift with your active focus in '${activeFocus || growthArea}'.`;
+    message = `Great work on your technical signal investigation! Analyzing how emerging breakthroughs impact your role as ${studentRole} builds verifiable engineering judgment.`;
   } else if (activeFocus) {
-    message = `Your active focus track is set to '${activeFocus}'. Explore real-time technical shifts in AI Radar to test your understanding.`;
+    message = `Your active focus track is set to '${activeFocus}'. Explore real-time technical shifts in AI Radar to test your knowledge against modern production architectures.`;
   }
 
   res.json({
     message,
     observationType: 'observation',
-    relatedStage: stage || 'Command Centre',
+    relatedStage: stage || req.user?.stage || 'Knowing',
     relatedTopic: activeFocus || growthArea,
     suggestedAction: {
       text: activeFocus ? 'Explore AI Radar' : 'Start Assessment',

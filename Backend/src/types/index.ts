@@ -5,6 +5,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: string;
+  college?: string;
   targetGoal: string;
   stage: ProgressionStage;
   xpPoints: number;
