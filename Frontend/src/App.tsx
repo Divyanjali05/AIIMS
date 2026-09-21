@@ -20,11 +20,23 @@ import { MessageCircle, BarChart3, Settings } from 'lucide-react';
 
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
+import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 
 const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('home');
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    return localStorage.getItem('aiims_active_tab') || 'home';
+  });
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
   const { state, isAuthenticated } = useLearner();
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('aiims_active_tab', tab);
+    } catch (e) {
+      console.error('Failed to save activeTab', e);
+    }
+  };
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
@@ -59,6 +71,10 @@ const AppContent: React.FC = () => {
         }}>
           {activeTab === 'home' && (
             <HomeScreen setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === 'wallet' && (
+            <AIWalletScreen setActiveTab={setActiveTab} />
           )}
 
           {activeTab === 'discover' && (

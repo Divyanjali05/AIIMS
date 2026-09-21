@@ -1,4 +1,5 @@
 import { LearnerState } from '../context/LearnerContext';
+import { TaskCategory } from '../types';
 
 /**
  * LearnerProfileContext — Derived Intelligence Context
@@ -56,6 +57,13 @@ export interface LearnerProfileContext {
   relevance: {
     status: string;
   };
+  aiWallet: {
+    toolCount: number;
+    primaryCategories: string[];
+    toolkitGaps: string[];
+    toolFamiliarityCount: Record<string, number>;
+    currentTools: { toolId: string; category: string; familiarity: string }[];
+  };
   journeyProgress: {
     completedStagesCount: number;
     currentStageName: string;
@@ -92,6 +100,32 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
   const userNotes = state.investigation.userNotes || {};
   const selectedSignalId = state.investigation.selectedSignalId || null;
   const latestNote = selectedSignalId ? userNotes[selectedSignalId] || null : null;
+
+  // Derive AI Wallet Context Signals
+  const userTools = state.aiWallet?.userTools || [];
+  const primaryCategories = Array.from(new Set(userTools.map((t) => t.primaryCategory)));
+  const allCategories: TaskCategory[] = [
+    'Reasoning & Writing',
+    'Agentic Coding',
+    'Multi-Modal',
+    'Research & RAG',
+    'Image & Vision',
+    'Data Analysis',
+    'Presentation',
+    'Video',
+    'Automation'
+  ];
+  const toolkitGaps = allCategories.filter((c) => !primaryCategories.includes(c));
+  const toolFamiliarityCount = userTools.reduce((acc: Record<string, number>, t) => {
+    acc[t.familiarity] = (acc[t.familiarity] || 0) + 1;
+    return acc;
+  }, { exploring: 0, practicing: 0, proficient: 0, mastered: 0 });
+
+  const currentToolsSummary = userTools.map((t) => ({
+    toolId: t.toolId,
+    category: t.primaryCategory,
+    familiarity: t.familiarity
+  }));
 
   // Calculate dynamic stage progress
   let completedCount = 0;
@@ -184,6 +218,13 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
     },
     relevance: {
       status: state.relevance.status
+    },
+    aiWallet: {
+      toolCount: userTools.length,
+      primaryCategories,
+      toolkitGaps,
+      toolFamiliarityCount,
+      currentTools: currentToolsSummary
     },
     journeyProgress: {
       completedStagesCount: completedCount,

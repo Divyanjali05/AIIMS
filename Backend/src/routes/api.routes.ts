@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds } from '../models/aiims.models';
+import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds, mockToolCatalog, mockUserTools, mockLearnerFullState } from '../models/aiims.models';
 import { User, IUser } from '../models/User.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { authenticateStudent, AuthenticatedRequest } from '../middleware/auth.middleware';
@@ -306,24 +306,7 @@ router.get('/learner/state', async (req: AuthenticatedRequest, res: Response) =>
   // Fallback to mock session
   res.json({
     success: true,
-    state: {
-      profile: mockUser,
-      assessment: {
-        status: 'not_started',
-        answers: {},
-        currentQuestionIndex: 0,
-        completedAt: null,
-        rewardClaimed: false,
-        scores: { usageFrequency: 0, evaluationCapability: 0, workflowDesign: 0, strategicVision: 0, mentorshipReadiness: 0 }
-      },
-      analysis: { status: 'locked', topCapability: 'AI Evaluation', growthArea: 'Workflow Design' },
-      clarity: { status: 'locked', selectedAreas: [], selectedTopic: null, completedTopics: [], reflections: {} },
-      focus: { status: 'locked', selectedTrack: null, history: [] },
-      radar: { status: 'available', investigatedSignalIds: [], followedSignalIds: [] },
-      investigation: { status: 'locked', selectedSignalId: null, userNotes: {} },
-      credits: { balance: mockUser.aiimsCredits, transactions: mockTransactions, claimedActions: [] },
-      notifications: []
-    }
+    state: mockLearnerFullState
   });
 });
 
@@ -359,7 +342,12 @@ router.put('/learner/state', async (req: AuthenticatedRequest, res: Response) =>
 
     // Fallback if DB unavailable
     if (state.profile) Object.assign(mockUser, state.profile);
-    return res.json({ success: true, state });
+    if (state.assessment) Object.assign(mockLearnerFullState.assessment, state.assessment);
+    if (state.analysis) Object.assign(mockLearnerFullState.analysis, state.analysis);
+    if (state.clarity) Object.assign(mockLearnerFullState.clarity, state.clarity);
+    if (state.focus) Object.assign(mockLearnerFullState.focus, state.focus);
+    if (state.aiWallet) Object.assign(mockLearnerFullState.aiWallet, state.aiWallet);
+    return res.json({ success: true, state: mockLearnerFullState });
   } catch (err: any) {
     console.error('Error syncing learner state to MongoDB:', err);
     return res.status(500).json({ error: 'Failed to sync learner state to DB', details: err.message });
@@ -517,6 +505,12 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
   // In-memory fallback
   mockUser.aiimsCredits += creditReward;
   mockUser.xpPoints += xpReward;
+  mockLearnerFullState.assessment.status = 'completed';
+  mockLearnerFullState.assessment.completedAt = new Date().toISOString();
+  mockLearnerFullState.analysis.status = 'unlocked';
+  mockLearnerFullState.clarity.status = 'unlocked';
+  mockLearnerFullState.focus.status = 'unlocked';
+
   mockTransactions.unshift({
     id: `tx-${Date.now()}`,
     type: 'EARN',
@@ -859,4 +853,162 @@ router.post('/ai/mentor', async (req: AuthenticatedRequest, res: Response) => {
   });
 });
 
+// ==========================================
+// 8. AI WALLET MODULE (Admin-Updatable Catalog & Neutral Recommendations)
+// ==========================================
+
+router.get('/wallet/catalog', (req: Request, res: Response) => {
+  res.json(mockToolCatalog.filter(t => t.activeStatus));
+});
+
+router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
+  res.json(mockUserTools);
+});
+
+router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response) => {
+  // Generate recommendations dynamically without hardcoding universal rankings
+  const currentToolIds = new Set(mockUserTools.map(t => t.toolId));
+  const recs = [];
+
+  // Recommendation 1: ALTERNATIVE_TOOL (If ChatGPT present & long-form reasoning task -> Claude)
+  if (currentToolIds.has('tool-chatgpt') && !currentToolIds.has('tool-claude')) {
+    recs.push({
+      id: 'rec-claude-alt',
+      toolId: 'tool-claude',
+      type: 'ALTERNATIVE_TOOL',
+      reason: "You're frequently working with long-form documents and reasoning tasks. You currently use ChatGPT for similar workflows, so exploring another workflow optimized for extended context (200k tokens) and system instructions may be useful.",
+      relatedTask: 'long-form document reasoning',
+      relatedSkill: 'Prompt Engineering & System Prompts',
+      relevance: 'Complements your current reasoning toolkit',
+      status: 'active',
+      createdAt: 'Just now'
+    });
+  }
+
+  // Recommendation 2: SKILL_GAP (Agentic Coding gap -> Cursor IDE)
+  if (!currentToolIds.has('tool-cursor')) {
+    recs.push({
+      id: 'rec-cursor-gap',
+      toolId: 'tool-cursor',
+      type: 'SKILL_GAP',
+      reason: 'Based on your profile growth area in Agentic Workflows, exploring an AI-first IDE with multi-file composer agents can help bridge your workflow design targets.',
+      relatedTask: 'agentic coding & multi-file editing',
+      relatedSkill: 'Agentic Workflows',
+      relevance: 'Directly addresses your primary growth area',
+      status: 'active',
+      createdAt: 'Just now'
+    });
+  }
+
+  // Recommendation 3: TASK_BASED (Research / RAG -> NotebookLM)
+  if (!currentToolIds.has('tool-notebooklm')) {
+    recs.push({
+      id: 'rec-notebooklm-task',
+      toolId: 'tool-notebooklm',
+      type: 'TASK_BASED',
+      reason: 'If you work with dense academic papers or internal PDFs, exploring a grounded source-based AI assistant can improve citation accuracy without hallucination.',
+      relatedTask: 'grounded document research',
+      relatedSkill: 'RAG Triad & Context Evaluation',
+      relevance: 'Useful for source-grounded research tasks',
+      status: 'active',
+      createdAt: 'Just now'
+    });
+  }
+
+  // Recommendation 4: RADAR_DISCOVERY (Computer Use / OS Control -> Perplexity AI or Gemini Pro)
+  if (!currentToolIds.has('tool-perplexity')) {
+    recs.push({
+      id: 'rec-perplexity-radar',
+      toolId: 'tool-perplexity',
+      type: 'RADAR_DISCOVERY',
+      reason: 'Recent AI Radar shifts show web citation models evolving rapidly. Exploring real-time web retrieval models can complement your general AI knowledge.',
+      relatedTask: 'live web research & fact verification',
+      relatedSkill: 'Generative AI Tech',
+      relevance: 'Connected to AI Radar research signals',
+      status: 'active',
+      createdAt: 'Just now'
+    });
+  }
+
+  res.json(recs);
+});
+
+router.post('/wallet/add', (req: AuthenticatedRequest, res: Response) => {
+  const { toolId, familiarity, primaryCategory, userNotes } = req.body;
+  const existing = mockUserTools.find(t => t.toolId === toolId);
+  
+  if (existing) {
+    existing.familiarity = familiarity || existing.familiarity;
+    if (userNotes) existing.userNotes = userNotes;
+    return res.json({ success: true, item: existing, action: 'updated' });
+  }
+
+  const catalogItem = mockToolCatalog.find(t => t.id === toolId);
+  const newItem = {
+    toolId,
+    addedAt: new Date().toISOString().split('T')[0],
+    familiarity: familiarity || 'exploring',
+    userNotes: userNotes || '',
+    primaryCategory: primaryCategory || catalogItem?.category || 'Reasoning & Writing',
+    customTags: ['my-toolkit']
+  };
+
+  mockUserTools.unshift(newItem);
+  res.json({ success: true, item: newItem, action: 'added' });
+});
+
+router.post('/wallet/update-familiarity', (req: AuthenticatedRequest, res: Response) => {
+  const { toolId, familiarity, userNotes } = req.body;
+  const item = mockUserTools.find(t => t.toolId === toolId);
+  
+  if (!item) {
+    return res.status(404).json({ error: 'Tool not found in user wallet' });
+  }
+
+  if (familiarity) item.familiarity = familiarity;
+  if (userNotes !== undefined) item.userNotes = userNotes;
+
+  res.json({ success: true, item });
+});
+
+router.post('/wallet/compare', (req: Request, res: Response) => {
+  const { toolAId, toolBId, task } = req.body;
+  
+  const toolA = mockToolCatalog.find(t => t.id === toolAId) || mockToolCatalog[0];
+  const toolB = mockToolCatalog.find(t => t.id === toolBId) || mockToolCatalog[1];
+
+  const targetTask = task || toolA.taskMappings[0] || 'Long-form reasoning & document analysis';
+
+  res.json({
+    task: targetTask,
+    toolA,
+    toolB,
+    comparisonPoints: [
+      {
+        feature: 'Primary Task Fit',
+        toolAFit: `${toolA.name} is designed for ${toolA.useCases[0] || 'versatile execution'}.`,
+        toolBFit: `${toolB.name} is designed for ${toolB.useCases[0] || 'targeted technical tasks'}.`
+      },
+      {
+        feature: 'Context Window & Architecture',
+        toolAFit: toolA.limitations[0] || 'Standard context management.',
+        toolBFit: toolB.strengths[0] || 'Extended context or workspace index.'
+      },
+      {
+        feature: 'Specialized Capabilities',
+        toolAFit: toolA.capabilities.slice(0, 3).join(', '),
+        toolBFit: toolB.capabilities.slice(0, 3).join(', ')
+      },
+      {
+        feature: 'Workflow Strengths',
+        toolAFit: toolA.strengths.slice(0, 2).join(' • '),
+        toolBFit: toolB.strengths.slice(0, 2).join(' • ')
+      }
+    ],
+    keyConsideration: `When choosing between ${toolA.name} and ${toolB.name}, consider your primary bottleneck: high-velocity quick queries vs deeper structured artifacts.`,
+    summaryQuestion: `Which may fit your task?`
+  });
+});
+
 export default router;
+

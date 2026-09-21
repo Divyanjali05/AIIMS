@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile } from '../types';
+import { UserProfile, UserToolItem, TaskCategory, ToolFamiliarity } from '../types';
 import { apiClient } from '../api/client';
 
 export interface CreditTransactionItem {
@@ -72,6 +72,10 @@ export interface LearnerState {
     claimedActions: string[];
   };
   notifications: AppNotification[];
+  aiWallet: {
+    userTools: UserToolItem[];
+    dismissedRecommendations: string[];
+  };
 }
 
 const initialLearnerState: LearnerState = {
@@ -152,7 +156,28 @@ const initialLearnerState: LearnerState = {
       targetTab: 'assessment',
       read: false
     }
-  ]
+  ],
+  aiWallet: {
+    userTools: [
+      {
+        toolId: 'tool-chatgpt',
+        addedAt: '2026-08-10',
+        familiarity: 'proficient',
+        userNotes: 'Used daily for quick prompt queries and document drafting.',
+        primaryCategory: 'Reasoning & Writing',
+        customTags: ['daily-driver']
+      },
+      {
+        toolId: 'tool-copilot',
+        addedAt: '2026-08-20',
+        familiarity: 'practicing',
+        userNotes: 'Used in VS Code for autocomplete.',
+        primaryCategory: 'Agentic Coding',
+        customTags: ['coding']
+      }
+    ],
+    dismissedRecommendations: []
+  }
 };
 
 interface LearnerContextType {
@@ -171,6 +196,10 @@ interface LearnerContextType {
   clearFocusSelection: () => void;
   investigateSignal: (signalId: string, notes?: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
+  addToolToWallet: (toolId: string, primaryCategory: TaskCategory, familiarity?: ToolFamiliarity, userNotes?: string) => void;
+  removeToolFromWallet: (toolId: string) => void;
+  updateToolFamiliarity: (toolId: string, familiarity: ToolFamiliarity, userNotes?: string) => void;
+  dismissRecommendation: (recommendationId: string) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, college?: string) => Promise<{ success: boolean; error?: string }>;
@@ -193,7 +222,12 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return {
+          ...initialLearnerState,
+          ...parsed,
+          aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
+        };
       }
     } catch (e) {
       console.error('Failed to load learner state from storage', e);
@@ -740,6 +774,77 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setState(initialLearnerState);
   };
 
+  const addToolToWallet = (
+    toolId: string,
+    primaryCategory: TaskCategory,
+    familiarity: ToolFamiliarity = 'exploring',
+    userNotes?: string
+  ) => {
+    setState((prev) => {
+      const currentTools = prev.aiWallet?.userTools || [];
+      const exists = currentTools.find((t) => t.toolId === toolId);
+      if (exists) return prev;
+
+      const newItem: UserToolItem = {
+        toolId,
+        addedAt: new Date().toISOString().split('T')[0],
+        familiarity,
+        primaryCategory,
+        userNotes: userNotes || '',
+        customTags: ['my-toolkit']
+      };
+
+      return {
+        ...prev,
+        aiWallet: {
+          ...prev.aiWallet,
+          userTools: [newItem, ...currentTools]
+        }
+      };
+    });
+  };
+
+  const removeToolFromWallet = (toolId: string) => {
+    setState((prev) => ({
+      ...prev,
+      aiWallet: {
+        ...prev.aiWallet,
+        userTools: (prev.aiWallet?.userTools || []).filter((t) => t.toolId !== toolId)
+      }
+    }));
+  };
+
+  const updateToolFamiliarity = (
+    toolId: string,
+    familiarity: ToolFamiliarity,
+    userNotes?: string
+  ) => {
+    setState((prev) => ({
+      ...prev,
+      aiWallet: {
+        ...prev.aiWallet,
+        userTools: (prev.aiWallet?.userTools || []).map((t) =>
+          t.toolId === toolId
+            ? { ...t, familiarity, ...(userNotes !== undefined ? { userNotes } : {}) }
+            : t
+        )
+      }
+    }));
+  };
+
+  const dismissRecommendation = (recommendationId: string) => {
+    setState((prev) => ({
+      ...prev,
+      aiWallet: {
+        ...prev.aiWallet,
+        dismissedRecommendations: [
+          ...(prev.aiWallet?.dismissedRecommendations || []),
+          recommendationId
+        ]
+      }
+    }));
+  };
+
   return (
     <LearnerContext.Provider
       value={{
@@ -762,6 +867,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         clearFocusSelection,
         investigateSignal,
         awardCredits,
+        addToolToWallet,
+        removeToolFromWallet,
+        updateToolFamiliarity,
+        dismissRecommendation,
         markNotificationRead,
         clearNotifications,
         resetState

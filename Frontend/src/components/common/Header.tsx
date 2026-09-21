@@ -74,6 +74,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   };
 
   const searchableFeatures = [
+    { title: 'AI Wallet', desc: 'Personalized AI toolkit & recommendations', tab: 'wallet' },
     { title: 'Take Baseline Assessment', desc: '25-question multidimensional diagnostic', tab: 'assessment' },
     { title: 'View AI Profile Analysis', desc: 'Individual, comparison, & cohort insights', tab: 'analysis' },
     { title: 'Explore AI Radar', desc: 'Emerging tech shifts & model releases', tab: 'radar' },

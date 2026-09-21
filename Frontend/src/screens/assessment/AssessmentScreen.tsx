@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Award,
   Wallet,
-  ClipboardCheck
+  ClipboardCheck,
+  Edit3,
+  ListChecks
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
@@ -36,19 +38,19 @@ interface AssessmentScreenProps {
 
 const SECTION_TRANSITIONS: Record<number, { title: string; subtitle: string; nextSection: string }> = {
   1: {
-    title: "Nice. Let's look a little deeper.",
-    subtitle: "Next, we'll explore how you conceptualize AI capability boundaries under the hood.",
-    nextSection: "Section 2: AI Literacy & Fluency"
+    title: "Nice work on AI Exposure!",
+    subtitle: "Next, we'll explore how you conceptualize AI capability boundaries and model mechanics under the hood.",
+    nextSection: "Section 2: AI Fluency"
   },
   2: {
-    title: "Great insights so far.",
-    subtitle: "Next, we'll look at your raw problem-framing and prompt-writing strategy.",
-    nextSection: "Section 3: AI Thinking & Prompting"
+    title: "Great insights on AI Fluency.",
+    subtitle: "Next, we'll look at your raw problem-framing, prompt-writing strategy, and AI Thinking Labs.",
+    nextSection: "Section 3: AI Thinking"
   },
   3: {
-    title: "Thoughtful responses.",
+    title: "Thoughtful responses in AI Thinking.",
     subtitle: "Now, let's explore verification, ethics, and human-in-the-loop oversight.",
-    nextSection: "Section 4: Critical Thinking & Judgment"
+    nextSection: "Section 4: Human Judgment"
   },
   4: {
     title: "Almost there!",
@@ -58,34 +60,70 @@ const SECTION_TRANSITIONS: Record<number, { title: string; subtitle: string; nex
 };
 
 export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }) => {
-  const { state: learnerState, saveAssessmentAnswer, completeAssessment } = useLearner();
+  const { state: learnerState, saveAssessmentAnswer, setQuestionIndex, completeAssessment } = useLearner();
 
   const savedAnswers = learnerState.assessment.answers || {};
   const isAlreadyCompleted = learnerState.assessment.status === 'completed';
+  const savedQuestionIdx = learnerState.assessment.currentQuestionIndex || 0;
 
-  const [stage, setStage] = useState<AssessmentFlowStage>(
-    isAlreadyCompleted ? 'COMPLETE' : 'WELCOME'
-  );
+  // Determine initial stage
+  const [stage, setStage] = useState<AssessmentFlowStage>(() => {
+    if (isAlreadyCompleted) return 'COMPLETE';
+    const answeredCount = Object.keys(savedAnswers).length;
+    if (answeredCount > 0) return 'QUESTION';
+    return 'WELCOME';
+  });
 
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0); // 0 to 24
+  const [currentQuestionIndex, setCurrentIdx] = useState<number>(savedQuestionIdx); // 0 to 24
   const [answers, setAnswers] = useState<Record<number, any>>(savedAnswers);
   const [transitionSection, setTransitionSection] = useState<number>(1);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [returnToReview, setReturnToReview] = useState<boolean>(false);
 
-  // Sync answers with learnerState
+  // Keep answers synced with context state
   useEffect(() => {
     setAnswers(learnerState.assessment.answers || {});
   }, [learnerState.assessment.answers]);
+
+  // Sync index changes to Context & LocalStorage
+  const updateCurrentQuestionIndex = (newIdx: number) => {
+    setCurrentIdx(newIdx);
+    setQuestionIndex(newIdx);
+  };
 
   const activeQuestion: QuestionData = ASSESSMENT_QUESTIONS[currentQuestionIndex] || ASSESSMENT_QUESTIONS[0];
   const activeLevel: QuestLevel = QUEST_LEVELS.find(l => l.id === activeQuestion.levelId) || QUEST_LEVELS[0];
 
   const currentAnswer = answers[activeQuestion.id];
-  const totalAnsweredCount = Object.keys(answers).filter(k => {
-    const val = answers[Number(k)];
-    return val !== undefined && val !== '' && (Array.isArray(val) ? val.length > 0 : true);
-  }).length;
 
+  // Helper to check if a specific question has a valid answer
+  const isQuestionAnswered = (q: QuestionData): boolean => {
+    const val = answers[q.id];
+    if (val === undefined || val === null || val === '') return false;
+    if (q.type === 'single_select' || q.type === 'scale') {
+      return val !== undefined && val !== null && val !== '';
+    }
+    if (q.type === 'multi_select') {
+      if (!Array.isArray(val)) return false;
+      if (q.requiredSelections) {
+        return val.length === q.requiredSelections;
+      }
+      if (q.minSelections) {
+        return val.length >= q.minSelections;
+      }
+      return val.length > 0;
+    }
+    if (q.type === 'long_text') {
+      return typeof val === 'string' && val.trim().length > 0;
+    }
+    return true;
+  };
+
+  const answeredQuestionsCount = ASSESSMENT_QUESTIONS.filter(isQuestionAnswered).length;
+  const totalQuestions = ASSESSMENT_QUESTIONS.length;
+  const remainingQuestionsCount = totalQuestions - answeredQuestionsCount;
+
+  // Handle single answer selection
   const handleSelectAnswer = (val: any) => {
     setValidationError(null);
     const updated = { ...answers, [activeQuestion.id]: val };
@@ -93,43 +131,81 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     saveAssessmentAnswer(activeQuestion.id, val);
   };
 
+  // Handle multi-select toggle with exact selection requirements
   const handleMultiSelectToggle = (optId: string) => {
     setValidationError(null);
     const existing: string[] = Array.isArray(answers[activeQuestion.id]) ? answers[activeQuestion.id] : [];
     let updatedList: string[];
+
     if (existing.includes(optId)) {
       updatedList = existing.filter(id => id !== optId);
     } else {
-      const max = activeQuestion.maxSelections || 99;
-      if (existing.length >= max) return;
+      const max = activeQuestion.requiredSelections || activeQuestion.maxSelections || 99;
+      if (existing.length >= max) {
+        setValidationError(`You can select a maximum of ${max} options for this question.`);
+        return;
+      }
       updatedList = [...existing, optId];
     }
     handleSelectAnswer(updatedList);
   };
 
+  // Strictly validate current question before advancing
   const validateCurrentQuestion = (): boolean => {
     const val = answers[activeQuestion.id];
-    if (val === undefined || val === null || val === '') {
-      if (activeQuestion.type === 'long_text') {
-        setValidationError('Your response is still empty. Please write your thoughts or prompt before continuing.');
-      } else if (activeQuestion.type === 'multi_select') {
-        setValidationError('Please select at least 1 option before continuing.');
-      } else {
-        setValidationError('Please select an answer before continuing.');
+
+    if (activeQuestion.type === 'single_select') {
+      if (!val) {
+        setValidationError('Please select an option before continuing.');
+        return false;
       }
-      return false;
+    } else if (activeQuestion.type === 'scale') {
+      if (typeof val !== 'number' || val < 1 || val > 5) {
+        setValidationError('Please select a rating score from 1 to 5 before continuing.');
+        return false;
+      }
+    } else if (activeQuestion.type === 'multi_select') {
+      const selectedList: string[] = Array.isArray(val) ? val : [];
+      if (activeQuestion.requiredSelections) {
+        if (selectedList.length !== activeQuestion.requiredSelections) {
+          setValidationError(
+            `Please select exactly ${activeQuestion.requiredSelections} options to continue (${selectedList.length}/${activeQuestion.requiredSelections} selected).`
+          );
+          return false;
+        }
+      } else if (activeQuestion.minSelections) {
+        if (selectedList.length < activeQuestion.minSelections) {
+          setValidationError(
+            `Please select at least ${activeQuestion.minSelections} option${activeQuestion.minSelections > 1 ? 's' : ''} to continue.`
+          );
+          return false;
+        }
+      } else if (selectedList.length === 0) {
+        setValidationError('Please select at least 1 option before continuing.');
+        return false;
+      }
+    } else if (activeQuestion.type === 'long_text') {
+      if (typeof val !== 'string' || val.trim().length === 0) {
+        setValidationError('Your response is empty. Please enter your thoughts or prompt before continuing.');
+        return false;
+      }
     }
-    if (Array.isArray(val) && val.length === 0) {
-      setValidationError('Please select at least 1 option before continuing.');
-      return false;
-    }
+
     setValidationError(null);
     return true;
   };
 
+  // Next Question or Transition or Review
   const handleNext = () => {
     if (!validateCurrentQuestion()) return;
 
+    if (returnToReview) {
+      setReturnToReview(false);
+      setStage('REVIEW');
+      return;
+    }
+
+    // Check for Section Transitions at Q5, Q10, Q15, Q20
     if (currentQuestionIndex === 4 || currentQuestionIndex === 9 || currentQuestionIndex === 14 || currentQuestionIndex === 19) {
       const sectionNum = Math.floor(currentQuestionIndex / 5) + 1;
       setTransitionSection(sectionNum);
@@ -138,7 +214,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     }
 
     if (currentQuestionIndex < 24) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      updateCurrentQuestionIndex(currentQuestionIndex + 1);
     } else {
       setStage('REVIEW');
     }
@@ -146,19 +222,32 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
 
   const handlePrev = () => {
     setValidationError(null);
+    if (returnToReview) {
+      setReturnToReview(false);
+      setStage('REVIEW');
+      return;
+    }
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      updateCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
 
+  // Final Assessment Submission
   const handleFinalSubmission = () => {
+    const unAnswered = ASSESSMENT_QUESTIONS.filter(q => !isQuestionAnswered(q));
+    if (unAnswered.length > 0) {
+      setValidationError(`Please complete all required questions before submitting (${unAnswered.length} remaining).`);
+      return;
+    }
     completeAssessment();
     setStage('COMPLETE');
   };
 
-  // 1. WELCOME SCREEN
+  // =========================================================================
+  // 1. WELCOME STAGE
+  // =========================================================================
   if (stage === 'WELCOME') {
-    const hasSavedProgress = totalAnsweredCount > 0;
+    const hasSavedProgress = answeredQuestionsCount > 0;
 
     return (
       <div style={{ maxWidth: '720px', margin: '24px auto' }}>
@@ -193,7 +282,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             </h1>
 
             <p style={{ fontSize: '14px', color: '#475569', maxWidth: '540px', margin: '0 auto 24px', lineHeight: 1.5 }}>
-              A short assessment to understand how you currently use, think about and work with AI. Your honest answers help AIIMS build your personal capability profile.
+              A 25-question multi-dimensional assessment to evaluate your AI usage frequency, capability evaluation, workflow design, strategic vision, and mentorship readiness.
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', maxWidth: '540px', margin: '0 auto 28px' }}>
@@ -202,8 +291,8 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                 <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Questions</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '18px', fontWeight: 800, color: '#7c3aed' }}>10–15</div>
-                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Minutes</div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#7c3aed' }}>5</div>
+                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Sections</div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '18px', fontWeight: 800, color: '#059669' }}>+50 AC</div>
@@ -219,7 +308,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                   icon={<RotateCcw size={15} />}
                   onClick={() => setStage('QUESTION')}
                 >
-                  Resume ({totalAnsweredCount}/25 Saved)
+                  Resume Assessment ({answeredQuestionsCount}/25 Saved)
                 </Button>
               )}
 
@@ -228,11 +317,11 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                 size="lg"
                 icon={<ArrowRight size={16} />}
                 onClick={() => {
-                  setCurrentQuestionIndex(0);
+                  updateCurrentQuestionIndex(0);
                   setStage('QUESTION');
                 }}
               >
-                {hasSavedProgress ? 'Start Over' : 'Begin Assessment'}
+                {hasSavedProgress ? 'Restart Fresh' : 'Begin Assessment'}
               </Button>
             </div>
           </div>
@@ -241,7 +330,9 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     );
   }
 
-  // 2. SECTION TRANSITION INTERSTITIAL
+  // =========================================================================
+  // 2. SECTION TRANSITION INTERSTITIAL STAGE
+  // =========================================================================
   if (stage === 'TRANSITION') {
     const transitionData = SECTION_TRANSITIONS[transitionSection] || SECTION_TRANSITIONS[1];
 
@@ -275,7 +366,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             size="md"
             icon={<ArrowRight size={16} />}
             onClick={() => {
-              setCurrentQuestionIndex(currentQuestionIndex + 1);
+              updateCurrentQuestionIndex(currentQuestionIndex + 1);
               setStage('QUESTION');
             }}
           >
@@ -286,72 +377,129 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     );
   }
 
-  // 3. REVIEW STATE
+  // =========================================================================
+  // 3. DEDICATED REVIEW STAGE (Bug 3 Fix)
+  // =========================================================================
   if (stage === 'REVIEW') {
+    const unAnsweredQuestions = ASSESSMENT_QUESTIONS.filter(q => !isQuestionAnswered(q));
+    const isAllComplete = unAnsweredQuestions.length === 0;
+
     return (
-      <div style={{ maxWidth: '720px', margin: '24px auto' }}>
+      <div style={{ maxWidth: '780px', margin: '24px auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <Surface variant="bordered" radius="lg" padding="lg">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          {/* Header Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '0.5px' }}>FINAL REVIEW</span>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '2px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                25 of 25 Completed
+              <div style={{ fontSize: '11px', fontWeight: 900, color: '#6366f1', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '2px' }}>
+                ASSESSMENT REVIEW
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+                Review Your Answers
               </h2>
             </div>
 
-            <Badge variant="success" icon={<CheckCircle2 size={14} />}>
-              All Answered
+            <Badge variant={isAllComplete ? 'success' : 'warning'} icon={isAllComplete ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}>
+              {answeredQuestionsCount} / {totalQuestions} Answered
             </Badge>
           </div>
 
-          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>
-            Review or jump back to modify any response before submitting your baseline assessment.
+          <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+            Verify all responses before final submission. Click <strong>Edit</strong> on any question to modify your answer or complete missing selections.
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
+          {/* Validation Notice */}
+          {!isAllComplete && (
+            <div style={{ padding: '12px 16px', backgroundColor: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '12px', color: '#be123c', fontSize: '13px', fontWeight: 700, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>Please complete all required questions before submitting ({unAnsweredQuestions.length} incomplete).</span>
+            </div>
+          )}
+
+          {/* Section Breakdown Grid */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
             {QUEST_LEVELS.map((level) => (
               <div
                 key={level.id}
                 style={{
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '12px',
-                  padding: '14px',
-                  border: '1px solid #e2e8f0'
+                  backgroundColor: '#ffffff',
+                  borderRadius: '14px',
+                  padding: '16px',
+                  border: '1px solid #ede9fe',
+                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.03)'
                 }}
               >
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  Section 0{level.id}: {level.title}
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{level.icon}</span> Section 0{level.id}: {level.title}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {level.challengeIds.map((qId) => {
                     const qIdx = qId - 1;
-                    const isAns = answers[qId] !== undefined && answers[qId] !== '';
+                    const question = ASSESSMENT_QUESTIONS[qIdx];
+                    const isAnswered = isQuestionAnswered(question);
+                    const val = answers[qId];
+
+                    let answerPreview = 'Not answered yet';
+                    if (isAnswered) {
+                      if (question.type === 'single_select') {
+                        const opt = question.options?.find(o => o.id === val);
+                        answerPreview = opt ? opt.label : String(val);
+                      } else if (question.type === 'multi_select' && Array.isArray(val)) {
+                        answerPreview = `${val.length} selected: ` + val.map(id => {
+                          const opt = question.options?.find(o => o.id === id);
+                          return opt ? opt.label : id;
+                        }).join(', ');
+                      } else if (question.type === 'scale') {
+                        answerPreview = `Score: ${val} / 5`;
+                      } else if (question.type === 'long_text') {
+                        answerPreview = typeof val === 'string' ? `"${val.slice(0, 60)}${val.length > 60 ? '...' : ''}"` : 'Text response';
+                      }
+                    }
+
                     return (
-                      <button
+                      <div
                         key={qId}
-                        onClick={() => {
-                          setCurrentQuestionIndex(qIdx);
-                          setStage('QUESTION');
-                        }}
                         style={{
-                          padding: '8px 4px',
-                          borderRadius: '8px',
-                          border: isAns ? '1px solid #a7f3d0' : '1px solid #fecdd3',
-                          backgroundColor: isAns ? '#ecfdf5' : '#fff1f2',
-                          color: isAns ? '#047857' : '#be123c',
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '2px'
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          borderRadius: '10px',
+                          backgroundColor: isAnswered ? '#f8f7fd' : '#fff1f2',
+                          border: isAnswered ? '1px solid #ede9fe' : '1px solid #fecdd3',
+                          gap: '12px'
                         }}
                       >
-                        <span>Q{qId}</span>
-                        {isAns ? <Check size={11} /> : <AlertCircle size={11} />}
-                      </button>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                              Q{qId}. {question.title.slice(0, 50)}{question.title.length > 50 ? '...' : ''}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: isAnswered ? '#475569' : '#be123c', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {answerPreview}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Badge variant={isAnswered ? 'success' : 'warning'} size="sm">
+                            {isAnswered ? '✓ Answered' : '⚠ Needs Attention'}
+                          </Badge>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<Edit3 size={11} />}
+                            onClick={() => {
+                              updateCurrentQuestionIndex(qIdx);
+                              setReturnToReview(true);
+                              setStage('QUESTION');
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -359,14 +507,15 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             ))}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {/* Review Action Buttons */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: '16px', borderTop: '1px solid #f1f5f9' }}>
             <Button
               variant="outline"
               size="md"
               icon={<ArrowLeft size={15} />}
               iconPosition="left"
               onClick={() => {
-                setCurrentQuestionIndex(24);
+                updateCurrentQuestionIndex(24);
                 setStage('QUESTION');
               }}
             >
@@ -376,10 +525,11 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             <Button
               variant="primary"
               size="lg"
-              icon={<ArrowRight size={16} />}
+              icon={<CheckCircle2 size={16} />}
+              disabled={!isAllComplete}
               onClick={handleFinalSubmission}
             >
-              Submit Assessment
+              Submit Final Assessment
             </Button>
           </div>
         </Surface>
@@ -387,7 +537,9 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     );
   }
 
-  // 4. COMPLETE STATE
+  // =========================================================================
+  // 4. COMPLETE STAGE
+  // =========================================================================
   if (stage === 'COMPLETE') {
     return (
       <div style={{ maxWidth: '640px', margin: '32px auto' }}>
@@ -407,16 +559,16 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
           </div>
 
           <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
-            Your Assessment is Complete
+            Assessment Complete!
           </h1>
 
           <p style={{ fontSize: '14px', color: '#475569', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
-            AIIMS is ready to show you what it discovered about your current AI profile.
+            Your baseline multi-dimensional diagnostic has been submitted. Your AI Profile Analysis is now unlocked.
           </p>
 
-          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #a7f3d0', borderRadius: '14px', padding: '18px', maxWidth: '440px', margin: '0 auto 24px' }}>
+          <div style={{ backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '14px', padding: '18px', maxWidth: '440px', margin: '0 auto 24px' }}>
             <div style={{ fontSize: '12px', color: '#047857', fontWeight: 700, marginBottom: '4px' }}>
-              ✓ +50 AIIMS Credits Reward Issued
+              ✓ +50 AIIMS Credits Reward Claimed
             </div>
             <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
               {learnerState.credits.balance} <span style={{ fontSize: '13px', color: '#4f46e5', fontWeight: 600 }}>Credits</span>
@@ -430,7 +582,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
               icon={<ArrowRight size={18} />}
               onClick={onComplete}
             >
-              Reveal My Analysis
+              Explore My AI Profile Analysis →
             </Button>
           </div>
         </Surface>
@@ -438,7 +590,9 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     );
   }
 
-  // 5. QUESTION INTERFACE
+  // =========================================================================
+  // 5. QUESTION INTERFACE STAGE
+  // =========================================================================
   const renderQuestionControl = () => {
     switch (activeQuestion.type) {
       case 'single_select':
@@ -487,16 +641,21 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
       case 'multi_select': {
         const selectedList: string[] = Array.isArray(currentAnswer) ? currentAnswer : [];
         const count = selectedList.length;
+        const required = activeQuestion.requiredSelections;
         const max = activeQuestion.maxSelections || 99;
 
         return (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 600 }}>
-                {max < 99 ? `Select up to ${max} options` : 'Select all that apply'}
+              <span style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 700 }}>
+                {required
+                  ? `Select exactly ${required} options`
+                  : max < 99
+                  ? `Select up to ${max} options`
+                  : 'Select all that apply'}
               </span>
-              <Badge variant="primary" size="sm">
-                {count} / {max < 99 ? max : 'all'} selected
+              <Badge variant={required && count !== required ? 'warning' : 'primary'} size="sm">
+                {count} / {required || (max < 99 ? max : 'all')} selected
               </Badge>
             </div>
 
@@ -623,15 +782,35 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
     <div style={{ maxWidth: '720px', margin: '24px auto' }}>
       <Surface variant="bordered" radius="lg" padding="lg">
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        {/* Return to Review Banner if in Edit Mode */}
+        {returnToReview && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f0eeff', padding: '10px 14px', borderRadius: '10px', marginBottom: '16px', border: '1px solid #c7d2fe' }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#4338ca' }}>
+              Editing Question {currentQuestionIndex + 1} from Review
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<ListChecks size={12} />}
+              onClick={() => {
+                setReturnToReview(false);
+                setStage('REVIEW');
+              }}
+            >
+              Return to Review
+            </Button>
+          </div>
+        )}
+
+        {/* Header Information */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5' }}>
-            Question {currentQuestionIndex + 1} of 25 • Section 0{activeLevel.id}: {activeLevel.title}
+            Question {currentQuestionIndex + 1} of {totalQuestions} • Section 0{activeLevel.id}: {activeLevel.title}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
-              {Math.round(((currentQuestionIndex + 1) / 25) * 100)}%
+            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 700 }}>
+              {answeredQuestionsCount} / {totalQuestions} Answered
             </span>
             <Badge variant="warning" size="sm">
               {learnerState.credits.balance} AC
@@ -644,7 +823,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
           <div
             style={{
               height: '100%',
-              width: `${((currentQuestionIndex + 1) / 25) * 100}%`,
+              width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%`,
               backgroundColor: '#4f46e5',
               transition: 'width 0.2s ease'
             }}
@@ -662,7 +841,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
           </p>
         )}
 
-        {/* Input Controls */}
+        {/* Input Control */}
         <div style={{ marginBottom: '24px' }}>
           {renderQuestionControl()}
         </div>
@@ -673,20 +852,20 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             padding: '10px 14px',
             backgroundColor: '#fff1f2',
             border: '1px solid #fecdd3',
-            borderRadius: '8px',
+            borderRadius: '10px',
             color: '#be123c',
             fontSize: '12px',
-            fontWeight: 600,
+            fontWeight: 700,
             marginBottom: '16px',
             display: 'flex',
             alignItems: 'center',
             gap: '6px'
           }}>
-            <AlertCircle size={14} /> {validationError}
+            <AlertCircle size={15} /> {validationError}
           </div>
         )}
 
-        {/* Controls */}
+        {/* Control Buttons */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
           <Button
             variant="ghost"
@@ -705,7 +884,11 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
             icon={<ArrowRight size={15} />}
             onClick={handleNext}
           >
-            {currentQuestionIndex === 24 ? 'Review Responses →' : 'Next Question'}
+            {returnToReview
+              ? 'Save & Return to Review'
+              : currentQuestionIndex === 24
+              ? 'Review Responses →'
+              : 'Next Question'}
           </Button>
         </div>
 

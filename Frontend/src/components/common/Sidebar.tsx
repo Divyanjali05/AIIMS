@@ -12,7 +12,8 @@ import {
   Coins,
   MessageCircle,
   Settings,
-  Lock
+  Lock,
+  Wallet
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 
@@ -85,6 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           icon: Target,
           locked: !isAnalysisUnlocked,
           lockMsg: 'Focus unlocks after you explore Clarity.'
+        },
+        {
+          id: 'wallet',
+          label: 'AI Wallet',
+          icon: Wallet,
+          locked: false
         }
       ]
     },
