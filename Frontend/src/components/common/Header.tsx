@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle } from 'lucide-react';
+import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle, LogOut } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Badge } from './Badge';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
-  const { state, markNotificationRead, clearNotifications } = useLearner();
+  const { state, markNotificationRead, clearNotifications, logout } = useLearner();
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -442,6 +442,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                 style={{ padding: '8px 10px', fontSize: '12px', color: '#0f172a', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
               >
                 <Wallet size={14} /> Wallet ({state.credits.balance} Credits)
+              </div>
+              <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
+              <div
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  logout();
+                }}
+                style={{ padding: '8px 10px', fontSize: '12px', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
+              >
+                <LogOut size={14} color="#ef4444" /> Sign Out
               </div>
             </div>
           )}

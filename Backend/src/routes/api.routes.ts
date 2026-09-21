@@ -1,13 +1,234 @@
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds } from '../models/aiims.models';
+import { User } from '../models/User.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
 
 const router = Router();
 const claudeService = new ClaudeService();
 
+// In-memory user cache with hashed initial password
+const registeredUsers: Record<string, any> = {
+  [mockUser.email.toLowerCase()]: {
+    ...mockUser,
+    password: bcrypt.hashSync('password123', 10)
+  }
+};
+
 // 1. AUTH MODULE
-router.post('/auth/login', (req: Request, res: Response) => {
-  res.json({ token: 'mock-jwt-token-aiims', user: mockUser });
+router.post('/auth/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  }
+  if (!password || password.trim().length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters long.' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    // 1. Try finding user in MongoDB Atlas
+    let dbUser = await User.findOne({ email: normalizedEmail });
+
+    if (!dbUser) {
+      // Auto-register new learner in MongoDB with bcrypt hashed password
+      const usernamePart = normalizedEmail.split('@')[0];
+      const formattedName = usernamePart
+        .split(/[._-]/)
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ') || 'Learner';
+
+      dbUser = await User.create({
+        name: formattedName,
+        email: normalizedEmail,
+        password: password, // UserSchema pre-save hook will hash this using bcrypt
+        role: 'Student / AI Learner',
+        targetGoal: 'Master AI Intelligence & Mentoring',
+        stage: 'Knowing',
+        xpPoints: 100,
+        aiimsCredits: 100
+      });
+      console.log(`🌿 Created new user in MongoDB Atlas with bcrypt hash: ${normalizedEmail}`);
+    } else {
+      console.log(`🌿 Found existing user in MongoDB Atlas: ${normalizedEmail}`);
+      // Validate password against bcrypt hash (also auto-upgrades legacy unhashed passwords)
+      const isMatch = await dbUser.comparePassword(password);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
+      }
+    }
+
+    // Sync active mockUser session
+    Object.assign(mockUser, {
+      id: dbUser._id ? String(dbUser._id) : `usr-${Date.now().toString().slice(-4)}`,
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+      targetGoal: dbUser.targetGoal,
+      stage: dbUser.stage,
+      xpPoints: dbUser.xpPoints,
+      aiimsCredits: dbUser.aiimsCredits
+    });
+
+    const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: mockUser.id,
+        name: mockUser.name,
+        email: mockUser.email,
+        role: mockUser.role,
+        targetGoal: mockUser.targetGoal,
+        stage: mockUser.stage,
+        xpPoints: mockUser.xpPoints,
+        aiimsCredits: mockUser.aiimsCredits
+      }
+    });
+  } catch (mongoErr) {
+    console.warn(`MongoDB query fallback to memory:`, mongoErr);
+    // In-memory fallback if Mongo connection is unreachable
+    let user = registeredUsers[normalizedEmail];
+    if (!user) {
+      const usernamePart = normalizedEmail.split('@')[0];
+      const formattedName = usernamePart
+        .split(/[._-]/)
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ') || 'Learner';
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user = {
+        id: `usr-${Date.now().toString().slice(-4)}`,
+        name: formattedName,
+        email: normalizedEmail,
+        role: 'Student / AI Learner',
+        targetGoal: 'Master AI Intelligence & Mentoring',
+        stage: 'Knowing',
+        xpPoints: 100,
+        aiimsCredits: 100,
+        password: hashedPassword
+      };
+      registeredUsers[normalizedEmail] = user;
+    } else {
+      const isMatch = user.password && user.password.startsWith('$2')
+        ? await bcrypt.compare(password, user.password)
+        : user.password === password;
+
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
+      }
+    }
+
+    Object.assign(mockUser, user);
+    const token = `aiims-jwt-${Buffer.from(user.email).toString('base64')}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        targetGoal: user.targetGoal,
+        stage: user.stage,
+        xpPoints: user.xpPoints,
+        aiimsCredits: user.aiimsCredits
+      }
+    });
+  }
+});
+
+router.post('/auth/register', async (req: Request, res: Response) => {
+  const { name, email, password, role, targetGoal } = req.body;
+
+  if (!email || !email.trim()) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  if (!password || password.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const displayName = (name && name.trim()) || normalizedEmail.split('@')[0];
+
+  try {
+    let dbUser = await User.findOne({ email: normalizedEmail });
+    if (dbUser) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
+
+    // UserSchema pre-save hook securely hashes password with bcrypt
+    dbUser = await User.create({
+      name: displayName,
+      email: normalizedEmail,
+      password,
+      role: role || 'AI Practitioner',
+      targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
+      stage: 'Knowing',
+      xpPoints: 100,
+      aiimsCredits: 100
+    });
+
+    console.log(`🌿 Registered new user with bcrypt hashed password in MongoDB Atlas: ${normalizedEmail}`);
+
+    Object.assign(mockUser, {
+      id: String(dbUser._id),
+      name: dbUser.name,
+      email: dbUser.email,
+      role: dbUser.role,
+      targetGoal: dbUser.targetGoal,
+      stage: dbUser.stage,
+      xpPoints: dbUser.xpPoints,
+      aiimsCredits: dbUser.aiimsCredits
+    });
+
+    const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: mockUser.id,
+        name: mockUser.name,
+        email: mockUser.email,
+        role: mockUser.role,
+        targetGoal: mockUser.targetGoal,
+        stage: mockUser.stage,
+        xpPoints: mockUser.xpPoints,
+        aiimsCredits: mockUser.aiimsCredits
+      }
+    });
+  } catch (mongoErr) {
+    console.warn(`MongoDB register fallback:`, mongoErr);
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      id: `usr-${Date.now().toString().slice(-4)}`,
+      name: displayName,
+      email: normalizedEmail,
+      role: role || 'AI Practitioner',
+      targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
+      stage: 'Knowing',
+      xpPoints: 100,
+      aiimsCredits: 100,
+      password: hashedPassword
+    };
+
+    registeredUsers[normalizedEmail] = newUser;
+    Object.assign(mockUser, newUser);
+
+    const token = `aiims-jwt-${Buffer.from(newUser.email).toString('base64')}-${Date.now()}`;
+    return res.json({
+      token,
+      user: {
+        id: newUser.id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        targetGoal: newUser.targetGoal,
+        stage: newUser.stage,
+        xpPoints: newUser.xpPoints,
+        aiimsCredits: newUser.aiimsCredits
+      }
+    });
+  }
 });
 
 // 2. USERS MODULE

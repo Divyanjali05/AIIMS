@@ -19,16 +19,21 @@ import { MentorMessage } from './components/common/MentorMessage';
 import { MessageCircle, BarChart3, Settings } from 'lucide-react';
 
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
+import { LoginScreen } from './screens/auth/LoginScreen';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('home');
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
-  const { state } = useLearner();
+  const { state, isAuthenticated } = useLearner();
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
     setActiveTab('investigation');
   };
+
+  if (!isAuthenticated) {
+    return <LoginScreen onSuccess={() => setActiveTab('home')} />;
+  }
 
   return (
     <div style={{

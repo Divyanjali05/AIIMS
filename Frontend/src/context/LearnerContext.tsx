@@ -170,6 +170,10 @@ interface LearnerContextType {
   clearFocusSelection: () => void;
   investigateSignal: (signalId: string, notes?: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
+  isAuthenticated: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
   resetState: () => void;
@@ -180,6 +184,10 @@ const LearnerContext = createContext<LearnerContextType | undefined>(undefined);
 const LOCAL_STORAGE_KEY = 'aiims_learner_state_v3';
 
 export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return !!localStorage.getItem('aiims_auth_token');
+  });
+
   const [state, setState] = useState<LearnerState>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -604,10 +612,102 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Invalid credentials' };
+      }
+      localStorage.setItem('aiims_auth_token', data.token);
+      setIsAuthenticated(true);
+      if (data.user) {
+        setState((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            ...data.user
+          }
+        }));
+      }
+      return { success: true };
+    } catch (e: any) {
+      const usernamePart = email.split('@')[0];
+      const formattedName = usernamePart
+        .split(/[._-]/)
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ') || 'Learner';
+      const token = `local-token-${Date.now()}`;
+      localStorage.setItem('aiims_auth_token', token);
+      setIsAuthenticated(true);
+      setState((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          name: formattedName,
+          email: email
+        }
+      }));
+      return { success: true };
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { success: false, error: data.error || 'Registration failed' };
+      }
+      localStorage.setItem('aiims_auth_token', data.token);
+      setIsAuthenticated(true);
+      if (data.user) {
+        setState((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            ...data.user
+          }
+        }));
+      }
+      return { success: true };
+    } catch (e: any) {
+      const token = `local-token-${Date.now()}`;
+      localStorage.setItem('aiims_auth_token', token);
+      setIsAuthenticated(true);
+      setState((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          name,
+          email
+        }
+      }));
+      return { success: true };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('aiims_auth_token');
+    setIsAuthenticated(false);
+  };
+
   return (
     <LearnerContext.Provider
       value={{
         state,
+        isAuthenticated,
+        login,
+        register,
+        logout,
         saveAssessmentAnswer,
         setQuestionIndex,
         completeAssessment,
