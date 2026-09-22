@@ -14,7 +14,7 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
   signal,
   setActiveTab
 }) => {
-  const { state } = useLearner();
+  const { state, setRadarOpportunityContext } = useLearner();
   const learnerContext = buildLearnerProfileContext(state);
 
   const fallbackSignal: RadarSignal = {
@@ -41,6 +41,23 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
   const activeFocus = learnerContext.focus.activeFocusTrack || growthArea;
   const clarityReflection = learnerContext.clarity.latestReflection;
   const userInvestigationNote = learnerContext.investigation.latestNote;
+
+  const handleLaunchProblemSolver = () => {
+    setRadarOpportunityContext({
+      activeSignalId: activeSignal.id,
+      opportunityTitle: activeSignal.title,
+      opportunityDesc: activeSignal.summary,
+      passedContext: {
+        activeFocus,
+        growthArea,
+        topCapability,
+        category: activeSignal.category
+      }
+    });
+    if (setActiveTab) {
+      setActiveTab('solver');
+    }
+  };
 
   return (
     <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
@@ -104,23 +121,26 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
 
       </div>
 
-      {/* RECOMMENDED ACTION */}
-      <Surface variant="mint" radius="lg" padding="lg">
-        <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', fontFamily: "'Fredoka', sans-serif" }}>
-          Recommended Next Action
+      {/* RECOMMENDED ACTION: BRIDGE TO STAGE 8 PROBLEM SOLVER */}
+      <Surface variant="mint" radius="lg" padding="lg" style={{ border: '2px solid #10b981' }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '1px' }}>
+          STAGE 8 • REAL PROBLEM SOLVING
+        </span>
+        <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '4px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          Apply this opportunity to a real problem
         </h3>
-        <p style={{ fontSize: '13px', color: '#064e3b', margin: '0 0 16px', lineHeight: 1.45 }}>
-          You have completed a full AIIMS intelligence loop. Track your earned credits in your Wallet or continue exploring new AI Radar signals.
+        <p style={{ fontSize: '13px', color: '#064e3b', margin: '0 0 18px', lineHeight: 1.5 }}>
+          Pre-populate Problem Solver with this AI Radar signal context ({activeSignal.title}) to derive required capabilities and tool execution sequences.
         </p>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <Button
-            variant="green"
+            variant="violet"
             size="md"
-            icon={<ArrowRight size={15} />}
-            onClick={() => setActiveTab && setActiveTab('credits')}
+            icon={<ArrowRight size={16} />}
+            onClick={handleLaunchProblemSolver}
           >
-            Review Credits Wallet
+            Explore this in Problem Solver
           </Button>
 
           <Button
@@ -128,14 +148,14 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
             size="md"
             onClick={() => setActiveTab && setActiveTab('home')}
           >
-            Return to Command Centre
+            Return to Journey Hub
           </Button>
         </div>
       </Surface>
 
       {/* MENTOR SUMMARY */}
       <MentorMessage
-        message="You now clearly understand why this AI change matters to you personally. Return to AIIMS anytime to explore new signals or refine your focus track."
+        message="You now clearly understand why this AI change matters to you personally. Apply this opportunity in Problem Solver to build a practical workflow."
       />
 
     </div>

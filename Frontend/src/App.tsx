@@ -12,6 +12,8 @@ import { FocusScreen } from './screens/focus/FocusScreen';
 import { RadarScreen } from './screens/radar/RadarScreen';
 import { InvestigationScreen } from './screens/investigation/InvestigationScreen';
 import { RelevanceScreen } from './screens/relevance/RelevanceScreen';
+import { ProblemSolverScreen } from './screens/solver/ProblemSolverScreen';
+import { BuildScreen } from './screens/build/BuildScreen';
 import { RadarSignal } from './types';
 import { Surface } from './components/common/Surface';
 import { PageHeader } from './components/common/PageHeader';
@@ -20,11 +22,23 @@ import { MessageCircle, BarChart3, Settings } from 'lucide-react';
 
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
+import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 
 const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<string>('home');
+  const [activeTab, setActiveTabState] = useState<string>(() => {
+    return localStorage.getItem('aiims_active_tab') || 'home';
+  });
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
   const { state, isAuthenticated } = useLearner();
+
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('aiims_active_tab', tab);
+    } catch (e) {
+      console.error('Failed to save activeTab', e);
+    }
+  };
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
@@ -61,6 +75,10 @@ const AppContent: React.FC = () => {
             <HomeScreen setActiveTab={setActiveTab} />
           )}
 
+          {activeTab === 'wallet' && (
+            <AIWalletScreen setActiveTab={setActiveTab} />
+          )}
+
           {activeTab === 'discover' && (
             <DiscoverScreen setActiveTab={setActiveTab} />
           )}
@@ -92,6 +110,14 @@ const AppContent: React.FC = () => {
           )}
 
           {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
+
+          {activeTab === 'solver' && (
+            <ProblemSolverScreen setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === 'build' && (
+            <BuildScreen setActiveTab={setActiveTab} />
+          )}
 
           {activeTab === 'mentor' && (
             <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -133,9 +159,9 @@ const AppContent: React.FC = () => {
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
                   Learner Profile
                 </div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>
-                  Name: {state.profile.name} | Role: {state.profile.role} | Progression Stage: {state.profile.stage}
-                </div>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                  Logged in as {state.profile.name} ({state.profile.email})
+                </p>
               </Surface>
             </div>
           )}

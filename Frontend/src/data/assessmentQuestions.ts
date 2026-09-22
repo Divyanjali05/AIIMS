@@ -13,11 +13,14 @@ export interface QuestionData {
   title: string;
   subtitle?: string;
   type: 'single_select' | 'multi_select' | 'scale' | 'long_text';
+  selectionType?: 'single' | 'multi';
   options?: QuestionOption[];
   minScale?: number;
   maxScale?: number;
   minLabel?: string;
   maxLabel?: string;
+  requiredSelections?: number;
+  minSelections?: number;
   maxSelections?: number;
   placeholder?: string;
   labNotice?: string;
@@ -104,8 +107,10 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
     levelTitle: 'AI Exposure',
     challengeNumber: 2,
     title: 'Which AI models or tools do you regularly interact with?',
-    subtitle: 'Select all tools you have hands-on experience with',
+    subtitle: 'Select all tools you have hands-on experience with (at least 1)',
     type: 'multi_select',
+    selectionType: 'multi',
+    minSelections: 1,
     options: [
       { id: 'q2_a', label: 'ChatGPT (OpenAI / GPT-4o)', icon: '🤖' },
       { id: 'q2_b', label: 'Claude (Anthropic)', icon: '🧠' },
@@ -413,8 +418,10 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
     levelTitle: 'Innovation Readiness',
     challengeNumber: 4,
     title: 'Which AI skills do you most want to master over the next 6 months?',
-    subtitle: 'Select up to 3 priority areas',
+    subtitle: 'Select exactly 3 priority areas',
     type: 'multi_select',
+    selectionType: 'multi',
+    requiredSelections: 3,
     maxSelections: 3,
     options: [
       { id: 'q24_a', label: 'Advanced Prompting & Chain-of-Thought Design', icon: '✍️' },

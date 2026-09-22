@@ -9,12 +9,13 @@ import {
   BarChart3,
   Radar,
   Coins,
-  MessageCircle
+  MessageCircle,
+  Wallet,
+  Wrench
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
 import { MentorService, MentorResponse } from '../../services/mentorProvider';
 import { SignalDataProvider } from '../../services/signalDataProvider';
@@ -114,7 +115,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
           overflow: 'hidden'
         }}
       >
-        {/* Subtle decorative accent pill */}
         <div
           style={{
             display: 'inline-flex',
@@ -798,7 +798,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
           </div>
         </Surface>
 
-        {/* Explore Chips (Compact capability tags) */}
+        {/* Explore Chips (Compact capability tags including new tools & solver) */}
         <Surface
           variant="bordered"
           radius="md"
@@ -830,7 +830,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                   textTransform: 'uppercase'
                 }}
               >
-                Explore
+                Explore Modules
               </span>
               <span
                 onClick={() => setActiveTab('discover')}
@@ -848,14 +848,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
             {/* Compact inline chips */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
               {[
-                { title: 'AI Fundamentals', tab: 'AI Fundamentals' },
-                { title: 'AI Literacy', tab: 'AI Literacy & Verification' },
-                { title: 'Workflow Design', tab: 'AI Workflow Design' },
-                { title: 'Critical Thinking', tab: 'Critical Thinking & Oversight' }
+                { title: 'AI Wallet', icon: <Wallet size={12} />, onClick: () => setActiveTab('wallet') },
+                { title: 'Problem Solver', icon: <Wrench size={12} />, onClick: () => setActiveTab('solver') },
+                { title: 'AI Fundamentals', icon: null, onClick: () => handleExploreCapability('AI Fundamentals') },
+                { title: 'AI Literacy', icon: null, onClick: () => handleExploreCapability('AI Literacy & Verification') },
+                { title: 'Workflow Design', icon: null, onClick: () => handleExploreCapability('AI Workflow Design') }
               ].map((chip) => (
                 <button
                   key={chip.title}
-                  onClick={() => handleExploreCapability(chip.tab)}
+                  onClick={chip.onClick}
                   style={{
                     backgroundColor: '#f8fafc',
                     color: '#334155',
@@ -866,6 +867,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                     fontWeight: 700,
                     cursor: 'pointer',
                     fontFamily: 'inherit',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     transition: 'all 0.15s ease'
                   }}
                   onMouseEnter={(e) => {
@@ -879,14 +883,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                     e.currentTarget.style.color = '#334155';
                   }}
                 >
-                  {chip.title}
+                  {chip.icon}
+                  <span>{chip.title}</span>
                 </button>
               ))}
             </div>
           </div>
 
           <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-            Click any area to explore structured clarity lessons.
+            Click any area to explore structured clarity lessons and practical workspaces.
           </span>
         </Surface>
       </section>

@@ -178,5 +178,54 @@ export const apiClient = {
       body: JSON.stringify({ signalId })
     });
     return res.json();
+  },
+
+  // 9. AI Wallet Module APIs
+  async getWalletCatalog() {
+    const res = await fetch(`${API_BASE}/wallet/catalog`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getAIWalletUser() {
+    const res = await fetch(`${API_BASE}/wallet/user`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getWalletRecommendations() {
+    const res = await fetch(`${API_BASE}/wallet/recommendations`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async addToolToWallet(toolId: string, primaryCategory: string, familiarity?: string, userNotes?: string) {
+    const res = await fetch(`${API_BASE}/wallet/add`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toolId, primaryCategory, familiarity, userNotes })
+    });
+    return res.json();
+  },
+
+  async updateToolFamiliarity(toolId: string, familiarity: string, userNotes?: string) {
+    const res = await fetch(`${API_BASE}/wallet/update-familiarity`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toolId, familiarity, userNotes })
+    });
+    return res.json();
+  },
+
+  async compareTools(toolAId: string, toolBId: string, task?: string) {
+    const res = await fetch(`${API_BASE}/wallet/compare`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toolAId, toolBId, task })
+    });
+    return res.json();
   }
 };

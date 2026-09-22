@@ -38,18 +38,43 @@ export interface FocusArea {
   status: 'Pending' | 'In Progress' | 'Completed';
 }
 
+export type RadarCategory =
+  | 'New Models'
+  | 'Agentic AI'
+  | 'Coding'
+  | 'Research'
+  | 'Multimodal'
+  | 'Image & Video'
+  | 'Automation'
+  | 'Productivity'
+  | 'Tech Shift'
+  | 'Workflow'
+  | 'New Tool'
+  | 'Role Shift'
+  | 'Model Release';
+
 export interface RadarSignal {
   id: string;
   title: string;
-  category: 'Tech Shift' | 'Workflow' | 'New Tool' | 'Role Shift' | 'Model Release';
   summary: string;
+  category: RadarCategory;
+  impactLevel?: 'Critical' | 'High' | 'Medium' | 'Low';
+  publishedAt?: string;
+  source?: string;
+  capabilities?: string[];
+  affectedDomains?: string[];
+  recommendedTasks?: string[];
+  relatedTools?: string[];
+  investigationAvailable?: boolean;
+  tags?: string[];
+  active?: boolean;
   scaffold: {
     yesterday: string;
     today: string;
     whatChanged: string;
     whosAffected: string;
   };
-  isFollowed: boolean;
+  isFollowed?: boolean;
 }
 
 export interface CreditTransaction {
@@ -77,3 +102,80 @@ export const CREDIT_CONFIG = {
   REFLECTION_REWARD: 15,
   EVIDENCE_SUBMISSION_REWARD: 25
 };
+
+// ==========================================
+// AI WALLET TYPES
+// ==========================================
+
+export type TaskCategory =
+  | 'Reasoning & Writing'
+  | 'Agentic Coding'
+  | 'Multi-Modal'
+  | 'Research & RAG'
+  | 'Image & Vision'
+  | 'Data Analysis'
+  | 'Presentation'
+  | 'Video'
+  | 'Automation';
+
+export type ToolFamiliarity = 'exploring' | 'practicing' | 'proficient' | 'mastered';
+
+export type RecommendationType =
+  | 'ALTERNATIVE_TOOL'
+  | 'TASK_BASED'
+  | 'SKILL_GAP'
+  | 'LEARNING_RECOMMENDATION'
+  | 'RADAR_DISCOVERY';
+
+export interface AITool {
+  id: string;
+  name: string;
+  description: string;
+  category: TaskCategory;
+  capabilities: string[];
+  useCases: string[];
+  strengths: string[];
+  limitations: string[];
+  taskMappings: string[];
+  comparisonMetadata?: Record<string, any>;
+  websiteUrl: string;
+  activeStatus: boolean;
+  iconName?: string;
+}
+
+export interface UserToolItem {
+  toolId: string;
+  addedAt: string;
+  familiarity: ToolFamiliarity;
+  userNotes?: string;
+  primaryCategory: TaskCategory;
+  customTags?: string[];
+}
+
+export interface ToolRecommendation {
+  id: string;
+  toolId: string;
+  type: RecommendationType;
+  reason: string;
+  relatedTask?: string;
+  relatedSkill?: string;
+  relevance?: string;
+  status: 'active' | 'dismissed' | 'added';
+  createdAt: string;
+}
+
+export interface ComparisonPoint {
+  feature: string;
+  toolAFit: string;
+  toolBFit: string;
+}
+
+export interface ToolComparison {
+  task: string;
+  toolA: AITool;
+  toolB: AITool;
+  comparisonPoints: ComparisonPoint[];
+  keyConsideration: string;
+  summaryQuestion: string;
+}
+

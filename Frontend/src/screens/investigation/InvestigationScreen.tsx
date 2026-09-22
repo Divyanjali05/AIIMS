@@ -5,26 +5,61 @@ import { Badge } from '../../components/common/Badge';
 import { PageHeader } from '../../components/common/PageHeader';
 import { apiClient } from '../../api/client';
 import { RadarSignal } from '../../types';
-import { Search, Send, CheckCircle2, ArrowRight, Database, UserCheck, MessageCircle, ShieldCheck } from 'lucide-react';
+import {
+  Search,
+  Send,
+  CheckCircle2,
+  ArrowRight,
+  Database,
+  UserCheck,
+  ShieldCheck,
+  HelpCircle,
+  Users,
+  Zap,
+  Plus,
+  ArrowRightLeft,
+  ExternalLink
+} from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { MentorMessage } from '../../components/common/MentorMessage';
+import { trackLearningLoopEvent } from '../../services/learningLoop';
 
-export const InvestigationScreen: React.FC<{ signal: RadarSignal | null; onComplete: () => void }> = ({ signal, onComplete }) => {
-  const { investigateSignal } = useLearner();
+interface InvestigationScreenProps {
+  signal: RadarSignal | null;
+  onComplete: () => void;
+  onNavigateTab?: (tab: string, metadata?: any) => void;
+}
+
+export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
+  signal,
+  onComplete,
+  onNavigateTab
+}) => {
+  const { investigateSignal, addToolToWallet, state } = useLearner();
   const [personalInterpretation, setPersonalInterpretation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const activeSignal = signal || {
+  const activeSignal: RadarSignal = signal || {
     id: 'sig-1',
-    title: 'Autonomous Tool-Calling Agents Shift Core Prompting Models',
-    category: 'Model Release',
-    summary: 'AI models can now interact directly with desktop OS environments and APIs via mouse, keyboard, and function execution loops.',
+    title: 'Claude 3.5 Sonnet & Computer Use OS Automation',
+    category: 'Agentic AI',
+    impactLevel: 'Critical',
+    publishedAt: 'September 2026',
+    source: 'Anthropic Technical Release Bulletin',
+    summary: 'AI models can now interact directly with desktop OS environments via mouse and keyboard emulation loops.',
+    capabilities: ['Visual Screenshot Grounding', 'OS GUI Control', 'Multi-step Desktop Navigation'],
+    affectedDomains: ['QA Engineering', 'Workflow Automation', 'Software Development'],
+    recommendedTasks: ['Automated desktop GUI testing', 'Cross-application workflow execution'],
+    relatedTools: ['tool-claude', 'tool-make'],
+    investigationAvailable: true,
+    tags: ['agentic-ai', 'computer-use'],
+    active: true,
     scaffold: {
-      yesterday: 'AI models responded purely via single-turn text/JSON prompts requiring human developers to coordinate every sub-step.',
-      today: 'Models interpret visual screenshots, call tools dynamically, and execute native multi-step loops directly.',
-      whatChanged: 'Shift from line-by-line manual prompting to goal specification with automated tool-execution loops.',
-      whosAffected: 'Developers, product managers, workflow designers, and knowledge workers relying on recurring multi-step tasks.'
+      yesterday: 'AI models responded purely via single-turn text/JSON prompts requiring human developers to bind custom tool handlers.',
+      today: 'Models interpret visual screenshots, call tools dynamically, and execute native multi-step desktop GUI actions directly.',
+      whatChanged: 'Shift from text-only APIs to direct GUI interaction loops.',
+      whosAffected: 'Developers, product managers, workflow designers, and QA engineers.'
     }
   };
 
@@ -33,19 +68,26 @@ export const InvestigationScreen: React.FC<{ signal: RadarSignal | null; onCompl
     setIsSubmitting(true);
     await apiClient.submitInvestigation(activeSignal.id, personalInterpretation);
     investigateSignal(activeSignal.id, personalInterpretation);
+    trackLearningLoopEvent({
+      eventType: 'INVESTIGATION_COMPLETED',
+      signalId: activeSignal.id,
+      metadata: { reflectionLength: personalInterpretation.length }
+    });
     setIsSubmitting(false);
     setSubmitted(true);
   };
 
-  return (
-    <div style={{ maxWidth: '940px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+  const relatedToolId = activeSignal.relatedTools && activeSignal.relatedTools.length > 0 ? activeSignal.relatedTools[0] : 'tool-claude';
+  const isToolInWallet = (state.aiWallet?.userTools || []).some((t) => t.toolId === relatedToolId);
 
+  return (
+    <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* PAGE HEADER */}
       <PageHeader
         icon={<Search size={24} />}
         title="Research Workspace — Technical Investigation"
-        description="Multi-tiered evidence palette distinguishing Source Data (Blue), AIIMS Interpretation (Violet), and Learner Reflection (Green)."
-        badge={{ label: 'Evidence Architecture', variant: 'cyan', icon: <Database size={12} /> }}
+        description="Deep dive analysis answering What Changed, Why It Matters, Who Should Care, and What You Can Do."
+        badge={{ label: activeSignal.category, variant: 'cyan', icon: <Database size={12} /> }}
       />
 
       {submitted ? (
@@ -70,12 +112,15 @@ export const InvestigationScreen: React.FC<{ signal: RadarSignal | null; onCompl
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-          {/* 1. SOURCE DATA (BLUE / SKY PALETTE) */}
+          {/* 1. SOURCE DATA BANNER */}
           <Surface variant="sky" radius="lg" padding="lg">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Badge variant="cyan" icon={<Database size={12} />}>SOURCE DATA (BLUE)</Badge>
+              <Badge variant="cyan" icon={<Database size={12} />}>
+                SOURCE: {activeSignal.source || 'Technical AI Feed'}
+              </Badge>
+              <Badge variant="purple" size="sm">{activeSignal.impactLevel} Impact</Badge>
             </div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
               {activeSignal.title}
             </h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#075985', lineHeight: 1.5, fontWeight: 500 }}>
@@ -83,53 +128,139 @@ export const InvestigationScreen: React.FC<{ signal: RadarSignal | null; onCompl
             </p>
           </Surface>
 
-          {/* 2 & 3. YESTERDAY vs TODAY */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <Surface variant="amber" radius="lg" padding="md">
-              <div style={{ fontSize: '11px', color: '#b45309', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>
-                YESTERDAY — WHAT WAS TRUE BEFORE?
-              </div>
-              <p style={{ margin: 0, fontSize: '13px', color: '#78350f', lineHeight: 1.45, fontWeight: 500 }}>
-                {activeSignal.scaffold.yesterday}
-              </p>
-            </Surface>
+          {/* 4 CORE QUESTIONS GRID */}
 
-            <Surface variant="mint" radius="lg" padding="md">
-              <div style={{ fontSize: '11px', color: '#047857', fontWeight: 800, textTransform: 'uppercase', marginBottom: '4px' }}>
-                TODAY — WHAT IS TRUE NOW?
-              </div>
-              <p style={{ margin: 0, fontSize: '13px', color: '#064e3b', lineHeight: 1.45, fontWeight: 500 }}>
-                {activeSignal.scaffold.today}
-              </p>
-            </Surface>
-          </div>
-
-          {/* 4. AIIMS INTERPRETATION (VIOLET PALETTE) */}
+          {/* Q1: WHAT CHANGED? */}
           <Surface variant="violet" radius="lg" padding="lg">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <Badge variant="purple" icon={<ShieldCheck size={12} />}>AIIMS SYSTEM INTERPRETATION (VIOLET)</Badge>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Badge variant="purple" icon={<ShieldCheck size={12} />}>1. WHAT CHANGED?</Badge>
             </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1e1b4b', margin: '0 0 10px' }}>
+              {activeSignal.scaffold.whatChanged}
+            </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div>
-                <div style={{ fontSize: '11px', color: '#6b21a8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>WHAT CHANGED?</div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#4c1d95', lineHeight: 1.45 }}>{activeSignal.scaffold.whatChanged}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>YESTERDAY</span>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{activeSignal.scaffold.yesterday}</p>
               </div>
 
-              <div>
-                <div style={{ fontSize: '11px', color: '#6b21a8', fontWeight: 800, textTransform: 'uppercase', marginBottom: '2px' }}>WHO'S AFFECTED?</div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#4c1d95', lineHeight: 1.45 }}>{activeSignal.scaffold.whosAffected}</p>
+              <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>TODAY</span>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{activeSignal.scaffold.today}</p>
               </div>
             </div>
           </Surface>
 
-          {/* MENTOR QUESTION */}
+          {/* Q2: WHY DOES IT MATTER? */}
+          <Surface variant="amber" radius="lg" padding="lg">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Badge variant="warning" icon={<Zap size={12} />}>2. WHY DOES IT MATTER?</Badge>
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#78350f', margin: '0 0 8px' }}>
+              Practical Engineering & Capability Impact
+            </h3>
+            <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#92400e', lineHeight: 1.5 }}>
+              This shift changes how technical tasks are structured. Instead of writing rigid procedural code or manual step-by-step prompts, professionals specify goals and build verification rails for automated tool loops.
+            </p>
+
+            {activeSignal.capabilities && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {activeSignal.capabilities.map((cap, i) => (
+                  <span key={i} style={{ fontSize: '11px', backgroundColor: '#fef3c7', color: '#92400e', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                    ⚡ {cap}
+                  </span>
+                ))}
+              </div>
+            )}
+          </Surface>
+
+          {/* Q3: WHO SHOULD CARE? */}
+          <Surface variant="sky" radius="lg" padding="lg">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Badge variant="cyan" icon={<Users size={12} />}>3. WHO SHOULD CARE?</Badge>
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0369a1', margin: '0 0 6px' }}>
+              Target Roles & Domains Affected
+            </h3>
+            <p style={{ margin: '0 0 10px', fontSize: '13px', color: '#075985', lineHeight: 1.45 }}>
+              {activeSignal.scaffold.whosAffected}
+            </p>
+
+            {activeSignal.affectedDomains && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {activeSignal.affectedDomains.map((dom, i) => (
+                  <span key={i} style={{ fontSize: '11px', backgroundColor: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                    🎯 {dom}
+                  </span>
+                ))}
+              </div>
+            )}
+          </Surface>
+
+          {/* Q4: WHAT CAN I DO? (ACTION PALETTE) */}
+          <Surface variant="bordered" radius="lg" padding="lg">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <Badge variant="primary" icon={<HelpCircle size={12} />}>4. WHAT CAN I DO NEXT?</Badge>
+            </div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+              Actionable Pathways in AIIMS
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={isToolInWallet ? <CheckCircle2 size={13} /> : <Plus size={13} />}
+                disabled={isToolInWallet}
+                onClick={() => {
+                  addToolToWallet(relatedToolId, 'Reasoning & Writing', 'exploring');
+                  trackLearningLoopEvent({
+                    eventType: 'TOOL_ADDED',
+                    toolId: relatedToolId,
+                    metadata: { sourceSignalId: activeSignal.id }
+                  });
+                }}
+              >
+                {isToolInWallet ? 'Tool in Wallet' : 'Add Related Tool to Wallet'}
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<ArrowRightLeft size={13} />}
+                onClick={() => {
+                  if (onNavigateTab) onNavigateTab('wallet');
+                  trackLearningLoopEvent({
+                    eventType: 'TOOLS_COMPARED',
+                    toolId: relatedToolId,
+                    metadata: { sourceSignalId: activeSignal.id }
+                  });
+                }}
+              >
+                Compare Related Tools
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<ExternalLink size={13} />}
+                onClick={() => {
+                  if (onNavigateTab) onNavigateTab('wallet');
+                }}
+              >
+                Explore Wallet Toolkit
+              </Button>
+            </div>
+          </Surface>
+
+          {/* MENTOR DEEPENING QUESTION */}
           <MentorMessage
             title="AIIMS MENTOR QUESTION TO DEEPEN YOUR THINKING"
-            message={`"As tool-calling agents execute multi-turn steps autonomously, what verification checkpoint must you build into your workflow before accepting the agent's output?"`}
+            message={`"As automated tools execute multi-turn steps autonomously, what verification checkpoint must you build into your workflow before accepting output?"`}
           />
 
-          {/* 5. YOUR REFLECTION (GREEN PALETTE) */}
+          {/* 5. YOUR REFLECTION */}
           <Surface variant="mint" radius="lg" padding="lg">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Badge variant="success" icon={<UserCheck size={12} />}>YOUR REFLECTION (GREEN)</Badge>
@@ -142,7 +273,7 @@ export const InvestigationScreen: React.FC<{ signal: RadarSignal | null; onCompl
               rows={4}
               value={personalInterpretation}
               onChange={(e) => setPersonalInterpretation(e.target.value)}
-              placeholder="e.g. In my weekly status reporting workflow, I will delegate the initial draft to an agent tool, but set a mandatory human review step before distribution..."
+              placeholder="e.g. In my weekly status reporting workflow, I will delegate initial drafting to an agent, but enforce a human review verification step..."
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
