@@ -38,18 +38,43 @@ export interface FocusArea {
   status: 'Pending' | 'In Progress' | 'Completed';
 }
 
+export type RadarCategory =
+  | 'New Models'
+  | 'Agentic AI'
+  | 'Coding'
+  | 'Research'
+  | 'Multimodal'
+  | 'Image & Video'
+  | 'Automation'
+  | 'Productivity'
+  | 'Tech Shift'
+  | 'Workflow'
+  | 'New Tool'
+  | 'Role Shift'
+  | 'Model Release';
+
 export interface RadarSignal {
   id: string;
   title: string;
-  category: 'Tech Shift' | 'Workflow' | 'New Tool' | 'Role Shift' | 'Model Release';
   summary: string;
+  category: RadarCategory;
+  impactLevel?: 'Critical' | 'High' | 'Medium' | 'Low';
+  publishedAt?: string;
+  source?: string;
+  capabilities?: string[];
+  affectedDomains?: string[];
+  recommendedTasks?: string[];
+  relatedTools?: string[];
+  investigationAvailable?: boolean;
+  tags?: string[];
+  active?: boolean;
   scaffold: {
     yesterday: string;
     today: string;
     whatChanged: string;
     whosAffected: string;
   };
-  isFollowed: boolean;
+  isFollowed?: boolean;
 }
 
 export interface CreditTransaction {

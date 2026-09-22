@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, UserToolItem, TaskCategory, ToolFamiliarity } from '../types';
+import { UserProfile, UserToolItem, TaskCategory, ToolFamiliarity, SolvedWorkflow, UserProject } from '../types';
 import { apiClient } from '../api/client';
 
 export interface CreditTransactionItem {
@@ -57,6 +57,10 @@ export interface LearnerState {
   radar: {
     status: 'available';
     investigatedSignalIds: string[];
+    savedSignalIds: string[];
+    dismissedSignalIds: string[];
+    lastViewedRadar: string | null;
+    radarProgress: number;
   };
   investigation: {
     status: 'locked' | 'available' | 'completed';
@@ -75,6 +79,20 @@ export interface LearnerState {
   aiWallet: {
     userTools: UserToolItem[];
     dismissedRecommendations: string[];
+  };
+  solver?: {
+    latestWorkflow: SolvedWorkflow | null;
+    history: SolvedWorkflow[];
+  };
+  build?: {
+    projects: UserProject[];
+    activeProjectId: string | null;
+  };
+  radarOpportunityContext?: {
+    activeSignalId: string | null;
+    opportunityTitle?: string;
+    opportunityDesc?: string;
+    passedContext?: any;
   };
 }
 
@@ -123,7 +141,11 @@ const initialLearnerState: LearnerState = {
   },
   radar: {
     status: 'available',
-    investigatedSignalIds: []
+    investigatedSignalIds: [],
+    savedSignalIds: [],
+    dismissedSignalIds: [],
+    lastViewedRadar: null,
+    radarProgress: 0
   },
   investigation: {
     status: 'locked',
@@ -177,6 +199,14 @@ const initialLearnerState: LearnerState = {
       }
     ],
     dismissedRecommendations: []
+  },
+  solver: {
+    latestWorkflow: null,
+    history: []
+  },
+  build: {
+    projects: [],
+    activeProjectId: null
   }
 };
 
@@ -195,11 +225,16 @@ interface LearnerContextType {
   changeFocusTrack: (newTrackName: string) => void;
   clearFocusSelection: () => void;
   investigateSignal: (signalId: string, notes?: string) => void;
+  toggleSaveSignal: (signalId: string) => void;
+  dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
   addToolToWallet: (toolId: string, primaryCategory: TaskCategory, familiarity?: ToolFamiliarity, userNotes?: string) => void;
   removeToolFromWallet: (toolId: string) => void;
   updateToolFamiliarity: (toolId: string, familiarity: ToolFamiliarity, userNotes?: string) => void;
   dismissRecommendation: (recommendationId: string) => void;
+  saveSolvedWorkflow: (workflow: Omit<SolvedWorkflow, 'id' | 'createdAt'>) => void;
+  saveUserProject: (project: Omit<UserProject, 'id' | 'createdAt'>) => void;
+  setRadarOpportunityContext: (ctx: { activeSignalId: string; opportunityTitle?: string; opportunityDesc?: string; passedContext?: any } | null) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, password: string, college?: string) => Promise<{ success: boolean; error?: string }>;
@@ -584,6 +619,32 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const toggleSaveSignal = (signalId: string) => {
+    setState((prev) => {
+      const saved = prev.radar?.savedSignalIds || [];
+      const updated = saved.includes(signalId)
+        ? saved.filter((id) => id !== signalId)
+        : [...saved, signalId];
+      return {
+        ...prev,
+        radar: {
+          ...prev.radar,
+          savedSignalIds: updated
+        }
+      };
+    });
+  };
+
+  const dismissSignal = (signalId: string) => {
+    setState((prev) => ({
+      ...prev,
+      radar: {
+        ...prev.radar,
+        dismissedSignalIds: [...(prev.radar?.dismissedSignalIds || []), signalId]
+      }
+    }));
+  };
+
   const awardCredits = (amount: number, description: string, actionKey?: string) => {
     const key = actionKey || `CUSTOM_${Date.now()}_${amount}`;
     const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -845,6 +906,54 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
+  const saveSolvedWorkflow = (workflow: Omit<SolvedWorkflow, 'id' | 'createdAt'>) => {
+    const fullWorkflow: SolvedWorkflow = {
+      ...workflow,
+      id: `wf-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    setState((prev) => {
+      const currentSolver = prev.solver || { latestWorkflow: null, history: [] };
+      return {
+        ...prev,
+        solver: {
+          latestWorkflow: fullWorkflow,
+          history: [fullWorkflow, ...currentSolver.history]
+        }
+      };
+    });
+  };
+
+  const saveUserProject = (project: Omit<UserProject, 'id' | 'createdAt'>) => {
+    const fullProject: UserProject = {
+      ...project,
+      id: `proj-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+    setState((prev) => {
+      const currentBuild = prev.build || { projects: [], activeProjectId: null };
+      return {
+        ...prev,
+        build: {
+          projects: [fullProject, ...currentBuild.projects],
+          activeProjectId: fullProject.id
+        }
+      };
+    });
+  };
+
+  const setRadarOpportunityContext = (ctx: { activeSignalId: string; opportunityTitle?: string; opportunityDesc?: string; passedContext?: any } | null) => {
+    setState((prev) => ({
+      ...prev,
+      radarOpportunityContext: ctx ? {
+        activeSignalId: ctx.activeSignalId,
+        opportunityTitle: ctx.opportunityTitle,
+        opportunityDesc: ctx.opportunityDesc,
+        passedContext: ctx.passedContext
+      } : undefined
+    }));
+  };
+
   return (
     <LearnerContext.Provider
       value={{
@@ -866,11 +975,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         changeFocusTrack,
         clearFocusSelection,
         investigateSignal,
+        toggleSaveSignal,
+        dismissSignal,
         awardCredits,
         addToolToWallet,
         removeToolFromWallet,
         updateToolFamiliarity,
         dismissRecommendation,
+        saveSolvedWorkflow,
+        saveUserProject,
+        setRadarOpportunityContext,
         markNotificationRead,
         clearNotifications,
         resetState

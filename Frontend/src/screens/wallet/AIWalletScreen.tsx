@@ -7,17 +7,21 @@ import {
   ExternalLink,
   Plus,
   Trash2,
-  Filter,
   BarChart2,
   ArrowRightLeft,
   Compass,
   Briefcase,
-  HelpCircle,
-  Eye,
-  Sliders,
   AlertCircle,
   ChevronRight,
-  BookOpen
+  X,
+  Edit3,
+  Save,
+  Info,
+  Layers,
+  ShieldCheck,
+  Tag,
+  ArrowRight,
+  Target
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
@@ -34,6 +38,7 @@ import {
 } from '../../types';
 import { apiClient } from '../../api/client';
 import { generateWalletRecommendations } from '../../services/recommendationEngine';
+import { trackLearningLoopEvent } from '../../services/learningLoop';
 
 interface AIWalletScreenProps {
   setActiveTab: (tab: string) => void;
@@ -59,9 +64,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
   const [compareToolBId, setCompareToolBId] = useState<string>('tool-claude');
   const [comparisonData, setComparisonData] = useState<ToolComparison | null>(null);
 
-  // Manage Tool Modal State
-  const [managingToolId, setManagingToolId] = useState<string | null>(null);
-  const [editingNotes, setEditingNotes] = useState<string>('');
+  // Tool Detail Modal State
+  const [selectedDetailTool, setSelectedDetailTool] = useState<AITool | null>(null);
+  const [detailContextReason, setDetailContextReason] = useState<string | null>(null);
+
+  // User Notes Editing State
+  const [editingNotesToolId, setEditingNotesToolId] = useState<string | null>(null);
+  const [notesInput, setNotesInput] = useState<string>('');
 
   // Fetch Backend Catalog on Mount
   useEffect(() => {
@@ -82,12 +91,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     };
   }, []);
 
-  // Compute recommendations dynamically using recommendationEngine
+  // Compute recommendations dynamically using recommendationEngine with full LearnerContext
   const recommendations: ToolRecommendation[] = generateWalletRecommendations(state, catalog);
 
   const userTools = state.aiWallet?.userTools || [];
 
-  // Category Options
+  // All 9 Task Categories
   const categories: TaskCategory[] = [
     'Reasoning & Writing',
     'Agentic Coding',
@@ -100,7 +109,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     'Automation'
   ];
 
-  // Map user tool item to catalog data
+  // Map user tool items to detailed catalog data
   const userToolsWithDetails = userTools.map((item) => {
     const detail = catalog.find((c) => c.id === item.toolId);
     return {
@@ -113,7 +122,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     };
   });
 
-  // Filtered user tools for MY WALLET tab
+  // Filtered user tools for MY WALLET section
   const filteredUserTools = userToolsWithDetails.filter((t) => {
     const matchesCategory = selectedCategory === 'All' || t.primaryCategory === selectedCategory;
     const matchesSearch =
@@ -123,7 +132,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     return matchesCategory && matchesSearch;
   });
 
-  // Fetch side-by-side comparison when tools change in COMPARE tab
+  // Fetch side-by-side comparison when tools change in COMPARE section
   useEffect(() => {
     if (activeSection === 'compare' && compareToolAId && compareToolBId) {
       apiClient
@@ -131,6 +140,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         .then((res) => {
           if (res && res.toolA && res.toolB) {
             setComparisonData(res);
+            trackLearningLoopEvent({
+              eventType: 'TOOLS_COMPARED',
+              toolId: compareToolAId,
+              metadata: { toolBId: compareToolBId }
+            });
           }
         })
         .catch((e) => console.warn('Comparison fetch failed:', e));
@@ -141,6 +155,30 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     setCompareToolAId(toolAId);
     setCompareToolBId(toolBId);
     setActiveSection('compare');
+  };
+
+  const handleOpenDetailModal = (tool: AITool, contextReason?: string) => {
+    setSelectedDetailTool(tool);
+    setDetailContextReason(contextReason || null);
+    trackLearningLoopEvent({
+      eventType: 'TOOL_EXPLORED_DETAIL',
+      toolId: tool.id,
+      category: tool.category
+    });
+  };
+
+  const handleSaveNotes = (toolId: string) => {
+    const currentTool = userTools.find((t) => t.toolId === toolId);
+    if (currentTool) {
+      updateToolFamiliarity(toolId, currentTool.familiarity, notesInput);
+      trackLearningLoopEvent({
+        eventType: 'FAMILIARITY_UPDATED',
+        toolId,
+        familiarity: currentTool.familiarity,
+        metadata: { notesUpdated: true }
+      });
+    }
+    setEditingNotesToolId(null);
   };
 
   const getFamiliarityBadgeVariant = (fam: ToolFamiliarity) => {
@@ -171,13 +209,32 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     }
   };
 
+  const getRuleTypeBadge = (type: string) => {
+    switch (type) {
+      case 'RADAR_DISCOVERY':
+        return <Badge variant="warning" size="sm" icon={<AlertCircle size={10} />}>Radar Shift</Badge>;
+      case 'FOCUS_BASED':
+        return <Badge variant="cyan" size="sm" icon={<Target size={10} />}>Active Focus</Badge>;
+      case 'SKILL_GAP':
+        return <Badge variant="purple" size="sm" icon={<BarChart2 size={10} />}>Growth Area</Badge>;
+      case 'TASK_BASED':
+        return <Badge variant="cyan" size="sm" icon={<Briefcase size={10} />}>Active Focus</Badge>;
+      case 'ALTERNATIVE_TOOL':
+        return <Badge variant="neutral" size="sm" icon={<ArrowRightLeft size={10} />}>Alternative Workflow</Badge>;
+      case 'TOOLKIT_GAP':
+        return <Badge variant="warning" size="sm" icon={<Layers size={10} />}>Toolkit Gap</Badge>;
+      default:
+        return <Badge variant="primary" size="sm" icon={<Sparkles size={10} />}>Recommended</Badge>;
+    }
+  };
+
   return (
     <div style={{ maxWidth: '1120px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Top Header */}
       <PageHeader
         icon={<Wallet style={{ width: '24px', height: '24px', color: '#6366f1' }} />}
         title="AI Wallet"
-        description="Your personalized AI toolkit. Track tools you currently use, discover relevant workflows based on your profile, compare alternatives neutrally, and round out your AI capabilities."
+        description="Your personalized AI toolkit layer. Track tools you currently use, discover relevant workflows based on your learning profile, compare alternatives neutrally, and round out your AI capabilities."
         action={
           <div style={{ display: 'flex', gap: '10px' }}>
             <Badge variant="primary" icon={<Briefcase size={12} />}>
@@ -189,6 +246,32 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           </div>
         }
       />
+
+      {/* WALLET -> CLARITY GUIDANCE BRIDGE BANNER (STAGE 3 -> STAGE 4) */}
+      <Surface variant="highlight" radius="lg" padding="md" style={{ borderLeft: '5px solid #6366f1' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Compass size={22} color="#4f46e5" />
+            <div>
+              <h4 style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 800, color: '#3730a3' }}>
+                NEXT JOURNEY STEP • CLARITY
+              </h4>
+              <p style={{ margin: 0, fontSize: '13px', color: '#4338ca', lineHeight: 1.4 }}>
+                You've explored the tools available to you. Now clarify what you actually want AI to help you accomplish.
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="violet"
+            size="sm"
+            icon={<ArrowRight size={14} />}
+            onClick={() => setActiveTab && setActiveTab('clarity')}
+          >
+            Build My AI Direction
+          </Button>
+        </div>
+      </Surface>
 
       {/* AI Mentor Contextual Advice */}
       <MentorMessage
@@ -268,7 +351,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   <span>🧰 Your AI Toolkit</span>
                 </h2>
                 <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                  Tools you currently use and are learning to master across your workflows.
+                  Tools you currently use and are learning to master across your daily workflows. Update familiarity levels to evolve your profile.
                 </p>
               </div>
 
@@ -361,10 +444,49 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       {tool.description}
                     </p>
 
-                    {/* User Notes Preview */}
-                    {tool.userNotes && (
-                      <div style={{ backgroundColor: '#f8f7fd', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', color: '#475569', fontStyle: 'italic', marginBottom: '12px', borderLeft: '3px solid #6366f1' }}>
-                        "{tool.userNotes}"
+                    {/* User Notes Section */}
+                    {editingNotesToolId === tool.toolId ? (
+                      <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <textarea
+                          value={notesInput}
+                          onChange={(e) => setNotesInput(e.target.value)}
+                          placeholder="Add your personal notes for this tool..."
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            borderRadius: '8px',
+                            border: '1px solid #6366f1',
+                            fontSize: '12px',
+                            fontFamily: "'Nunito', sans-serif",
+                            outline: 'none',
+                            resize: 'vertical',
+                            minHeight: '54px'
+                          }}
+                        />
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingNotesToolId(null)}>
+                            Cancel
+                          </Button>
+                          <Button variant="primary" size="sm" icon={<Save size={12} />} onClick={() => handleSaveNotes(tool.toolId)}>
+                            Save Note
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', backgroundColor: '#f8f7fd', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', color: '#475569', marginBottom: '12px', borderLeft: '3px solid #6366f1' }}>
+                        <span style={{ fontStyle: 'italic', flex: 1 }}>
+                          {tool.userNotes ? `"${tool.userNotes}"` : 'No personal notes added yet.'}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setEditingNotesToolId(tool.toolId);
+                            setNotesInput(tool.userNotes || '');
+                          }}
+                          style={{ border: 'none', background: 'transparent', color: '#6366f1', cursor: 'pointer', padding: '0 0 0 8px' }}
+                          title="Edit personal notes"
+                        >
+                          <Edit3 size={12} />
+                        </button>
                       </div>
                     )}
 
@@ -375,7 +497,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         {(['exploring', 'practicing', 'proficient', 'mastered'] as ToolFamiliarity[]).map((fam) => (
                           <button
                             key={fam}
-                            onClick={() => updateToolFamiliarity(tool.toolId, fam)}
+                            onClick={() => {
+                              updateToolFamiliarity(tool.toolId, fam);
+                              trackLearningLoopEvent({
+                                eventType: 'FAMILIARITY_UPDATED',
+                                toolId: tool.toolId,
+                                familiarity: fam
+                              });
+                            }}
                             title={`Mark as ${getFamiliarityLabel(fam)}`}
                             style={{
                               padding: '2px 8px',
@@ -398,16 +527,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   {/* Actions Footer */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <a
-                        href={tool.websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ textDecoration: 'none' }}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Info size={12} />}
+                        onClick={() => tool.detail && handleOpenDetailModal(tool.detail)}
                       >
-                        <Button variant="ghost" size="sm" icon={<ExternalLink size={12} />}>
-                          Explore
-                        </Button>
-                      </a>
+                        View Detail
+                      </Button>
 
                       <Button
                         variant="ghost"
@@ -423,7 +550,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       variant="ghost"
                       size="sm"
                       icon={<Trash2 size={12} />}
-                      onClick={() => removeToolFromWallet(tool.toolId)}
+                      onClick={() => {
+                        removeToolFromWallet(tool.toolId);
+                        trackLearningLoopEvent({
+                          eventType: 'TOOL_REMOVED',
+                          toolId: tool.toolId
+                        });
+                      }}
                       style={{ color: '#ef4444' }}
                     >
                       Remove
@@ -447,7 +580,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 <span>💡 Worth Exploring</span>
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Personalized AI tool recommendations derived from your AI Profile, diagnostic assessment scores, active focus track, and current toolkit coverage.
+                Personalized AI tool recommendations derived from your AI Profile, diagnostic assessment scores, active focus track, AI Radar investigations, and current toolkit coverage.
               </p>
             </div>
           </Surface>
@@ -489,6 +622,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                           <Badge variant="primary" icon={<Sparkles size={12} />}>
                             💡 Worth exploring
                           </Badge>
+                          {getRuleTypeBadge(rec.type)}
                           {rec.relatedTask && (
                             <Badge variant="cyan" size="sm">
                               Task: {rec.relatedTask}
@@ -512,7 +646,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         {/* Recommendation Reason Box */}
                         <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '12px 16px', borderRadius: '12px', marginBottom: '12px' }}>
                           <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '4px' }}>
-                            Why you're seeing this:
+                            WHY YOU'RE SEEING THIS:
                           </div>
                           <div style={{ fontSize: '13px', color: '#312e81', lineHeight: 1.5 }}>
                             "{rec.reason}"
@@ -536,6 +670,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '12px' }}>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Info size={13} />}
+                          onClick={() => toolDetail && handleOpenDetailModal(toolDetail, rec.reason)}
+                        >
+                          Explore Detail
+                        </Button>
+
+                        <Button
                           variant="secondary"
                           size="sm"
                           icon={<ArrowRightLeft size={13} />}
@@ -543,12 +686,6 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         >
                           Compare
                         </Button>
-
-                        <a href={toolDetail?.websiteUrl || '#'} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                          <Button variant="outline" size="sm" icon={<ExternalLink size={13} />}>
-                            Explore
-                          </Button>
-                        </a>
 
                         <Button
                           variant={isAlreadyInWallet ? 'green' : 'primary'}
@@ -558,6 +695,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                           onClick={() => {
                             if (toolDetail) {
                               addToolToWallet(toolDetail.id, toolDetail.category, 'exploring');
+                              trackLearningLoopEvent({
+                                eventType: 'TOOL_ADDED',
+                                toolId: toolDetail.id,
+                                category: toolDetail.category,
+                                recommendationId: rec.id
+                              });
                             }
                           }}
                         >
@@ -568,7 +711,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => dismissRecommendation(rec.id)}
+                        onClick={() => {
+                          dismissRecommendation(rec.id);
+                          trackLearningLoopEvent({
+                            eventType: 'RECOMMENDATION_DISMISSED',
+                            recommendationId: rec.id,
+                            toolId: rec.toolId
+                          });
+                        }}
                         style={{ color: '#94a3b8' }}
                       >
                         Maybe Later
@@ -712,7 +862,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               {/* Neutral Task Synthesis Prompt */}
               <Surface variant="highlight" radius="lg" padding="md" style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-                  Task Synthesis
+                  Task Synthesis & Decision Framework
                 </div>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 800, color: '#1e1b4b' }}>
                   {comparisonData.summaryQuestion}
@@ -809,13 +959,175 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       }}
                       style={{ alignSelf: 'flex-start', color: '#6366f1', padding: 0 }}
                     >
-                      Explore {cat} Tools
+                      Explore {cat} Tools →
                     </Button>
                   )}
                 </Surface>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TOOL DETAIL MODAL EXPERIENCE */}
+      {/* ========================================================================= */}
+      {selectedDetailTool && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <Surface variant="bordered" radius="lg" padding="lg" style={{
+            maxWidth: '680px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            position: 'relative',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+          }}>
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedDetailTool(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                border: 'none',
+                background: '#f1f5f9',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748b'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* Modal Header */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <Badge variant="primary" icon={<Tag size={12} />}>{selectedDetailTool.category}</Badge>
+                <Badge variant="neutral" size="sm">Active Tool</Badge>
+              </div>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+                {selectedDetailTool.name}
+              </h2>
+              <p style={{ margin: 0, fontSize: '14px', color: '#475569', lineHeight: 1.5 }}>
+                {selectedDetailTool.description}
+              </p>
+            </div>
+
+            {/* Contextual Reason Box */}
+            {detailContextReason && (
+              <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Why AIIMS recommends exploring this:
+                </div>
+                <div style={{ fontSize: '13px', color: '#312e81', lineHeight: 1.5 }}>
+                  "{detailContextReason}"
+                </div>
+              </div>
+            )}
+
+            {/* Core Capabilities */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Key Capabilities
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {selectedDetailTool.capabilities.map((cap, i) => (
+                  <span key={i} style={{ fontSize: '12px', backgroundColor: '#eef2ff', color: '#4338ca', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
+                    ✓ {cap}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Strengths & Limitations Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+              <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Primary Strengths
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#166534', lineHeight: 1.6 }}>
+                  {selectedDetailTool.strengths.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '10px', border: '1px solid #fed7aa' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Trade-offs & Considerations
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#9a3412', lineHeight: 1.6 }}>
+                  {selectedDetailTool.limitations.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Action Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+              <Button
+                variant="secondary"
+                size="md"
+                icon={<ArrowRightLeft size={14} />}
+                onClick={() => {
+                  handleStartCompare('tool-chatgpt', selectedDetailTool.id);
+                  setSelectedDetailTool(null);
+                }}
+              >
+                Compare Tool
+              </Button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                {userTools.some((t) => t.toolId === selectedDetailTool.id) ? (
+                  <Button variant="green" size="md" icon={<CheckCircle2 size={14} />} disabled>
+                    In Your Wallet
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    size="md"
+                    icon={<Plus size={14} />}
+                    onClick={() => {
+                      addToolToWallet(selectedDetailTool.id, selectedDetailTool.category, 'exploring');
+                      trackLearningLoopEvent({
+                        eventType: 'TOOL_ADDED',
+                        toolId: selectedDetailTool.id,
+                        category: selectedDetailTool.category
+                      });
+                      setSelectedDetailTool(null);
+                    }}
+                  >
+                    Add to Wallet
+                  </Button>
+                )}
+
+                <a href={selectedDetailTool.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                  <Button variant="outline" size="md" icon={<ExternalLink size={14} />}>
+                    Open Tool Website
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </Surface>
         </div>
       )}
     </div>

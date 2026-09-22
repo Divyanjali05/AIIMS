@@ -508,7 +508,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
           </div>
 
           {/* Review Action Buttons */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: '16px', borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
             <Button
               variant="outline"
               size="md"

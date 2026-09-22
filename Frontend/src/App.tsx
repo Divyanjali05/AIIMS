@@ -12,6 +12,8 @@ import { FocusScreen } from './screens/focus/FocusScreen';
 import { RadarScreen } from './screens/radar/RadarScreen';
 import { InvestigationScreen } from './screens/investigation/InvestigationScreen';
 import { RelevanceScreen } from './screens/relevance/RelevanceScreen';
+import { ProblemSolverScreen } from './screens/solver/ProblemSolverScreen';
+import { BuildScreen } from './screens/build/BuildScreen';
 import { RadarSignal } from './types';
 import { Surface } from './components/common/Surface';
 import { PageHeader } from './components/common/PageHeader';
@@ -109,6 +111,14 @@ const AppContent: React.FC = () => {
 
           {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
 
+          {activeTab === 'solver' && (
+            <ProblemSolverScreen setActiveTab={setActiveTab} />
+          )}
+
+          {activeTab === 'build' && (
+            <BuildScreen setActiveTab={setActiveTab} />
+          )}
+
           {activeTab === 'mentor' && (
             <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <PageHeader
@@ -149,9 +159,9 @@ const AppContent: React.FC = () => {
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
                   Learner Profile
                 </div>
-                <div style={{ fontSize: '13px', color: '#64748b' }}>
-                  Name: {state.profile.name} | Role: {state.profile.role} | Progression Stage: {state.profile.stage}
-                </div>
+                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                  Logged in as {state.profile.name} ({state.profile.email})
+                </p>
               </Surface>
             </div>
           )}

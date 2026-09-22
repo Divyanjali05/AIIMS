@@ -348,6 +348,7 @@ router.put('/learner/state', async (req: AuthenticatedRequest, res: Response) =>
     if (state.focus) Object.assign(mockLearnerFullState.focus, state.focus);
     if (state.aiWallet) Object.assign(mockLearnerFullState.aiWallet, state.aiWallet);
     return res.json({ success: true, state: mockLearnerFullState });
+
   } catch (err: any) {
     console.error('Error syncing learner state to MongoDB:', err);
     return res.status(500).json({ error: 'Failed to sync learner state to DB', details: err.message });
