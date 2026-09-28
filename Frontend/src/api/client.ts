@@ -181,8 +181,25 @@ export const apiClient = {
   },
 
   // 9. AI Wallet Module APIs
-  async getWalletCatalog() {
-    const res = await fetch(`${API_BASE}/wallet/catalog`, {
+  async getWalletCatalog(params?: { category?: string; domain?: string; status?: string; pricing?: string; search?: string }) {
+    const query = new URLSearchParams(params as any).toString();
+    const res = await fetch(`${API_BASE}/wallet/catalog?${query}`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async searchRequirement(query: string, userTools?: any[]) {
+    const res = await fetch(`${API_BASE}/wallet/search`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ query, userTools })
+    });
+    return res.json();
+  },
+
+  async getToolDetail(toolId: string) {
+    const res = await fetch(`${API_BASE}/wallet/tools/${toolId}`, {
       headers: getAuthHeaders()
     });
     return res.json();
@@ -225,6 +242,72 @@ export const apiClient = {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ toolAId, toolBId, task })
+    });
+    return res.json();
+  },
+
+  async compareToolsForRequirement(toolIds: string[], userRequirement?: string) {
+    const res = await fetch(`${API_BASE}/wallet/compare`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toolIds, userRequirement })
+    });
+    return res.json();
+  },
+
+  async getToolkitGaps() {
+    const res = await fetch(`${API_BASE}/wallet/gaps`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async triggerDiscoveryJob() {
+    const res = await fetch(`${API_BASE}/wallet/discover/trigger`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getDiscoveryStatus() {
+    const res = await fetch(`${API_BASE}/wallet/discovery/status`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getToolEvidence(toolId: string) {
+    const res = await fetch(`${API_BASE}/wallet/tools/${toolId}/evidence`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getToolHistory(toolId: string) {
+    const res = await fetch(`${API_BASE}/wallet/tools/${toolId}/history`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getNewTools() {
+    const res = await fetch(`${API_BASE}/wallet/tools/new`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getRecentlyUpdatedTools() {
+    const res = await fetch(`${API_BASE}/wallet/tools/recently-updated`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getIntelligenceStatus() {
+    const res = await fetch(`${API_BASE}/wallet/intelligence/status`, {
+      headers: getAuthHeaders()
     });
     return res.json();
   }

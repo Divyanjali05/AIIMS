@@ -826,11 +826,196 @@ router.post('/ai/mentor', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // ==========================================
-// 8. AI WALLET MODULE (Admin-Updatable Catalog & Neutral Recommendations)
+// 8. DYNAMIC AI WALLET & TOOL INTELLIGENCE MODULE
 // ==========================================
 
+import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
+import { SearchIntentService } from '../services/wallet/searchIntent.service';
+import { ToolMatchingService } from '../services/wallet/toolMatching.service';
+import { ToolComparisonService } from '../services/wallet/toolComparison.service';
+import { ToolDiscoveryService } from '../services/wallet/toolDiscovery.service';
+import { DomainTaxonomyService } from '../services/wallet/domainTaxonomy.service';
+import { ToolEvidenceService } from '../services/wallet/toolEvidence.service';
+import { ToolChangeDetectionService } from '../services/wallet/toolChangeDetection.service';
+import { ToolIntelligenceService } from '../services/wallet/toolIntelligence.service';
+
+/**
+ * POST /api/wallet/search — Natural Language Requirement Intent Search
+ */
+router.post('/wallet/search', (req: Request, res: Response) => {
+  const { query, userTools } = req.body;
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Search requirement query is required.' });
+  }
+
+  const userToolIds = Array.isArray(userTools) ? userTools.map((t: any) => t.toolId || t) : [];
+  const searchResult = ToolMatchingService.searchTools(query, userToolIds);
+  return res.json(searchResult);
+});
+
+/**
+ * GET /api/wallet/catalog — Verified AI Tool Catalog with Domain & Status Filtering
+ */
 router.get('/wallet/catalog', (req: Request, res: Response) => {
-  res.json(mockToolCatalog.filter(t => t.activeStatus));
+  const { category, domain, status, pricing, search } = req.query;
+  let tools = ToolCatalogService.getCatalog();
+
+  if (category && category !== 'All') {
+    tools = tools.filter(t => t.category === category || t.categories.includes(category as any));
+  }
+  if (domain && domain !== 'All') {
+    tools = tools.filter(t => t.domains.some(d => d.toLowerCase() === (domain as string).toLowerCase()));
+  }
+  if (status && status !== 'All') {
+    tools = tools.filter(t => t.status === status);
+  }
+  if (pricing && pricing !== 'All') {
+    if (pricing === 'Free') tools = tools.filter(t => t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable);
+    else if (pricing === 'Trial') tools = tools.filter(t => t.pricingDetails.freeTrialAvailable);
+    else if (pricing === 'Paid') tools = tools.filter(t => t.pricingDetails.type === 'PAID');
+  }
+  if (search && typeof search === 'string' && search.trim()) {
+    const q = search.trim().toLowerCase();
+    tools = tools.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.provider.toLowerCase().includes(q));
+  }
+
+  return res.json(tools.filter(t => t.activeStatus));
+});
+
+/**
+ * GET /api/wallet/tools/:id — Full In-App Tool Detail
+ */
+router.get('/wallet/tools/:id', (req: Request, res: Response) => {
+  const tool = ToolCatalogService.getToolById(req.params.id);
+  if (!tool) {
+    return res.status(404).json({ error: 'AI Tool not found in catalog.' });
+  }
+  return res.json(tool);
+});
+
+/**
+ * GET /api/wallet/taxonomy — Vast Multi-Domain AI Taxonomy
+ */
+router.get('/wallet/taxonomy', (req: Request, res: Response) => {
+  return res.json(DomainTaxonomyService.getTaxonomy());
+});
+
+/**
+ * POST /api/wallet/compare — Requirement-First Tool Comparison Engine
+ */
+router.post('/wallet/compare', (req: Request, res: Response) => {
+  const { toolIds, toolAId, toolBId, userRequirement, task } = req.body;
+  const ids: string[] = Array.isArray(toolIds) && toolIds.length > 0
+    ? toolIds
+    : [toolAId, toolBId].filter(Boolean);
+
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'At least 2 tool IDs are required for comparison.' });
+  }
+
+  try {
+    const comparison = ToolComparisonService.compareToolsForRequirement(ids, userRequirement || task);
+    return res.json(comparison);
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/wallet/gaps — Toolkit Gap Analysis
+ */
+router.get('/wallet/gaps', (req: AuthenticatedRequest, res: Response) => {
+  const userTools = req.user?.assessment ? mockUserTools : mockUserTools; // Extend from user state
+  const catalog = ToolCatalogService.getCatalog();
+  
+  const coveredDomains = new Set<string>();
+  for (const item of userTools) {
+    const tool = catalog.find(c => c.id === item.toolId);
+    if (tool) {
+      tool.domains.forEach(d => coveredDomains.add(d));
+    }
+  }
+
+  const allTaxonomy = DomainTaxonomyService.getTaxonomy();
+  const gaps = allTaxonomy
+    .filter(t => !coveredDomains.has(t.domain))
+    .map(t => ({
+      domain: t.domain,
+      subdomains: t.subdomains,
+      category: t.categoryMapping,
+      recommendedQuery: `Show me ${t.domain} AI tools`
+    }));
+
+  return res.json({
+    coveredCount: coveredDomains.size,
+    totalDomains: allTaxonomy.length,
+    coveredDomains: Array.from(coveredDomains),
+    gaps
+  });
+});
+
+/**
+ * POST /api/wallet/discover/trigger — Trigger Background Tool Discovery Refresh
+ */
+router.post('/wallet/discover/trigger', async (req: Request, res: Response) => {
+  const jobReport = await ToolDiscoveryService.runDiscoveryJob();
+  return res.json({
+    message: 'Automated AI Tool Discovery job completed successfully.',
+    report: jobReport,
+    newAndUpdatedTools: ToolCatalogService.getNewAndRecentlyUpdatedTools()
+  });
+});
+
+/**
+ * GET /api/wallet/tools/new — Surface Verified New AI Tools
+ */
+router.get('/wallet/tools/new', (req: Request, res: Response) => {
+  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'NEW');
+  return res.json(tools);
+});
+
+/**
+ * GET /api/wallet/tools/recently-updated — Surface Verified Recently Updated AI Tools
+ */
+router.get('/wallet/tools/recently-updated', (req: Request, res: Response) => {
+  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED');
+  return res.json(tools);
+});
+
+/**
+ * GET /api/wallet/tools/:id/evidence — Get Supporting Evidence for an AI Tool
+ */
+router.get('/wallet/tools/:id/evidence', async (req: Request, res: Response) => {
+  const evidence = await ToolEvidenceService.getEvidenceForTool(req.params.id);
+  return res.json(evidence);
+});
+
+/**
+ * GET /api/wallet/tools/:id/history — Get Version & Change History for an AI Tool
+ */
+router.get('/wallet/tools/:id/history', async (req: Request, res: Response) => {
+  const history = await ToolChangeDetectionService.getVersionHistory(req.params.id);
+  return res.json(history);
+});
+
+/**
+ * GET /api/wallet/intelligence/status — Get Live AI Ecosystem Intelligence Pipeline Status
+ */
+router.get('/wallet/intelligence/status', (req: Request, res: Response) => {
+  return res.json(ToolIntelligenceService.getIntelligenceStatus());
+});
+
+/**
+ * GET /api/wallet/discovery/status — Discovery Job & Verified Timestamp Logs
+ */
+router.get('/wallet/discovery/status', (req: Request, res: Response) => {
+  const status = ToolDiscoveryService.getStatus();
+  const newAndUpdated = ToolCatalogService.getNewAndRecentlyUpdatedTools();
+  return res.json({
+    status,
+    newAndUpdatedCount: newAndUpdated.length,
+    newAndUpdatedTools: newAndUpdated
+  });
 });
 
 router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
@@ -838,7 +1023,6 @@ router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
 });
 
 router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response) => {
-  // Generate recommendations dynamically from catalog metadata without hardcoded tool IDs
   const userTools = (req.user as any)?.aiWallet?.userTools || mockLearnerFullState.aiWallet?.userTools || mockUserTools;
   const userToolMap = new Map<string, string>();
   userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
@@ -849,6 +1033,7 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
   const clarityTopic = req.user?.clarity?.selectedTopic || mockLearnerFullState.clarity?.selectedTopic || '';
   const investigatedRadarIds = req.user?.radar?.investigatedSignalIds || mockLearnerFullState.radar?.investigatedSignalIds || [];
 
+  const catalog = ToolCatalogService.getCatalog();
   const recs = [];
 
   const containsMatch = (targetText: string, searchKey: string): boolean => {
@@ -856,7 +1041,7 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
     return targetText.toLowerCase().includes(searchKey.toLowerCase()) || searchKey.toLowerCase().includes(targetText.toLowerCase());
   };
 
-  for (const tool of mockToolCatalog) {
+  for (const tool of catalog) {
     if (!tool.activeStatus) continue;
 
     const familiarity = userToolMap.get(tool.id);
@@ -868,7 +1053,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
     const toolCategories = tool.categories || [tool.category];
     const toolRelatedTools = tool.relatedTools || [];
 
-    // 1. FOCUS_BASED
     if (toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) || toolCategories.some(cat => containsMatch(cat, activeFocus))) {
       matchedSignals.push({
         type: 'FOCUS_BASED',
@@ -877,7 +1061,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    // 2. RADAR_DISCOVERY
     let matchedRadarTopic: string | null = null;
     if (investigatedRadarIds.length > 0) {
       for (const sigId of investigatedRadarIds) {
@@ -900,7 +1083,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    // 3. TASK_BASED
     if (clarityTopic && (toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) || toolCategories.some(cat => containsMatch(cat, clarityTopic)))) {
       matchedSignals.push({
         type: 'TASK_BASED',
@@ -909,7 +1091,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    // 4. SKILL_GAP
     if (growthArea && (toolCategories.some(cat => containsMatch(cat, growthArea)) || toolFocusTracks.some(ft => containsMatch(ft, growthArea)))) {
       matchedSignals.push({
         type: 'SKILL_GAP',
@@ -918,7 +1099,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    // 5. TOOLKIT_GAP
     if (!walletCategories.has(tool.category) && !familiarity) {
       matchedSignals.push({
         type: 'TOOLKIT_GAP',
@@ -927,9 +1107,8 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
       });
     }
 
-    // 6. ALTERNATIVE_TOOL
     const isAlt = userTools.some((ut: any) => {
-      const userToolObj = mockToolCatalog.find(c => c.id === ut.toolId);
+      const userToolObj = catalog.find(c => c.id === ut.toolId);
       return userToolObj && (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId));
     });
     if (isAlt && !familiarity) {
@@ -942,7 +1121,6 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
 
     if (matchedSignals.length === 0) continue;
 
-    // Familiarity filtering
     if (familiarity === 'mastered') {
       const hasRadarOrAlt = matchedSignals.some(s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL');
       if (!hasRadarOrAlt) continue;
@@ -974,8 +1152,8 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
     recs.push({
       id: `rec-${tool.id}`,
       toolId: tool.id,
-      type: primarySignal.type,
-      matchedSignals: allSignalTypes,
+      type: primarySignal.type as any,
+      matchedSignals: allSignalTypes as any,
       reason: synthesizedReason,
       relatedTask: tool.useCases[0] || tool.category,
       relatedSkill: tool.category,
@@ -992,14 +1170,14 @@ router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response)
 router.post('/wallet/add', (req: AuthenticatedRequest, res: Response) => {
   const { toolId, familiarity, primaryCategory, userNotes } = req.body;
   const existing = mockUserTools.find(t => t.toolId === toolId);
-  
+
   if (existing) {
     existing.familiarity = familiarity || existing.familiarity;
     if (userNotes) existing.userNotes = userNotes;
     return res.json({ success: true, item: existing, action: 'updated' });
   }
 
-  const catalogItem = mockToolCatalog.find(t => t.id === toolId);
+  const catalogItem = ToolCatalogService.getToolById(toolId);
   const newItem = {
     toolId,
     addedAt: new Date().toISOString().split('T')[0],
@@ -1016,7 +1194,7 @@ router.post('/wallet/add', (req: AuthenticatedRequest, res: Response) => {
 router.post('/wallet/update-familiarity', (req: AuthenticatedRequest, res: Response) => {
   const { toolId, familiarity, userNotes } = req.body;
   const item = mockUserTools.find(t => t.toolId === toolId);
-  
+
   if (!item) {
     return res.status(404).json({ error: 'Tool not found in user wallet' });
   }
@@ -1025,45 +1203,6 @@ router.post('/wallet/update-familiarity', (req: AuthenticatedRequest, res: Respo
   if (userNotes !== undefined) item.userNotes = userNotes;
 
   res.json({ success: true, item });
-});
-
-router.post('/wallet/compare', (req: Request, res: Response) => {
-  const { toolAId, toolBId, task } = req.body;
-  
-  const toolA = mockToolCatalog.find(t => t.id === toolAId) || mockToolCatalog[0];
-  const toolB = mockToolCatalog.find(t => t.id === toolBId) || mockToolCatalog[1];
-
-  const targetTask = task || toolA.taskMappings[0] || 'Long-form reasoning & document analysis';
-
-  res.json({
-    task: targetTask,
-    toolA,
-    toolB,
-    comparisonPoints: [
-      {
-        feature: 'Primary Task Fit',
-        toolAFit: `${toolA.name} is designed for ${toolA.useCases[0] || 'versatile execution'}.`,
-        toolBFit: `${toolB.name} is designed for ${toolB.useCases[0] || 'targeted technical tasks'}.`
-      },
-      {
-        feature: 'Context Window & Architecture',
-        toolAFit: toolA.limitations[0] || 'Standard context management.',
-        toolBFit: toolB.strengths[0] || 'Extended context or workspace index.'
-      },
-      {
-        feature: 'Specialized Capabilities',
-        toolAFit: toolA.capabilities.slice(0, 3).join(', '),
-        toolBFit: toolB.capabilities.slice(0, 3).join(', ')
-      },
-      {
-        feature: 'Workflow Strengths',
-        toolAFit: toolA.strengths.slice(0, 2).join(' • '),
-        toolBFit: toolB.strengths.slice(0, 2).join(' • ')
-      }
-    ],
-    keyConsideration: `When choosing between ${toolA.name} and ${toolB.name}, consider your primary bottleneck: high-velocity quick queries vs deeper structured artifacts.`,
-    summaryQuestion: `Which may fit your task?`
-  });
 });
 
 export default router;

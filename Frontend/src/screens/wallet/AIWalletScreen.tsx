@@ -21,7 +21,13 @@ import {
   ShieldCheck,
   Tag,
   ArrowRight,
-  Target
+  Target,
+  RefreshCw,
+  Zap,
+  Globe,
+  Check,
+  Clock,
+  BookOpen
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
@@ -34,7 +40,9 @@ import {
   TaskCategory,
   ToolFamiliarity,
   ToolRecommendation,
-  ToolComparison
+  ToolSearchResult,
+  RequirementToolComparison,
+  ToolLifecycleStatus
 } from '../../types';
 import { apiClient } from '../../api/client';
 import { generateWalletRecommendations } from '../../services/recommendationEngine';
@@ -53,36 +61,76 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     dismissRecommendation
   } = useLearner();
 
-  const [activeSection, setActiveSection] = useState<'wallet' | 'discover' | 'compare' | 'gaps'>('wallet');
+  const [activeSection, setActiveSection] = useState<'wallet' | 'discover' | 'compare' | 'gaps'>('discover');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedPricing, setSelectedPricing] = useState<string>('All');
+  const [filterSearch, setFilterSearch] = useState<string>('');
 
-  // Tool Comparison State
-  const [compareToolAId, setCompareToolAId] = useState<string>('tool-chatgpt');
-  const [compareToolBId, setCompareToolBId] = useState<string>('tool-claude');
-  const [comparisonData, setComparisonData] = useState<ToolComparison | null>(null);
+  // Natural Language Requirement Search State
+  const [requirementQuery, setRequirementQuery] = useState<string>('');
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [searchResult, setSearchResult] = useState<ToolSearchResult | null>(null);
+
+  // Requirement-First Comparison State
+  const [comparisonRequirement, setComparisonRequirement] = useState<string>('');
+  const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>(['tool-chatgpt', 'tool-claude']);
+  const [reqComparisonData, setReqComparisonData] = useState<RequirementToolComparison | null>(null);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
 
   // Tool Detail Modal State
   const [selectedDetailTool, setSelectedDetailTool] = useState<AITool | null>(null);
   const [detailContextReason, setDetailContextReason] = useState<string | null>(null);
+  const [detailEvidence, setDetailEvidence] = useState<any[]>([]);
+  const [detailHistory, setDetailHistory] = useState<any[]>([]);
+
+  const handleOpenToolDetail = async (tool: AITool, reason?: string) => {
+    setSelectedDetailTool(tool);
+    setDetailContextReason(reason || null);
+    setDetailEvidence([]);
+    setDetailHistory([]);
+
+    try {
+      const [ev, hist] = await Promise.all([
+        apiClient.getToolEvidence(tool.id),
+        apiClient.getToolHistory(tool.id)
+      ]);
+      if (Array.isArray(ev)) setDetailEvidence(ev);
+      if (Array.isArray(hist)) setDetailHistory(hist);
+    } catch (err) {
+      console.warn('Failed to fetch evidence/history:', err);
+    }
+  };
 
   // User Notes Editing State
   const [editingNotesToolId, setEditingNotesToolId] = useState<string | null>(null);
   const [notesInput, setNotesInput] = useState<string>('');
 
-  // Fetch Backend Catalog on Mount
+  // Toolkit Gaps State
+  const [gapData, setGapData] = useState<any | null>(null);
+
+  // Discovery Job Status State
+  const [discoveryStatus, setDiscoveryStatus] = useState<any | null>(null);
+  const [isRefreshingDiscovery, setIsRefreshingDiscovery] = useState<boolean>(false);
+
+  // Fetch Catalog & Initial Data on Mount
   useEffect(() => {
     let isMounted = true;
-    apiClient
-      .getWalletCatalog()
-      .then((data) => {
-        if (isMounted && Array.isArray(data)) {
-          setCatalog(data);
+    setLoading(true);
+    Promise.all([
+      apiClient.getWalletCatalog(),
+      apiClient.getToolkitGaps(),
+      apiClient.getDiscoveryStatus()
+    ])
+      .then(([catalogData, gaps, discStatus]) => {
+        if (isMounted) {
+          if (Array.isArray(catalogData)) setCatalog(catalogData);
+          if (gaps) setGapData(gaps);
+          if (discStatus) setDiscoveryStatus(discStatus);
         }
       })
-      .catch((err) => console.warn('Could not fetch wallet catalog from API:', err))
+      .catch((err) => console.warn('API fetch warning:', err))
       .finally(() => {
         if (isMounted) setLoading(false);
       });
@@ -91,12 +139,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     };
   }, []);
 
-  // Compute recommendations dynamically using recommendationEngine with full LearnerContext
+  const userTools = state.aiWallet?.userTools || [];
   const recommendations: ToolRecommendation[] = generateWalletRecommendations(state, catalog);
 
-  const userTools = state.aiWallet?.userTools || [];
-
-  // All 9 Task Categories
   const categories: TaskCategory[] = [
     'Reasoning & Writing',
     'Agentic Coding',
@@ -117,147 +162,163 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
       name: detail?.name || item.toolId,
       description: detail?.description || 'Personal AI tool item',
       capabilities: detail?.capabilities || [],
-      websiteUrl: detail?.websiteUrl || '#',
+      websiteUrl: detail?.officialWebsite || detail?.websiteUrl || '#',
       detail
     };
   });
 
-  // Filtered user tools for MY WALLET section
-  const filteredUserTools = userToolsWithDetails.filter((t) => {
-    const matchesCategory = selectedCategory === 'All' || t.primaryCategory === selectedCategory;
-    const matchesSearch =
-      t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.primaryCategory.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Handle Natural Language Requirement Search
+  const handleExecuteRequirementSearch = async (queryText?: string) => {
+    const q = (queryText !== undefined ? queryText : requirementQuery).trim();
+    if (!q) return;
 
-  // Fetch side-by-side comparison when tools change in COMPARE section
-  useEffect(() => {
-    if (activeSection === 'compare' && compareToolAId && compareToolBId) {
-      apiClient
-        .compareTools(compareToolAId, compareToolBId)
-        .then((res) => {
-          if (res && res.toolA && res.toolB) {
-            setComparisonData(res);
-            trackLearningLoopEvent({
-              eventType: 'TOOLS_COMPARED',
-              toolId: compareToolAId,
-              metadata: { toolBId: compareToolBId }
-            });
-          }
-        })
-        .catch((e) => console.warn('Comparison fetch failed:', e));
+    setRequirementQuery(q);
+    setIsSearching(true);
+    try {
+      const res = await apiClient.searchRequirement(q, userTools);
+      setSearchResult(res);
+      trackLearningLoopEvent({
+        eventType: 'TOOL_SEARCHED',
+        metadata: { query: q, totalMatches: res.totalMatches }
+      });
+    } catch (err) {
+      console.error('Requirement search failed:', err);
+    } finally {
+      setIsSearching(false);
     }
-  }, [activeSection, compareToolAId, compareToolBId]);
-
-  const handleStartCompare = (toolAId: string, toolBId: string) => {
-    setCompareToolAId(toolAId);
-    setCompareToolBId(toolBId);
-    setActiveSection('compare');
   };
 
-  const handleOpenDetailModal = (tool: AITool, contextReason?: string) => {
+  // Handle Triggering Automated Discovery Refresh Job
+  const handleTriggerDiscovery = async () => {
+    setIsRefreshingDiscovery(true);
+    try {
+      const res = await apiClient.triggerDiscoveryJob();
+      if (res && res.report) {
+        setDiscoveryStatus({ status: res.report, newAndUpdatedTools: res.newAndUpdatedTools });
+        const updatedCatalog = await apiClient.getWalletCatalog();
+        if (Array.isArray(updatedCatalog)) setCatalog(updatedCatalog);
+      }
+    } catch (err) {
+      console.warn('Discovery trigger error:', err);
+    } finally {
+      setIsRefreshingDiscovery(false);
+    }
+  };
+
+  // Handle Dynamic Requirement-First Comparison
+  const handleRunRequirementComparison = async () => {
+    if (selectedCompareIds.length < 2) return;
+    setIsComparing(true);
+    try {
+      const res = await apiClient.compareToolsForRequirement(selectedCompareIds, comparisonRequirement);
+      setReqComparisonData(res);
+      trackLearningLoopEvent({
+        eventType: 'TOOLS_COMPARED',
+        toolId: selectedCompareIds[0],
+        metadata: { selectedCompareIds, requirement: comparisonRequirement }
+      });
+    } catch (err) {
+      console.error('Comparison execution failed:', err);
+    } finally {
+      setIsComparing(false);
+    }
+  };
+
+  const toggleSelectCompareId = (id: string) => {
+    if (selectedCompareIds.includes(id)) {
+      if (selectedCompareIds.length > 2) {
+        setSelectedCompareIds(selectedCompareIds.filter(i => i !== id));
+      }
+    } else {
+      if (selectedCompareIds.length < 4) {
+        setSelectedCompareIds([...selectedCompareIds, id]);
+      }
+    }
+  };
+
+  const handleOpenDetailModal = async (tool: AITool, contextReason?: string) => {
     setSelectedDetailTool(tool);
     setDetailContextReason(contextReason || null);
+    setDetailEvidence([]);
+    setDetailHistory([]);
     trackLearningLoopEvent({
       eventType: 'TOOL_EXPLORED_DETAIL',
       toolId: tool.id,
       category: tool.category
     });
+
+    try {
+      const [ev, hist] = await Promise.all([
+        apiClient.getToolEvidence(tool.id),
+        apiClient.getToolHistory(tool.id)
+      ]);
+      if (Array.isArray(ev)) setDetailEvidence(ev);
+      if (Array.isArray(hist)) setDetailHistory(hist);
+    } catch (err) {
+      console.warn('Failed to fetch evidence/history:', err);
+    }
   };
 
   const handleSaveNotes = (toolId: string) => {
     const currentTool = userTools.find((t) => t.toolId === toolId);
     if (currentTool) {
       updateToolFamiliarity(toolId, currentTool.familiarity, notesInput);
-      trackLearningLoopEvent({
-        eventType: 'FAMILIARITY_UPDATED',
-        toolId,
-        familiarity: currentTool.familiarity,
-        metadata: { notesUpdated: true }
-      });
     }
     setEditingNotesToolId(null);
   };
 
   const getFamiliarityBadgeVariant = (fam: ToolFamiliarity) => {
     switch (fam) {
-      case 'mastered':
-        return 'success';
-      case 'proficient':
-        return 'cyan';
-      case 'practicing':
-        return 'warning';
-      case 'exploring':
-      default:
-        return 'purple';
+      case 'mastered': return 'success';
+      case 'proficient': return 'cyan';
+      case 'practicing': return 'warning';
+      case 'exploring': default: return 'purple';
     }
   };
 
   const getFamiliarityLabel = (fam: ToolFamiliarity) => {
     switch (fam) {
-      case 'mastered':
-        return 'Mastered';
-      case 'proficient':
-        return 'Proficient';
-      case 'practicing':
-        return 'Practicing';
-      case 'exploring':
-      default:
-        return 'Exploring';
+      case 'mastered': return 'Mastered';
+      case 'proficient': return 'Proficient';
+      case 'practicing': return 'Practicing';
+      case 'exploring': default: return 'Exploring';
     }
   };
 
-  const getRuleTypeBadge = (type: string) => {
-    switch (type) {
-      case 'RADAR_DISCOVERY':
-        return <Badge variant="warning" size="sm" icon={<AlertCircle size={10} />}>Radar Shift</Badge>;
-      case 'FOCUS_BASED':
-        return <Badge variant="cyan" size="sm" icon={<Target size={10} />}>Active Focus</Badge>;
-      case 'SKILL_GAP':
-        return <Badge variant="purple" size="sm" icon={<BarChart2 size={10} />}>Growth Area</Badge>;
-      case 'TASK_BASED':
-        return <Badge variant="cyan" size="sm" icon={<Briefcase size={10} />}>Goal / Task Match</Badge>;
-      case 'ALTERNATIVE_TOOL':
-        return <Badge variant="neutral" size="sm" icon={<ArrowRightLeft size={10} />}>Alternative Workflow</Badge>;
-      case 'TOOLKIT_GAP':
-        return <Badge variant="warning" size="sm" icon={<Layers size={10} />}>Toolkit Gap</Badge>;
-      case 'LEARNING_RECOMMENDATION':
-        return <Badge variant="purple" size="sm" icon={<Sparkles size={10} />}>Practice Guidance</Badge>;
-      default:
-        return <Badge variant="primary" size="sm" icon={<Sparkles size={10} />}>Recommended</Badge>;
-    }
+  const getStatusBadge = (status: ToolLifecycleStatus) => {
+    if (status === 'NEW') return <Badge variant="success" size="sm" icon={<Sparkles size={10} />}>NEW</Badge>;
+    if (status === 'RECENTLY_UPDATED' || status === 'UPDATED') return <Badge variant="cyan" size="sm" icon={<Zap size={10} />}>RECENTLY UPDATED</Badge>;
+    return null;
   };
+
+  const newAndUpdatedTools = catalog.filter(t => t.status === 'NEW' || t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED');
 
   return (
     <div style={{ maxWidth: '1120px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Top Header */}
+      {/* Top Page Header */}
       <PageHeader
         icon={<Wallet style={{ width: '24px', height: '24px', color: '#6366f1' }} />}
-        title="AI Wallet"
-        description="Your personalized AI toolkit layer. Track tools you currently use, discover relevant workflows based on your learning profile, compare alternatives neutrally, and round out your AI capabilities."
+        title="AI Wallet & Tool Intelligence"
+        description="Dynamic AI tool discovery, natural language requirement matching, verified pricing, 5-level learning tracks, task comparison, and personal toolkit layer."
         action={
           <div style={{ display: 'flex', gap: '10px' }}>
             <Badge variant="primary" icon={<Briefcase size={12} />}>
-              {userTools.length} Tools in Toolkit
+              {userTools.length} Tools in Wallet
             </Badge>
             <Badge variant="cyan" icon={<Sparkles size={12} />}>
-              {recommendations.length} Recommendations
+              {catalog.length} Verified Tools
             </Badge>
           </div>
         }
       />
 
-
-
-      {/* AI Mentor Contextual Advice */}
+      {/* AI Mentor Advice Banner */}
       <MentorMessage
-        title="AI WALLET MENTOR ADVICE"
-        message={`"Welcome to your AI Wallet, ${state.profile?.name?.split(' ')[0]}! Having a focused, diverse toolkit accelerates your capability in '${state.analysis?.growthArea || 'AI Workflows'}'. Explore recommended workflows below to find tools that fit your daily tasks."`}
+        title="AINOVA TOOL INTELLIGENCE"
+        message={`"Describe what you want to accomplish in natural language below. AINOVA continuously discovers and verifies new tools across the AI ecosystem to match your exact requirement."`}
       />
 
-      {/* Primary Section Navigation Tabs */}
+      {/* Primary 4 Section Navigation Tabs */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -269,9 +330,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         boxShadow: '0 2px 8px rgba(99, 102, 241, 0.04)'
       }}>
         {[
-          { id: 'wallet', label: '1. My Wallet', icon: Wallet, badge: `${userTools.length}` },
-          { id: 'discover', label: '2. Discover & Recommendations', icon: Compass, badge: `${recommendations.length}` },
-          { id: 'compare', label: '3. Compare Tools', icon: ArrowRightLeft, badge: undefined },
+          { id: 'discover', label: '1. Requirement Search & Discover', icon: Compass, badge: `${catalog.length}` },
+          { id: 'wallet', label: '2. My Wallet', icon: Wallet, badge: `${userTools.length}` },
+          { id: 'compare', label: '3. Task Comparison', icon: ArrowRightLeft, badge: undefined },
           { id: 'gaps', label: '4. Toolkit Gaps', icon: BarChart2, badge: undefined }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -318,35 +379,318 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
       </div>
 
       {/* ========================================================================= */}
-      {/* SECTION 1: MY WALLET */}
+      {/* SECTION 1: REQUIREMENT SEARCH & DISCOVER */}
       {/* ========================================================================= */}
-      {activeSection === 'wallet' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <Surface variant="gradient-hero" radius="lg" padding="md">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🧰 Your AI Toolkit</span>
-                </h2>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                  Tools you currently use and are learning to master across your daily workflows. Update familiarity levels to evolve your profile.
-                </p>
+      {activeSection === 'discover' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* HERO NATURAL-LANGUAGE REQUIREMENT BOX */}
+          <Surface variant="gradient-hero" radius="lg" padding="lg">
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                NATURAL-LANGUAGE AI TOOL MATCHING
+              </div>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                What are you trying to accomplish?
+              </h2>
+              <p style={{ fontSize: '13.5px', color: '#4338ca', margin: 0, fontWeight: 500 }}>
+                Describe your task in plain English. AINOVA extracts intent, domains, constraints, and ranks verified AI tools.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  rows={3}
+                  value={requirementQuery}
+                  onChange={(e) => setRequirementQuery(e.target.value)}
+                  placeholder="e.g. I need a free AI tool that can analyze a 100-page PDF and generate interactive charts..."
+                  style={{
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    borderRadius: '12px',
+                    border: '2px solid #c7d2fe',
+                    padding: '14px 16px',
+                    fontSize: '14px',
+                    fontFamily: "'Nunito', sans-serif",
+                    color: '#0f172a',
+                    outline: 'none',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)'
+                  }}
+                />
               </div>
 
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus size={14} />}
-                onClick={() => setActiveSection('discover')}
-              >
-                Discover & Add Tools
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                {/* Example Query Quick Chips */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Try:</span>
+                  {[
+                    'Analyze a 100-page PDF',
+                    'Free AI for Excel charts',
+                    'Telugu voice generation',
+                    'Free AI for college presentation',
+                    'Coding assistant like Cursor'
+                  ].map((chip, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleExecuteRequirementSearch(chip)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '9999px',
+                        border: '1px solid #c7d2fe',
+                        backgroundColor: '#ffffff',
+                        color: '#4338ca',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+
+                <Button
+                  variant="violet"
+                  size="md"
+                  icon={isSearching ? <RefreshCw size={14} className="spin" /> : <Sparkles size={14} />}
+                  disabled={isSearching || !requirementQuery.trim()}
+                  onClick={() => handleExecuteRequirementSearch()}
+                >
+                  {isSearching ? 'Understanding Intent...' : 'Find Relevant Tools'}
+                </Button>
+              </div>
             </div>
           </Surface>
 
-          {/* Search & Category Filter Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto', paddingBottom: '4px', maxWidth: '100%' }}>
+              {/* INTENT BREAKDOWN & MATCH RESULTS PANEL */}
+              {searchResult && (
+                <Surface variant="bordered" radius="lg" padding="lg" style={{ borderLeft: '5px solid #6366f1' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#4338ca', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px' }}>
+                        TOOLS FOR YOUR REQUIREMENT
+                      </div>
+                      <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                        {searchResult.intent.primaryGoal || searchResult.intent.task || 'Requirement Matching'}
+                      </h3>
+                    </div>
+
+                    <Badge variant="purple" icon={<Sparkles size={12} />}>
+                      {searchResult.totalMatches} Verified Matches
+                    </Badge>
+                  </div>
+
+                  {/* Extracted Intent Badges */}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', padding: '10px 14px', backgroundColor: '#f8f7fd', borderRadius: '10px', border: '1px solid #ede9fe' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Primary Domain:</span>
+                    {(searchResult.intent.domain || []).map((d: string, i: number) => (
+                      <Badge key={i} variant="cyan" size="sm">{d}</Badge>
+                    ))}
+                    {searchResult.intent.tasks && searchResult.intent.tasks.length > 0 && (
+                      <Badge variant="purple" size="sm">Tasks: {searchResult.intent.tasks.join(', ')}</Badge>
+                    )}
+                    {searchResult.intent.constraints?.freeOnly && (
+                      <Badge variant="success" size="sm">✓ Free Tier / No Cost</Badge>
+                    )}
+                    {searchResult.intent.constraints?.language && (
+                      <Badge variant="warning" size="sm">Language: {Array.isArray(searchResult.intent.constraints.language) ? searchResult.intent.constraints.language.join(', ') : searchResult.intent.constraints.language}</Badge>
+                    )}
+                    {searchResult.intent.knownTools && searchResult.intent.knownTools.length > 0 && (
+                      <Badge variant="purple" size="sm">Reference Tool: {searchResult.intent.knownTools.join(', ')}</Badge>
+                    )}
+                  </div>
+
+                  {/* Tool Combinations Workflow (if present for multi-intent queries) */}
+                  {searchResult.toolCombinations && searchResult.toolCombinations.length > 0 && (
+                    <div style={{ marginBottom: '20px', padding: '14px 16px', backgroundColor: '#eef2ff', borderRadius: '12px', border: '1px solid #c7d2fe' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Layers size={14} /> SUGGESTED MULTI-TOOL WORKFLOW
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e1b4b', marginBottom: '4px' }}>
+                        {searchResult.toolCombinations[0].workflowTitle}
+                      </div>
+                      <p style={{ fontSize: '12px', color: '#3730a3', margin: 0, lineHeight: 1.5 }}>
+                        {searchResult.toolCombinations[0].explanation}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Search Result Matches Cards Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                    {searchResult.matches.map((resItem) => {
+                      const tool = resItem.tool;
+                      const isAlreadyInWallet = userTools.some((t) => t.toolId === tool.id);
+                      const isSelectedForCompare = selectedCompareIds.includes(tool.id);
+
+                      return (
+                        <Surface key={tool.id} variant="bordered" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px', borderTop: '4px solid #6366f1' }}>
+                          <div>
+                            {/* Header Row */}
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                                    {tool.name}
+                                  </h4>
+                                  {getStatusBadge(tool.status)}
+                                </div>
+                                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                                  by {tool.provider}
+                                </span>
+                              </div>
+
+                              <Badge variant={resItem.matchLabel === 'Strong match' ? 'success' : resItem.matchLabel === 'Good match' ? 'purple' : 'neutral'} size="sm">
+                                {resItem.matchLabel || `${resItem.matchScore || resItem.relevanceScore}% Match`}
+                              </Badge>
+                            </div>
+
+                            {/* Why Matched Box */}
+                            <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '8px 12px', borderRadius: '8px', fontSize: '11.5px', color: '#312e81', marginBottom: '10px', fontWeight: 600 }}>
+                              💡 <strong>Why it matches:</strong>
+                              {resItem.whyMatches && resItem.whyMatches.length > 0 ? (
+                                <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                                  {resItem.whyMatches.map((why: string, idx: number) => (
+                                    <li key={idx}>{why}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <span> {resItem.matchReason}</span>
+                              )}
+                            </div>
+
+                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                          {tool.shortDescription || tool.description}
+                        </p>
+
+                        {/* Pricing Pill & Verified Badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                          <Badge variant="purple" size="sm" icon={<Tag size={10} />}>
+                            {tool.pricingDetails.summary}
+                          </Badge>
+                          <Badge variant="cyan" size="sm" icon={<ShieldCheck size={10} />}>
+                            Verified
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* Card Action Buttons */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid #f1f5f9', gap: '8px' }}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={<Info size={12} />}
+                          onClick={() => handleOpenDetailModal(tool, resItem.matchReason)}
+                        >
+                          Details
+                        </Button>
+
+                        <button
+                          onClick={() => toggleSelectCompareId(tool.id)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: isSelectedForCompare ? '1px solid #6366f1' : '1px solid #cbd5e1',
+                            backgroundColor: isSelectedForCompare ? '#eef2ff' : '#ffffff',
+                            color: isSelectedForCompare ? '#4338ca' : '#64748b',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {isSelectedForCompare ? '✓ In Compare' : '+ Compare'}
+                        </button>
+
+                        <Button
+                          variant={isAlreadyInWallet ? 'green' : 'primary'}
+                          size="sm"
+                          disabled={isAlreadyInWallet}
+                          icon={isAlreadyInWallet ? <CheckCircle2 size={12} /> : <Plus size={12} />}
+                          onClick={() => addToolToWallet(tool.id, tool.category, 'exploring')}
+                        >
+                          {isAlreadyInWallet ? 'In Wallet' : 'Add to Wallet'}
+                        </Button>
+                      </div>
+                    </Surface>
+                  );
+                })}
+              </div>
+            </Surface>
+          )}
+
+          {/* DYNAMIC NEW & RECENTLY UPDATED TOOLS SECTION */}
+          {newAndUpdatedTools.length > 0 && (
+            <Surface variant="sky" radius="lg" padding="md">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Zap size={18} color="#0284c7" />
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                    NEW & RECENTLY UPDATED AI TOOLS
+                  </h3>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={isRefreshingDiscovery ? <RefreshCw size={12} className="spin" /> : <RefreshCw size={12} />}
+                  onClick={handleTriggerDiscovery}
+                >
+                  {isRefreshingDiscovery ? 'Syncing...' : 'Sync Ecosystem Discovery'}
+                </Button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                {newAndUpdatedTools.map((tool) => (
+                  <div key={tool.id} style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{tool.name}</span>
+                        {getStatusBadge(tool.status)}
+                      </div>
+                      <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#334155', lineHeight: 1.4 }}>
+                        {tool.shortDescription || tool.description}
+                      </p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f0f9ff' }}>
+                      <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700 }}>
+                        {tool.pricingDetails.summary}
+                      </span>
+                      <Button variant="ghost" size="sm" onClick={() => handleOpenDetailModal(tool)}>
+                        View Details →
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Surface>
+          )}
+
+          {/* MULTI-DOMAIN CATEGORY EXPLORER */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                Explore Verified Tools by Category & Domain
+              </h3>
+
+              {/* Filters Bar */}
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select
+                  value={selectedPricing}
+                  onChange={(e) => setSelectedPricing(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 700, outline: 'none' }}
+                >
+                  <option value="All">All Pricing</option>
+                  <option value="Free">Free / Free Tier</option>
+                  <option value="Trial">Free Trial Available</option>
+                  <option value="Paid">Paid</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Category Filter Chips */}
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '16px' }}>
               {['All', ...categories].map((cat) => (
                 <button
                   key={cat}
@@ -360,8 +704,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                     fontSize: '12px',
                     fontWeight: selectedCategory === cat ? 800 : 600,
                     cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease'
+                    whiteSpace: 'nowrap'
                   }}
                 >
                   {cat}
@@ -369,29 +712,98 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               ))}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#ffffff', padding: '6px 14px', borderRadius: '9999px', border: '1px solid #ede9fe' }}>
-              <Search size={14} style={{ color: '#94a3b8' }} />
-              <input
-                type="text"
-                placeholder="Filter tools..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{ border: 'none', outline: 'none', fontSize: '12px', fontFamily: "'Nunito', sans-serif", width: '140px' }}
-              />
+            {/* Catalog Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+              {catalog
+                .filter((t) => selectedCategory === 'All' || t.category === selectedCategory || t.categories.includes(selectedCategory as any))
+                .filter((t) => {
+                  if (selectedPricing === 'Free') return t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable;
+                  if (selectedPricing === 'Trial') return t.pricingDetails.freeTrialAvailable;
+                  if (selectedPricing === 'Paid') return t.pricingDetails.type === 'PAID';
+                  return true;
+                })
+                .map((tool) => {
+                  const isAlreadyInWallet = userTools.some((t) => t.toolId === tool.id);
+                  return (
+                    <Surface key={tool.id} variant="bordered" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <div>
+                            <h4 style={{ margin: '0 0 2px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                              {tool.name}
+                            </h4>
+                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                              {tool.provider} • {tool.category}
+                            </span>
+                          </div>
+                          {getStatusBadge(tool.status)}
+                        </div>
+
+                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                          {tool.shortDescription || tool.description}
+                        </p>
+
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                          <Badge variant="purple" size="sm">{tool.pricingDetails.summary}</Badge>
+                          {tool.domains.slice(0, 1).map((d, i) => (
+                            <Badge key={i} variant="neutral" size="sm">{d}</Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
+                        <Button variant="ghost" size="sm" icon={<Info size={12} />} onClick={() => handleOpenDetailModal(tool)}>
+                          View Detail & Track
+                        </Button>
+                        <Button
+                          variant={isAlreadyInWallet ? 'green' : 'primary'}
+                          size="sm"
+                          disabled={isAlreadyInWallet}
+                          icon={isAlreadyInWallet ? <CheckCircle2 size={12} /> : <Plus size={12} />}
+                          onClick={() => addToolToWallet(tool.id, tool.category, 'exploring')}
+                        >
+                          {isAlreadyInWallet ? 'In Wallet' : 'Add to Wallet'}
+                        </Button>
+                      </div>
+                    </Surface>
+                  );
+                })}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* User Tools Grid */}
-          {filteredUserTools.length === 0 ? (
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
-                <Wallet style={{ width: '22px', height: '22px', color: '#6366f1' }} />
+      {/* ========================================================================= */}
+      {/* SECTION 2: MY WALLET */}
+      {/* ========================================================================= */}
+      {activeSection === 'wallet' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <Surface variant="gradient-hero" radius="lg" padding="md">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>🧰 Your AI Toolkit</span>
+                </h2>
+                <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+                  Tools you currently use and are learning to master. Update familiarity levels to evolve your profile.
+                </p>
               </div>
-              <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                No tools in this view
+
+              <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setActiveSection('discover')}>
+                Discover & Add Tools
+              </Button>
+            </div>
+          </Surface>
+
+          {/* User Tools List */}
+          {userToolsWithDetails.length === 0 ? (
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
+              <Wallet style={{ width: '40px', height: '40px', color: '#6366f1', margin: '0 auto 12px' }} />
+              <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                Your AI Wallet is empty
               </h3>
-              <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#64748b' }}>
-                Explore recommended tools in the Discover section to start populating your wallet.
+              <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#64748b' }}>
+                Use Requirement Search in Discover to find and add AI tools relevant to your work.
               </p>
               <Button variant="primary" size="sm" onClick={() => setActiveSection('discover')}>
                 Explore Discover →
@@ -399,10 +811,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             </Surface>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-              {filteredUserTools.map((tool) => (
+              {userToolsWithDetails.map((tool) => (
                 <Surface key={tool.toolId} variant="bordered" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
                   <div>
-                    {/* Header Row */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
                       <div>
                         <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
@@ -422,32 +833,18 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       {tool.description}
                     </p>
 
-                    {/* User Notes Section */}
+                    {/* Notes Section */}
                     {editingNotesToolId === tool.toolId ? (
                       <div style={{ marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <textarea
                           value={notesInput}
                           onChange={(e) => setNotesInput(e.target.value)}
-                          placeholder="Add your personal notes for this tool..."
-                          style={{
-                            width: '100%',
-                            padding: '8px',
-                            borderRadius: '8px',
-                            border: '1px solid #6366f1',
-                            fontSize: '12px',
-                            fontFamily: "'Nunito', sans-serif",
-                            outline: 'none',
-                            resize: 'vertical',
-                            minHeight: '54px'
-                          }}
+                          placeholder="Add personal notes..."
+                          style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #6366f1', fontSize: '12px', outline: 'none' }}
                         />
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                          <Button variant="ghost" size="sm" onClick={() => setEditingNotesToolId(null)}>
-                            Cancel
-                          </Button>
-                          <Button variant="primary" size="sm" icon={<Save size={12} />} onClick={() => handleSaveNotes(tool.toolId)}>
-                            Save Note
-                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditingNotesToolId(null)}>Cancel</Button>
+                          <Button variant="primary" size="sm" icon={<Save size={12} />} onClick={() => handleSaveNotes(tool.toolId)}>Save Note</Button>
                         </div>
                       </div>
                     ) : (
@@ -461,29 +858,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             setNotesInput(tool.userNotes || '');
                           }}
                           style={{ border: 'none', background: 'transparent', color: '#6366f1', cursor: 'pointer', padding: '0 0 0 8px' }}
-                          title="Edit personal notes"
                         >
                           <Edit3 size={12} />
                         </button>
                       </div>
                     )}
 
-                    {/* Inline Familiarity Selector */}
+                    {/* Familiarity Selector */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: '#fafafa', padding: '6px 10px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Familiarity:</span>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {(['exploring', 'practicing', 'proficient', 'mastered'] as ToolFamiliarity[]).map((fam) => (
                           <button
                             key={fam}
-                            onClick={() => {
-                              updateToolFamiliarity(tool.toolId, fam);
-                              trackLearningLoopEvent({
-                                eventType: 'FAMILIARITY_UPDATED',
-                                toolId: tool.toolId,
-                                familiarity: fam
-                              });
-                            }}
-                            title={`Mark as ${getFamiliarityLabel(fam)}`}
+                            onClick={() => updateToolFamiliarity(tool.toolId, fam)}
                             style={{
                               padding: '2px 8px',
                               borderRadius: '6px',
@@ -504,37 +892,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
                   {/* Actions Footer */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={<Info size={12} />}
-                        onClick={() => tool.detail && handleOpenDetailModal(tool.detail)}
-                      >
-                        View Detail
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={<ArrowRightLeft size={12} />}
-                        onClick={() => handleStartCompare(tool.toolId, 'tool-claude')}
-                      >
-                        Compare
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Info size={12} />}
+                      onClick={() => tool.detail && handleOpenDetailModal(tool.detail)}
+                    >
+                      View Details & Track
+                    </Button>
 
                     <Button
                       variant="ghost"
                       size="sm"
                       icon={<Trash2 size={12} />}
-                      onClick={() => {
-                        removeToolFromWallet(tool.toolId);
-                        trackLearningLoopEvent({
-                          eventType: 'TOOL_REMOVED',
-                          toolId: tool.toolId
-                        });
-                      }}
+                      onClick={() => removeToolFromWallet(tool.toolId)}
                       style={{ color: '#ef4444' }}
                     >
                       Remove
@@ -548,174 +919,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 2: DISCOVER & RECOMMENDATIONS */}
-      {/* ========================================================================= */}
-      {activeSection === 'discover' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <Surface variant="gradient-hero" radius="lg" padding="md">
-            <div>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>💡 Worth Exploring</span>
-              </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Personalized AI tool recommendations derived from your AI Profile, diagnostic assessment scores, active focus track, AI Radar investigations, and current toolkit coverage.
-              </p>
-            </div>
-          </Surface>
-
-          {/* Recommendations List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {recommendations.length === 0 ? (
-              <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-                <CheckCircle2 style={{ width: '32px', height: '32px', color: '#059669', margin: '0 auto 8px auto' }} />
-                <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800 }}>
-                  Your recommendations are up to date!
-                </h3>
-                <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
-                  You have explored or added all current recommendations to your wallet.
-                </p>
-              </Surface>
-            ) : (
-              recommendations.map((rec) => {
-                const toolDetail = catalog.find((c) => c.id === rec.toolId);
-                const isAlreadyInWallet = userTools.some((t) => t.toolId === rec.toolId);
-
-                return (
-                  <Surface
-                    key={rec.id}
-                    variant="bordered"
-                    radius="lg"
-                    padding="md"
-                    style={{
-                      borderLeft: '4px solid #6366f1',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '16px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1 }}>
-                        {/* Header Badges */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                          <Badge variant="primary" icon={<Sparkles size={12} />}>
-                            💡 Worth exploring
-                          </Badge>
-                          {rec.matchedSignals && rec.matchedSignals.length > 0
-                            ? rec.matchedSignals.map((sig, sIdx) => (
-                                <React.Fragment key={sIdx}>{getRuleTypeBadge(sig)}</React.Fragment>
-                              ))
-                            : getRuleTypeBadge(rec.type)}
-                          {rec.relatedTask && (
-                            <Badge variant="cyan" size="sm">
-                              Task: {rec.relatedTask}
-                            </Badge>
-                          )}
-                          {rec.relatedSkill && (
-                            <Badge variant="purple" size="sm">
-                              Skill: {rec.relatedSkill}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                          {toolDetail?.name || rec.toolId}
-                        </h3>
-
-                        <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
-                          {toolDetail?.description}
-                        </p>
-
-                        {/* Recommendation Reason Box */}
-                        <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '12px 16px', borderRadius: '12px', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '4px' }}>
-                            WHY YOU'RE SEEING THIS:
-                          </div>
-                          <div style={{ fontSize: '13px', color: '#312e81', lineHeight: 1.5 }}>
-                            "{rec.reason}"
-                          </div>
-                        </div>
-
-                        {/* Capability Pills */}
-                        {toolDetail?.capabilities && (
-                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                            {toolDetail.capabilities.map((cap, idx) => (
-                              <span key={idx} style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '3px 9px', borderRadius: '6px', fontWeight: 600 }}>
-                                • {cap}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Action Bar */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '12px', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '12px' }}>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<Info size={13} />}
-                          onClick={() => toolDetail && handleOpenDetailModal(toolDetail, rec.reason)}
-                        >
-                          Explore Detail
-                        </Button>
-
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<ArrowRightLeft size={13} />}
-                          onClick={() => handleStartCompare('tool-chatgpt', rec.toolId)}
-                        >
-                          Compare
-                        </Button>
-
-                        <Button
-                          variant={isAlreadyInWallet ? 'green' : 'primary'}
-                          size="sm"
-                          icon={isAlreadyInWallet ? <CheckCircle2 size={13} /> : <Plus size={13} />}
-                          disabled={isAlreadyInWallet}
-                          onClick={() => {
-                            if (toolDetail) {
-                              addToolToWallet(toolDetail.id, toolDetail.category, 'exploring');
-                              trackLearningLoopEvent({
-                                eventType: 'TOOL_ADDED',
-                                toolId: toolDetail.id,
-                                category: toolDetail.category,
-                                recommendationId: rec.id
-                              });
-                            }
-                          }}
-                        >
-                          {isAlreadyInWallet ? 'In Wallet' : (rec.actionLabel || 'Add to Wallet')}
-                        </Button>
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          dismissRecommendation(rec.id);
-                          trackLearningLoopEvent({
-                            eventType: 'RECOMMENDATION_DISMISSED',
-                            recommendationId: rec.id,
-                            toolId: rec.toolId
-                          });
-                        }}
-                        style={{ color: '#94a3b8' }}
-                      >
-                        Maybe Later
-                      </Button>
-                    </div>
-                  </Surface>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SECTION 3: COMPARE TOOLS */}
+      {/* SECTION 3: COMPARE TOOLS — REQUIREMENT FIRST */}
       {/* ========================================================================= */}
       {activeSection === 'compare' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -723,137 +927,138 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <div>
               <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ArrowRightLeft size={20} style={{ color: '#6366f1' }} />
-                <span>Task-Based Tool Comparison</span>
+                <span>Requirement-First Dynamic Tool Comparison</span>
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Compare AI tools side-by-side based on task suitability, context window, specialized strengths, and limitations. We evaluate tools objectively without binary "better/worse" claims.
+                Compare 2 to 4 AI tools side-by-side for your specific task. Comparison criteria dynamically adapt to your domain requirements.
               </p>
             </div>
           </Surface>
 
-          {/* Selector Row */}
+          {/* Selector & Requirement Form */}
           <Surface variant="bordered" radius="lg" padding="md">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>
-                  Select Tool A (Current or Baseline):
+                  What task are you comparing tools for? (Optional):
                 </label>
-                <select
-                  value={compareToolAId}
-                  onChange={(e) => setCompareToolAId(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #c7d2fe', backgroundColor: '#ffffff', fontSize: '13px', fontWeight: 700, color: '#0f172a', outline: 'none' }}
-                >
-                  {catalog.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.category})
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={comparisonRequirement}
+                  onChange={(e) => setComparisonRequirement(e.target.value)}
+                  placeholder="e.g. Analyzing 100-page research PDFs and drafting summaries..."
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #c7d2fe', fontSize: '13px', outline: 'none' }}
+                />
               </div>
 
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>
-                  Select Tool B (Alternative / Exploring):
+                  Select 2 to 4 tools to compare:
                 </label>
-                <select
-                  value={compareToolBId}
-                  onChange={(e) => setCompareToolBId(e.target.value)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #c7d2fe', backgroundColor: '#ffffff', fontSize: '13px', fontWeight: 700, color: '#0f172a', outline: 'none' }}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {catalog.map((t) => {
+                    const isSelected = selectedCompareIds.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => toggleSelectCompareId(t.id)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: isSelected ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                          backgroundColor: isSelected ? '#eef2ff' : '#ffffff',
+                          color: isSelected ? '#4338ca' : '#475569',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? 800 : 600,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {isSelected ? '✓ ' : '+ '} {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="violet"
+                  size="md"
+                  icon={isComparing ? <RefreshCw size={14} className="spin" /> : <ArrowRightLeft size={14} />}
+                  disabled={isComparing || selectedCompareIds.length < 2}
+                  onClick={handleRunRequirementComparison}
                 >
-                  {catalog.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.category})
-                    </option>
-                  ))}
-                </select>
+                  {isComparing ? 'Comparing...' : 'Compare Selected Tools'}
+                </Button>
               </div>
             </div>
           </Surface>
 
-          {/* Side-by-Side Comparison Cards */}
-          {comparisonData && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                {/* Tool A Card */}
-                <Surface variant="bordered" radius="lg" padding="md" style={{ borderTop: '4px solid #6366f1' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                      {comparisonData.toolA.name}
-                    </h3>
-                    <Badge variant="primary" size="sm">Tool A</Badge>
-                  </div>
-                  <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-                    {comparisonData.toolA.description}
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Strengths</div>
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#334155', lineHeight: 1.6 }}>
-                        {comparisonData.toolA.strengths.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Limitations / Trade-offs</div>
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#64748b', lineHeight: 1.6 }}>
-                        {comparisonData.toolA.limitations.map((l, i) => (
-                          <li key={i}>{l}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </Surface>
-
-                {/* Tool B Card */}
-                <Surface variant="bordered" radius="lg" padding="md" style={{ borderTop: '4px solid #059669' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                      {comparisonData.toolB.name}
-                    </h3>
-                    <Badge variant="success" size="sm">Tool B</Badge>
-                  </div>
-                  <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>
-                    {comparisonData.toolB.description}
-                  </p>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Strengths</div>
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#334155', lineHeight: 1.6 }}>
-                        {comparisonData.toolB.strengths.map((s, i) => (
-                          <li key={i}>{s}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Limitations / Trade-offs</div>
-                      <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#64748b', lineHeight: 1.6 }}>
-                        {comparisonData.toolB.limitations.map((l, i) => (
-                          <li key={i}>{l}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </Surface>
+          {/* Dynamic Comparison Matrix */}
+          {reqComparisonData && (
+            <Surface variant="bordered" radius="lg" padding="lg">
+              <div style={{ marginBottom: '16px' }}>
+                <Badge variant="purple" icon={<Sparkles size={12} />}>
+                  Domain: {reqComparisonData.taskDomain}
+                </Badge>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '8px 0 4px' }}>
+                  How These Tools Fit Your Task
+                </h3>
+                <p style={{ fontSize: '13px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
+                  "{reqComparisonData.overallSynthesis}"
+                </p>
               </div>
 
-              {/* Neutral Task Synthesis Prompt */}
-              <Surface variant="highlight" radius="lg" padding="md" style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-                  Task Synthesis & Decision Framework
-                </div>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 800, color: '#1e1b4b' }}>
-                  {comparisonData.summaryQuestion}
-                </h4>
-                <p style={{ fontSize: '13px', color: '#312e81', maxWidth: '700px', margin: '0 auto', lineHeight: 1.5 }}>
-                  {comparisonData.keyConsideration}
-                </p>
-              </Surface>
-            </div>
+              {/* Side-by-Side Criteria Table */}
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f8f7fd', borderBottom: '2px solid #ede9fe' }}>
+                      <th style={{ textAlign: 'left', padding: '12px', color: '#475569', fontWeight: 800 }}>Comparison Criterion</th>
+                      {reqComparisonData.tools.map(t => (
+                        <th key={t.id} style={{ textAlign: 'left', padding: '12px', color: '#1e1b4b', fontWeight: 800, minWidth: '180px' }}>
+                          {t.name}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reqComparisonData.comparisonCriteria.map((crit, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                          {crit.criterion}
+                        </td>
+                        {reqComparisonData.tools.map(t => (
+                          <td key={t.id} style={{ padding: '12px', color: '#334155', lineHeight: 1.45 }}>
+                            {crit.evaluations[t.id] || 'N/A'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                        Why It Fits
+                      </td>
+                      {reqComparisonData.tools.map(t => (
+                        <td key={t.id} style={{ padding: '12px', color: '#047857', fontWeight: 600 }}>
+                          {reqComparisonData.fitAnalysis[t.id]?.whyItFits}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                        Key Trade-off
+                      </td>
+                      {reqComparisonData.tools.map(t => (
+                        <td key={t.id} style={{ padding: '12px', color: '#b45309', fontWeight: 600 }}>
+                          {reqComparisonData.fitAnalysis[t.id]?.keyTradeoff}
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </Surface>
           )}
         </div>
       )}
@@ -867,92 +1072,60 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <div>
               <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BarChart2 size={20} style={{ color: '#6366f1' }} />
-                <span>Toolkit Capability Coverage</span>
+                <span>Toolkit Coverage & Capability Gaps</span>
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Overview of task category representation in your personal wallet. We highlight opportunity areas to help you discover tools across diverse AI domains.
+                Automated coverage analysis across 35+ major AI domains based on your current AI Wallet tools.
               </p>
             </div>
           </Surface>
 
-          {/* Category Coverage Matrix */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-            {categories.map((cat) => {
-              const toolsInCat = userToolsWithDetails.filter((t) => t.primaryCategory === cat);
-              const hasTools = toolsInCat.length > 0;
+          {gapData && (
+            <Surface variant="bordered" radius="lg" padding="lg">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px' }}>
+                    Toolkit Domain Coverage: {gapData.coveredCount} of {gapData.totalDomains} Domains Covered
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                    Adding tools across missing domains rounds out your capabilities for real-world tasks.
+                  </p>
+                </div>
+              </div>
 
-              return (
-                <Surface
-                  key={cat}
-                  variant={hasTools ? 'bordered' : 'subtle'}
-                  radius="lg"
-                  padding="md"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    gap: '12px',
-                    borderLeft: hasTools ? '4px solid #059669' : '4px solid #f59e0b'
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                      <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                        {cat}
-                      </h3>
-                      <Badge variant={hasTools ? 'success' : 'warning'} size="sm">
-                        {hasTools ? `${toolsInCat.length} Tool${toolsInCat.length > 1 ? 's' : ''}` : 'Opportunity'}
-                      </Badge>
+              {/* Gaps List */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+                {gapData.gaps.map((gap: any, idx: number) => (
+                  <div key={idx} style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      UNREPRESENTED DOMAIN
                     </div>
-
-                    {hasTools ? (
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#059669', fontWeight: 700, marginBottom: '6px' }}>
-                          ✓ Represented in wallet
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                          {toolsInCat.map((t) => (
-                            <span key={t.toolId} style={{ fontSize: '11px', backgroundColor: '#ecfdf5', color: '#047857', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>
-                              {t.name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ fontSize: '12px', color: '#d97706', fontWeight: 700, marginBottom: '4px' }}>
-                          Opportunity to explore
-                        </div>
-                        <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
-                          You haven't added a {cat.toLowerCase()}-focused tool to your wallet yet.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {!hasTools && (
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#78350f', marginBottom: '6px' }}>
+                      {gap.domain}
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#92400e', margin: '0 0 12px', lineHeight: 1.4 }}>
+                      Subdomains: {gap.subdomains.slice(0, 3).join(', ')}
+                    </p>
                     <Button
-                      variant="ghost"
+                      variant="amber"
                       size="sm"
-                      icon={<ChevronRight size={12} />}
                       onClick={() => {
-                        setSelectedCategory(cat);
                         setActiveSection('discover');
+                        handleExecuteRequirementSearch(gap.recommendedQuery);
                       }}
-                      style={{ alignSelf: 'flex-start', color: '#6366f1', padding: 0 }}
                     >
-                      Explore {cat} Tools →
+                      Find {gap.domain} Tools →
                     </Button>
-                  )}
-                </Surface>
-              );
-            })}
-          </div>
+                  </div>
+                ))}
+              </div>
+            </Surface>
+          )}
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* TOOL DETAIL MODAL EXPERIENCE */}
+      {/* IN-APP TOOL DETAILS & 5-LEVEL LEARNING TRACK MODAL */}
       {/* ========================================================================= */}
       {selectedDetailTool && (
         <div style={{
@@ -969,94 +1142,135 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           zIndex: 1000,
           padding: '20px'
         }}>
-          <Surface variant="bordered" radius="lg" padding="lg" style={{
-            maxWidth: '680px',
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '20px',
+            maxWidth: '720px',
             width: '100%',
-            maxHeight: '90vh',
+            maxHeight: '85vh',
             overflowY: 'auto',
+            padding: '24px',
             position: 'relative',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
           }}>
-            {/* Close Button */}
             <button
               onClick={() => setSelectedDetailTool(null)}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                right: '16px',
-                border: 'none',
-                background: '#f1f5f9',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: '#64748b'
-              }}
+              style={{ position: 'absolute', top: '20px', right: '20px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
             >
-              <X size={18} />
+              <X size={20} />
             </button>
 
             {/* Modal Header */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <Badge variant="primary" icon={<Tag size={12} />}>{selectedDetailTool.category}</Badge>
-                <Badge variant="neutral" size="sm">Active Tool</Badge>
+                <Badge variant="purple" size="sm">{selectedDetailTool.category}</Badge>
+                <Badge variant="cyan" size="sm" icon={<ShieldCheck size={10} />}>Verified Source</Badge>
+                {getStatusBadge(selectedDetailTool.status)}
               </div>
-              <h2 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 {selectedDetailTool.name}
               </h2>
-              <p style={{ margin: 0, fontSize: '14px', color: '#475569', lineHeight: 1.5 }}>
-                {selectedDetailTool.description}
-              </p>
+              <div style={{ fontSize: '13px', color: '#64748b' }}>
+                by <strong>{selectedDetailTool.provider}</strong> • Verified at {new Date(selectedDetailTool.lastVerifiedAt).toLocaleDateString()}
+              </div>
             </div>
 
-            {/* Contextual Reason Box */}
-            {detailContextReason && (
-              <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '12px 16px', borderRadius: '12px', marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Why AIIMS recommends exploring this:
+            {/* Description */}
+            <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.6, marginBottom: '20px' }}>
+              {selectedDetailTool.description}
+            </p>
+
+            {/* Pricing Breakdown Box */}
+            <div style={{ backgroundColor: '#f8f7fd', border: '1px solid #ede9fe', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '8px', textTransform: 'uppercase' }}>
+                VERIFIED PRICING SUMMARY
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>
+                {selectedDetailTool.pricingDetails.summary}
+              </div>
+              {selectedDetailTool.pricingDetails.freeTierLimitations && (
+                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                  Note: {selectedDetailTool.pricingDetails.freeTierLimitations}
                 </div>
-                <div style={{ fontSize: '13px', color: '#312e81', lineHeight: 1.5 }}>
-                  "{detailContextReason}"
+              )}
+            </div>
+
+            {/* VERIFIED SOURCE EVIDENCE CLAIMS */}
+            {detailEvidence.length > 0 && (
+              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#15803d', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ShieldCheck size={14} color="#16a34a" />
+                  VERIFIED SOURCE EVIDENCE
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {detailEvidence.map((ev, i) => (
+                    <div key={i} style={{ fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span><strong>• {ev.claim}:</strong> {ev.value}</span>
+                      <a href={ev.sourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>
+                        {ev.sourceTitle || 'View Source'}
+                      </a>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Core Capabilities */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Key Capabilities
-              </div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {selectedDetailTool.capabilities.map((cap, i) => (
-                  <span key={i} style={{ fontSize: '12px', backgroundColor: '#eef2ff', color: '#4338ca', padding: '4px 10px', borderRadius: '8px', fontWeight: 700 }}>
-                    ✓ {cap}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Strengths & Limitations Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ backgroundColor: '#f0fdf4', padding: '12px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#15803d', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  Primary Strengths
+            {/* WHAT CHANGED? (VERSION HISTORY) */}
+            {detailHistory.length > 0 && (
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} color="#6366f1" />
+                  WHAT CHANGED? (VERSION & CHANGE LOG)
                 </div>
-                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#166534', lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {detailHistory.map((hist, i) => (
+                    <div key={i} style={{ fontSize: '12px', color: '#334155' }}>
+                      <span style={{ fontWeight: 700, color: '#4338ca' }}>[{hist.version}]</span> {hist.summary}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 5-LEVEL LEARNING TRACK */}
+            {selectedDetailTool.learningTrack && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <BookOpen size={16} color="#6366f1" />
+                  BEGINNER → ADVANCED LEARNING TRACK
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {selectedDetailTool.learningTrack.map((lvl) => (
+                    <div key={lvl.level} style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', marginBottom: '2px' }}>
+                        {lvl.title}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#334155', marginBottom: '4px' }}>
+                        {lvl.description}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        <strong>Suggested Workflow:</strong> {lvl.suggestedWorkflow}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Strengths & Limitations */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ padding: '12px', backgroundColor: '#ecfdf5', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#047857', marginBottom: '6px' }}>STRENGTHS</div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#064e3b', lineHeight: 1.5 }}>
                   {selectedDetailTool.strengths.map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
               </div>
 
-              <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '10px', border: '1px solid #fed7aa' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', marginBottom: '6px' }}>
-                  Trade-offs & Considerations
-                </div>
-                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#9a3412', lineHeight: 1.6 }}>
+              <div style={{ padding: '12px', backgroundColor: '#fffbe6', borderRadius: '10px', border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>LIMITATIONS</div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#92400e', lineHeight: 1.5 }}>
                   {selectedDetailTool.limitations.map((l, i) => (
                     <li key={i}>{l}</li>
                   ))}
@@ -1064,52 +1278,35 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               </div>
             </div>
 
-            {/* Modal Action Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
-              <Button
-                variant="secondary"
-                size="md"
-                icon={<ArrowRightLeft size={14} />}
-                onClick={() => {
-                  handleStartCompare('tool-chatgpt', selectedDetailTool.id);
-                  setSelectedDetailTool(null);
-                }}
+            {/* Modal Footer Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+              <a
+                href={selectedDetailTool.officialWebsite}
+                target="_blank"
+                rel="noreferrer"
+                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#6366f1' }}
               >
-                Compare Tool
-              </Button>
+                Official Website <ExternalLink size={14} />
+              </a>
 
               <div style={{ display: 'flex', gap: '10px' }}>
-                {userTools.some((t) => t.toolId === selectedDetailTool.id) ? (
-                  <Button variant="green" size="md" icon={<CheckCircle2 size={14} />} disabled>
-                    In Your Wallet
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    size="md"
-                    icon={<Plus size={14} />}
-                    onClick={() => {
-                      addToolToWallet(selectedDetailTool.id, selectedDetailTool.category, 'exploring');
-                      trackLearningLoopEvent({
-                        eventType: 'TOOL_ADDED',
-                        toolId: selectedDetailTool.id,
-                        category: selectedDetailTool.category
-                      });
-                      setSelectedDetailTool(null);
-                    }}
-                  >
-                    Add to Wallet
-                  </Button>
-                )}
-
-                <a href={selectedDetailTool.websiteUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                  <Button variant="outline" size="md" icon={<ExternalLink size={14} />}>
-                    Open Tool Website
-                  </Button>
-                </a>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedDetailTool(null)}>
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Plus size={14} />}
+                  onClick={() => {
+                    addToolToWallet(selectedDetailTool.id, selectedDetailTool.category, 'exploring');
+                    setSelectedDetailTool(null);
+                  }}
+                >
+                  Add to My Wallet
+                </Button>
               </div>
             </div>
-          </Surface>
+          </div>
         </div>
       )}
     </div>

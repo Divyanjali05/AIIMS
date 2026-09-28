@@ -23,6 +23,15 @@ export type LearningLoopEventType =
   | 'RELEVANCE_VIEWED'
   | 'PROBLEM_SOLVED'
   | 'PROJECT_BUILT'
+  // Wallet interaction events
+  | 'TOOL_SEARCHED'
+  | 'TOOL_VIEWED'
+  | 'TOOL_SELECTED_FOR_COMPARISON'
+  | 'TOOL_ADDED_TO_WALLET'
+  | 'TOOL_REMOVED_FROM_WALLET'
+  | 'TOOL_FAMILIARITY_UPDATED'
+  | 'TOOL_PRACTICED'
+  | 'TOOL_WORKFLOW_USED'
   // Legacy / Direct Wallet compatibility aliases
   | 'TOOL_ADDED'
   | 'TOOL_REMOVED'
