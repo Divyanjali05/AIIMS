@@ -25,113 +25,117 @@ export interface LearnerNextAction {
 /**
  * Journey Resolver Service — Canonical 10-Stage Learner Journey Logic
  * Evaluates the single source of truth (LearnerState) and determines
- * the single recommended "Next Best Action" and 10-stage timeline.
+ * the single recommended "Your Next Step" and 10-stage timeline.
  * Does NOT lock out modules; serves purely as actionable guidance.
  */
 export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction => {
   const profileCtx = buildLearnerProfileContext(state);
+
+  // Exact Stage Completion Triggers
   const isAssessmentDone = state.assessment.status === 'completed';
-  const isAnalysisViewed = state.analysis.status === 'viewed' || state.analysis.status === 'unlocked';
-  const toolCount = state.aiWallet?.userTools?.length || 0;
-  const isClarityStarted = (state.clarity.completedTopics && state.clarity.completedTopics.length > 0) || state.clarity.status === 'completed';
-  const isFocusActive = state.focus.status === 'active' && state.focus.selectedTrack !== null;
-  const investigatedCount = state.radar?.investigatedSignalIds?.length || 0;
-  const activeFocus = state.focus.selectedTrack || 'AI Workflow Design';
-  const hasSolvedWorkflow = !!state.solver?.latestWorkflow;
+  const isAnalysisViewed = state.analysis.status === 'viewed'; // Must actually view profile, unlocked alone is NOT completed
+  const isWalletExplored = (state.aiWallet?.userTools?.length || 0) >= 1;
+  const isClarityCompleted = (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
+  const isFocusSelected = state.focus?.status === 'active' && state.focus?.selectedTrack !== null;
+  const isRadarInvestigated = (state.radar?.investigatedSignalIds?.length || 0) > 0 || state.investigation?.status === 'completed';
+  const isRelevanceCompleted = state.relevance?.status === 'completed';
+  const hasSolvedWorkflow = !!state.solver?.latestWorkflow || (state.solver?.history?.length || 0) > 0;
   const hasBuildProject = (state.build?.projects?.length || 0) > 0;
 
-  // Determine stage key and single recommended next action in 10-stage sequence
+  const activeFocus = state.focus?.selectedTrack || profileCtx.assessment.growthArea || 'AI Workflows';
+
+  // Determine stage key and single recommended next action in canonical sequence
   let currentStageKey: LearnerNextAction['currentStageKey'] = 'assessment';
   let currentStageTitle = '1. UNDERSTAND AI';
-  let nextActionTitle = 'Complete your AI baseline';
-  let nextActionReason = 'Complete your 5-minute baseline diagnostic to unlock your personalized AI capability profile.';
+  let nextActionTitle = 'Complete your AI assessment';
+  let nextActionReason = 'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
   let targetTab = 'assessment';
-  let actionButtonLabel = 'Start Baseline Assessment';
+  let actionButtonLabel = 'Start Assessment';
   let progressPercent = 10;
 
   if (!isAssessmentDone) {
     currentStageKey = 'assessment';
     currentStageTitle = '1. UNDERSTAND AI';
-    nextActionTitle = 'Complete your AI baseline';
-    nextActionReason = 'Complete your 5-minute baseline diagnostic to unlock your personalized AI capability profile.';
+    nextActionTitle = 'Complete your AI assessment';
+    nextActionReason = 'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
     targetTab = 'assessment';
-    actionButtonLabel = 'Start Baseline Assessment';
+    actionButtonLabel = 'Start Assessment';
     progressPercent = 10;
   } else if (!isAnalysisViewed) {
     currentStageKey = 'analysis';
     currentStageTitle = '2. MY AI PROFILE';
-    nextActionTitle = 'Understand your AI profile';
-    nextActionReason = `Your diagnostic is complete. Discover your top strength in ${profileCtx.assessment.topCapability} and primary growth area.`;
+    nextActionTitle = 'View your AI profile';
+    nextActionReason = `Your assessment is complete. Open your profile to see your top skill in ${profileCtx.assessment.topCapability} and growth areas.`;
     targetTab = 'analysis';
     actionButtonLabel = 'View Your AI Profile';
     progressPercent = 20;
-  } else if (toolCount < 2) {
+  } else if (!isWalletExplored) {
     currentStageKey = 'wallet';
     currentStageTitle = '3. AI WALLET';
-    nextActionTitle = 'Discover your AI tools';
-    nextActionReason = `Explore AI tools that match your role and diagnostic profile. Understand what tools you should know and use.`;
+    nextActionTitle = 'Explore AI tools';
+    nextActionReason = 'Discover AI tools that match your role and profile. Learn which tools you should know or use.';
     targetTab = 'wallet';
-    actionButtonLabel = 'Open AI Wallet';
+    actionButtonLabel = 'Explore AI Tools';
     progressPercent = 30;
-  } else if (!isClarityStarted) {
+  } else if (!isClarityCompleted) {
     currentStageKey = 'clarity';
     currentStageTitle = '4. CLARITY';
     nextActionTitle = 'Clarify your AI goals';
-    nextActionReason = `Now that you have explored tools in your Wallet, clarify what you actually want AI to help you accomplish in your work.`;
+    nextActionReason = 'Define what you actually want AI to help you accomplish in your work and projects.';
     targetTab = 'clarity';
-    actionButtonLabel = 'Build My AI Direction';
+    actionButtonLabel = 'Clarify Your Goals';
     progressPercent = 40;
-  } else if (!isFocusActive) {
+  } else if (!isFocusSelected) {
     currentStageKey = 'focus';
     currentStageTitle = '5. FOCUS';
-    nextActionTitle = 'Select your AI focus track';
-    nextActionReason = `Choose your primary area of concentration right now to prioritize active guidance and radar opportunities.`;
+    nextActionTitle = 'Choose your focus';
+    nextActionReason = 'Select what area you want to concentrate on right now to personalize your radar opportunities.';
     targetTab = 'focus';
-    actionButtonLabel = 'Select Focus Track';
+    actionButtonLabel = 'Choose Focus Track';
     progressPercent = 50;
-  } else if (investigatedCount === 0) {
+  } else if (!isRadarInvestigated) {
     currentStageKey = 'radar';
     currentStageTitle = '6. AI RADAR';
-    nextActionTitle = "Explore what's changing in AI";
-    nextActionReason = `Discover technical shifts and emerging opportunities relevant to your focus track (${activeFocus}).`;
+    nextActionTitle = 'Explore an AI opportunity';
+    nextActionReason = `Discover what's changing in AI and investigate opportunities relevant to your focus (${activeFocus}).`;
     targetTab = 'radar';
     actionButtonLabel = 'Explore AI Radar';
     progressPercent = 60;
-  } else if (state.investigation.selectedSignalId && state.investigation.status !== 'completed') {
+  } else if (!isRelevanceCompleted) {
     currentStageKey = 'relevance';
     currentStageTitle = '7. AI RELEVANCE';
-    nextActionTitle = 'Understand why this shift matters to you';
+    nextActionTitle = 'Understand why it matters';
     nextActionReason = 'Review how your active focus and evaluated tools connect with emerging ecosystem developments.';
     targetTab = 'relevance';
-    actionButtonLabel = 'View Relevance Report';
+    actionButtonLabel = 'View Relevance Breakdown';
     progressPercent = 70;
   } else if (!hasSolvedWorkflow) {
     currentStageKey = 'solver';
     currentStageTitle = '8. PROBLEM SOLVER';
-    nextActionTitle = 'Apply AI to a real problem';
-    nextActionReason = `Formulate a real task (e.g. analyzing customer feedback or coding agents) to receive a custom execution workflow.`;
+    nextActionTitle = 'Solve a real problem';
+    nextActionReason = 'Input a real task to derive required tool capabilities and an actionable execution workflow.';
     targetTab = 'solver';
     actionButtonLabel = 'Launch Problem Solver';
     progressPercent = 80;
   } else if (!hasBuildProject) {
     currentStageKey = 'build';
-    currentStageTitle = '9. BUILD WORKSPACE';
-    nextActionTitle = 'Turn your solution into a project';
-    nextActionReason = `Transform your solved problem workflow into a reusable AI project or automated workflow.`;
+    currentStageTitle = '9. BUILD';
+    nextActionTitle = 'Build something';
+    nextActionReason = 'Transform your solved workflow into a reusable project or template.';
     targetTab = 'build';
     actionButtonLabel = 'Open Build Workspace';
     progressPercent = 90;
   } else {
     currentStageKey = 'mentor';
-    currentStageTitle = '10. IMPROVE CONTINUOUSLY';
-    nextActionTitle = 'Review continuous mentorship';
-    nextActionReason = `Refine your capabilities with AIIMS mentor feedback, credit rewards, and updated profile insights.`;
+    currentStageTitle = '10. IMPROVE';
+    nextActionTitle = 'See what Ainova learned';
+    nextActionReason = 'Review updated learner insights and mentor recommendations based on your real activity.';
     targetTab = 'mentor';
-    actionButtonLabel = 'Open Mentor Workspace';
-    progressPercent = 98;
+    actionButtonLabel = 'See Learner Insights';
+    progressPercent = 100;
   }
 
-  // Canonical 10-Stage Journey Array
+  // Canonical 10-Stage Journey Statuses
   const journeyStages: JourneyStageItem[] = [
     {
       id: 'understand',
@@ -139,88 +143,88 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       name: 'UNDERSTAND AI',
       subtitle: 'Baseline Assessment',
       status: isAssessmentDone ? 'completed' : 'current',
-      description: 'Discover who you are as an AI user through baseline diagnostic assessment.',
+      description: 'Discover your AI profile through baseline assessment.',
       targetTab: 'assessment'
     },
     {
       id: 'profile',
       number: 2,
       name: 'MY AI PROFILE',
-      subtitle: 'Diagnostic Report',
+      subtitle: 'Your AI Skills',
       status: isAnalysisViewed ? 'completed' : isAssessmentDone ? 'current' : 'upcoming',
-      description: 'Understand your evaluation capabilities, strengths, and growth areas.',
+      description: 'Understand your top AI skills and growth areas.',
       targetTab: 'analysis'
     },
     {
       id: 'wallet',
       number: 3,
       name: 'AI WALLET',
-      subtitle: 'Tools & Discovery',
-      status: toolCount >= 2 ? 'completed' : isAnalysisViewed ? 'current' : 'upcoming',
-      description: 'Discover and evaluate relevant AI tools suited to your profile.',
+      subtitle: 'Your AI Tools',
+      status: isWalletExplored ? 'completed' : isAnalysisViewed ? 'current' : 'upcoming',
+      description: 'Discover and evaluate tools suited to your profile.',
       targetTab: 'wallet'
     },
     {
       id: 'clarity',
       number: 4,
       name: 'CLARITY',
-      subtitle: 'Goals & Outcomes',
-      status: isClarityStarted ? 'completed' : toolCount >= 2 ? 'current' : 'upcoming',
-      description: 'Understand what you actually want AI to help you accomplish.',
+      subtitle: 'Your AI Goals',
+      status: isClarityCompleted ? 'completed' : isWalletExplored ? 'current' : 'upcoming',
+      description: 'Define what you actually want AI to help you accomplish.',
       targetTab: 'clarity'
     },
     {
       id: 'focus',
       number: 5,
       name: 'FOCUS',
-      subtitle: 'Current Attention Track',
-      status: isFocusActive ? 'completed' : isClarityStarted ? 'current' : 'upcoming',
-      description: 'Select your primary growth track to concentrate your attention.',
+      subtitle: 'Your Focus Track',
+      status: isFocusSelected ? 'completed' : isClarityCompleted ? 'current' : 'upcoming',
+      description: 'Select your concentration area right now.',
       targetTab: 'focus'
     },
     {
       id: 'radar',
       number: 6,
       name: 'AI RADAR',
-      subtitle: 'Ecosystem Shifts',
-      status: investigatedCount > 0 ? 'completed' : isFocusActive ? 'current' : 'upcoming',
-      description: 'Discover AI changes, developments, and opportunities.',
+      subtitle: "What's Changing in AI",
+      status: isRadarInvestigated ? 'completed' : isFocusSelected ? 'current' : 'upcoming',
+      description: 'Discover AI opportunities and tech shifts.',
       targetTab: 'radar'
     },
     {
       id: 'relevance',
       number: 7,
       name: 'AI RELEVANCE',
-      subtitle: 'Personal Connection',
-      status: investigatedCount > 0 ? 'completed' : 'upcoming',
-      description: 'Understand why emerging Radar opportunities matter to you.',
+      subtitle: 'Why This Matters to You',
+      status: isRelevanceCompleted ? 'completed' : isRadarInvestigated ? 'current' : 'upcoming',
+      description: 'Understand why emerging opportunities matter to your work.',
       targetTab: 'relevance'
     },
     {
       id: 'solver',
       number: 8,
       name: 'PROBLEM SOLVER',
-      subtitle: 'Real Task Solution',
-      status: hasSolvedWorkflow ? 'completed' : investigatedCount > 0 ? 'current' : 'upcoming',
-      description: 'Apply AI tools to solve real-world tasks and derive workflows.',
+      subtitle: 'Solve a Real Problem',
+      status: hasSolvedWorkflow ? 'completed' : isRelevanceCompleted ? 'current' : 'upcoming',
+      description: 'Apply AI tools to derive workflows for real tasks.',
       targetTab: 'solver'
     },
     {
       id: 'build',
       number: 9,
       name: 'BUILD',
-      subtitle: 'Projects & Workflows',
+      subtitle: 'Create a Project',
       status: hasBuildProject ? 'completed' : hasSolvedWorkflow ? 'current' : 'upcoming',
-      description: 'Turn your solution into a reusable workflow or project template.',
+      description: 'Turn your solved workflows into reusable projects.',
       targetTab: 'build'
     },
     {
       id: 'improve',
       number: 10,
       name: 'IMPROVE',
-      subtitle: 'Continuous Guidance',
-      status: isAssessmentDone ? 'current' : 'upcoming',
-      description: 'Update profile recommendations and refine skills continuously.',
+      subtitle: 'What Ainova Learned',
+      status: hasBuildProject ? 'completed' : isAssessmentDone ? 'current' : 'upcoming',
+      description: 'Review updated insights and continuous growth guidance.',
       targetTab: 'mentor'
     }
   ];

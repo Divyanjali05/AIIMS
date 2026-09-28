@@ -9,7 +9,7 @@ export interface MentorMessageProps {
 }
 
 export const MentorMessage: React.FC<MentorMessageProps> = ({
-  title = 'AIIMS MENTOR OBSERVATION',
+  title = 'AINOVA MENTOR OBSERVATION',
   message,
   action,
   style

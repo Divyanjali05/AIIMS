@@ -1,21 +1,48 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import { config } from '../config/env';
 import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds, mockToolCatalog, mockUserTools, mockLearnerFullState } from '../models/aiims.models';
 import { User, IUser } from '../models/User.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
-import { authenticateStudent, AuthenticatedRequest } from '../middleware/auth.middleware';
+import { evaluateAssessment } from '../services/assessmentScoring';
+import { authenticateStudent, requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 const claudeService = new ClaudeService();
 
-// Apply student authentication middleware to populate req.user from MongoDB Atlas
+/**
+ * Generates a cryptographically signed JWT token with a 7-day expiration
+ */
+const generateAuthToken = (userId: string, email: string): string => {
+  return jwt.sign(
+    { userId, email: email.toLowerCase().trim() },
+    config.jwtSecret,
+    { expiresIn: '7d' }
+  );
+};
+
+// Apply student authentication middleware globally to extract token if present
 router.use(authenticateStudent);
 
-// In-memory fallback cache
-const registeredUsers: Record<string, any> = {
+// In-memory fallback cache seeded with standard test accounts
+export const registeredUsers: Record<string, any> = {
   [mockUser.email.toLowerCase()]: {
     ...mockUser,
     college: 'Engineering & Technology College',
+    password: bcrypt.hashSync('password123', 10)
+  },
+  'alex.ai@example.com': {
+    id: 'usr-alex-101',
+    name: 'Alex AI',
+    email: 'alex.ai@example.com',
+    role: 'Student / AI Learner',
+    college: 'Stanford University',
+    targetGoal: 'Master AI Intelligence & Mentoring',
+    stage: 'Knowing',
+    xpPoints: 100,
+    aiimsCredits: 100,
     password: bcrypt.hashSync('password123', 10)
   }
 };
@@ -89,139 +116,89 @@ const formatUserState = (dbUser: IUser) => {
 router.post('/auth/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
-  if (!email || !email.trim()) {
-    return res.status(400).json({ error: 'Please provide a valid email address.' });
+  if (!email || !email.trim() || !email.includes('@')) {
+    return res.status(400).json({ error: 'Email or password is incorrect.' });
   }
-  if (!password || password.trim().length < 4) {
-    return res.status(400).json({ error: 'Password must be at least 4 characters long.' });
+  if (!password || !password.trim()) {
+    return res.status(400).json({ error: 'Email or password is incorrect.' });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  try {
-    // 1. Find or auto-create student in MongoDB Atlas
-    let dbUser = await User.findOne({ email: normalizedEmail });
-
-    if (!dbUser) {
-      const usernamePart = normalizedEmail.split('@')[0];
-      const formattedName = usernamePart
-        .split(/[._-]/)
-        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ') || 'Learner';
-
-      dbUser = await User.create({
-        name: formattedName,
-        email: normalizedEmail,
-        password: password,
-        role: 'Student / AI Learner',
-        college: 'Engineering & Technology College',
-        targetGoal: 'Master AI Intelligence & Mentoring',
-        stage: 'Knowing',
-        xpPoints: 100,
-        aiimsCredits: 100
-      });
-      console.log(`🌿 Created new student in MongoDB Atlas: ${normalizedEmail}`);
-    } else {
-      console.log(`🌿 Found student in MongoDB Atlas: ${normalizedEmail}`);
-      const isMatch = await dbUser.comparePassword(password);
-      if (!isMatch) {
-        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
+  // 1. Try DB user if connected
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const dbUser = await User.findOne({ email: normalizedEmail });
+      if (dbUser) {
+        const isMatch = await dbUser.comparePassword(password);
+        if (isMatch) {
+          const token = generateAuthToken(String(dbUser._id), dbUser.email);
+          const userState = formatUserState(dbUser);
+          return res.json({
+            token,
+            user: userState.profile,
+            state: userState
+          });
+        } else {
+          return res.status(401).json({ error: 'Email or password is incorrect.' });
+        }
       }
+    } catch (err) {
+      // Proceed to fallback
     }
-
-    // Sync session mockUser
-    Object.assign(mockUser, {
-      id: String(dbUser._id),
-      name: dbUser.name,
-      email: dbUser.email,
-      role: dbUser.role,
-      targetGoal: dbUser.targetGoal,
-      stage: dbUser.stage,
-      xpPoints: dbUser.xpPoints,
-      aiimsCredits: dbUser.aiimsCredits
-    });
-
-    const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
-    const userState = formatUserState(dbUser);
-
-    return res.json({
-      token,
-      user: userState.profile,
-      state: userState
-    });
-  } catch (mongoErr) {
-    console.warn(`MongoDB login fallback to memory:`, mongoErr);
-    let user = registeredUsers[normalizedEmail];
-    if (!user) {
-      const usernamePart = normalizedEmail.split('@')[0];
-      const formattedName = usernamePart
-        .split(/[._-]/)
-        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ') || 'Learner';
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = {
-        id: `usr-${Date.now().toString().slice(-4)}`,
-        name: formattedName,
-        email: normalizedEmail,
-        role: 'Student / AI Learner',
-        college: 'Engineering & Technology College',
-        targetGoal: 'Master AI Intelligence & Mentoring',
-        stage: 'Knowing',
-        xpPoints: 100,
-        aiimsCredits: 100,
-        password: hashedPassword
-      };
-      registeredUsers[normalizedEmail] = user;
-    } else {
-      const isMatch = user.password && user.password.startsWith('$2')
-        ? await bcrypt.compare(password, user.password)
-        : user.password === password;
-
-      if (!isMatch) {
-        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
-      }
-    }
-
-    Object.assign(mockUser, user);
-    const token = `aiims-jwt-${Buffer.from(user.email).toString('base64')}-${Date.now()}`;
-    return res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        college: user.college,
-        targetGoal: user.targetGoal,
-        stage: user.stage,
-        xpPoints: user.xpPoints,
-        aiimsCredits: user.aiimsCredits
-      }
-    });
   }
+
+  // 2. Check registeredUsers in-memory store
+  const user = registeredUsers[normalizedEmail];
+  if (!user) {
+    return res.status(401).json({ error: 'Email or password is incorrect.' });
+  }
+
+  const isMatch = user.password && user.password.startsWith('$2')
+    ? await bcrypt.compare(password, user.password)
+    : user.password === password;
+
+  if (!isMatch) {
+    return res.status(401).json({ error: 'Email or password is incorrect.' });
+  }
+
+  const token = generateAuthToken(user.id || `usr-${normalizedEmail}`, user.email);
+  return res.json({
+    token,
+    user: {
+      id: user.id || `usr-${normalizedEmail}`,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      college: user.college,
+      targetGoal: user.targetGoal,
+      stage: user.stage,
+      xpPoints: user.xpPoints,
+      aiimsCredits: user.aiimsCredits
+    }
+  });
 });
 
 router.post('/auth/register', async (req: Request, res: Response) => {
   const { name, email, password, role, college, targetGoal } = req.body;
 
-  if (!email || !email.trim()) {
-    return res.status(400).json({ error: 'Email is required' });
+  if (!email || !email.trim() || !email.includes('@')) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
   }
-  if (!password || password.length < 4) {
-    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  if (!password || password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
   const displayName = (name && name.trim()) || normalizedEmail.split('@')[0];
 
   try {
-    let dbUser = await User.findOne({ email: normalizedEmail });
-    if (dbUser) {
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
       return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
     }
 
-    dbUser = await User.create({
+    const dbUser = await User.create({
       name: displayName,
       email: normalizedEmail,
       password,
@@ -233,20 +210,7 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       aiimsCredits: 100
     });
 
-    console.log(`🌿 Registered new student in MongoDB Atlas: ${normalizedEmail} (${dbUser.college})`);
-
-    Object.assign(mockUser, {
-      id: String(dbUser._id),
-      name: dbUser.name,
-      email: dbUser.email,
-      role: dbUser.role,
-      targetGoal: dbUser.targetGoal,
-      stage: dbUser.stage,
-      xpPoints: dbUser.xpPoints,
-      aiimsCredits: dbUser.aiimsCredits
-    });
-
-    const token = `aiims-jwt-${Buffer.from(dbUser.email).toString('base64')}-${Date.now()}`;
+    const token = generateAuthToken(String(dbUser._id), dbUser.email);
     const userState = formatUserState(dbUser);
 
     return res.json({
@@ -255,7 +219,10 @@ router.post('/auth/register', async (req: Request, res: Response) => {
       state: userState
     });
   } catch (mongoErr) {
-    console.warn(`MongoDB register fallback:`, mongoErr);
+    if (registeredUsers[normalizedEmail]) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = {
       id: `usr-${Date.now().toString().slice(-4)}`,
@@ -271,9 +238,8 @@ router.post('/auth/register', async (req: Request, res: Response) => {
     };
 
     registeredUsers[normalizedEmail] = newUser;
-    Object.assign(mockUser, newUser);
 
-    const token = `aiims-jwt-${Buffer.from(newUser.email).toString('base64')}-${Date.now()}`;
+    const token = generateAuthToken(newUser.id, newUser.email);
     return res.json({
       token,
       user: {
@@ -295,62 +261,42 @@ router.post('/auth/register', async (req: Request, res: Response) => {
 // 2. BIDIRECTIONAL LEARNER STATE SYNC
 // ==========================================
 
-router.get('/learner/state', async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user) {
-    return res.json({
-      success: true,
-      state: formatUserState(req.user)
-    });
-  }
-
-  // Fallback to mock session
-  res.json({
+router.get('/learner/state', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  return res.json({
     success: true,
-    state: mockLearnerFullState
+    state: formatUserState(req.user!)
   });
 });
 
-router.put('/learner/state', async (req: AuthenticatedRequest, res: Response) => {
+router.put('/learner/state', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { state } = req.body;
   if (!state) {
     return res.status(400).json({ error: 'State payload is required' });
   }
 
   try {
-    if (req.user) {
-      if (state.profile) {
-        if (state.profile.name) req.user.name = state.profile.name;
-        if (state.profile.role) req.user.role = state.profile.role;
-        if (state.profile.college) req.user.college = state.profile.college;
-        if (state.profile.targetGoal) req.user.targetGoal = state.profile.targetGoal;
-        if (state.profile.stage) req.user.stage = state.profile.stage;
-        if (typeof state.profile.xpPoints === 'number') req.user.xpPoints = state.profile.xpPoints;
-        if (typeof state.profile.aiimsCredits === 'number') req.user.aiimsCredits = state.profile.aiimsCredits;
-      }
-      if (state.assessment) req.user.assessment = state.assessment;
-      if (state.analysis) req.user.analysis = state.analysis;
-      if (state.clarity) req.user.clarity = state.clarity;
-      if (state.focus) req.user.focus = state.focus;
-      if (state.radar) req.user.radar = state.radar;
-      if (state.investigation) req.user.investigation = state.investigation;
-      if (state.credits?.transactions) req.user.transactions = state.credits.transactions;
-      if (state.notifications) req.user.notifications = state.notifications;
-
-      await req.user.save();
-      return res.json({ success: true, state: formatUserState(req.user) });
+    const user = req.user!;
+    if (state.profile) {
+      if (state.profile.name) user.name = state.profile.name;
+      if (state.profile.role) user.role = state.profile.role;
+      if (state.profile.college) user.college = state.profile.college;
+      if (state.profile.targetGoal) user.targetGoal = state.profile.targetGoal;
+      if (state.profile.stage) user.stage = state.profile.stage;
+      if (typeof state.profile.xpPoints === 'number') user.xpPoints = state.profile.xpPoints;
+      if (typeof state.profile.aiimsCredits === 'number') user.aiimsCredits = state.profile.aiimsCredits;
     }
+    if (state.assessment) user.assessment = state.assessment;
+    if (state.analysis) user.analysis = state.analysis;
+    if (state.clarity) user.clarity = state.clarity;
+    if (state.focus) user.focus = state.focus;
+    if (state.radar) user.radar = state.radar;
+    if (state.investigation) user.investigation = state.investigation;
+    if (state.credits?.transactions) user.transactions = state.credits.transactions;
+    if (state.notifications) user.notifications = state.notifications;
 
-    // Fallback if DB unavailable
-    if (state.profile) Object.assign(mockUser, state.profile);
-    if (state.assessment) Object.assign(mockLearnerFullState.assessment, state.assessment);
-    if (state.analysis) Object.assign(mockLearnerFullState.analysis, state.analysis);
-    if (state.clarity) Object.assign(mockLearnerFullState.clarity, state.clarity);
-    if (state.focus) Object.assign(mockLearnerFullState.focus, state.focus);
-    if (state.aiWallet) Object.assign(mockLearnerFullState.aiWallet, state.aiWallet);
-    return res.json({ success: true, state: mockLearnerFullState });
-
+    await user.save();
+    return res.json({ success: true, state: formatUserState(user) });
   } catch (err: any) {
-    console.error('Error syncing learner state to MongoDB:', err);
     return res.status(500).json({ error: 'Failed to sync learner state to DB', details: err.message });
   }
 });
@@ -430,19 +376,50 @@ router.get('/assessments/questions', (req: Request, res: Response) => {
 });
 
 router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Response) => {
-  const { answers, scores } = req.body;
-  
-  // Extract raw prompts if provided
-  const architecturePrompt = answers?.find?.((a: any) => String(a.questionId) === '11')?.answer || '';
+  const { answers } = req.body;
+  const userAnswers = answers || {};
 
-  let evaluation = null;
-  if (architecturePrompt) {
-    evaluation = await claudeService.evaluateOpenEndedAnswer(
-      'Designing Software Architecture Prompt',
-      'Evaluates problem-framing, constraint specification, and AI-thinking behavior',
-      architecturePrompt
+  // Evaluate open-ended questions (Q11, Q12, Q25) via Anthropic Claude
+  const openEndedEvaluations: Record<number, any> = {};
+
+  const q11Text = typeof userAnswers[11] === 'string' ? userAnswers[11] : userAnswers['11'];
+  if (q11Text) {
+    const eval11 = await claudeService.evaluateOpenEndedAnswer(
+      'AI THINKING LAB: Designing Software Architecture',
+      'Evaluates authentic problem-framing, system boundary definition, role setting, and technical constraint specification.',
+      'Solving with AI',
+      'Strong: explicit role, technical stack, modular components, non-functional requirements. Weak: generic vague prompt.',
+      q11Text
     );
+    if (eval11) openEndedEvaluations[11] = eval11;
   }
+
+  const q12Text = typeof userAnswers[12] === 'string' ? userAnswers[12] : userAnswers['12'];
+  if (q12Text) {
+    const eval12 = await claudeService.evaluateOpenEndedAnswer(
+      'AI THINKING LAB: Building a Working Prototype (MVP)',
+      'Evaluates code generation prompting strategy: component modularity, API contract definition, and edge case instructions.',
+      'Solving with AI',
+      'Strong: explicit languages/frameworks, step-by-step code snippets, mock data, edge cases. Weak: generic request.',
+      q12Text
+    );
+    if (eval12) openEndedEvaluations[12] = eval12;
+  }
+
+  const q25Text = typeof userAnswers[25] === 'string' ? userAnswers[25] : userAnswers['25'];
+  if (q25Text) {
+    const eval25 = await claudeService.evaluateOpenEndedAnswer(
+      'AI THINKING LAB: What separates someone who merely uses AI from someone who adapts to AI?',
+      'Evaluates meta-cognition, understanding of paradigm shifts, workflow redesign, and human-AI co-evolution.',
+      'Adapting to AI',
+      'Strong: workflow redesign mindset, understanding capabilities/limits, continuous learning. Weak: superficial statement.',
+      q25Text
+    );
+    if (eval25) openEndedEvaluations[25] = eval25;
+  }
+
+  // Calculate scores using AINOVA Assessment Scoring Engine
+  const evaluationResult = evaluateAssessment(userAnswers, openEndedEvaluations);
 
   const creditReward = 50;
   const xpReward = 100;
@@ -453,27 +430,19 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
     req.user.xpPoints += xpReward;
     req.user.stage = 'Understanding';
 
-    const calculatedScores = scores || {
-      usageFrequency: 82,
-      evaluationCapability: 88,
-      workflowDesign: 65,
-      strategicVision: 74,
-      mentorshipReadiness: 70
-    };
-
     req.user.assessment = {
       status: 'completed',
-      answers: answers || {},
-      currentQuestionIndex: 12,
+      answers: userAnswers,
+      currentQuestionIndex: 25,
       completedAt: new Date().toISOString(),
       rewardClaimed: true,
-      scores: calculatedScores
+      scores: evaluationResult.legacyScores
     };
 
     req.user.analysis = {
       status: 'unlocked',
-      topCapability: 'Prompt Engineering & Critical Evaluation',
-      growthArea: 'Agentic Workflows & Multi-Modal Architecture',
+      topCapability: evaluationResult.strongestSkill.name,
+      growthArea: evaluationResult.roomToGrow.name,
       unlockedAt: new Date().toISOString()
     };
 
@@ -496,10 +465,12 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
     return res.json({
       message: 'Assessment completed and saved to MongoDB Atlas!',
       earnedCredits: creditReward,
-      evaluation,
+      evaluationResult,
+      scores: evaluationResult.legacyScores,
+      topCapability: evaluationResult.strongestSkill.name,
+      growthArea: evaluationResult.roomToGrow.name,
       updatedBalance: req.user.aiimsCredits,
-      updatedScores: req.user.assessment.scores,
-      user: formatUserState(req.user).profile
+      updatedScores: req.user.assessment.scores
     });
   }
 
@@ -523,7 +494,7 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
   res.json({
     message: 'Assessment recorded',
     earnedCredits: creditReward,
-    evaluation,
+    evaluationResult,
     updatedBalance: mockUser.aiimsCredits,
     updatedScores: mockDimensionScores
   });
@@ -867,65 +838,149 @@ router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
 });
 
 router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response) => {
-  // Generate recommendations dynamically without hardcoding universal rankings
-  const currentToolIds = new Set(mockUserTools.map(t => t.toolId));
+  // Generate recommendations dynamically from catalog metadata without hardcoded tool IDs
+  const userTools = (req.user as any)?.aiWallet?.userTools || mockLearnerFullState.aiWallet?.userTools || mockUserTools;
+  const userToolMap = new Map<string, string>();
+  userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
+
+  const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
+  const activeFocus = req.user?.focus?.selectedTrack || mockLearnerFullState.focus?.selectedTrack || mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
+  const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
+  const clarityTopic = req.user?.clarity?.selectedTopic || mockLearnerFullState.clarity?.selectedTopic || '';
+  const investigatedRadarIds = req.user?.radar?.investigatedSignalIds || mockLearnerFullState.radar?.investigatedSignalIds || [];
+
   const recs = [];
 
-  // Recommendation 1: ALTERNATIVE_TOOL (If ChatGPT present & long-form reasoning task -> Claude)
-  if (currentToolIds.has('tool-chatgpt') && !currentToolIds.has('tool-claude')) {
-    recs.push({
-      id: 'rec-claude-alt',
-      toolId: 'tool-claude',
-      type: 'ALTERNATIVE_TOOL',
-      reason: "You're frequently working with long-form documents and reasoning tasks. You currently use ChatGPT for similar workflows, so exploring another workflow optimized for extended context (200k tokens) and system instructions may be useful.",
-      relatedTask: 'long-form document reasoning',
-      relatedSkill: 'Prompt Engineering & System Prompts',
-      relevance: 'Complements your current reasoning toolkit',
-      status: 'active',
-      createdAt: 'Just now'
-    });
-  }
+  const containsMatch = (targetText: string, searchKey: string): boolean => {
+    if (!targetText || !searchKey) return false;
+    return targetText.toLowerCase().includes(searchKey.toLowerCase()) || searchKey.toLowerCase().includes(targetText.toLowerCase());
+  };
 
-  // Recommendation 2: SKILL_GAP (Agentic Coding gap -> Cursor IDE)
-  if (!currentToolIds.has('tool-cursor')) {
-    recs.push({
-      id: 'rec-cursor-gap',
-      toolId: 'tool-cursor',
-      type: 'SKILL_GAP',
-      reason: 'Based on your profile growth area in Agentic Workflows, exploring an AI-first IDE with multi-file composer agents can help bridge your workflow design targets.',
-      relatedTask: 'agentic coding & multi-file editing',
-      relatedSkill: 'Agentic Workflows',
-      relevance: 'Directly addresses your primary growth area',
-      status: 'active',
-      createdAt: 'Just now'
-    });
-  }
+  for (const tool of mockToolCatalog) {
+    if (!tool.activeStatus) continue;
 
-  // Recommendation 3: TASK_BASED (Research / RAG -> NotebookLM)
-  if (!currentToolIds.has('tool-notebooklm')) {
-    recs.push({
-      id: 'rec-notebooklm-task',
-      toolId: 'tool-notebooklm',
-      type: 'TASK_BASED',
-      reason: 'If you work with dense academic papers or internal PDFs, exploring a grounded source-based AI assistant can improve citation accuracy without hallucination.',
-      relatedTask: 'grounded document research',
-      relatedSkill: 'RAG Triad & Context Evaluation',
-      relevance: 'Useful for source-grounded research tasks',
-      status: 'active',
-      createdAt: 'Just now'
-    });
-  }
+    const familiarity = userToolMap.get(tool.id);
+    const matchedSignals: { type: string; snippet: string; priority: number }[] = [];
 
-  // Recommendation 4: RADAR_DISCOVERY (Computer Use / OS Control -> Perplexity AI or Gemini Pro)
-  if (!currentToolIds.has('tool-perplexity')) {
+    const toolFocusTracks = tool.focusTracks || [tool.category];
+    const toolClarityTopics = tool.clarityTopics || tool.taskMappings || [];
+    const toolRadarTopics = tool.radarTopics || [tool.category];
+    const toolCategories = tool.categories || [tool.category];
+    const toolRelatedTools = tool.relatedTools || [];
+
+    // 1. FOCUS_BASED
+    if (toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) || toolCategories.some(cat => containsMatch(cat, activeFocus))) {
+      matchedSignals.push({
+        type: 'FOCUS_BASED',
+        snippet: `aligns with your active focus on ${activeFocus}`,
+        priority: 2
+      });
+    }
+
+    // 2. RADAR_DISCOVERY
+    let matchedRadarTopic: string | null = null;
+    if (investigatedRadarIds.length > 0) {
+      for (const sigId of investigatedRadarIds) {
+        if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
+          matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
+          break;
+        }
+      }
+      if (!matchedRadarTopic) {
+        const matchingTopic = toolRadarTopics.find(rt => investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId)));
+        if (matchingTopic) matchedRadarTopic = matchingTopic;
+      }
+    }
+    if (matchedRadarTopic) {
+      const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-') ? tool.category : matchedRadarTopic;
+      matchedSignals.push({
+        type: 'RADAR_DISCOVERY',
+        snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
+        priority: 1
+      });
+    }
+
+    // 3. TASK_BASED
+    if (clarityTopic && (toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) || toolCategories.some(cat => containsMatch(cat, clarityTopic)))) {
+      matchedSignals.push({
+        type: 'TASK_BASED',
+        snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
+        priority: 3
+      });
+    }
+
+    // 4. SKILL_GAP
+    if (growthArea && (toolCategories.some(cat => containsMatch(cat, growthArea)) || toolFocusTracks.some(ft => containsMatch(ft, growthArea)))) {
+      matchedSignals.push({
+        type: 'SKILL_GAP',
+        snippet: `strengthens your growth area in ${growthArea}`,
+        priority: 4
+      });
+    }
+
+    // 5. TOOLKIT_GAP
+    if (!walletCategories.has(tool.category) && !familiarity) {
+      matchedSignals.push({
+        type: 'TOOLKIT_GAP',
+        snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
+        priority: 5
+      });
+    }
+
+    // 6. ALTERNATIVE_TOOL
+    const isAlt = userTools.some((ut: any) => {
+      const userToolObj = mockToolCatalog.find(c => c.id === ut.toolId);
+      return userToolObj && (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId));
+    });
+    if (isAlt && !familiarity) {
+      matchedSignals.push({
+        type: 'ALTERNATIVE_TOOL',
+        snippet: `offers a complementary workflow alternative to tools in your wallet`,
+        priority: 6
+      });
+    }
+
+    if (matchedSignals.length === 0) continue;
+
+    // Familiarity filtering
+    if (familiarity === 'mastered') {
+      const hasRadarOrAlt = matchedSignals.some(s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL');
+      if (!hasRadarOrAlt) continue;
+    } else if (familiarity === 'proficient') {
+      const hasAdvancedSignal = matchedSignals.some(s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED');
+      if (!hasAdvancedSignal) continue;
+    }
+
+    matchedSignals.sort((a, b) => a.priority - b.priority);
+    const primarySignal = matchedSignals[0];
+    const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
+
+    let synthesizedReason = '';
+    const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
+    if (snippets.length === 1) {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
+    } else if (snippets.length === 2) {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, and ${snippets[1]}.`;
+    } else {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, ${snippets[1]}, and ${snippets[2]}.`;
+    }
+
+    let actionLabel = 'Add to Wallet & Explore';
+    if (familiarity === 'exploring') actionLabel = 'Explore & Practice Tool';
+    else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
+    else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
+    else if (familiarity === 'mastered') actionLabel = 'View Advanced Opportunities';
+
     recs.push({
-      id: 'rec-perplexity-radar',
-      toolId: 'tool-perplexity',
-      type: 'RADAR_DISCOVERY',
-      reason: 'Recent AI Radar shifts show web citation models evolving rapidly. Exploring real-time web retrieval models can complement your general AI knowledge.',
-      relatedTask: 'live web research & fact verification',
-      relatedSkill: 'Generative AI Tech',
-      relevance: 'Connected to AI Radar research signals',
+      id: `rec-${tool.id}`,
+      toolId: tool.id,
+      type: primarySignal.type,
+      matchedSignals: allSignalTypes,
+      reason: synthesizedReason,
+      relatedTask: tool.useCases[0] || tool.category,
+      relatedSkill: tool.category,
+      relevance: `Aligned with your ${activeFocus} workflow`,
+      actionLabel,
       status: 'active',
       createdAt: 'Just now'
     });

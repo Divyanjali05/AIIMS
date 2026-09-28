@@ -253,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           color: '#64748b',
           textAlign: 'center'
         }}>
-          <strong style={{ color: '#4f46e5' }}>AIIMS Platform v2.5</strong>
+          <strong style={{ color: '#4f46e5' }}>AINOVA Platform v2.5</strong>
           <div>10-Stage Canonical Journey</div>
         </div>
       </aside>

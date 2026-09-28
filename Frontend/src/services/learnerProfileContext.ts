@@ -140,7 +140,7 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
     statusLabel = '15% (Analysis Ready)';
   }
 
-  if (state.analysis.status === 'viewed' || state.analysis.status === 'unlocked') {
+  if (state.analysis.status === 'viewed') {
     if (completedTopics.length > 0 || state.clarity.status === 'completed') {
       completedCount = 2;
       currentStageName = 'Focus';
