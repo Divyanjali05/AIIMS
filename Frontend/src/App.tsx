@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LearnerProvider, useLearner } from './context/LearnerContext';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
@@ -24,29 +24,106 @@ import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 
+const mapPathToTab = (path: string): string => {
+  const cleanPath = path.toLowerCase().replace(/^\/+|\/+$/g, '');
+  if (!cleanPath || cleanPath === 'index.html') return 'home';
+  if (cleanPath === 'problem-solver' || cleanPath === 'solver') return 'solver';
+  if (cleanPath === 'profile' || cleanPath === 'settings') return 'settings';
+  if (cleanPath === 'wallet' || cleanPath === 'ai-wallet') return 'wallet';
+  return cleanPath;
+};
+
+const mapTabToPath = (tab: string): string => {
+  if (tab === 'home') return '/home';
+  if (tab === 'solver') return '/problem-solver';
+  if (tab === 'settings') return '/profile';
+  return `/${tab}`;
+};
+
 const AppContent: React.FC = () => {
+  const { state, isAuthenticated } = useLearner();
+  const [intendedRoute, setIntendedRoute] = useState<string | null>(null);
+
   const [activeTab, setActiveTabState] = useState<string>(() => {
+    const initialPath = window.location.pathname;
+    const tabFromPath = mapPathToTab(initialPath);
+    const publicPaths = ['', '/', '/login', '/register', '/index.html'];
+    if (!publicPaths.includes(initialPath.toLowerCase())) {
+      return tabFromPath;
+    }
     return localStorage.getItem('aiims_active_tab') || 'home';
   });
+
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
-  const { state, isAuthenticated } = useLearner();
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
     try {
       localStorage.setItem('aiims_active_tab', tab);
+      const newPath = mapTabToPath(tab);
+      if (window.location.pathname !== newPath) {
+        window.history.pushState(null, '', newPath);
+      }
     } catch (e) {
       console.error('Failed to save activeTab', e);
     }
   };
+
+  // Sync route path changes & handle authorization checks
+  useEffect(() => {
+    const handleLocationSync = () => {
+      const currentPath = window.location.pathname.toLowerCase();
+      const publicPaths = ['/', '/login', '/register', '/index.html'];
+
+      if (!isAuthenticated) {
+        if (!publicPaths.includes(currentPath)) {
+          // Unauthenticated attempt to access protected route -> save intended route & redirect to /login
+          const attemptedTab = mapPathToTab(currentPath);
+          setIntendedRoute(attemptedTab);
+          window.history.replaceState(null, '', '/login');
+        }
+      } else {
+        // Authenticated user accessing public path -> redirect to intended route or /home
+        if (publicPaths.includes(currentPath)) {
+          const targetTab = intendedRoute || activeTab || 'home';
+          const targetPath = mapTabToPath(targetTab);
+          window.history.replaceState(null, '', targetPath);
+          setActiveTabState(targetTab);
+          setIntendedRoute(null);
+        } else {
+          const pathTab = mapPathToTab(currentPath);
+          setActiveTabState(pathTab);
+        }
+      }
+    };
+
+    handleLocationSync();
+    window.addEventListener('popstate', handleLocationSync);
+    return () => window.removeEventListener('popstate', handleLocationSync);
+  }, [isAuthenticated]);
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
     setActiveTab('investigation');
   };
 
+  // Handle Unauthenticated State (Public Home, Register, Login)
   if (!isAuthenticated) {
-    return <LoginScreen onSuccess={() => setActiveTab('home')} />;
+    const currentPath = window.location.pathname.toLowerCase();
+    let initialMode: 'home' | 'login' | 'register' = 'home';
+    if (currentPath === '/register') initialMode = 'register';
+    else if (currentPath === '/login') initialMode = 'login';
+
+    return (
+      <LoginScreen
+        initialMode={initialMode}
+        onSuccess={() => {
+          const targetTab = intendedRoute || 'home';
+          setActiveTab(targetTab);
+          setIntendedRoute(null);
+        }}
+      />
+    );
   }
 
   return (
@@ -123,11 +200,11 @@ const AppContent: React.FC = () => {
             <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <PageHeader
                 icon={<MessageCircle size={24} />}
-                title="AIIMS Mentor Workspace"
+                title="Ainova Mentor Workspace"
                 description="Contextual guidance and observations based on your real-time LearnerState."
               />
               <MentorMessage
-                title="AIIMS MENTOR ADVICE"
+                title="AINOVA MENTOR ADVICE"
                 message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
               />
             </div>

@@ -1,6 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../../config/env';
 
+export interface OpenEndedEvaluationResult {
+  score: number;
+  confidence: number;
+  strengths: string[];
+  gaps: string[];
+  evidence: string[];
+  reason: string;
+  status: 'evaluated' | 'unavailable';
+}
+
 export class ClaudeService {
   private client: Anthropic | null = null;
 
@@ -10,55 +20,104 @@ export class ClaudeService {
     }
   }
 
-  // 1. Open-ended Answer Rubric Scoring
-  async evaluateOpenEndedAnswer(question: string, rubric: string, learnerAnswer: string) {
+  /**
+   * Evaluates open-ended assessment questions (Q11, Q12, Q25) against explicit rubric.
+   *
+   * STRICT PRINCIPLES:
+   * 1. Score represents ONLY actual evidence written by learner.
+   * 2. NO generous bias, NO artificial motivational scores, NO forcing into middle.
+   * 3. NO chain-of-thought exposed.
+   * 4. NO fake fallback scores (e.g. 85, 80). If client is unavailable, returns status: 'unavailable'.
+   */
+  async evaluateOpenEndedAnswer(
+    question: string,
+    purpose: string,
+    capability: string,
+    rubric: string,
+    learnerAnswer: string
+  ): Promise<OpenEndedEvaluationResult | null> {
     if (!this.client) {
+      return null; // Return null so caller relies on deterministic rubric fallback without fake scores
+    }
+
+    const cleanAnswer = learnerAnswer ? learnerAnswer.trim() : '';
+    if (!cleanAnswer) {
       return {
-        score: 85,
-        rubricFeedback: 'Demonstrates clear understanding of core concept with minor depth gap in edge cases.',
-        strengths: ['Identified key architectural bottleneck', 'Used relevant industry terminology'],
-        improvements: ['Could detail error handling strategies in distributed setups']
+        score: 0,
+        confidence: 1.0,
+        strengths: [],
+        gaps: ['No response provided by learner'],
+        evidence: [],
+        reason: 'Empty answer submitted.',
+        status: 'evaluated'
       };
     }
 
-    const prompt = `You are AIIMS Assessment Evaluator. Grade the following learner response against the rubric.
-Question: ${question}
-Rubric: ${rubric}
-Learner Answer: ${learnerAnswer}
+    const prompt = `You are the AINOVA Assessment Evaluator. Grade the following learner response based strictly on demonstrated evidence.
 
-Return a valid JSON object with:
+EXACT QUESTION: ${question}
+PURPOSE OF QUESTION: ${purpose}
+CAPABILITY BEING MEASURED: ${capability}
+EXPLICIT SCORING RUBRIC: ${rubric}
+LEARNER'S ACTUAL ANSWER: "${cleanAnswer}"
+
+STRICT EVALUATION INSTRUCTIONS:
+- Base score (0-100) ONLY on what the learner actually wrote.
+- DO NOT be generous.
+- DO NOT make the score motivational.
+- DO NOT force scores into the middle range (60-80).
+- DO NOT fabricate missing evidence. If evidence is missing, score accordingly.
+- If the answer is vague, score only the evidence that actually exists.
+- If the answer demonstrates partial understanding, give partial credit.
+- If the answer is fundamentally incorrect or non-responsive, score 0-15.
+- DO NOT expose internal chain-of-thought or reasoning steps.
+
+Return ONLY a valid JSON object matching this schema:
 {
-  "score": number (0 to 100),
-  "rubricFeedback": "string summary",
-  "strengths": ["string array"],
-  "improvements": ["string array"]
+  "score": number (integer 0 to 100),
+  "confidence": number (float 0.0 to 1.0),
+  "strengths": ["string array of verified strengths"],
+  "gaps": ["string array of missing elements or misconceptions"],
+  "evidence": ["string array of specific quotes or evidence from the text"],
+  "reason": "concise, direct summary explaining why this score was assigned"
 }`;
 
-    const res = await this.client.messages.create({
-      model: config.claudeModel,
-      max_tokens: 1000,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
     try {
+      const res = await this.client.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
       const contentText = res.content[0].type === 'text' ? res.content[0].text : '';
-      return JSON.parse(contentText);
-    } catch {
-      return { score: 80, rubricFeedback: 'Satisfactory answer evaluated by Claude.', strengths: [], improvements: [] };
+      const parsed = JSON.parse(contentText);
+
+      return {
+        score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.score))) : 0,
+        confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.8,
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+        gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
+        evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
+        reason: typeof parsed.reason === 'string' ? parsed.reason : 'Evaluated against capability rubric.',
+        status: 'evaluated'
+      };
+    } catch (err) {
+      console.error('Claude API open-ended evaluation failed:', err);
+      return null; // Return null so fallback is triggered with anthropicStatus: 'unavailable'
     }
   }
 
-  // 2. AI Relevance Engine ("Why does this matter to me?")
+  // AI Relevance Engine ("Why does this matter to me?")
   async generateRelevanceReport(learnerRole: string, goal: string, gapSummary: string, signalTitle: string, signalSummary: string) {
     if (!this.client) {
       return {
-        relevanceScore: 94,
-        whyItMatters: `As a ${learnerRole} working towards "${goal}", ${signalTitle} directly alters how you handle state and automation.`,
-        actionableTakeaway: 'Incorporate computer use capability checks into your next sprint backlog.'
+        relevanceScore: 85,
+        whyItMatters: `As a ${learnerRole} working towards "${goal}", ${signalTitle} alters how you handle workflow automation and technical tools.`,
+        actionableTakeaway: 'Review signal capabilities and evaluate impact on your target workflow.'
       };
     }
 
-    const prompt = `You are the AIIMS Personal AI Mentor. Calculate personalized relevance.
+    const prompt = `You are the AINOVA Personal AI Mentor. Calculate personalized relevance.
 Learner Role: ${learnerRole}
 Learner Target Goal: ${goal}
 Identified Gaps: ${gapSummary}
@@ -71,25 +130,25 @@ Return a JSON object with:
   "actionableTakeaway": "string bullet point on next step"
 }`;
 
-    const res = await this.client.messages.create({
-      model: config.claudeModel,
-      max_tokens: 800,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
     try {
+      const res = await this.client.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
       const text = res.content[0].type === 'text' ? res.content[0].text : '';
       return JSON.parse(text);
     } catch {
       return {
-        relevanceScore: 90,
+        relevanceScore: 75,
         whyItMatters: `This AI update impacts your role as ${learnerRole}.`,
         actionableTakeaway: 'Review signal documentation.'
       };
     }
   }
 
-  // 3. Radar Signal 4-part Scaffolding
+  // Radar Signal 4-part Scaffolding
   async scaffoldRadarSignal(title: string, rawDescription: string) {
     if (!this.client) {
       return {
@@ -100,7 +159,7 @@ Return a JSON object with:
       };
     }
 
-    const prompt = `Scaffold this AI signal into the AIIMS 4-step framework.
+    const prompt = `Scaffold this AI signal into the AINOVA 4-step framework.
 Title: ${title}
 Description: ${rawDescription}
 
@@ -112,13 +171,13 @@ Return JSON with:
   "whosAffected": "string"
 }`;
 
-    const res = await this.client.messages.create({
-      model: config.claudeModel,
-      max_tokens: 800,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
     try {
+      const res = await this.client.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
       const text = res.content[0].type === 'text' ? res.content[0].text : '';
       return JSON.parse(text);
     } catch {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -14,7 +14,7 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
   signal,
   setActiveTab
 }) => {
-  const { state, setRadarOpportunityContext } = useLearner();
+  const { state, setRadarOpportunityContext, completeRelevance } = useLearner();
   const learnerContext = buildLearnerProfileContext(state);
 
   const fallbackSignal: RadarSignal = {
@@ -35,6 +35,12 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
 
   const activeSignal = signal || fallbackSignal;
   const relevance = evaluateSignalRelevance(activeSignal, learnerContext);
+
+  useEffect(() => {
+    if (completeRelevance) {
+      completeRelevance(activeSignal.id);
+    }
+  }, [activeSignal.id]);
 
   const topCapability = learnerContext.assessment.topCapability;
   const growthArea = learnerContext.assessment.growthArea;

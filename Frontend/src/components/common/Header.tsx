@@ -4,6 +4,7 @@ import { useLearner } from '../../context/LearnerContext';
 import { Badge } from './Badge';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
 import { MentorService } from '../../services/mentorProvider';
+import { AinovaLogo } from './AinovaLogo';
 
 interface HeaderProps {
   activeTab: string;
@@ -55,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       default:
         return [
           { text: 'What should I focus on right now?', desc: 'Contextual mentor guidance' },
-          { text: 'How do AIIMS Credits work?', desc: 'Ledger & rewards guide' }
+          { text: 'How do Ainova Credits work?', desc: 'Ledger & rewards guide' }
         ];
     }
   };
@@ -78,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     { title: 'Take Baseline Assessment', desc: '25-question multidimensional diagnostic', tab: 'assessment' },
     { title: 'View AI Profile Analysis', desc: 'Individual, comparison, & cohort insights', tab: 'analysis' },
     { title: 'Explore AI Radar', desc: 'Emerging tech shifts & model releases', tab: 'radar' },
-    { title: 'AIIMS Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
+    { title: 'Ainova Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
     { title: 'Select Focus Track', desc: 'Prioritize skill development tracks', tab: 'focus' },
     { title: 'My AI Journey', desc: 'Development timeline & milestone history', tab: 'journey' },
   ];
@@ -114,40 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     }}>
       {/* Brand Logo & Top Primary Navigation */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <div
-          onClick={() => setActiveTab('home')}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
-        >
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#ffffff',
-            fontWeight: 800,
-            fontSize: '18px',
-            fontFamily: "'Fredoka', sans-serif",
-            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-          }}>
-            A
-          </div>
-          <div>
-            <span style={{
-              fontSize: '20px',
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #6366f1 0%, #9333ea 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              fontFamily: "'Fredoka', sans-serif",
-              letterSpacing: '-0.3px'
-            }}>
-              AIIMS
-            </span>
-          </div>
-        </div>
+        <AinovaLogo size="md" onClick={() => setActiveTab('home')} />
 
         {/* Top Primary Navigation Links with Semantic Active Colors */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -199,7 +167,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           <Search style={{ width: '15px', height: '15px', color: '#6366f1' }} />
           <input
             type="text"
-            placeholder="Search / Ask AIIMS..."
+            placeholder="Search / Ask Ainova..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);

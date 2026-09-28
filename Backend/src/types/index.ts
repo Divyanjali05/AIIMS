@@ -141,6 +141,18 @@ export interface AITool {
   websiteUrl: string;
   activeStatus: boolean;
   iconName?: string;
+  // Extended structured metadata for recommendation engine
+  provider?: string;
+  categories?: TaskCategory[];
+  relevantRoles?: string[];
+  skillLevel?: string;
+  familiarityGuidance?: Partial<Record<ToolFamiliarity, string>>;
+  relatedTools?: string[];
+  alternatives?: string[];
+  radarTopics?: string[];
+  clarityTopics?: string[];
+  focusTracks?: string[];
+  pricing?: string;
 }
 
 export interface UserToolItem {
@@ -156,10 +168,12 @@ export interface ToolRecommendation {
   id: string;
   toolId: string;
   type: RecommendationType;
+  matchedSignals?: RecommendationType[];
   reason: string;
   relatedTask?: string;
   relatedSkill?: string;
   relevance?: string;
+  actionLabel?: string;
   status: 'active' | 'dismissed' | 'added';
   createdAt: string;
 }

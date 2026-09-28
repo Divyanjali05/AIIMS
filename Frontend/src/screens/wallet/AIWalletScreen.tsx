@@ -218,11 +218,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
       case 'SKILL_GAP':
         return <Badge variant="purple" size="sm" icon={<BarChart2 size={10} />}>Growth Area</Badge>;
       case 'TASK_BASED':
-        return <Badge variant="cyan" size="sm" icon={<Briefcase size={10} />}>Active Focus</Badge>;
+        return <Badge variant="cyan" size="sm" icon={<Briefcase size={10} />}>Goal / Task Match</Badge>;
       case 'ALTERNATIVE_TOOL':
         return <Badge variant="neutral" size="sm" icon={<ArrowRightLeft size={10} />}>Alternative Workflow</Badge>;
       case 'TOOLKIT_GAP':
         return <Badge variant="warning" size="sm" icon={<Layers size={10} />}>Toolkit Gap</Badge>;
+      case 'LEARNING_RECOMMENDATION':
+        return <Badge variant="purple" size="sm" icon={<Sparkles size={10} />}>Practice Guidance</Badge>;
       default:
         return <Badge variant="primary" size="sm" icon={<Sparkles size={10} />}>Recommended</Badge>;
     }
@@ -247,31 +249,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         }
       />
 
-      {/* WALLET -> CLARITY GUIDANCE BRIDGE BANNER (STAGE 3 -> STAGE 4) */}
-      <Surface variant="highlight" radius="lg" padding="md" style={{ borderLeft: '5px solid #6366f1' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Compass size={22} color="#4f46e5" />
-            <div>
-              <h4 style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 800, color: '#3730a3' }}>
-                NEXT JOURNEY STEP • CLARITY
-              </h4>
-              <p style={{ margin: 0, fontSize: '13px', color: '#4338ca', lineHeight: 1.4 }}>
-                You've explored the tools available to you. Now clarify what you actually want AI to help you accomplish.
-              </p>
-            </div>
-          </div>
 
-          <Button
-            variant="violet"
-            size="sm"
-            icon={<ArrowRight size={14} />}
-            onClick={() => setActiveTab && setActiveTab('clarity')}
-          >
-            Build My AI Direction
-          </Button>
-        </div>
-      </Surface>
 
       {/* AI Mentor Contextual Advice */}
       <MentorMessage
@@ -622,7 +600,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                           <Badge variant="primary" icon={<Sparkles size={12} />}>
                             💡 Worth exploring
                           </Badge>
-                          {getRuleTypeBadge(rec.type)}
+                          {rec.matchedSignals && rec.matchedSignals.length > 0
+                            ? rec.matchedSignals.map((sig, sIdx) => (
+                                <React.Fragment key={sIdx}>{getRuleTypeBadge(sig)}</React.Fragment>
+                              ))
+                            : getRuleTypeBadge(rec.type)}
                           {rec.relatedTask && (
                             <Badge variant="cyan" size="sm">
                               Task: {rec.relatedTask}
@@ -704,7 +686,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             }
                           }}
                         >
-                          {isAlreadyInWallet ? 'Added to Wallet' : 'Add to Wallet'}
+                          {isAlreadyInWallet ? 'In Wallet' : (rec.actionLabel || 'Add to Wallet')}
                         </Button>
                       </div>
 

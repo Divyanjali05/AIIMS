@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
+import { config } from '../config/env';
 import { User, IUser } from '../models/User.model';
 import { mockUser } from '../models/aiims.models';
 
@@ -7,9 +10,16 @@ export interface AuthenticatedRequest extends Request {
   userEmail?: string;
 }
 
+export interface JwtPayload {
+  userId?: string;
+  email?: string;
+  iat?: number;
+  exp?: number;
+}
+
 /**
- * Extracts student identity from Bearer token or x-user-email header,
- * and loads their active document from MongoDB Atlas.
+ * Extracts and verifies JWT from Bearer Authorization header,
+ * and attaches authenticated student document to req.user.
  */
 export const authenticateStudent = async (
   req: AuthenticatedRequest,
@@ -17,57 +27,79 @@ export const authenticateStudent = async (
   next: NextFunction
 ) => {
   try {
-    let email: string | null = null;
-
-    // 1. Check Authorization header
     const authHeader = req.headers.authorization || (req.headers['x-auth-token'] as string);
-    if (authHeader) {
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
-      
-      // Check for token pattern: aiims-jwt-<base64email>-<timestamp>
-      if (token.startsWith('aiims-jwt-')) {
-        const parts = token.split('-');
-        if (parts.length >= 4) {
-          try {
-            const decodedEmail = Buffer.from(parts[2], 'base64').toString('utf-8');
-            if (decodedEmail && decodedEmail.includes('@')) {
-              email = decodedEmail.toLowerCase().trim();
-            }
-          } catch {
-            // Ignore decoding failure
-          }
+    if (!authHeader) {
+      return next();
+    }
+
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+    if (!token) {
+      return next();
+    }
+
+    // Verify token signature and expiration cryptographically
+    const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+    if (!decoded || !decoded.email) {
+      return next();
+    }
+
+    const email = decoded.email.toLowerCase().trim();
+    req.userEmail = email;
+
+    let dbUser: IUser | null = null;
+
+    if (mongoose.connection.readyState === 1) {
+      try {
+        if (decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)) {
+          dbUser = await User.findById(decoded.userId);
         }
+        if (!dbUser && email) {
+          dbUser = await User.findOne({ email });
+        }
+      } catch (err) {
+        // Fall back to memory document
       }
     }
 
-    // 2. Check x-user-email header as secondary option
-    if (!email && req.headers['x-user-email']) {
-      const headerEmail = String(req.headers['x-user-email']).trim().toLowerCase();
-      if (headerEmail.includes('@')) {
-        email = headerEmail;
-      }
+    if (!dbUser && email) {
+      dbUser = new User({
+        _id: decoded.userId || `usr-${email}`,
+        name: email === 'alex.ai@example.com' ? 'Alex AI' : (mockUser.email.toLowerCase() === email ? mockUser.name : email.split('@')[0]),
+        email: email,
+        role: 'Student / AI Learner',
+        college: email === 'alex.ai@example.com' ? 'Stanford University' : 'Engineering & Technology College',
+        targetGoal: 'Master AI Intelligence & Mentoring',
+        stage: 'Knowing',
+        xpPoints: 100,
+        aiimsCredits: 100
+      });
     }
 
-    // 3. If email identified, fetch student from MongoDB Atlas
-    if (email) {
-      req.userEmail = email;
-      const dbUser = await User.findOne({ email });
-      if (dbUser) {
-        req.user = dbUser;
-        return next();
-      }
-    }
-
-    // 4. If no specific user token provided, fall back to last active or mock user
-    const fallbackUser = await User.findOne().sort({ createdAt: -1 });
-    if (fallbackUser) {
-      req.user = fallbackUser;
-      req.userEmail = fallbackUser.email;
+    if (dbUser) {
+      req.user = dbUser;
     }
 
     next();
   } catch (error) {
-    console.error('Error in authenticateStudent middleware:', error);
+    // Cryptographic validation failed (bad signature, expired, or malformed) -> req.user remains undefined
     next();
   }
+};
+
+/**
+ * Strict authorization guard middleware for protected endpoints.
+ * Returns 401 if unauthenticated or token is invalid/expired.
+ */
+export const requireAuth = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Invalid or expired session. Please sign in again.',
+      code: 'UNAUTHORIZED'
+    });
+  }
+  next();
 };

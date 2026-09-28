@@ -211,7 +211,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['long-form document reasoning', 'brainstorming', 'general assistance'],
     websiteUrl: 'https://chatgpt.com',
     activeStatus: true,
-    iconName: 'MessageSquare'
+    iconName: 'MessageSquare',
+    provider: 'OpenAI',
+    categories: ['Reasoning & Writing'],
+    relevantRoles: ['AI Product Lead', 'Generalist', 'Writer', 'Engineer'],
+    skillLevel: 'Beginner-Advanced',
+    focusTracks: ['AI Workflow Design', 'Prompt Engineering', 'Productivity'],
+    clarityTopics: ['Automate repetitive workflows', 'Draft documentation', 'General problem solving'],
+    radarTopics: ['New Models', 'Multimodal', 'Productivity'],
+    relatedTools: ['tool-claude', 'tool-gemini-pro'],
+    alternatives: ['tool-claude'],
+    pricing: 'Freemium ($20/mo Plus)',
+    familiarityGuidance: {
+      exploring: 'Focus on prompt framing & interactive Q&A.',
+      practicing: 'Apply to structured documentation and multi-turn problem solving.',
+      proficient: 'Leverage custom GPTs, API integrations, and code snippet generation.',
+      mastered: 'Evaluate advanced LLM routing and zero-shot reasoning limits.'
+    }
   },
   {
     id: 'tool-claude',
@@ -225,7 +241,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['long-form document reasoning', 'architecture design', 'technical writing', 'deep analysis'],
     websiteUrl: 'https://claude.ai',
     activeStatus: true,
-    iconName: 'Sparkles'
+    iconName: 'Sparkles',
+    provider: 'Anthropic',
+    categories: ['Reasoning & Writing', 'Agentic Coding'],
+    relevantRoles: ['Software Engineer', 'AI Product Lead', 'Workflow Specialist'],
+    skillLevel: 'Intermediate-Advanced',
+    focusTracks: ['Agentic Coding', 'AI Workflow Design', 'Research & RAG'],
+    clarityTopics: ['Automate repetitive workflows', 'Long-form document reasoning', 'Build AI-powered applications'],
+    radarTopics: ['Computer Use', 'Agentic AI', 'Context Windows', 'sig-1'],
+    relatedTools: ['tool-chatgpt', 'tool-cursor'],
+    alternatives: ['tool-chatgpt'],
+    pricing: 'Freemium ($20/mo Pro)',
+    familiarityGuidance: {
+      exploring: 'Explore Artifacts canvas and long document ingestion.',
+      practicing: 'Apply to multi-file architecture design and technical writing.',
+      proficient: 'Leverage Computer Use OS automation and system prompt controls.',
+      mastered: 'Design autonomous desktop execution loops and custom tooling.'
+    }
   },
   {
     id: 'tool-cursor',
@@ -239,7 +271,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['agentic coding', 'repository refactoring', 'automated debugging'],
     websiteUrl: 'https://cursor.com',
     activeStatus: true,
-    iconName: 'Code'
+    iconName: 'Code',
+    provider: 'Anysphere',
+    categories: ['Agentic Coding'],
+    relevantRoles: ['Fullstack Engineer', 'Software Developer', 'DevOps'],
+    skillLevel: 'Intermediate-Advanced',
+    focusTracks: ['Agentic Coding', 'Software Development', 'AI Workflow Design'],
+    clarityTopics: ['Build AI-powered applications', 'Code Refactoring', 'Autonomous Coding'],
+    radarTopics: ['Autonomous Coding', 'SWE-Bench', 'Agentic AI', 'sig-2'],
+    relatedTools: ['tool-copilot', 'tool-claude'],
+    alternatives: ['tool-copilot'],
+    pricing: 'Freemium ($20/mo Pro)',
+    familiarityGuidance: {
+      exploring: 'Practice inline edits and single-file chat guidance.',
+      practicing: 'Apply multi-file Composer agent for end-to-end features.',
+      proficient: 'Configure custom .cursorrules and automated terminal fix loops.',
+      mastered: 'Master autonomous repository-wide refactoring workflows.'
+    }
   },
   {
     id: 'tool-copilot',
@@ -253,7 +301,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['code completion', 'inline suggestion', 'developer productivity'],
     websiteUrl: 'https://github.com/features/copilot',
     activeStatus: true,
-    iconName: 'GitBranch'
+    iconName: 'GitBranch',
+    provider: 'GitHub / Microsoft',
+    categories: ['Agentic Coding'],
+    relevantRoles: ['Software Developer', 'DevOps Engineer'],
+    skillLevel: 'Beginner-Intermediate',
+    focusTracks: ['Agentic Coding', 'Developer Productivity'],
+    clarityTopics: ['Build AI-powered applications', 'Inline Completion', 'Code Documentation'],
+    radarTopics: ['Autonomous Coding', 'Coding', 'sig-2'],
+    relatedTools: ['tool-cursor'],
+    alternatives: ['tool-cursor'],
+    pricing: '$10/mo Individual',
+    familiarityGuidance: {
+      exploring: 'Use inline auto-complete for function signatures.',
+      practicing: 'Apply inline chat and PR summarization in daily development.',
+      proficient: 'Integrate CLI command help and enterprise knowledge bases.',
+      mastered: 'Optimize IDE developer productivity telemetry and custom rules.'
+    }
   },
   {
     id: 'tool-perplexity',
@@ -267,7 +331,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['web research', 'fact verification', 'market analysis'],
     websiteUrl: 'https://perplexity.ai',
     activeStatus: true,
-    iconName: 'Search'
+    iconName: 'Search',
+    provider: 'Perplexity AI',
+    categories: ['Research & RAG'],
+    relevantRoles: ['Market Researcher', 'Analyst', 'Journalist', 'Product Manager'],
+    skillLevel: 'Beginner-Intermediate',
+    focusTracks: ['Research & RAG', 'Market Intelligence', 'Fact Verification'],
+    clarityTopics: ['Research & RAG', 'Live Citation & Market Research', 'Fact Verification'],
+    radarTopics: ['Live Web Citation', 'Research', 'Tech Shift', 'sig-4'],
+    relatedTools: ['tool-notebooklm', 'tool-chatgpt'],
+    alternatives: ['tool-notebooklm'],
+    pricing: 'Freemium ($20/mo Pro)',
+    familiarityGuidance: {
+      exploring: 'Perform search-grounded research queries with citations.',
+      practicing: 'Apply Pro Search for structured market intelligence.',
+      proficient: 'Build Collections knowledge hubs and verify academic papers.',
+      mastered: 'Design automated real-time retrieval & fact verification pipelines.'
+    }
   },
   {
     id: 'tool-notebooklm',
@@ -281,7 +361,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['document RAG', 'textbook study', 'grounded research'],
     websiteUrl: 'https://notebooklm.google.com',
     activeStatus: true,
-    iconName: 'BookOpen'
+    iconName: 'BookOpen',
+    provider: 'Google',
+    categories: ['Research & RAG'],
+    relevantRoles: ['Student', 'Researcher', 'Legal Analyst', 'Product Manager'],
+    skillLevel: 'Beginner-Intermediate',
+    focusTracks: ['Research & RAG', 'Academic Study', 'AI Evaluation'],
+    clarityTopics: ['Research & RAG', 'Document Evaluation', 'Grounded Study'],
+    radarTopics: ['Research', 'Context Windows', 'Workflow', 'sig-4'],
+    relatedTools: ['tool-perplexity', 'tool-gemini-pro'],
+    alternatives: ['tool-perplexity'],
+    pricing: 'Free',
+    familiarityGuidance: {
+      exploring: 'Upload PDF source material and ask grounded questions.',
+      practicing: 'Synthesize multi-document research notes and Audio Overviews.',
+      proficient: 'Analyze complex legal & technical domain source material.',
+      mastered: 'Build zero-hallucination study and research synthesis spaces.'
+    }
   },
   {
     id: 'tool-gemini-pro',
@@ -295,7 +391,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['multi-modal analysis', 'video comprehension', 'large context processing'],
     websiteUrl: 'https://gemini.google.com',
     activeStatus: true,
-    iconName: 'Cpu'
+    iconName: 'Cpu',
+    provider: 'Google',
+    categories: ['Multi-Modal', 'Reasoning & Writing'],
+    relevantRoles: ['Data Architect', 'Researcher', 'Creative Technologist'],
+    skillLevel: 'Intermediate-Advanced',
+    focusTracks: ['Multi-Modal', 'Research & RAG', 'AI Workflow Design'],
+    clarityTopics: ['Multi-modal analysis', 'Video comprehension', 'Large Context Processing'],
+    radarTopics: ['Context Windows', 'Multimodal', 'New Models', 'sig-3'],
+    relatedTools: ['tool-claude', 'tool-notebooklm'],
+    alternatives: ['tool-claude'],
+    pricing: 'Freemium ($20/mo Advanced)',
+    familiarityGuidance: {
+      exploring: 'Test long context uploads up to 2M tokens.',
+      practicing: 'Ingest native video/audio streams and long codebases.',
+      proficient: 'Connect Google Workspace integrations and multi-modal synthesis.',
+      mastered: 'Architect mega-context ingestion and multimodal data pipelines.'
+    }
   },
   {
     id: 'tool-midjourney',
@@ -309,7 +421,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['image generation', 'visual design', 'concept art'],
     websiteUrl: 'https://midjourney.com',
     activeStatus: true,
-    iconName: 'Image'
+    iconName: 'Image',
+    provider: 'Midjourney Inc',
+    categories: ['Image & Vision'],
+    relevantRoles: ['UI/UX Designer', 'Marketing Lead', 'Concept Artist'],
+    skillLevel: 'Intermediate',
+    focusTracks: ['Image & Vision', 'Visual Design', 'Marketing Tech'],
+    clarityTopics: ['Marketing visual creation', 'UI mockup imagery', 'Concept Art'],
+    radarTopics: ['Image & Video', 'Multimodal'],
+    relatedTools: ['tool-runway'],
+    alternatives: [],
+    pricing: '$10-$60/mo',
+    familiarityGuidance: {
+      exploring: 'Experiment with basic prompt structures and stylization.',
+      practicing: 'Apply aspect ratio controls, inpainting, and style references.',
+      proficient: 'Maintain consistent character models across marketing suites.',
+      mastered: 'Direct complex visual concept production and artistic direction.'
+    }
   },
   {
     id: 'tool-julius',
@@ -323,7 +451,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['data analysis', 'chart visualization', 'python execution'],
     websiteUrl: 'https://julius.ai',
     activeStatus: true,
-    iconName: 'BarChart'
+    iconName: 'BarChart',
+    provider: 'Julius AI',
+    categories: ['Data Analysis'],
+    relevantRoles: ['Data Analyst', 'Business Lead', 'Researcher'],
+    skillLevel: 'Intermediate',
+    focusTracks: ['Data Analysis', 'Python Execution', 'Business Intelligence'],
+    clarityTopics: ['Data Analysis', 'Exploratory Data', 'Statistical Modeling'],
+    radarTopics: ['Workflow', 'Automation', 'Productivity'],
+    relatedTools: ['tool-chatgpt'],
+    alternatives: ['tool-chatgpt'],
+    pricing: 'Freemium ($20/mo Pro)',
+    familiarityGuidance: {
+      exploring: 'Upload CSV datasets and ask basic data summaries.',
+      practicing: 'Execute Python sandbox code for interactive charts.',
+      proficient: 'Perform statistical regression and automated data cleaning.',
+      mastered: 'Build full data science notebook execution pipelines.'
+    }
   },
   {
     id: 'tool-gamma',
@@ -337,7 +481,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['presentation design', 'pitch decks', 'slide generation'],
     websiteUrl: 'https://gamma.app',
     activeStatus: true,
-    iconName: 'Layout'
+    iconName: 'Layout',
+    provider: 'Gamma Tech',
+    categories: ['Presentation'],
+    relevantRoles: ['Product Lead', 'Founder', 'Student', 'Consultant'],
+    skillLevel: 'Beginner',
+    focusTracks: ['Presentation', 'Productivity', 'Presentation Deck Design', 'AI Workflow Design'],
+    clarityTopics: ['Presentation Deck Design', 'Pitch Deck Creation', 'Slide Generation'],
+    radarTopics: ['Workflow', 'Productivity'],
+    relatedTools: [],
+    alternatives: [],
+    pricing: 'Freemium ($10/mo Pro)',
+    familiarityGuidance: {
+      exploring: 'Generate initial slide deck outlines from prompt topics.',
+      practicing: 'Customize brand themes and interactive web cards.',
+      proficient: 'Design comprehensive pitch decks and lecture presentations.',
+      mastered: 'Establish automated document-to-presentation workflows.'
+    }
   },
   {
     id: 'tool-runway',
@@ -351,7 +511,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['video generation', 'motion graphics', 'animation'],
     websiteUrl: 'https://runwayml.com',
     activeStatus: true,
-    iconName: 'Video'
+    iconName: 'Video',
+    provider: 'Runway AI',
+    categories: ['Video'],
+    relevantRoles: ['Video Editor', 'Content Creator', 'Marketing Lead'],
+    skillLevel: 'Intermediate',
+    focusTracks: ['Video', 'Image & Vision', 'Creative Tech'],
+    clarityTopics: ['Video Generation', 'Visual Storytelling', 'Product Teaser'],
+    radarTopics: ['Image & Video', 'Multimodal'],
+    relatedTools: ['tool-midjourney'],
+    alternatives: [],
+    pricing: 'Freemium ($15/mo Standard)',
+    familiarityGuidance: {
+      exploring: 'Generate short text-to-video motion clips.',
+      practicing: 'Apply image-to-video motion and camera movement controls.',
+      proficient: 'Execute video inpainting and cinematic sequence editing.',
+      mastered: 'Produce full commercial video teasers and motion graphics.'
+    }
   },
   {
     id: 'tool-make',
@@ -365,7 +541,23 @@ export const mockToolCatalog: AITool[] = [
     taskMappings: ['workflow automation', 'app integration', 'no-code pipelines'],
     websiteUrl: 'https://make.com',
     activeStatus: true,
-    iconName: 'Zap'
+    iconName: 'Zap',
+    provider: 'Make.com',
+    categories: ['Automation'],
+    relevantRoles: ['Operations Lead', 'Automation Specialist', 'Product Manager'],
+    skillLevel: 'Intermediate-Advanced',
+    focusTracks: ['AI Workflow Design', 'Automation', 'No-Code Pipelines'],
+    clarityTopics: ['Automate repetitive workflows', 'Cross-App Workflow Automation', 'Webhook Integration'],
+    radarTopics: ['Automation', 'Workflow', 'Agentic AI', 'sig-5'],
+    relatedTools: ['tool-cursor'],
+    alternatives: [],
+    pricing: 'Freemium ($9/mo Core)',
+    familiarityGuidance: {
+      exploring: 'Build simple 2-node webhook integration scenarios.',
+      practicing: 'Connect AI decision nodes with multi-app data mapping.',
+      proficient: 'Implement complex branching logic and error handling loops.',
+      mastered: 'Architect enterprise no-code automation infrastructure.'
+    }
   }
 ];
 

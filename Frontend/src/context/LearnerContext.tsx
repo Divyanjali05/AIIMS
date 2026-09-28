@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserToolItem, TaskCategory, ToolFamiliarity, SolvedWorkflow, UserProject } from '../types';
 import { apiClient } from '../api/client';
+import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 
 export interface CreditTransactionItem {
   id: string;
@@ -172,7 +173,7 @@ const initialLearnerState: LearnerState = {
   notifications: [
     {
       id: 'notif-welcome-1',
-      title: 'Welcome to AIIMS',
+      title: 'Welcome to Ainova',
       message: 'Your AI journey starts here. Discover your AI profile by taking your baseline assessment.',
       timestamp: 'Just now',
       targetTab: 'assessment',
@@ -225,6 +226,7 @@ interface LearnerContextType {
   changeFocusTrack: (newTrackName: string) => void;
   clearFocusSelection: () => void;
   investigateSignal: (signalId: string, notes?: string) => void;
+  completeRelevance: (signalId?: string) => void;
   toggleSaveSignal: (signalId: string) => void;
   dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
@@ -279,10 +281,12 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (res?.success && res?.state) {
             setState(res.state);
             setIsAuthenticated(true);
+          } else if (res?.error || res?.code === 'UNAUTHORIZED') {
+            logout();
           }
         })
-        .catch((err) => {
-          console.warn('Could not hydrate learner state from MongoDB:', err);
+        .catch(() => {
+          logout();
         });
     }
   }, []);
@@ -335,60 +339,26 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  // Dynamic Score Calculation from 25 Questions
-  const calculateScoresFromAnswers = (answers: Record<number, any>) => {
-    const calcSection = (qIds: number[]) => {
-      let sum = 0;
-      let count = 0;
-      qIds.forEach((id) => {
-        const val = answers[id];
-        if (typeof val === 'number') {
-          sum += val * 20; // 1-5 scale -> 20-100
-          count++;
-        } else if (typeof val === 'string') {
-          if (val.endsWith('_a')) sum += 95;
-          else if (val.endsWith('_b')) sum += 75;
-          else if (val.endsWith('_c')) sum += 55;
-          else if (val.endsWith('_d')) sum += 35;
-          else if (val.endsWith('_e')) sum += 15;
-          else if (val.trim().length > 0) sum += 80; // text response given
-          count++;
-        } else if (Array.isArray(val)) {
-          sum += Math.min(100, Math.max(30, val.length * 30));
-          count++;
-        }
-      });
-      return count > 0 ? Math.round(sum / count) : 60;
+  // Dynamic Score Calculation from 25 Questions via Assessment Scoring Engine
+  const calculateScoresFromAnswers = (answers: Record<number, any>): {
+    scores: {
+      usageFrequency: number;
+      evaluationCapability: number;
+      workflowDesign: number;
+      strategicVision: number;
+      mentorshipReadiness: number;
     };
-
-    const usageFrequency = calcSection([1, 2, 3, 4, 5]);
-    const evaluationCapability = calcSection([6, 7, 8, 9, 10]);
-    const workflowDesign = calcSection([11, 12, 13, 14, 15]);
-    const strategicVision = calcSection([16, 17, 18, 19, 20]);
-    const mentorshipReadiness = calcSection([21, 22, 23, 24, 25]);
-
-    const dimensions = [
-      { name: 'AI Usage & Frequency', score: usageFrequency },
-      { name: 'AI Evaluation & Critical Assessment', score: evaluationCapability },
-      { name: 'AI Workflow Design', score: workflowDesign },
-      { name: 'Strategic AI Vision', score: strategicVision },
-      { name: 'AI Mentorship Readiness', score: mentorshipReadiness }
-    ];
-
-    dimensions.sort((a, b) => b.score - a.score);
-    const topCap = dimensions[0].name;
-    const growth = dimensions[dimensions.length - 1].name;
+    topCapability: string;
+    growthArea: string;
+    evaluationResult: AssessmentEvaluationResult;
+  } => {
+    const result = evaluateAssessment(answers);
 
     return {
-      scores: {
-        usageFrequency,
-        evaluationCapability,
-        workflowDesign,
-        strategicVision,
-        mentorshipReadiness
-      },
-      topCapability: topCap,
-      growthArea: growth
+      scores: result.legacyScores,
+      topCapability: result.strongestSkill.name,
+      growthArea: result.roomToGrow.name,
+      evaluationResult: result
     };
   };
 
@@ -619,6 +589,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const completeRelevance = (signalId?: string) => {
+    setState((prev) => ({
+      ...prev,
+      relevance: {
+        ...prev.relevance,
+        status: 'completed'
+      }
+    }));
+  };
+
   const toggleSaveSignal = (signalId: string) => {
     setState((prev) => {
       const saved = prev.radar?.savedSignalIds || [];
@@ -750,7 +730,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || 'Invalid credentials' };
+        return { success: false, error: data.error || 'Email or password is incorrect.' };
       }
       localStorage.setItem('aiims_auth_token', data.token);
       setIsAuthenticated(true);
@@ -767,23 +747,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return { success: true };
     } catch (e: any) {
-      const usernamePart = email.split('@')[0];
-      const formattedName = usernamePart
-        .split(/[._-]/)
-        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(' ') || 'Learner';
-      const token = `local-token-${Date.now()}`;
-      localStorage.setItem('aiims_auth_token', token);
-      setIsAuthenticated(true);
-      setState((prev) => ({
-        ...prev,
-        profile: {
-          ...prev.profile,
-          name: formattedName,
-          email: email
-        }
-      }));
-      return { success: true };
+      return { success: false, error: "We couldn't sign you in right now. Please try again." };
     }
   };
 
@@ -796,7 +760,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       });
       const data = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || 'Registration failed' };
+        return { success: false, error: data.error || 'Registration failed.' };
       }
       localStorage.setItem('aiims_auth_token', data.token);
       setIsAuthenticated(true);
@@ -813,19 +777,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return { success: true };
     } catch (e: any) {
-      const token = `local-token-${Date.now()}`;
-      localStorage.setItem('aiims_auth_token', token);
-      setIsAuthenticated(true);
-      setState((prev) => ({
-        ...prev,
-        profile: {
-          ...prev.profile,
-          name,
-          email,
-          college: college || 'Engineering & Technology College'
-        }
-      }));
-      return { success: true };
+      return { success: false, error: "We couldn't create your account right now. Please try again." };
     }
   };
 
@@ -833,6 +785,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.removeItem('aiims_auth_token');
     setIsAuthenticated(false);
     setState(initialLearnerState);
+    if (window.location.pathname !== '/') {
+      window.history.pushState(null, '', '/');
+    }
   };
 
   const addToolToWallet = (
@@ -975,6 +930,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         changeFocusTrack,
         clearFocusSelection,
         investigateSignal,
+        completeRelevance,
         toggleSaveSignal,
         dismissSignal,
         awardCredits,
