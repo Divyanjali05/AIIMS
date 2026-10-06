@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { AIToolModel, IAITool } from '../models/AITool.model';
+import { AIToolModel, IAITool } from '../models/aiTool.model';
 import { mockToolCatalog } from '../models/aiims.models';
 import { AITool } from '../types';
 
@@ -23,17 +23,20 @@ function toAITool(doc: IAITool): AITool {
     name:        doc.name,
     description: doc.description,
     category:    doc.category as any,
-    capabilities: doc.capabilities,
-    useCases:    doc.useCases,
-    strengths:   doc.strengths,
-    limitations: doc.limitations,
-    taskMappings: doc.taskMappings,
-    websiteUrl:  doc.websiteUrl,
-    activeStatus: doc.activeStatus,
+    capabilities: doc.capabilities || [],
+    useCases:    doc.useCases || [],
+    strengths:   doc.strengths || [],
+    limitations: doc.limitations || [],
+    taskMappings: doc.taskMappings || [],
+    websiteUrl:  doc.websiteUrl || doc.officialWebsite,
+    officialWebsite: doc.officialWebsite || doc.websiteUrl || '',
+    activeStatus: doc.activeStatus ?? true,
     iconName:    doc.iconName,
     pricing:     doc.pricing,
-    provider:    doc.provider,
-    categories:  doc.categories as any[],
+    provider:    doc.provider || 'AI Provider',
+    categories:  (doc.categories as any[]) || [doc.category as any],
+    domains:     doc.domains || [doc.category],
+    tasks:       doc.tasks || doc.taskMappings || [],
     relevantRoles: doc.relevantRoles,
     skillLevel:  doc.skillLevel,
     familiarityGuidance: doc.familiarityGuidance as any,
@@ -41,7 +44,21 @@ function toAITool(doc: IAITool): AITool {
     alternatives:  doc.alternatives,
     radarTopics:   doc.radarTopics,
     clarityTopics: doc.clarityTopics,
-    focusTracks:   doc.focusTracks
+    focusTracks:   doc.focusTracks,
+    pricingDetails: doc.pricingDetails || {
+      type: 'FREEMIUM',
+      summary: doc.pricing || 'Free tier available',
+      freeTierAvailable: true,
+      freeTrialAvailable: false,
+      verified: true
+    },
+    status: doc.status || 'ACTIVE',
+    verificationStatus: doc.verificationStatus || 'VERIFIED',
+    firstSeenAt: typeof doc.firstSeenAt === 'string' ? doc.firstSeenAt : (doc.firstSeenAt ? new Date(doc.firstSeenAt).toISOString() : new Date().toISOString()),
+    lastVerifiedAt: typeof doc.lastVerifiedAt === 'string' ? doc.lastVerifiedAt : (doc.lastVerifiedAt ? new Date(doc.lastVerifiedAt).toISOString() : new Date().toISOString()),
+    lastUpdatedAt: typeof doc.lastUpdatedAt === 'string' ? doc.lastUpdatedAt : (doc.lastUpdatedAt ? new Date(doc.lastUpdatedAt).toISOString() : new Date().toISOString()),
+    sourceUrls: doc.sourceUrls || [],
+    tags: doc.tags || []
   };
 }
 

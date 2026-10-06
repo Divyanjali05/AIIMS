@@ -19,9 +19,9 @@
  */
 
 import mongoose from 'mongoose';
-import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/AITool.model';
-import { ToolEvidenceModel, IToolEvidence, EvidenceSourceType, EvidenceCredibility } from '../models/ToolEvidence.model';
-import { ToolVersionHistoryModel, ToolChangeType } from '../models/ToolVersionHistory.model';
+import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/aiTool.model';
+import { ToolEvidenceModel, IToolEvidence, EvidenceSourceType, EvidenceCredibility } from '../models/toolEvidence.model';
+import { ToolVersionHistoryModel, ToolChangeType } from '../models/toolVersionHistory.model';
 import { ToolDiscoveryRunModel, DiscoveryRunSource, IToolDiscoveryRun } from '../models/ToolDiscoveryRun.model';
 
 // ==========================================
@@ -291,17 +291,18 @@ export class ToolDiscoveryService {
   ): { hasChanges: boolean; changeType: ToolChangeType; changedFields: Record<string, any> } {
     const changedFields: Record<string, any> = {};
 
-    if (candidate.websiteUrl && normalizeUrl(candidate.websiteUrl) !== normalizeUrl(existing.websiteUrl)) {
-      changedFields.websiteUrl = { from: existing.websiteUrl, to: candidate.websiteUrl };
+    const existingUrl = existing.websiteUrl || existing.officialWebsite || '';
+    if (candidate.websiteUrl && normalizeUrl(candidate.websiteUrl) !== normalizeUrl(existingUrl)) {
+      changedFields.websiteUrl = { from: existingUrl, to: candidate.websiteUrl };
     }
-    if (candidate.pricing && candidate.pricing !== existing.pricing) {
+    if (candidate.pricing && candidate.pricing !== (existing.pricing || '')) {
       changedFields.pricing = { from: existing.pricing, to: candidate.pricing };
     }
     if (candidate.version && existing.name && !existing.name.toLowerCase().includes(candidate.version.toLowerCase())) {
       changedFields.version = { from: null, to: candidate.version };
     }
     if (candidate.capabilities && candidate.capabilities.length > 0) {
-      const existingSet = new Set(existing.capabilities);
+      const existingSet = new Set(existing.capabilities || []);
       const newCaps = candidate.capabilities.filter(c => !existingSet.has(c));
       if (newCaps.length > 0) {
         changedFields.capabilities = { added: newCaps };
@@ -331,16 +332,23 @@ export class ToolDiscoveryService {
     if (!evidenceItems || evidenceItems.length === 0) return;
 
     const docs = evidenceItems.map(e => ({
+      id: `ev-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       toolId,
-      sourceType: e.sourceType,
+      claim: e.title || 'Tool Evidence Claim',
+      value: e.evidenceText || '',
+      sourceType: e.sourceType || 'OFFICIAL_WEBSITE',
       sourceUrl: e.sourceUrl,
+      sourceTitle: e.sourceName || e.title || 'Official Source',
       sourceName: e.sourceName,
       title: e.title,
       evidenceText: e.evidenceText,
       credibility: e.credibility,
-      verificationStatus: 'PENDING' as const,
+      verificationStatus: 'PENDING' as any,
       discoveredAt: new Date(),
-      fetchedAt: new Date()
+      fetchedAt: new Date(),
+      publishedAt: new Date().toISOString(),
+      verifiedAt: new Date().toISOString(),
+      confidence: 0.9
     }));
 
     await ToolEvidenceModel.insertMany(docs, { ordered: false });
@@ -358,14 +366,16 @@ export class ToolDiscoveryService {
     sourceUrl?: string
   ): Promise<void> {
     await ToolVersionHistoryModel.create({
+      id: `vh-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       toolId,
-      changeType,
-      changeSummary,
-      sourceUrl,
-      detectedAt: new Date(),
-      previousData,
-      newData,
-      recordedBy: 'DISCOVERY_RUN'
+      version: '1.0',
+      changeType: changeType as any,
+      summary: changeSummary,
+      sourceUrls: sourceUrl ? [sourceUrl] : [],
+      detectedAt: new Date().toISOString(),
+      verifiedAt: new Date().toISOString(),
+      previousValue: previousData ? JSON.stringify(previousData) : undefined,
+      newValue: newData ? JSON.stringify(newData) : undefined
     });
   }
 
@@ -375,28 +385,38 @@ export class ToolDiscoveryService {
    * The tool must pass verification before being served to learners.
    */
   async createDiscoveredTool(candidate: ToolCandidate): Promise<IAITool> {
-    const now = new Date();
+    const now = new Date().toISOString();
     const tool = await AIToolModel.create({
       id:                  candidate.candidateId,
       name:                candidate.name,
       description:         candidate.description || '',
-      category:            candidate.category || 'Reasoning & Writing',
+      category:            (candidate.category as any) || 'Reasoning & Writing',
       capabilities:        candidate.capabilities || [],
       useCases:            candidate.useCases || [],
       strengths:           [],
       limitations:         [],
       taskMappings:        [],
       websiteUrl:          candidate.websiteUrl || '',
+      officialWebsite:     candidate.websiteUrl || '',
       activeStatus:        false,                         // NOT active until verified
-      provider:            candidate.provider,
+      provider:            candidate.provider || 'AI Provider',
       pricing:             candidate.pricing,
-      categories:          candidate.category ? [candidate.category] : [],
+      pricingDetails:      {
+        type: 'FREEMIUM',
+        summary: candidate.pricing || 'Free / Paid',
+        freeTierAvailable: true,
+        freeTrialAvailable: false,
+        verified: false
+      },
+      status:              'UNVERIFIED',
+      categories:          candidate.category ? [candidate.category as any] : ['Reasoning & Writing'],
+      domains:             candidate.category ? [candidate.category] : ['Education & Learning'],
+      tasks:               [],
+      tags:                [],
       sourceUrls:          candidate.sourceUrls || [],
       verificationStatus:  'DISCOVERED' as ToolVerificationStatus,
-      discoverySource:     'DISCOVERY_RUN',
-      discoveryConfidence: candidate.confidence || 0,
-      evidenceCoverage:    0,
       firstSeenAt:         now,
+      lastVerifiedAt:      now,
       lastUpdatedAt:       now
     });
 

@@ -10,10 +10,18 @@ import { StudentProfile } from '../models/StudentProfile.model';
 import { Cohort } from '../models/Cohort.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { evaluateAssessment } from '../services/assessmentScoring';
-import { getActiveCatalog, getToolById } from '../services/toolCatalog.service';
 import { ToolDiscoveryRunModel } from '../models/ToolDiscoveryRun.model';
-import { ToolEvidenceModel } from '../models/ToolEvidence.model';
-import { ToolVersionHistoryModel } from '../models/ToolVersionHistory.model';
+import { ToolEvidenceModel } from '../models/toolEvidence.model';
+import { ToolVersionHistoryModel } from '../models/toolVersionHistory.model';
+import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
+import { SearchIntentService } from '../services/wallet/searchIntent.service';
+import { ToolMatchingService } from '../services/wallet/toolMatching.service';
+import { ToolComparisonService } from '../services/wallet/toolComparison.service';
+import { ToolDiscoveryService } from '../services/wallet/toolDiscovery.service';
+import { DomainTaxonomyService } from '../services/wallet/domainTaxonomy.service';
+import { ToolEvidenceService } from '../services/wallet/toolEvidence.service';
+import { ToolChangeDetectionService } from '../services/wallet/toolChangeDetection.service';
+import { ToolIntelligenceService } from '../services/wallet/toolIntelligence.service';
 import { authenticateStudent, requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 import {
   validateAcademicCombination,
@@ -1016,22 +1024,186 @@ router.post('/ai/mentor', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // ==========================================
-// 8. AI WALLET MODULE (MongoDB Catalog + User Wallet Persistence)
+// 8. DYNAMIC AI WALLET & TOOL INTELLIGENCE MODULE
 // ==========================================
 
 /**
- * GET /api/wallet/catalog
- * Returns all active AI tools from MongoDB AITool collection.
- * Falls back to mockToolCatalog if DB is unavailable or collection is empty.
+ * POST /api/wallet/search — Natural Language Requirement Intent Search
  */
-router.get('/wallet/catalog', async (req: Request, res: Response) => {
-  try {
-    const catalog = await getActiveCatalog();
-    return res.json(catalog);
-  } catch (err: any) {
-    console.error('[/wallet/catalog] error:', err.message);
-    return res.json(mockToolCatalog.filter(t => t.activeStatus));
+router.post('/wallet/search', (req: Request, res: Response) => {
+  const { query, userTools } = req.body;
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return res.status(400).json({ error: 'Search requirement query is required.' });
   }
+
+  const userToolIds = Array.isArray(userTools) ? userTools.map((t: any) => t.toolId || t) : [];
+  const searchResult = ToolMatchingService.searchTools(query, userToolIds);
+  return res.json(searchResult);
+});
+
+/**
+ * GET /api/wallet/catalog — Verified AI Tool Catalog with Domain & Status Filtering
+ */
+router.get('/wallet/catalog', (req: Request, res: Response) => {
+  const { category, domain, status, pricing, search } = req.query;
+  let tools = ToolCatalogService.getCatalog();
+
+  if (category && category !== 'All') {
+    tools = tools.filter(t => t.category === category || t.categories.includes(category as any));
+  }
+  if (domain && domain !== 'All') {
+    tools = tools.filter(t => t.domains.some(d => d.toLowerCase() === (domain as string).toLowerCase()));
+  }
+  if (status && status !== 'All') {
+    tools = tools.filter(t => t.status === status);
+  }
+  if (pricing && pricing !== 'All') {
+    if (pricing === 'Free') tools = tools.filter(t => t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable);
+    else if (pricing === 'Trial') tools = tools.filter(t => t.pricingDetails.freeTrialAvailable);
+    else if (pricing === 'Paid') tools = tools.filter(t => t.pricingDetails.type === 'PAID');
+  }
+  if (search && typeof search === 'string' && search.trim()) {
+    const q = search.trim().toLowerCase();
+    tools = tools.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.provider.toLowerCase().includes(q));
+  }
+
+  return res.json(tools.filter(t => t.activeStatus));
+});
+
+/**
+ * GET /api/wallet/tools/:id — Full In-App Tool Detail
+ */
+router.get('/wallet/tools/:id', (req: Request, res: Response) => {
+  const tool = ToolCatalogService.getToolById(req.params.id);
+  if (!tool) {
+    return res.status(404).json({ error: 'AI Tool not found in catalog.' });
+  }
+  return res.json(tool);
+});
+
+/**
+ * GET /api/wallet/taxonomy — Vast Multi-Domain AI Taxonomy
+ */
+router.get('/wallet/taxonomy', (req: Request, res: Response) => {
+  return res.json(DomainTaxonomyService.getTaxonomy());
+});
+
+/**
+ * POST /api/wallet/compare — Requirement-First Tool Comparison Engine
+ */
+router.post('/wallet/compare', (req: Request, res: Response) => {
+  const { toolIds, toolAId, toolBId, userRequirement, task } = req.body;
+  const ids: string[] = Array.isArray(toolIds) && toolIds.length > 0
+    ? toolIds
+    : [toolAId, toolBId].filter(Boolean);
+
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'At least 2 tool IDs are required for comparison.' });
+  }
+
+  try {
+    const comparison = ToolComparisonService.compareToolsForRequirement(ids, userRequirement || task);
+    return res.json(comparison);
+  } catch (err: any) {
+    return res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/wallet/gaps — Toolkit Gap Analysis
+ */
+router.get('/wallet/gaps', (req: AuthenticatedRequest, res: Response) => {
+  const userTools = req.user?.assessment ? mockUserTools : mockUserTools;
+  const catalog = ToolCatalogService.getCatalog();
+  
+  const coveredDomains = new Set<string>();
+  for (const item of userTools) {
+    const tool = catalog.find(c => c.id === item.toolId);
+    if (tool) {
+      tool.domains.forEach(d => coveredDomains.add(d));
+    }
+  }
+
+  const allTaxonomy = DomainTaxonomyService.getTaxonomy();
+  const gaps = allTaxonomy
+    .filter(t => !coveredDomains.has(t.domain))
+    .map(t => ({
+      domain: t.domain,
+      subdomains: t.subdomains,
+      category: t.categoryMapping,
+      recommendedQuery: `Show me ${t.domain} AI tools`
+    }));
+
+  return res.json({
+    coveredCount: coveredDomains.size,
+    totalDomains: allTaxonomy.length,
+    coveredDomains: Array.from(coveredDomains),
+    gaps
+  });
+});
+
+/**
+ * POST /api/wallet/discover/trigger — Trigger Background Tool Discovery Refresh
+ */
+router.post('/wallet/discover/trigger', async (req: Request, res: Response) => {
+  const jobReport = await ToolDiscoveryService.runDiscoveryJob();
+  return res.json({
+    message: 'Automated AI Tool Discovery job completed successfully.',
+    report: jobReport,
+    newAndUpdatedTools: ToolCatalogService.getNewAndRecentlyUpdatedTools()
+  });
+});
+
+/**
+ * GET /api/wallet/tools/new — Surface Verified New AI Tools
+ */
+router.get('/wallet/tools/new', (req: Request, res: Response) => {
+  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'NEW');
+  return res.json(tools);
+});
+
+/**
+ * GET /api/wallet/tools/recently-updated — Surface Verified Recently Updated AI Tools
+ */
+router.get('/wallet/tools/recently-updated', (req: Request, res: Response) => {
+  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED');
+  return res.json(tools);
+});
+
+/**
+ * GET /api/wallet/tools/:id/evidence — Get Supporting Evidence for an AI Tool
+ */
+router.get('/wallet/tools/:id/evidence', async (req: Request, res: Response) => {
+  const evidence = await ToolEvidenceService.getEvidenceForTool(req.params.id);
+  return res.json(evidence);
+});
+
+/**
+ * GET /api/wallet/tools/:id/history — Get Version & Change History for an AI Tool
+ */
+router.get('/wallet/tools/:id/history', async (req: Request, res: Response) => {
+  const history = await ToolChangeDetectionService.getVersionHistory(req.params.id);
+  return res.json(history);
+});
+
+/**
+ * GET /api/wallet/intelligence/status — Get Live AI Ecosystem Intelligence Pipeline Status
+ */
+router.get('/wallet/intelligence/status', (req: Request, res: Response) => {
+  return res.json(ToolIntelligenceService.getIntelligenceStatus());
+});
+
+/**
+ * GET /api/wallet/discovery/status — Discovery Job & Verified Timestamp Logs
+ */
+router.get('/wallet/discovery/status', (req: Request, res: Response) => {
+  const status = ToolDiscoveryService.getStatus();
+  const newAndUpdated = ToolCatalogService.getNewAndRecentlyUpdatedTools();
+  return res.json({
+    status,
+    newAndUpdatedCount: newAndUpdated.length,
+    newAndUpdatedTools: newAndUpdated
+  });
 });
 
 /**
@@ -1043,214 +1215,200 @@ router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
   if (req.user?.aiWallet) {
     return res.json(req.user.aiWallet.userTools || []);
   }
-  // Fallback for offline / unauthenticated scenario
   return res.json(mockUserTools);
 });
 
 /**
  * GET /api/wallet/recommendations
- * Generates recommendations from the live catalog (MongoDB with mock fallback)
- * against the authenticated user's learner profile.
+ * Generates recommendations from the catalog against the learner profile.
  */
-router.get('/wallet/recommendations', async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    // Load the live catalog (MongoDB or mock fallback)
-    const liveCatalog = await getActiveCatalog();
+router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response) => {
+  const userTools = (req.user as any)?.aiWallet?.userTools || mockLearnerFullState.aiWallet?.userTools || mockUserTools;
+  const userToolMap = new Map<string, string>();
+  userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
 
-    // Resolve user tools from MongoDB user document or mock
-    const userTools =
-      req.user?.aiWallet?.userTools ||
-      mockLearnerFullState.aiWallet?.userTools ||
-      mockUserTools;
+  const catalog = ToolCatalogService.getCatalog();
+  const recs = [];
 
-    const userToolMap = new Map<string, string>();
-    userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
+  const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
+  const activeFocus =
+    req.user?.focus?.selectedTrack ||
+    mockLearnerFullState.focus?.selectedTrack ||
+    mockLearnerFullState.analysis?.growthArea ||
+    'AI Workflow Design';
+  const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
+  const clarityTopic =
+    req.user?.clarity?.selectedTopic ||
+    mockLearnerFullState.clarity?.selectedTopic || '';
+  const investigatedRadarIds =
+    req.user?.radar?.investigatedSignalIds ||
+    mockLearnerFullState.radar?.investigatedSignalIds || [];
 
-    const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
-    const activeFocus =
-      req.user?.focus?.selectedTrack ||
-      mockLearnerFullState.focus?.selectedTrack ||
-      mockLearnerFullState.analysis?.growthArea ||
-      'AI Workflow Design';
-    const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
-    const clarityTopic =
-      req.user?.clarity?.selectedTopic ||
-      mockLearnerFullState.clarity?.selectedTopic || '';
-    const investigatedRadarIds =
-      req.user?.radar?.investigatedSignalIds ||
-      mockLearnerFullState.radar?.investigatedSignalIds || [];
+  const containsMatch = (targetText: string, searchKey: string): boolean => {
+    if (!targetText || !searchKey) return false;
+    return (
+      targetText.toLowerCase().includes(searchKey.toLowerCase()) ||
+      searchKey.toLowerCase().includes(targetText.toLowerCase())
+    );
+  };
 
-    const recs = [];
+  for (const tool of catalog) {
+    if (!tool.activeStatus) continue;
 
-    const containsMatch = (targetText: string, searchKey: string): boolean => {
-      if (!targetText || !searchKey) return false;
-      return (
-        targetText.toLowerCase().includes(searchKey.toLowerCase()) ||
-        searchKey.toLowerCase().includes(targetText.toLowerCase())
-      );
-    };
+    const familiarity = userToolMap.get(tool.id);
+    const matchedSignals: { type: string; snippet: string; priority: number }[] = [];
 
-    for (const tool of liveCatalog) {
-      if (!tool.activeStatus) continue;
+    const toolFocusTracks = tool.focusTracks || [tool.category];
+    const toolClarityTopics = tool.clarityTopics || tool.taskMappings || [];
+    const toolRadarTopics = tool.radarTopics || [tool.category];
+    const toolCategories = tool.categories || [tool.category];
+    const toolRelatedTools = tool.relatedTools || [];
 
-      const familiarity = userToolMap.get(tool.id);
-      const matchedSignals: { type: string; snippet: string; priority: number }[] = [];
-
-      const toolFocusTracks  = tool.focusTracks  || [tool.category];
-      const toolClarityTopics = tool.clarityTopics || tool.taskMappings || [];
-      const toolRadarTopics  = tool.radarTopics   || [tool.category];
-      const toolCategories   = tool.categories    || [tool.category];
-      const toolRelatedTools = tool.relatedTools   || [];
-
-      // 1. FOCUS_BASED
-      if (
-        toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) ||
-        toolCategories.some(cat => containsMatch(cat, activeFocus))
-      ) {
-        matchedSignals.push({
-          type: 'FOCUS_BASED',
-          snippet: `aligns with your active focus on ${activeFocus}`,
-          priority: 2
-        });
-      }
-
-      // 2. RADAR_DISCOVERY
-      let matchedRadarTopic: string | null = null;
-      if (investigatedRadarIds.length > 0) {
-        for (const sigId of investigatedRadarIds) {
-          if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
-            matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
-            break;
-          }
-        }
-        if (!matchedRadarTopic) {
-          const matchingTopic = toolRadarTopics.find(rt =>
-            investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId))
-          );
-          if (matchingTopic) matchedRadarTopic = matchingTopic;
-        }
-      }
-      if (matchedRadarTopic) {
-        const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-')
-          ? tool.category
-          : matchedRadarTopic;
-        matchedSignals.push({
-          type: 'RADAR_DISCOVERY',
-          snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
-          priority: 1
-        });
-      }
-
-      // 3. TASK_BASED
-      if (
-        clarityTopic &&
-        (
-          toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) ||
-          toolCategories.some(cat => containsMatch(cat, clarityTopic))
-        )
-      ) {
-        matchedSignals.push({
-          type: 'TASK_BASED',
-          snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
-          priority: 3
-        });
-      }
-
-      // 4. SKILL_GAP
-      if (
-        growthArea &&
-        (
-          toolCategories.some(cat => containsMatch(cat, growthArea)) ||
-          toolFocusTracks.some(ft => containsMatch(ft, growthArea))
-        )
-      ) {
-        matchedSignals.push({
-          type: 'SKILL_GAP',
-          snippet: `strengthens your growth area in ${growthArea}`,
-          priority: 4
-        });
-      }
-
-      // 5. TOOLKIT_GAP
-      if (!walletCategories.has(tool.category as any) && !familiarity) {
-        matchedSignals.push({
-          type: 'TOOLKIT_GAP',
-          snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
-          priority: 5
-        });
-      }
-
-      // 6. ALTERNATIVE_TOOL
-      const isAlt = userTools.some((ut: any) => {
-        const userToolObj = liveCatalog.find(c => c.id === ut.toolId);
-        return (
-          userToolObj &&
-          (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId))
-        );
-      });
-      if (isAlt && !familiarity) {
-        matchedSignals.push({
-          type: 'ALTERNATIVE_TOOL',
-          snippet: `offers a complementary workflow alternative to tools in your wallet`,
-          priority: 6
-        });
-      }
-
-      if (matchedSignals.length === 0) continue;
-
-      // Familiarity filtering
-      if (familiarity === 'mastered') {
-        const hasRadarOrAlt = matchedSignals.some(
-          s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
-        );
-        if (!hasRadarOrAlt) continue;
-      } else if (familiarity === 'proficient') {
-        const hasAdvancedSignal = matchedSignals.some(
-          s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED'
-        );
-        if (!hasAdvancedSignal) continue;
-      }
-
-      matchedSignals.sort((a, b) => a.priority - b.priority);
-      const primarySignal = matchedSignals[0];
-      const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
-
-      const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
-      let synthesizedReason = '';
-      if (snippets.length === 1) {
-        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
-      } else if (snippets.length === 2) {
-        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, and ${snippets[1]}.`;
-      } else {
-        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, ${snippets[1]}, and ${snippets[2]}.`;
-      }
-
-      let actionLabel = 'Add to Wallet & Explore';
-      if (familiarity === 'exploring')  actionLabel = 'Explore & Practice Tool';
-      else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
-      else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
-      else if (familiarity === 'mastered')   actionLabel = 'View Advanced Opportunities';
-
-      recs.push({
-        id: `rec-${tool.id}`,
-        toolId: tool.id,
-        type: primarySignal.type,
-        matchedSignals: allSignalTypes,
-        reason: synthesizedReason,
-        relatedTask: tool.useCases[0] || tool.category,
-        relatedSkill: tool.category,
-        relevance: `Aligned with your ${activeFocus} workflow`,
-        actionLabel,
-        status: 'active',
-        createdAt: 'Just now'
+    // 1. FOCUS_BASED
+    if (
+      toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) ||
+      toolCategories.some(cat => containsMatch(cat, activeFocus))
+    ) {
+      matchedSignals.push({
+        type: 'FOCUS_BASED',
+        snippet: `aligns with your active focus on ${activeFocus}`,
+        priority: 2
       });
     }
 
-    return res.json(recs);
-  } catch (err: any) {
-    console.error('[/wallet/recommendations] error:', err.message);
-    return res.json([]);
+    // 2. RADAR_DISCOVERY
+    let matchedRadarTopic: string | null = null;
+    if (investigatedRadarIds.length > 0) {
+      for (const sigId of investigatedRadarIds) {
+        if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
+          matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
+          break;
+        }
+      }
+      if (!matchedRadarTopic) {
+        const matchingTopic = toolRadarTopics.find(rt =>
+          investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId))
+        );
+        if (matchingTopic) matchedRadarTopic = matchingTopic;
+      }
+    }
+    if (matchedRadarTopic) {
+      const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-')
+        ? tool.category
+        : matchedRadarTopic;
+      matchedSignals.push({
+        type: 'RADAR_DISCOVERY',
+        snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
+        priority: 1
+      });
+    }
+
+    // 3. TASK_BASED
+    if (
+      clarityTopic &&
+      (
+        toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) ||
+        toolCategories.some(cat => containsMatch(cat, clarityTopic))
+      )
+    ) {
+      matchedSignals.push({
+        type: 'TASK_BASED',
+        snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
+        priority: 3
+      });
+    }
+
+    // 4. SKILL_GAP
+    if (
+      growthArea &&
+      (
+        toolCategories.some(cat => containsMatch(cat, growthArea)) ||
+        toolFocusTracks.some(ft => containsMatch(ft, growthArea))
+      )
+    ) {
+      matchedSignals.push({
+        type: 'SKILL_GAP',
+        snippet: `strengthens your growth area in ${growthArea}`,
+        priority: 4
+      });
+    }
+
+    // 5. TOOLKIT_GAP
+    if (!walletCategories.has(tool.category) && !familiarity) {
+      matchedSignals.push({
+        type: 'TOOLKIT_GAP',
+        snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
+        priority: 5
+      });
+    }
+
+    // 6. ALTERNATIVE_TOOL
+    const isAlt = userTools.some((ut: any) => {
+      const userToolObj = catalog.find(c => c.id === ut.toolId);
+      return (
+        userToolObj &&
+        (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId))
+      );
+    });
+    if (isAlt && !familiarity) {
+      matchedSignals.push({
+        type: 'ALTERNATIVE_TOOL',
+        snippet: `offers a complementary workflow alternative to tools in your wallet`,
+        priority: 6
+      });
+    }
+
+    if (matchedSignals.length === 0) continue;
+
+    // Familiarity filtering
+    if (familiarity === 'mastered') {
+      const hasRadarOrAlt = matchedSignals.some(
+        s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
+      );
+      if (!hasRadarOrAlt) continue;
+    } else if (familiarity === 'proficient') {
+      const hasAdvancedSignal = matchedSignals.some(
+        s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED'
+      );
+      if (!hasAdvancedSignal) continue;
+    }
+
+    matchedSignals.sort((a, b) => a.priority - b.priority);
+    const primarySignal = matchedSignals[0];
+    const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
+
+    const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
+    let synthesizedReason = '';
+    if (snippets.length === 1) {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
+    } else if (snippets.length === 2) {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, and ${snippets[1]}.`;
+    } else {
+      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, ${snippets[1]}, and ${snippets[2]}.`;
+    }
+
+    let actionLabel = 'Add to Wallet & Explore';
+    if (familiarity === 'exploring')  actionLabel = 'Explore & Practice Tool';
+    else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
+    else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
+    else if (familiarity === 'mastered')   actionLabel = 'View Advanced Opportunities';
+
+    recs.push({
+      id: `rec-${tool.id}`,
+      toolId: tool.id,
+      type: primarySignal.type as any,
+      matchedSignals: allSignalTypes as any,
+      reason: synthesizedReason,
+      relatedTask: tool.useCases[0] || tool.category,
+      relatedSkill: tool.category,
+      relevance: `Aligned with your ${activeFocus} workflow`,
+      actionLabel,
+      status: 'active',
+      createdAt: 'Just now'
+    });
   }
+
+  return res.json(recs);
 });
 
 /**
@@ -1278,7 +1436,7 @@ router.post('/wallet/add', async (req: AuthenticatedRequest, res: Response) => {
       // Resolve category from live catalog if not supplied
       let resolvedCategory = primaryCategory;
       if (!resolvedCategory) {
-        const catalogItem = await getToolById(toolId);
+        const catalogItem = ToolCatalogService.getToolById(toolId);
         resolvedCategory = catalogItem?.category || 'Reasoning & Writing';
       }
 
@@ -1307,7 +1465,8 @@ router.post('/wallet/add', async (req: AuthenticatedRequest, res: Response) => {
     if (userNotes) existing.userNotes = userNotes;
     return res.json({ success: true, item: existing, action: 'updated' });
   }
-  const catalogItem = mockToolCatalog.find(t => t.id === toolId);
+
+  const catalogItem = ToolCatalogService.getToolById(toolId) || mockToolCatalog.find(t => t.id === toolId);
   const newItem = {
     toolId,
     addedAt: new Date().toISOString().split('T')[0],
@@ -1352,64 +1511,6 @@ router.post('/wallet/update-familiarity', async (req: AuthenticatedRequest, res:
   if (familiarity) item.familiarity = familiarity as any;
   if (userNotes !== undefined) item.userNotes = userNotes;
   return res.json({ success: true, item });
-});
-
-/**
- * POST /api/wallet/compare
- * Returns a structured comparison of two tools from the live catalog.
- */
-router.post('/wallet/compare', async (req: Request, res: Response) => {
-  const { toolAId, toolBId, task } = req.body;
-
-  try {
-    const catalog = await getActiveCatalog();
-    const toolA = catalog.find(t => t.id === toolAId) || catalog[0];
-    const toolB = catalog.find(t => t.id === toolBId) || catalog[1];
-
-    const targetTask = task || toolA.taskMappings[0] || 'Long-form reasoning & document analysis';
-
-    return res.json({
-      task: targetTask,
-      toolA,
-      toolB,
-      comparisonPoints: [
-        {
-          feature: 'Primary Task Fit',
-          toolAFit: `${toolA.name} is designed for ${toolA.useCases[0] || 'versatile execution'}.`,
-          toolBFit: `${toolB.name} is designed for ${toolB.useCases[0] || 'targeted technical tasks'}.`
-        },
-        {
-          feature: 'Context Window & Architecture',
-          toolAFit: toolA.limitations[0] || 'Standard context management.',
-          toolBFit: toolB.strengths[0] || 'Extended context or workspace index.'
-        },
-        {
-          feature: 'Specialized Capabilities',
-          toolAFit: toolA.capabilities.slice(0, 3).join(', '),
-          toolBFit: toolB.capabilities.slice(0, 3).join(', ')
-        },
-        {
-          feature: 'Workflow Strengths',
-          toolAFit: toolA.strengths.slice(0, 2).join(' • '),
-          toolBFit: toolB.strengths.slice(0, 2).join(' • ')
-        }
-      ],
-      keyConsideration: `When choosing between ${toolA.name} and ${toolB.name}, consider your primary bottleneck: high-velocity quick queries vs deeper structured artifacts.`,
-      summaryQuestion: `Which may fit your task?`
-    });
-  } catch (err: any) {
-    console.error('[/wallet/compare] error:', err.message);
-    // Hard fallback to mock
-    const toolA = mockToolCatalog.find(t => t.id === toolAId) || mockToolCatalog[0];
-    const toolB = mockToolCatalog.find(t => t.id === toolBId) || mockToolCatalog[1];
-    return res.json({
-      task: task || toolA.taskMappings[0] || 'General reasoning',
-      toolA, toolB,
-      comparisonPoints: [],
-      keyConsideration: '',
-      summaryQuestion: 'Which may fit your task?'
-    });
-  }
 });
 
 

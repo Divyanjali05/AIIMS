@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 import { mockToolCatalog } from '../models/aiims.models';
-import { AIToolModel } from '../models/AITool.model';
+import { AIToolModel } from '../models/aiTool.model';
 
 // Load env
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });

@@ -18,9 +18,9 @@
  *    the curated seed process, not discovery.
  */
 
-import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/AITool.model';
-import { ToolEvidenceModel, IToolEvidence } from '../models/ToolEvidence.model';
-import { ToolVersionHistoryModel } from '../models/ToolVersionHistory.model';
+import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/aiTool.model';
+import { ToolEvidenceModel, IToolEvidence } from '../models/toolEvidence.model';
+import { ToolVersionHistoryModel } from '../models/toolVersionHistory.model';
 
 // ==========================================
 // REQUIRED EVIDENCE FIELDS
@@ -73,7 +73,7 @@ export class ToolVerificationService {
    * based on keyword matching against the evidenceText.
    */
   private fieldCoveredBy(field: RequiredField, evidence: IToolEvidence): boolean {
-    const text = evidence.evidenceText.toLowerCase();
+    const text = (evidence.evidenceText || evidence.value || '').toLowerCase();
     const keywords = FIELD_COVERAGE_KEYWORDS[field];
     return keywords.some(kw => text.includes(kw));
   }
@@ -183,7 +183,7 @@ export class ToolVerificationService {
     }
 
     // --- Persist updated verification status to the tool ---
-    const now = new Date();
+    const now = new Date().toISOString();
     const updateFields: Record<string, any> = {
       verificationStatus: status,
       evidenceCoverage,
@@ -197,13 +197,16 @@ export class ToolVerificationService {
     // --- Record status change in version history ---
     if (tool.verificationStatus !== status) {
       await ToolVersionHistoryModel.create({
+        id: `vh-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         toolId,
+        version: '1.0',
         changeType: 'STATUS_CHANGE',
-        changeSummary: `Verification status changed: ${tool.verificationStatus} → ${status}`,
+        summary: `Verification status changed: ${tool.verificationStatus} → ${status}`,
         detectedAt: now,
-        previousData: { verificationStatus: tool.verificationStatus },
-        newData: { verificationStatus: status, evidenceCoverage },
-        recordedBy: 'DISCOVERY_RUN'
+        verifiedAt: now,
+        sourceUrls: [],
+        previousValue: tool.verificationStatus,
+        newValue: status
       });
     }
 
@@ -253,7 +256,7 @@ export class ToolVerificationService {
   async computeCoverage(toolId: string): Promise<number> {
     const accepted = await ToolEvidenceModel.find({
       toolId,
-      verificationStatus: 'ACCEPTED'
+      verificationStatus: { $in: ['ACCEPTED', 'VERIFIED'] as any }
     }).lean<IToolEvidence[]>();
 
     if (accepted.length === 0) return 0;

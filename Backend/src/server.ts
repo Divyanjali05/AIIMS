@@ -3,13 +3,16 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import { config } from './config/env';
 import apiRoutes from './routes/api.routes';
+import { ToolDiscoveryService } from './services/wallet/toolDiscovery.service';
+import { ToolCatalogService } from './services/wallet/toolCatalog.service';
 
 // Connect to MongoDB Atlas
 if (config.mongodbUri) {
   mongoose
     .connect(config.mongodbUri)
-    .then(() => {
+    .then(async () => {
       console.log(`🌿 Connected to MongoDB Atlas successfully!`);
+      await ToolCatalogService.syncFromDatabase();
     })
     .catch((err) => {
       console.error(`⚠️ MongoDB connection warning:`, err.message);
@@ -39,4 +42,7 @@ app.listen(config.port, () => {
   console.log(`=================================================`);
   console.log(`🚀 AIIMS Backend API running on port ${config.port}`);
   console.log(`=================================================`);
+  
+  // Start daily AI tool discovery worker scheduler
+  ToolDiscoveryService.startDiscoveryScheduler();
 });

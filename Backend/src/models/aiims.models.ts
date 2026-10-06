@@ -194,11 +194,53 @@ export const mockTransactions: CreditTransaction[] = [
   }
 ];
 
-// ==========================================
-// ADMIN-UPDATABLE AI TOOL CATALOG
-// ==========================================
+const createSeedTool = (raw: any): AITool => ({
+  id: raw.id,
+  name: raw.name,
+  provider: raw.provider || 'AI Provider',
+  description: raw.description,
+  shortDescription: raw.shortDescription || raw.description.slice(0, 100),
+  officialWebsite: raw.officialWebsite || raw.websiteUrl || 'https://ai.example.com',
+  websiteUrl: raw.websiteUrl || raw.officialWebsite || 'https://ai.example.com',
+  category: raw.category,
+  categories: raw.categories || [raw.category],
+  domains: raw.domains || [raw.category, 'Personal Productivity', 'Education & Learning'],
+  subdomains: raw.subdomains || [],
+  capabilities: raw.capabilities || [],
+  useCases: raw.useCases || [],
+  tasks: raw.tasks || raw.taskMappings || [],
+  strengths: raw.strengths || [],
+  limitations: raw.limitations || [],
+  pricingDetails: raw.pricingDetails || {
+    type: 'FREEMIUM',
+    summary: raw.pricing || 'Freemium available',
+    freeTierAvailable: true,
+    freeTrialAvailable: false,
+    verified: true,
+    lastVerifiedAt: new Date().toISOString()
+  },
+  pricing: raw.pricing || 'Freemium available',
+  firstSeenAt: raw.firstSeenAt || '2024-01-01T00:00:00.000Z',
+  lastVerifiedAt: raw.lastVerifiedAt || new Date().toISOString(),
+  lastUpdatedAt: raw.lastUpdatedAt || new Date().toISOString(),
+  status: raw.status || 'ACTIVE',
+  verificationStatus: raw.verificationStatus || 'VERIFIED',
+  sourceUrls: raw.sourceUrls || [raw.websiteUrl || 'https://ai.example.com'],
+  tags: raw.tags || [raw.category],
+  activeStatus: raw.activeStatus !== undefined ? raw.activeStatus : true,
+  iconName: raw.iconName,
+  taskMappings: raw.taskMappings || [],
+  relevantRoles: raw.relevantRoles || [],
+  skillLevel: raw.skillLevel || 'All Levels',
+  focusTracks: raw.focusTracks || [],
+  clarityTopics: raw.clarityTopics || [],
+  radarTopics: raw.radarTopics || [],
+  relatedTools: raw.relatedTools || [],
+  alternatives: raw.alternatives || [],
+  familiarityGuidance: raw.familiarityGuidance || {}
+});
 
-export const mockToolCatalog: AITool[] = [
+const rawMockCatalog: any[] = [
   {
     id: 'tool-chatgpt',
     name: 'ChatGPT (GPT-4o)',
@@ -560,6 +602,8 @@ export const mockToolCatalog: AITool[] = [
     }
   }
 ];
+
+export const mockToolCatalog: AITool[] = rawMockCatalog.map(createSeedTool);
 
 export const mockUserTools: UserToolItem[] = [
   {
