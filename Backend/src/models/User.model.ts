@@ -77,6 +77,18 @@ export interface IUser extends Document {
     targetTab?: string;
     read: boolean;
   }>;
+  // AI Wallet — learner-specific tool selections (catalog IDs + familiarity)
+  aiWallet: {
+    userTools: Array<{
+      toolId: string;
+      addedAt: string;
+      familiarity: string;
+      userNotes?: string;
+      primaryCategory: string;
+      customTags?: string[];
+    }>;
+    dismissedRecommendations: string[];
+  };
   createdAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
@@ -172,6 +184,23 @@ const UserSchema: Schema = new Schema({
         read: false
       }
     ]
+  },
+  // AI Wallet — per-user tool kit persisted in MongoDB
+  aiWallet: {
+    userTools: {
+      type: [
+        {
+          toolId:          { type: String, required: true },
+          addedAt:         { type: String, required: true },
+          familiarity:     { type: String, default: 'exploring' },
+          userNotes:       { type: String, default: '' },
+          primaryCategory: { type: String, required: true },
+          customTags:      { type: [String], default: [] }
+        }
+      ],
+      default: []
+    },
+    dismissedRecommendations: { type: [String], default: [] }
   },
   createdAt: { type: Date, default: Date.now }
 });

@@ -118,7 +118,7 @@ const AppContent: React.FC = () => {
       <LoginScreen
         initialMode={initialMode}
         onSuccess={() => {
-          const targetTab = intendedRoute || 'home';
+          const targetTab = intendedRoute || (state?.assessment?.status === 'completed' ? 'home' : 'assessment');
           setActiveTab(targetTab);
           setIntendedRoute(null);
         }}

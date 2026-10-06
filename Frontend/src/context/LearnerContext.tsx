@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, UserToolItem, TaskCategory, ToolFamiliarity, SolvedWorkflow, UserProject } from '../types';
+import { UserProfile, AcademicProfile, UserToolItem, TaskCategory, ToolFamiliarity, SolvedWorkflow, UserProject } from '../types';
 import { apiClient } from '../api/client';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 
@@ -23,6 +23,8 @@ export interface AppNotification {
 
 export interface LearnerState {
   profile: UserProfile;
+  // Academic identity (separate from learner state — set at registration)
+  academicProfile?: AcademicProfile;
   assessment: {
     status: 'not_started' | 'in_progress' | 'completed';
     answers: Record<number, any>;
@@ -99,15 +101,16 @@ export interface LearnerState {
 
 const initialLearnerState: LearnerState = {
   profile: {
-    id: 'usr-101',
-    name: 'Divya',
-    email: 'divya@example.com',
-    role: 'Student / AI Learner',
-    targetGoal: 'Master AI Intelligence & Mentoring',
+    id: '',
+    name: '',
+    email: '',
+    role: 'STUDENT',
+    targetGoal: 'Explore AI Architectures & Intelligence',
     stage: 'Knowing',
     xpPoints: 0,
     aiimsCredits: 100
   },
+  academicProfile: undefined,
   assessment: {
     status: 'not_started',
     answers: {},
@@ -211,6 +214,37 @@ const initialLearnerState: LearnerState = {
   }
 };
 
+/**
+ * Full registration data payload — covers all 3 steps:
+ * Step 1: Account (name, email, password)
+ * Step 2: Academics (institute, stream, program, specialization, year, cohort)
+ * Step 3: AI Context (familiarity, usage contexts, primary goal)
+ */
+export interface RegistrationPayload {
+  // Step 1: Account
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword?: string;
+  // Step 2: Academics
+  instituteId?: string;
+  instituteName?: string;
+  stream: string;
+  streamSubCategory?: string;
+  educationLevel: string;
+  programId: string;
+  programName: string;
+  specializationId: string;
+  specializationName: string;
+  yearOfStudy: number;
+  admissionYear: number;
+  expectedGraduationYear: number;
+  // Step 3: AI Context
+  aiFamiliarity?: string;
+  aiUsageContexts?: string[];
+  primaryGoal?: string;
+}
+
 interface LearnerContextType {
   state: LearnerState;
   saveAssessmentAnswer: (questionId: number, value: any) => void;
@@ -239,7 +273,7 @@ interface LearnerContextType {
   setRadarOpportunityContext: (ctx: { activeSignalId: string; opportunityTitle?: string; opportunityDesc?: string; passedContext?: any } | null) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (name: string, email: string, password: string, college?: string) => Promise<{ success: boolean; error?: string }>;
+  register: (data: RegistrationPayload) => Promise<{ success: boolean; error?: string; field?: string }>;
   logout: () => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
@@ -257,14 +291,37 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [state, setState] = useState<LearnerState>(() => {
     try {
+      // Try to load user-scoped state first (post-login state)
+      const token = localStorage.getItem('aiims_auth_token');
+      if (token) {
+        // We decode userId from the token to scope the key
+        // But since we can't safely decode here without importing jwt, use email-scoped or v3 key
+        const scopedByEmail = Object.keys(localStorage).find(k =>
+          k.startsWith('aiims_learner_state_') && !k.endsWith('_v3') && !k.endsWith('_v4')
+        );
+        if (scopedByEmail) {
+          const scoped = localStorage.getItem(scopedByEmail);
+          if (scoped) {
+            const parsed = JSON.parse(scoped);
+            return {
+              ...initialLearnerState,
+              ...parsed,
+              aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
+            };
+          }
+        }
+      }
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return {
-          ...initialLearnerState,
-          ...parsed,
-          aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
-        };
+        // Only load if there's a real user (not the old hardcoded demo)
+        if (parsed?.profile?.email && parsed.profile.email !== 'divya@example.com') {
+          return {
+            ...initialLearnerState,
+            ...parsed,
+            aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
+          };
+        }
       }
     } catch (e) {
       console.error('Failed to load learner state from storage', e);
@@ -296,6 +353,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!state.profile?.email) return;
 
     try {
+      // Scope localStorage key to user email (prevents cross-user state bleed)
       const scopedKey = `aiims_learner_state_${state.profile.email.toLowerCase()}`;
       localStorage.setItem(scopedKey, JSON.stringify(state));
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
@@ -751,28 +809,30 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const register = async (name: string, email: string, password: string, college?: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (payload: RegistrationPayload): Promise<{ success: boolean; error?: string; field?: string }> => {
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, college })
+        body: JSON.stringify(payload)
       });
-      const data = await res.json();
+      const resData = await res.json();
       if (!res.ok) {
-        return { success: false, error: data.error || 'Registration failed.' };
+        return { success: false, error: resData.error || 'Registration failed.', field: resData.field };
       }
-      localStorage.setItem('aiims_auth_token', data.token);
+      localStorage.setItem('aiims_auth_token', resData.token);
       setIsAuthenticated(true);
-      if (data.state) {
-        setState(data.state);
-      } else if (data.user) {
+      if (resData.state) {
+        setState({
+          ...initialLearnerState,
+          ...resData.state,
+          aiWallet: resData.state.aiWallet || initialLearnerState.aiWallet
+        });
+      } else if (resData.user) {
         setState((prev) => ({
           ...prev,
-          profile: {
-            ...prev.profile,
-            ...data.user
-          }
+          profile: { ...prev.profile, ...resData.user },
+          academicProfile: resData.academicProfile || prev.academicProfile
         }));
       }
       return { success: true };

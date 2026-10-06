@@ -5,9 +5,31 @@ import mongoose from 'mongoose';
 import { config } from '../config/env';
 import { mockUser, mockDimensionScores, mockCapabilityGaps, mockFocusAreas, mockRadarSignals, mockTransactions, rewardedLevelIds, mockToolCatalog, mockUserTools, mockLearnerFullState } from '../models/aiims.models';
 import { User, IUser } from '../models/User.model';
+import { Institute } from '../models/Institute.model';
+import { StudentProfile } from '../models/StudentProfile.model';
+import { Cohort } from '../models/Cohort.model';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { evaluateAssessment } from '../services/assessmentScoring';
+import { getActiveCatalog, getToolById } from '../services/toolCatalog.service';
+import { ToolDiscoveryRunModel } from '../models/ToolDiscoveryRun.model';
+import { ToolEvidenceModel } from '../models/ToolEvidence.model';
+import { ToolVersionHistoryModel } from '../models/ToolVersionHistory.model';
 import { authenticateStudent, requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
+import {
+  validateAcademicCombination,
+  getProgramInfo,
+  isValidAiFamiliarity,
+  isValidPrimaryGoal,
+  STREAMS,
+  TECH_SUB_CATEGORIES,
+  NON_TECH_SUB_CATEGORIES,
+  EDUCATION_LEVELS,
+  PROGRAMS,
+  SPECIALIZATIONS,
+  AI_FAMILIARITY_OPTIONS,
+  AI_USAGE_CONTEXTS,
+  PRIMARY_GOAL_OPTIONS
+} from '../config/academicTaxonomy';
 
 const router = Router();
 const claudeService = new ClaudeService();
@@ -105,7 +127,12 @@ const formatUserState = (dbUser: IUser) => {
       transactions: dbUser.transactions || [],
       claimedActions: []
     },
-    notifications: dbUser.notifications || []
+    notifications: dbUser.notifications || [],
+    // AI Wallet — persisted user tool kit from MongoDB
+    aiWallet: dbUser.aiWallet || {
+      userTools: [],
+      dismissedRecommendations: []
+    }
   };
 };
 
@@ -180,80 +207,241 @@ router.post('/auth/login', async (req: Request, res: Response) => {
 });
 
 router.post('/auth/register', async (req: Request, res: Response) => {
-  const { name, email, password, role, college, targetGoal } = req.body;
+  const {
+    name,
+    email,
+    password,
+    confirmPassword,
+    // Academic fields
+    instituteId,
+    instituteName,
+    stream,
+    streamSubCategory,
+    educationLevel,
+    programId,
+    programName,
+    specializationId,
+    specializationName,
+    yearOfStudy,
+    admissionYear,
+    expectedGraduationYear,
+    // AI context (personalization only — NOT capability scores)
+    aiFamiliarity,
+    aiUsageContexts,
+    primaryGoal
+  } = req.body;
 
-  if (!email || !email.trim() || !email.includes('@')) {
-    return res.status(400).json({ error: 'Enter a valid email address.' });
+  // ── Account validation ──
+  if (!email || !email.trim() || !email.includes('@') || !email.includes('.')) {
+    return res.status(400).json({ error: 'Enter a valid email address.', field: 'email' });
   }
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+  if (!name || !name.trim() || name.trim().length < 2) {
+    return res.status(400).json({ error: 'Please enter your full name.', field: 'name' });
+  }
+  if (!password || password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters long.', field: 'password' });
+  }
+  if (!/[A-Z]/.test(password)) {
+    return res.status(400).json({ error: 'Password must contain at least one uppercase letter.', field: 'password' });
+  }
+  if (!/[0-9]/.test(password)) {
+    return res.status(400).json({ error: 'Password must contain at least one number.', field: 'password' });
+  }
+  if (confirmPassword && password !== confirmPassword) {
+    return res.status(400).json({ error: 'Passwords do not match.', field: 'confirmPassword' });
+  }
+
+  // ── Academic validation ──
+  if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
+    return res.status(400).json({ error: 'Please select a valid stream.', field: 'stream' });
+  }
+  if (!educationLevel || !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)) {
+    return res.status(400).json({ error: 'Please select a valid education level.', field: 'educationLevel' });
+  }
+  if (!programId || !programName) {
+    return res.status(400).json({ error: 'Please select your program / degree.', field: 'programId' });
+  }
+  if (!specializationId || !specializationName) {
+    return res.status(400).json({ error: 'Please select your specialization.', field: 'specializationId' });
+  }
+  if (!yearOfStudy || isNaN(Number(yearOfStudy)) || Number(yearOfStudy) < 1) {
+    return res.status(400).json({ error: 'Please provide a valid year of study.', field: 'yearOfStudy' });
+  }
+  if (!admissionYear || !expectedGraduationYear) {
+    return res.status(400).json({ error: 'Please provide admission and graduation years.', field: 'admissionYear' });
+  }
+
+  // Backend validates the academic combination independently of frontend
+  const taxonomyCheck = validateAcademicCombination(stream, educationLevel, programId, specializationId);
+  if (!taxonomyCheck.valid) {
+    return res.status(400).json({ error: taxonomyCheck.reason || 'Invalid academic combination.' });
+  }
+
+  // Optional AI context validation
+  if (aiFamiliarity && !isValidAiFamiliarity(aiFamiliarity)) {
+    return res.status(400).json({ error: 'Invalid AI familiarity value.', field: 'aiFamiliarity' });
+  }
+  if (primaryGoal && !isValidPrimaryGoal(primaryGoal)) {
+    return res.status(400).json({ error: 'Invalid primary goal value.', field: 'primaryGoal' });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const displayName = (name && name.trim()) || normalizedEmail.split('@')[0];
+  const displayName = name.trim();
+  const programInfo = getProgramInfo(programId);
+
+  // ── Check MongoDB connection ──
+  if (mongoose.connection.readyState !== 1) {
+    // In-memory fallback (dev/offline mode)
+    if (registeredUsers[normalizedEmail]) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = {
+      id: `usr-${Date.now().toString().slice(-6)}`,
+      name: displayName,
+      email: normalizedEmail,
+      role: 'STUDENT',
+      college: instituteName || 'Unknown Institute',
+      targetGoal: 'Explore AI Architectures & Intelligence',
+      stage: 'Knowing',
+      xpPoints: 100,
+      aiimsCredits: 100,
+      password: hashedPassword,
+      stream,
+      programName,
+      specializationName
+    };
+    registeredUsers[normalizedEmail] = newUser;
+    const token = generateAuthToken(newUser.id, newUser.email);
+    const baseState = formatUserState(new User(newUser) as IUser);
+    return res.json({
+      token,
+      user: { ...newUser, id: newUser.id },
+      state: {
+        ...baseState,
+        academicProfile: {
+          stream, programName, specializationName, educationLevel, yearOfStudy: Number(yearOfStudy)
+        }
+      }
+    });
+  }
 
   try {
+    // Check duplicate email
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
     }
 
+    // Create the core User (auth + learner state)
     const dbUser = await User.create({
       name: displayName,
       email: normalizedEmail,
-      password,
-      role: role || 'AI Practitioner',
-      college: college || 'Engineering & Technology College',
-      targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
+      password, // bcrypt hashed via pre-save hook
+      role: 'STUDENT',
+      college: instituteName || 'Unknown Institute',
+      targetGoal: 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
       aiimsCredits: 100
     });
 
+    // Resolve or create Cohort
+    let cohortDoc: typeof Cohort.prototype | null = null;
+    try {
+      const admissionYearNum = Number(admissionYear);
+      const graduationYearNum = Number(expectedGraduationYear);
+      const cohortShortCode = `${programId.toUpperCase()}-${specializationId.toUpperCase()}-${admissionYearNum}-${graduationYearNum}`;
+      const cohortDisplayName = `${programName} · ${specializationName} · ${admissionYearNum}–${graduationYearNum}`;
+
+      cohortDoc = await Cohort.findOneAndUpdate(
+        {
+          instituteId: instituteId ? new mongoose.Types.ObjectId(String(instituteId)) : undefined,
+          stream,
+          educationLevel,
+          programId,
+          specializationId,
+          admissionYear: admissionYearNum,
+          graduationYear: graduationYearNum
+        },
+        {
+          $setOnInsert: {
+            instituteName: instituteName || 'Unknown',
+            programName,
+            specializationName,
+            displayName: cohortDisplayName,
+            shortCode: cohortShortCode,
+            assessmentVersion: 'v1.0'
+          },
+          $inc: { studentCount: 1 }
+        },
+        { upsert: true, returnDocument: 'after' }
+      );
+    } catch (cohortErr) {
+      // Non-fatal — cohort can be resolved later
+      console.warn('Cohort upsert warning:', cohortErr);
+    }
+
+    // Create StudentProfile (separate from User auth)
+    const profileData: any = {
+      userId: dbUser._id,
+      fullName: displayName,
+      stream,
+      streamSubCategory: streamSubCategory || (stream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE'),
+      educationLevel,
+      programId,
+      programName: programName || programInfo?.label || programId,
+      specializationId,
+      specializationName,
+      yearOfStudy: Number(yearOfStudy),
+      admissionYear: Number(admissionYear),
+      expectedGraduationYear: Number(expectedGraduationYear),
+      isComplete: true
+    };
+    if (instituteId) profileData.instituteId = new mongoose.Types.ObjectId(String(instituteId));
+    if (instituteName) profileData.instituteName = instituteName;
+    if (cohortDoc) profileData.cohortId = cohortDoc._id;
+    if (aiFamiliarity) profileData.aiFamiliarity = aiFamiliarity;
+    if (aiUsageContexts && Array.isArray(aiUsageContexts)) profileData.aiUsageContexts = aiUsageContexts;
+    if (primaryGoal) profileData.primaryGoal = primaryGoal;
+
+    const studentProfile = await StudentProfile.create(profileData);
+
     const token = generateAuthToken(String(dbUser._id), dbUser.email);
     const userState = formatUserState(dbUser);
 
-    return res.json({
+    return res.status(201).json({
       token,
       user: userState.profile,
-      state: userState
-    });
-  } catch (mongoErr) {
-    if (registeredUsers[normalizedEmail]) {
-      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: `usr-${Date.now().toString().slice(-4)}`,
-      name: displayName,
-      email: normalizedEmail,
-      role: role || 'AI Practitioner',
-      college: college || 'Engineering & Technology College',
-      targetGoal: targetGoal || 'Explore AI Architectures & Intelligence',
-      stage: 'Knowing',
-      xpPoints: 100,
-      aiimsCredits: 100,
-      password: hashedPassword
-    };
-
-    registeredUsers[normalizedEmail] = newUser;
-
-    const token = generateAuthToken(newUser.id, newUser.email);
-    return res.json({
-      token,
-      user: {
-        id: newUser.id,
-        name: newUser.name,
-        email: newUser.email,
-        role: newUser.role,
-        college: newUser.college,
-        targetGoal: newUser.targetGoal,
-        stage: newUser.stage,
-        xpPoints: newUser.xpPoints,
-        aiimsCredits: newUser.aiimsCredits
+      state: {
+        ...userState,
+        academicProfile: {
+          id: String(studentProfile._id),
+          stream: studentProfile.stream,
+          streamSubCategory: studentProfile.streamSubCategory,
+          educationLevel: studentProfile.educationLevel,
+          programId: studentProfile.programId,
+          programName: studentProfile.programName,
+          specializationId: studentProfile.specializationId,
+          specializationName: studentProfile.specializationName,
+          yearOfStudy: studentProfile.yearOfStudy,
+          admissionYear: studentProfile.admissionYear,
+          expectedGraduationYear: studentProfile.expectedGraduationYear,
+          instituteName: studentProfile.instituteName,
+          cohortId: cohortDoc ? String(cohortDoc._id) : undefined,
+          cohortDisplayName: cohortDoc ? cohortDoc.displayName : undefined,
+          aiFamiliarity: studentProfile.aiFamiliarity,
+          aiUsageContexts: studentProfile.aiUsageContexts,
+          primaryGoal: studentProfile.primaryGoal
+        }
       }
     });
+  } catch (err: any) {
+    console.error('Registration error:', err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+    }
+    return res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 });
 
@@ -293,6 +481,8 @@ router.put('/learner/state', requireAuth, async (req: AuthenticatedRequest, res:
     if (state.investigation) user.investigation = state.investigation;
     if (state.credits?.transactions) user.transactions = state.credits.transactions;
     if (state.notifications) user.notifications = state.notifications;
+    // Persist aiWallet to MongoDB alongside the rest of the learner state
+    if (state.aiWallet) user.aiWallet = state.aiWallet;
 
     await user.save();
     return res.json({ success: true, state: formatUserState(user) });
@@ -826,179 +1016,297 @@ router.post('/ai/mentor', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // ==========================================
-// 8. AI WALLET MODULE (Admin-Updatable Catalog & Neutral Recommendations)
+// 8. AI WALLET MODULE (MongoDB Catalog + User Wallet Persistence)
 // ==========================================
 
-router.get('/wallet/catalog', (req: Request, res: Response) => {
-  res.json(mockToolCatalog.filter(t => t.activeStatus));
+/**
+ * GET /api/wallet/catalog
+ * Returns all active AI tools from MongoDB AITool collection.
+ * Falls back to mockToolCatalog if DB is unavailable or collection is empty.
+ */
+router.get('/wallet/catalog', async (req: Request, res: Response) => {
+  try {
+    const catalog = await getActiveCatalog();
+    return res.json(catalog);
+  } catch (err: any) {
+    console.error('[/wallet/catalog] error:', err.message);
+    return res.json(mockToolCatalog.filter(t => t.activeStatus));
+  }
 });
 
+/**
+ * GET /api/wallet/user
+ * Returns the authenticated user's personal tool kit.
+ * Falls back to mockUserTools in offline/unauthenticated mode.
+ */
 router.get('/wallet/user', (req: AuthenticatedRequest, res: Response) => {
-  res.json(mockUserTools);
+  if (req.user?.aiWallet) {
+    return res.json(req.user.aiWallet.userTools || []);
+  }
+  // Fallback for offline / unauthenticated scenario
+  return res.json(mockUserTools);
 });
 
-router.get('/wallet/recommendations', (req: AuthenticatedRequest, res: Response) => {
-  // Generate recommendations dynamically from catalog metadata without hardcoded tool IDs
-  const userTools = (req.user as any)?.aiWallet?.userTools || mockLearnerFullState.aiWallet?.userTools || mockUserTools;
-  const userToolMap = new Map<string, string>();
-  userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
+/**
+ * GET /api/wallet/recommendations
+ * Generates recommendations from the live catalog (MongoDB with mock fallback)
+ * against the authenticated user's learner profile.
+ */
+router.get('/wallet/recommendations', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Load the live catalog (MongoDB or mock fallback)
+    const liveCatalog = await getActiveCatalog();
 
-  const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
-  const activeFocus = req.user?.focus?.selectedTrack || mockLearnerFullState.focus?.selectedTrack || mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
-  const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
-  const clarityTopic = req.user?.clarity?.selectedTopic || mockLearnerFullState.clarity?.selectedTopic || '';
-  const investigatedRadarIds = req.user?.radar?.investigatedSignalIds || mockLearnerFullState.radar?.investigatedSignalIds || [];
+    // Resolve user tools from MongoDB user document or mock
+    const userTools =
+      req.user?.aiWallet?.userTools ||
+      mockLearnerFullState.aiWallet?.userTools ||
+      mockUserTools;
 
-  const recs = [];
+    const userToolMap = new Map<string, string>();
+    userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
 
-  const containsMatch = (targetText: string, searchKey: string): boolean => {
-    if (!targetText || !searchKey) return false;
-    return targetText.toLowerCase().includes(searchKey.toLowerCase()) || searchKey.toLowerCase().includes(targetText.toLowerCase());
-  };
+    const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
+    const activeFocus =
+      req.user?.focus?.selectedTrack ||
+      mockLearnerFullState.focus?.selectedTrack ||
+      mockLearnerFullState.analysis?.growthArea ||
+      'AI Workflow Design';
+    const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
+    const clarityTopic =
+      req.user?.clarity?.selectedTopic ||
+      mockLearnerFullState.clarity?.selectedTopic || '';
+    const investigatedRadarIds =
+      req.user?.radar?.investigatedSignalIds ||
+      mockLearnerFullState.radar?.investigatedSignalIds || [];
 
-  for (const tool of mockToolCatalog) {
-    if (!tool.activeStatus) continue;
+    const recs = [];
 
-    const familiarity = userToolMap.get(tool.id);
-    const matchedSignals: { type: string; snippet: string; priority: number }[] = [];
+    const containsMatch = (targetText: string, searchKey: string): boolean => {
+      if (!targetText || !searchKey) return false;
+      return (
+        targetText.toLowerCase().includes(searchKey.toLowerCase()) ||
+        searchKey.toLowerCase().includes(targetText.toLowerCase())
+      );
+    };
 
-    const toolFocusTracks = tool.focusTracks || [tool.category];
-    const toolClarityTopics = tool.clarityTopics || tool.taskMappings || [];
-    const toolRadarTopics = tool.radarTopics || [tool.category];
-    const toolCategories = tool.categories || [tool.category];
-    const toolRelatedTools = tool.relatedTools || [];
+    for (const tool of liveCatalog) {
+      if (!tool.activeStatus) continue;
 
-    // 1. FOCUS_BASED
-    if (toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) || toolCategories.some(cat => containsMatch(cat, activeFocus))) {
-      matchedSignals.push({
-        type: 'FOCUS_BASED',
-        snippet: `aligns with your active focus on ${activeFocus}`,
-        priority: 2
-      });
-    }
+      const familiarity = userToolMap.get(tool.id);
+      const matchedSignals: { type: string; snippet: string; priority: number }[] = [];
 
-    // 2. RADAR_DISCOVERY
-    let matchedRadarTopic: string | null = null;
-    if (investigatedRadarIds.length > 0) {
-      for (const sigId of investigatedRadarIds) {
-        if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
-          matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
-          break;
+      const toolFocusTracks  = tool.focusTracks  || [tool.category];
+      const toolClarityTopics = tool.clarityTopics || tool.taskMappings || [];
+      const toolRadarTopics  = tool.radarTopics   || [tool.category];
+      const toolCategories   = tool.categories    || [tool.category];
+      const toolRelatedTools = tool.relatedTools   || [];
+
+      // 1. FOCUS_BASED
+      if (
+        toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) ||
+        toolCategories.some(cat => containsMatch(cat, activeFocus))
+      ) {
+        matchedSignals.push({
+          type: 'FOCUS_BASED',
+          snippet: `aligns with your active focus on ${activeFocus}`,
+          priority: 2
+        });
+      }
+
+      // 2. RADAR_DISCOVERY
+      let matchedRadarTopic: string | null = null;
+      if (investigatedRadarIds.length > 0) {
+        for (const sigId of investigatedRadarIds) {
+          if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
+            matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
+            break;
+          }
+        }
+        if (!matchedRadarTopic) {
+          const matchingTopic = toolRadarTopics.find(rt =>
+            investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId))
+          );
+          if (matchingTopic) matchedRadarTopic = matchingTopic;
         }
       }
-      if (!matchedRadarTopic) {
-        const matchingTopic = toolRadarTopics.find(rt => investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId)));
-        if (matchingTopic) matchedRadarTopic = matchingTopic;
+      if (matchedRadarTopic) {
+        const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-')
+          ? tool.category
+          : matchedRadarTopic;
+        matchedSignals.push({
+          type: 'RADAR_DISCOVERY',
+          snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
+          priority: 1
+        });
       }
-    }
-    if (matchedRadarTopic) {
-      const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-') ? tool.category : matchedRadarTopic;
-      matchedSignals.push({
-        type: 'RADAR_DISCOVERY',
-        snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
-        priority: 1
+
+      // 3. TASK_BASED
+      if (
+        clarityTopic &&
+        (
+          toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) ||
+          toolCategories.some(cat => containsMatch(cat, clarityTopic))
+        )
+      ) {
+        matchedSignals.push({
+          type: 'TASK_BASED',
+          snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
+          priority: 3
+        });
+      }
+
+      // 4. SKILL_GAP
+      if (
+        growthArea &&
+        (
+          toolCategories.some(cat => containsMatch(cat, growthArea)) ||
+          toolFocusTracks.some(ft => containsMatch(ft, growthArea))
+        )
+      ) {
+        matchedSignals.push({
+          type: 'SKILL_GAP',
+          snippet: `strengthens your growth area in ${growthArea}`,
+          priority: 4
+        });
+      }
+
+      // 5. TOOLKIT_GAP
+      if (!walletCategories.has(tool.category as any) && !familiarity) {
+        matchedSignals.push({
+          type: 'TOOLKIT_GAP',
+          snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
+          priority: 5
+        });
+      }
+
+      // 6. ALTERNATIVE_TOOL
+      const isAlt = userTools.some((ut: any) => {
+        const userToolObj = liveCatalog.find(c => c.id === ut.toolId);
+        return (
+          userToolObj &&
+          (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId))
+        );
+      });
+      if (isAlt && !familiarity) {
+        matchedSignals.push({
+          type: 'ALTERNATIVE_TOOL',
+          snippet: `offers a complementary workflow alternative to tools in your wallet`,
+          priority: 6
+        });
+      }
+
+      if (matchedSignals.length === 0) continue;
+
+      // Familiarity filtering
+      if (familiarity === 'mastered') {
+        const hasRadarOrAlt = matchedSignals.some(
+          s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
+        );
+        if (!hasRadarOrAlt) continue;
+      } else if (familiarity === 'proficient') {
+        const hasAdvancedSignal = matchedSignals.some(
+          s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED'
+        );
+        if (!hasAdvancedSignal) continue;
+      }
+
+      matchedSignals.sort((a, b) => a.priority - b.priority);
+      const primarySignal = matchedSignals[0];
+      const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
+
+      const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
+      let synthesizedReason = '';
+      if (snippets.length === 1) {
+        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
+      } else if (snippets.length === 2) {
+        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, and ${snippets[1]}.`;
+      } else {
+        synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, ${snippets[1]}, and ${snippets[2]}.`;
+      }
+
+      let actionLabel = 'Add to Wallet & Explore';
+      if (familiarity === 'exploring')  actionLabel = 'Explore & Practice Tool';
+      else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
+      else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
+      else if (familiarity === 'mastered')   actionLabel = 'View Advanced Opportunities';
+
+      recs.push({
+        id: `rec-${tool.id}`,
+        toolId: tool.id,
+        type: primarySignal.type,
+        matchedSignals: allSignalTypes,
+        reason: synthesizedReason,
+        relatedTask: tool.useCases[0] || tool.category,
+        relatedSkill: tool.category,
+        relevance: `Aligned with your ${activeFocus} workflow`,
+        actionLabel,
+        status: 'active',
+        createdAt: 'Just now'
       });
     }
 
-    // 3. TASK_BASED
-    if (clarityTopic && (toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) || toolCategories.some(cat => containsMatch(cat, clarityTopic)))) {
-      matchedSignals.push({
-        type: 'TASK_BASED',
-        snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
-        priority: 3
-      });
-    }
-
-    // 4. SKILL_GAP
-    if (growthArea && (toolCategories.some(cat => containsMatch(cat, growthArea)) || toolFocusTracks.some(ft => containsMatch(ft, growthArea)))) {
-      matchedSignals.push({
-        type: 'SKILL_GAP',
-        snippet: `strengthens your growth area in ${growthArea}`,
-        priority: 4
-      });
-    }
-
-    // 5. TOOLKIT_GAP
-    if (!walletCategories.has(tool.category) && !familiarity) {
-      matchedSignals.push({
-        type: 'TOOLKIT_GAP',
-        snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
-        priority: 5
-      });
-    }
-
-    // 6. ALTERNATIVE_TOOL
-    const isAlt = userTools.some((ut: any) => {
-      const userToolObj = mockToolCatalog.find(c => c.id === ut.toolId);
-      return userToolObj && (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId));
-    });
-    if (isAlt && !familiarity) {
-      matchedSignals.push({
-        type: 'ALTERNATIVE_TOOL',
-        snippet: `offers a complementary workflow alternative to tools in your wallet`,
-        priority: 6
-      });
-    }
-
-    if (matchedSignals.length === 0) continue;
-
-    // Familiarity filtering
-    if (familiarity === 'mastered') {
-      const hasRadarOrAlt = matchedSignals.some(s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL');
-      if (!hasRadarOrAlt) continue;
-    } else if (familiarity === 'proficient') {
-      const hasAdvancedSignal = matchedSignals.some(s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED');
-      if (!hasAdvancedSignal) continue;
-    }
-
-    matchedSignals.sort((a, b) => a.priority - b.priority);
-    const primarySignal = matchedSignals[0];
-    const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
-
-    let synthesizedReason = '';
-    const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
-    if (snippets.length === 1) {
-      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
-    } else if (snippets.length === 2) {
-      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, and ${snippets[1]}.`;
-    } else {
-      synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}, ${snippets[1]}, and ${snippets[2]}.`;
-    }
-
-    let actionLabel = 'Add to Wallet & Explore';
-    if (familiarity === 'exploring') actionLabel = 'Explore & Practice Tool';
-    else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
-    else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
-    else if (familiarity === 'mastered') actionLabel = 'View Advanced Opportunities';
-
-    recs.push({
-      id: `rec-${tool.id}`,
-      toolId: tool.id,
-      type: primarySignal.type,
-      matchedSignals: allSignalTypes,
-      reason: synthesizedReason,
-      relatedTask: tool.useCases[0] || tool.category,
-      relatedSkill: tool.category,
-      relevance: `Aligned with your ${activeFocus} workflow`,
-      actionLabel,
-      status: 'active',
-      createdAt: 'Just now'
-    });
+    return res.json(recs);
+  } catch (err: any) {
+    console.error('[/wallet/recommendations] error:', err.message);
+    return res.json([]);
   }
-
-  res.json(recs);
 });
 
-router.post('/wallet/add', (req: AuthenticatedRequest, res: Response) => {
+/**
+ * POST /api/wallet/add
+ * Adds a tool to the authenticated user's AI Wallet in MongoDB.
+ * Falls back to mutating mockUserTools in offline mode.
+ */
+router.post('/wallet/add', async (req: AuthenticatedRequest, res: Response) => {
   const { toolId, familiarity, primaryCategory, userNotes } = req.body;
+
+  // Authenticated + DB path
+  if (req.user) {
+    try {
+      const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
+      const existing = wallet.userTools.find((t: any) => t.toolId === toolId);
+
+      if (existing) {
+        if (familiarity) existing.familiarity = familiarity;
+        if (userNotes !== undefined) existing.userNotes = userNotes;
+        req.user.aiWallet = wallet;
+        await req.user.save();
+        return res.json({ success: true, item: existing, action: 'updated' });
+      }
+
+      // Resolve category from live catalog if not supplied
+      let resolvedCategory = primaryCategory;
+      if (!resolvedCategory) {
+        const catalogItem = await getToolById(toolId);
+        resolvedCategory = catalogItem?.category || 'Reasoning & Writing';
+      }
+
+      const newItem = {
+        toolId,
+        addedAt: new Date().toISOString().split('T')[0],
+        familiarity: familiarity || 'exploring',
+        userNotes: userNotes || '',
+        primaryCategory: resolvedCategory,
+        customTags: ['my-toolkit']
+      };
+
+      wallet.userTools.unshift(newItem as any);
+      req.user.aiWallet = wallet;
+      await req.user.save();
+      return res.json({ success: true, item: newItem, action: 'added' });
+    } catch (err: any) {
+      console.error('[/wallet/add] DB error, falling back to mock:', err.message);
+    }
+  }
+
+  // Offline / unauthenticated fallback — mutate in-memory mock only
   const existing = mockUserTools.find(t => t.toolId === toolId);
-  
   if (existing) {
-    existing.familiarity = familiarity || existing.familiarity;
+    existing.familiarity = (familiarity || existing.familiarity) as any;
     if (userNotes) existing.userNotes = userNotes;
     return res.json({ success: true, item: existing, action: 'updated' });
   }
-
   const catalogItem = mockToolCatalog.find(t => t.id === toolId);
   const newItem = {
     toolId,
@@ -1008,63 +1316,382 @@ router.post('/wallet/add', (req: AuthenticatedRequest, res: Response) => {
     primaryCategory: primaryCategory || catalogItem?.category || 'Reasoning & Writing',
     customTags: ['my-toolkit']
   };
-
-  mockUserTools.unshift(newItem);
-  res.json({ success: true, item: newItem, action: 'added' });
+  mockUserTools.unshift(newItem as any);
+  return res.json({ success: true, item: newItem, action: 'added' });
 });
 
-router.post('/wallet/update-familiarity', (req: AuthenticatedRequest, res: Response) => {
+/**
+ * POST /api/wallet/update-familiarity
+ * Updates the familiarity level for a tool in the authenticated user's wallet.
+ */
+router.post('/wallet/update-familiarity', async (req: AuthenticatedRequest, res: Response) => {
   const { toolId, familiarity, userNotes } = req.body;
+
+  if (req.user) {
+    try {
+      const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
+      const item = wallet.userTools.find((t: any) => t.toolId === toolId);
+      if (!item) {
+        return res.status(404).json({ error: 'Tool not found in user wallet' });
+      }
+      if (familiarity) item.familiarity = familiarity;
+      if (userNotes !== undefined) item.userNotes = userNotes;
+      req.user.aiWallet = wallet;
+      await req.user.save();
+      return res.json({ success: true, item });
+    } catch (err: any) {
+      console.error('[/wallet/update-familiarity] DB error:', err.message);
+    }
+  }
+
+  // Offline fallback
   const item = mockUserTools.find(t => t.toolId === toolId);
-  
   if (!item) {
     return res.status(404).json({ error: 'Tool not found in user wallet' });
   }
-
-  if (familiarity) item.familiarity = familiarity;
+  if (familiarity) item.familiarity = familiarity as any;
   if (userNotes !== undefined) item.userNotes = userNotes;
-
-  res.json({ success: true, item });
+  return res.json({ success: true, item });
 });
 
-router.post('/wallet/compare', (req: Request, res: Response) => {
+/**
+ * POST /api/wallet/compare
+ * Returns a structured comparison of two tools from the live catalog.
+ */
+router.post('/wallet/compare', async (req: Request, res: Response) => {
   const { toolAId, toolBId, task } = req.body;
-  
-  const toolA = mockToolCatalog.find(t => t.id === toolAId) || mockToolCatalog[0];
-  const toolB = mockToolCatalog.find(t => t.id === toolBId) || mockToolCatalog[1];
 
-  const targetTask = task || toolA.taskMappings[0] || 'Long-form reasoning & document analysis';
+  try {
+    const catalog = await getActiveCatalog();
+    const toolA = catalog.find(t => t.id === toolAId) || catalog[0];
+    const toolB = catalog.find(t => t.id === toolBId) || catalog[1];
 
+    const targetTask = task || toolA.taskMappings[0] || 'Long-form reasoning & document analysis';
+
+    return res.json({
+      task: targetTask,
+      toolA,
+      toolB,
+      comparisonPoints: [
+        {
+          feature: 'Primary Task Fit',
+          toolAFit: `${toolA.name} is designed for ${toolA.useCases[0] || 'versatile execution'}.`,
+          toolBFit: `${toolB.name} is designed for ${toolB.useCases[0] || 'targeted technical tasks'}.`
+        },
+        {
+          feature: 'Context Window & Architecture',
+          toolAFit: toolA.limitations[0] || 'Standard context management.',
+          toolBFit: toolB.strengths[0] || 'Extended context or workspace index.'
+        },
+        {
+          feature: 'Specialized Capabilities',
+          toolAFit: toolA.capabilities.slice(0, 3).join(', '),
+          toolBFit: toolB.capabilities.slice(0, 3).join(', ')
+        },
+        {
+          feature: 'Workflow Strengths',
+          toolAFit: toolA.strengths.slice(0, 2).join(' • '),
+          toolBFit: toolB.strengths.slice(0, 2).join(' • ')
+        }
+      ],
+      keyConsideration: `When choosing between ${toolA.name} and ${toolB.name}, consider your primary bottleneck: high-velocity quick queries vs deeper structured artifacts.`,
+      summaryQuestion: `Which may fit your task?`
+    });
+  } catch (err: any) {
+    console.error('[/wallet/compare] error:', err.message);
+    // Hard fallback to mock
+    const toolA = mockToolCatalog.find(t => t.id === toolAId) || mockToolCatalog[0];
+    const toolB = mockToolCatalog.find(t => t.id === toolBId) || mockToolCatalog[1];
+    return res.json({
+      task: task || toolA.taskMappings[0] || 'General reasoning',
+      toolA, toolB,
+      comparisonPoints: [],
+      keyConsideration: '',
+      summaryQuestion: 'Which may fit your task?'
+    });
+  }
+});
+
+
+// ==========================================
+// ACADEMIC MODULE — Institute, Taxonomy, Student Profile
+// ==========================================
+
+/**
+ * GET /api/academic/taxonomy
+ * Returns all programs, specializations, education levels, AI context options.
+ * Public endpoint (no auth required) — used by registration screen dropdowns.
+ */
+router.get('/academic/taxonomy', (_req: Request, res: Response) => {
   res.json({
-    task: targetTask,
-    toolA,
-    toolB,
-    comparisonPoints: [
-      {
-        feature: 'Primary Task Fit',
-        toolAFit: `${toolA.name} is designed for ${toolA.useCases[0] || 'versatile execution'}.`,
-        toolBFit: `${toolB.name} is designed for ${toolB.useCases[0] || 'targeted technical tasks'}.`
-      },
-      {
-        feature: 'Context Window & Architecture',
-        toolAFit: toolA.limitations[0] || 'Standard context management.',
-        toolBFit: toolB.strengths[0] || 'Extended context or workspace index.'
-      },
-      {
-        feature: 'Specialized Capabilities',
-        toolAFit: toolA.capabilities.slice(0, 3).join(', '),
-        toolBFit: toolB.capabilities.slice(0, 3).join(', ')
-      },
-      {
-        feature: 'Workflow Strengths',
-        toolAFit: toolA.strengths.slice(0, 2).join(' • '),
-        toolBFit: toolB.strengths.slice(0, 2).join(' • ')
-      }
-    ],
-    keyConsideration: `When choosing between ${toolA.name} and ${toolB.name}, consider your primary bottleneck: high-velocity quick queries vs deeper structured artifacts.`,
-    summaryQuestion: `Which may fit your task?`
+    streams: STREAMS,
+    techSubCategories: TECH_SUB_CATEGORIES,
+    nonTechSubCategories: NON_TECH_SUB_CATEGORIES,
+    educationLevels: EDUCATION_LEVELS,
+    programs: PROGRAMS,
+    specializations: SPECIALIZATIONS,
+    aiFamiliarityOptions: AI_FAMILIARITY_OPTIONS,
+    aiUsageContexts: AI_USAGE_CONTEXTS,
+    primaryGoalOptions: PRIMARY_GOAL_OPTIONS
   });
 });
 
-export default router;
+/**
+ * GET /api/academic/institutes?q=:query&limit=20
+ * Searchable institute list. Returns top matches for autocomplete.
+ */
+router.get('/academic/institutes', async (req: Request, res: Response) => {
+  const query = String(req.query.q || '').trim();
+  const limit = Math.min(Number(req.query.limit) || 20, 50);
 
+  if (mongoose.connection.readyState !== 1) {
+    // Offline fallback — return a curated seed list
+    const SEED_INSTITUTES = [
+      { _id: 'inst-001', name: 'IIT Bombay', shortName: 'IITB', city: 'Mumbai', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-002', name: 'IIT Delhi', shortName: 'IITD', city: 'New Delhi', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-003', name: 'IIT Madras', shortName: 'IITM', city: 'Chennai', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-004', name: 'IIT Kharagpur', shortName: 'IITKgp', city: 'Kharagpur', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-005', name: 'NIT Trichy', shortName: 'NIT-T', city: 'Tiruchirappalli', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-006', name: 'BITS Pilani', shortName: 'BITS', city: 'Pilani', country: 'India', type: 'INSTITUTE' },
+      { _id: 'inst-007', name: 'VIT Vellore', shortName: 'VIT', city: 'Vellore', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-008', name: 'SRM Institute of Science and Technology', shortName: 'SRM', city: 'Chennai', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-009', name: 'Anna University', shortName: 'AU', city: 'Chennai', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-010', name: 'University of Mumbai', shortName: 'MU', city: 'Mumbai', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-011', name: 'Delhi University', shortName: 'DU', city: 'New Delhi', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-012', name: 'Amity University', shortName: 'Amity', city: 'Noida', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-013', name: 'Manipal Academy of Higher Education', shortName: 'MAHE', city: 'Manipal', country: 'India', type: 'UNIVERSITY' },
+      { _id: 'inst-014', name: 'PSG College of Technology', shortName: 'PSGCT', city: 'Coimbatore', country: 'India', type: 'COLLEGE' },
+      { _id: 'inst-015', name: 'Coimbatore Institute of Technology', shortName: 'CIT', city: 'Coimbatore', country: 'India', type: 'COLLEGE' },
+      { _id: 'inst-099', name: 'Other / Not Listed', shortName: 'OTHER', city: '', country: 'India', type: 'OTHER' }
+    ];
+
+    const filtered = query
+      ? SEED_INSTITUTES.filter(i =>
+          i.name.toLowerCase().includes(query.toLowerCase()) ||
+          (i.shortName && i.shortName.toLowerCase().includes(query.toLowerCase())) ||
+          (i.city && i.city.toLowerCase().includes(query.toLowerCase()))
+        )
+      : SEED_INSTITUTES;
+
+    return res.json({ institutes: filtered.slice(0, limit) });
+  }
+
+  try {
+    let institutes;
+    if (query.length >= 2) {
+      institutes = await Institute.find(
+        { $text: { $search: query }, status: 'ACTIVE' },
+        { score: { $meta: 'textScore' } }
+      ).sort({ score: { $meta: 'textScore' } }).limit(limit).lean();
+
+      // Fallback to regex if text index not working
+      if (institutes.length === 0) {
+        institutes = await Institute.find({
+          $or: [
+            { name: { $regex: query, $options: 'i' } },
+            { shortName: { $regex: query, $options: 'i' } },
+            { city: { $regex: query, $options: 'i' } }
+          ],
+          status: 'ACTIVE'
+        }).limit(limit).lean();
+      }
+    } else {
+      institutes = await Institute.find({ status: 'ACTIVE' }).limit(limit).lean();
+    }
+
+    res.json({ institutes });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch institutes.', details: err.message });
+  }
+});
+
+/**
+ * POST /api/academic/institutes/request
+ * Allows a student to request a new institute to be added.
+ */
+router.post('/academic/institutes/request', authenticateStudent, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const { name, city, state, country, type } = req.body;
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Institute name is required.' });
+  }
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ success: true, message: 'Institute request received. It will be reviewed and added soon.' });
+  }
+
+  try {
+    const code = `REQ-${Date.now().toString(36).toUpperCase()}`;
+    const inst = await Institute.create({
+      name: name.trim(),
+      code,
+      city: city?.trim(),
+      state: state?.trim(),
+      country: country?.trim() || 'India',
+      type: type || 'COLLEGE',
+      status: 'PENDING',
+      requestedBy: req.user ? String(req.user._id) : undefined
+    });
+    res.json({ success: true, institute: { _id: inst._id, name: inst.name, status: inst.status } });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to submit request.', details: err.message });
+  }
+});
+
+/**
+ * GET /api/student/profile
+ * Get authenticated student's academic profile.
+ */
+router.get('/student/profile', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ academicProfile: null });
+  }
+
+  try {
+    const profile = await StudentProfile.findOne({ userId: req.user!._id }).lean();
+    if (!profile) {
+      return res.json({ academicProfile: null });
+    }
+
+    // Resolve cohort display name if cohortId exists
+    let cohortDisplayName: string | undefined;
+    if (profile.cohortId) {
+      const cohort = await Cohort.findById(profile.cohortId).lean();
+      cohortDisplayName = cohort?.displayName;
+    }
+
+    res.json({
+      academicProfile: {
+        id: String(profile._id),
+        stream: profile.stream,
+        streamSubCategory: profile.streamSubCategory,
+        educationLevel: profile.educationLevel,
+        programId: profile.programId,
+        programName: profile.programName,
+        specializationId: profile.specializationId,
+        specializationName: profile.specializationName,
+        yearOfStudy: profile.yearOfStudy,
+        admissionYear: profile.admissionYear,
+        expectedGraduationYear: profile.expectedGraduationYear,
+        instituteName: profile.instituteName,
+        cohortId: profile.cohortId ? String(profile.cohortId) : undefined,
+        cohortDisplayName,
+        aiFamiliarity: profile.aiFamiliarity,
+        aiUsageContexts: profile.aiUsageContexts,
+        primaryGoal: profile.primaryGoal,
+        isComplete: profile.isComplete
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch academic profile.', details: err.message });
+  }
+});
+
+/**
+ * PUT /api/student/profile
+ * Update authenticated student's academic profile (AI context fields only — academic identity is locked post-registration).
+ */
+router.put('/student/profile', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+  const allowedUpdates = ['aiFamiliarity', 'aiUsageContexts', 'primaryGoal', 'displayName'];
+  const updateData: Record<string, any> = {};
+
+  for (const key of allowedUpdates) {
+    if (req.body[key] !== undefined) {
+      updateData[key] = req.body[key];
+    }
+  }
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ success: true });
+  }
+
+  try {
+    await StudentProfile.updateOne({ userId: req.user!._id }, { $set: updateData });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update profile.', details: err.message });
+  }
+});
+
+// ==========================================
+// ADMIN / DEBUG — Tool Discovery & Verification
+// Phase 2A foundation endpoints.
+// Protected: requires authentication.
+// NOT part of the learner-facing API.
+// ==========================================
+
+/**
+ * GET /api/tools/discovery/runs
+ * Returns the N most recent discovery runs (default: 20).
+ * Useful for monitoring the discovery pipeline.
+ */
+router.get('/tools/discovery/runs', requireAuth, async (req: Request, res: Response) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ runs: [], message: 'DB not connected — no run history available.' });
+  }
+  try {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const runs = await ToolDiscoveryRunModel.find()
+      .sort({ startedAt: -1 })
+      .limit(limit)
+      .lean();
+    return res.json({ runs, total: runs.length });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch discovery runs.', details: err.message });
+  }
+});
+
+/**
+ * GET /api/tools/evidence/:toolId
+ * Returns all evidence documents collected for a specific tool.
+ * Includes pending, accepted, and rejected evidence.
+ */
+router.get('/tools/evidence/:toolId', requireAuth, async (req: Request, res: Response) => {
+  const { toolId } = req.params;
+  if (!toolId) {
+    return res.status(400).json({ error: 'toolId param is required.' });
+  }
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ evidence: [], message: 'DB not connected.' });
+  }
+  try {
+    const evidence = await ToolEvidenceModel.find({ toolId })
+      .sort({ fetchedAt: -1 })
+      .lean();
+    return res.json({
+      toolId,
+      evidence,
+      counts: {
+        total:    evidence.length,
+        pending:  evidence.filter((e: any) => e.verificationStatus === 'PENDING').length,
+        accepted: evidence.filter((e: any) => e.verificationStatus === 'ACCEPTED').length,
+        rejected: evidence.filter((e: any) => e.verificationStatus === 'REJECTED').length
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch tool evidence.', details: err.message });
+  }
+});
+
+/**
+ * GET /api/tools/history/:toolId
+ * Returns the version history for a specific tool, newest-first.
+ */
+router.get('/tools/history/:toolId', requireAuth, async (req: Request, res: Response) => {
+  const { toolId } = req.params;
+  if (!toolId) {
+    return res.status(400).json({ error: 'toolId param is required.' });
+  }
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ history: [], message: 'DB not connected.' });
+  }
+  try {
+    const history = await ToolVersionHistoryModel.find({ toolId })
+      .sort({ detectedAt: -1 })
+      .lean();
+    return res.json({ toolId, history, count: history.length });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch tool history.', details: err.message });
+  }
+});
+
+export default router;

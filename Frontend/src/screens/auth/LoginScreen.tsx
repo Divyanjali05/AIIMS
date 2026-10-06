@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { AinovaLogo } from '../../components/common/AinovaLogo';
+import { RegisterScreen } from './RegisterScreen';
 
 interface LoginScreenProps {
   onSuccess?: () => void;
@@ -9,7 +10,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode }) => {
-  const { login, register } = useLearner();
+  const { login } = useLearner();
 
   // Determine view based on URL pathname or prop
   const getModeFromPath = (): 'home' | 'login' | 'register' => {
@@ -43,16 +44,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     return () => window.removeEventListener('popstate', handlePopState);
   }, [initialMode]);
 
-  // Form Fields State
+  // Form Fields State (login only — register is handled by RegisterScreen)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [college, setCollege] = useState('');
 
   // UI State
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -88,53 +85,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     }
   };
 
-  // Handle Register Submit
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    const cleanName = name.trim();
-    const cleanEmail = email.trim();
-    const cleanCollege = college.trim();
-
-    if (!cleanName) {
-      setErrorMessage('Please enter your full name.');
-      return;
-    }
-    if (!cleanEmail || !cleanEmail.includes('@')) {
-      setErrorMessage('Enter a valid email address.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const res = await register(
-        cleanName,
-        cleanEmail,
-        password,
-        cleanCollege || 'Engineering & Technology College'
-      );
-      if (res.success) {
-        setSuccessMessage('Account created successfully!');
-        if (onSuccess) onSuccess();
-      } else {
-        setErrorMessage(res.error || "We couldn't create your account right now. Please try again.");
-      }
-    } catch (err) {
-      setErrorMessage("We couldn't create your account right now. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Delegate register mode to the new full 3-step RegisterScreen
+  if (mode === 'register') {
+    return (
+      <RegisterScreen
+        onSuccess={onSuccess}
+        onNavigateToLogin={() => navigateTo('login')}
+        onNavigateToHome={() => navigateTo('home')}
+      />
+    );
+  }
 
   return (
     <div
@@ -324,267 +284,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         </div>
       )}
 
-      {/* ==================================================== */}
-      {/* MODE 2: REGISTER PAGE                                */}
-      {/* ==================================================== */}
-      {mode === 'register' && (
-        <div
-          className="ainova-fade-in"
-          style={{
-            maxWidth: '460px',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}
-        >
-          {/* Top Brand Logo */}
-          <div style={{ marginBottom: '24px' }}>
-            <AinovaLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
-          </div>
-
-          {/* Card Container */}
-          <div
-            style={{
-              width: '100%',
-              backgroundColor: '#ffffff',
-              borderRadius: '20px',
-              border: '1px solid #E2E8F0',
-              padding: '36px 32px',
-              boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.06)',
-              boxSizing: 'border-box'
-            }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h2
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: '#0F172A',
-                  letterSpacing: '-0.5px',
-                  margin: '0 0 6px 0'
-                }}
-              >
-                Create your AINOVA account
-              </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
-                Start your AI journey with AINOVA.
-              </p>
-            </div>
-
-            {/* Error Notification */}
-            {errorMessage && (
-              <div
-                style={{
-                  backgroundColor: '#FEF2F2',
-                  border: '1px solid #FCA5A5',
-                  color: '#991B1B',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}
-              >
-                <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0, color: '#DC2626' }} />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Success Notification */}
-            {successMessage && (
-              <div
-                style={{
-                  backgroundColor: '#F0FDF4',
-                  border: '1px solid #86EFAC',
-                  color: '#166534',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
-                }}
-              >
-                <CheckCircle style={{ width: '16px', height: '16px', flexShrink: 0, color: '#16A34A' }} />
-                <span>{successMessage}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Full Name */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  className="ainova-input"
-                  placeholder="Jane Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              {/* College / Institution */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
-                  College / Institution
-                </label>
-                <input
-                  type="text"
-                  className="ainova-input"
-                  placeholder="Engineering & Technology College"
-                  value={college}
-                  onChange={(e) => setCollege(e.target.value)}
-                  disabled={isLoading}
-                />
-              </div>
-
-              {/* Email */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
-                  Email
-                </label>
-                <input
-                  type="email"
-                  className="ainova-input"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              {/* Password */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
-                  Password
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="ainova-input"
-                    placeholder="At least 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#64748B',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Confirm Password */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
-                  Confirm Password
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className="ainova-input"
-                    placeholder="Re-enter password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: '#64748B',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Primary Action Button */}
-              <button
-                type="submit"
-                className="ainova-btn-primary"
-                disabled={isLoading}
-                style={{
-                  width: '100%',
-                  padding: '13px',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginTop: '8px'
-                }}
-              >
-                {isLoading ? 'Creating account...' : 'Create Account'}
-              </button>
-            </form>
-
-            {/* Secondary Navigation */}
-            <div
-              style={{
-                marginTop: '24px',
-                textAlign: 'center',
-                fontSize: '14px',
-                color: '#64748B'
-              }}
-            >
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => navigateTo('login')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#5B4BFF',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: 0,
-                  fontSize: 'inherit',
-                  fontFamily: 'inherit'
-                }}
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ==================================================== */}
-      {/* MODE 3: LOGIN PAGE                                   */}
+      {/* MODE 2: LOGIN PAGE                                   */}
       {/* ==================================================== */}
       {mode === 'login' && (
         <div

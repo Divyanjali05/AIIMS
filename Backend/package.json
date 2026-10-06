@@ -7,7 +7,9 @@
     "start": "ts-node src/server.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
-    "migrate:passwords": "ts-node src/scripts/migratePasswords.ts"
+    "migrate:passwords": "ts-node src/scripts/migratePasswords.ts",
+    "seed:tools": "ts-node src/scripts/seedToolCatalog.ts",
+    "test:phase2a": "ts-node src/scripts/testPhase2A.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",

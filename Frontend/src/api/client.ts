@@ -227,5 +227,41 @@ export const apiClient = {
       body: JSON.stringify({ toolAId, toolBId, task })
     });
     return res.json();
+  },
+
+  // 10. Academic Module
+  async searchInstitutes(query: string, limit?: number) {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (limit) params.set('limit', String(limit));
+    const res = await fetch(`${API_BASE}/academic/institutes?${params.toString()}`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async requestInstitute(data: { name: string; city?: string; state?: string; country?: string; type?: string }) {
+    const res = await fetch(`${API_BASE}/academic/institutes/request`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async getStudentProfile() {
+    const res = await fetch(`${API_BASE}/student/profile`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async updateStudentProfile(data: { aiFamiliarity?: string; aiUsageContexts?: string[]; primaryGoal?: string; displayName?: string }) {
+    const res = await fetch(`${API_BASE}/student/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
   }
 };

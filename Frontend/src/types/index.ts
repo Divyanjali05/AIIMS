@@ -1,5 +1,33 @@
 export type ProgressionStage = 'Knowing' | 'Understanding' | 'Recognising' | 'Applying' | 'Adapting';
 
+export type Stream = 'TECH' | 'NON_TECH';
+
+export interface AcademicProfile {
+  id?: string;
+  // Academic Identity
+  stream: Stream;
+  streamSubCategory?: string;
+  educationLevel: string;
+  programId: string;
+  programName: string;
+  specializationId: string;
+  specializationName: string;
+  yearOfStudy: number;
+  admissionYear: number;
+  expectedGraduationYear: number;
+  // Institute
+  instituteId?: string;
+  instituteName?: string;
+  // Cohort (analytics population)
+  cohortId?: string;
+  cohortDisplayName?: string;
+  // AI Context (personalization signals — NOT capability scores)
+  aiFamiliarity?: string;
+  aiUsageContexts?: string[];
+  primaryGoal?: string;
+  isComplete?: boolean;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
