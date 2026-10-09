@@ -673,8 +673,50 @@ export class ToolCatalogService {
     return Array.from(this.catalog.values());
   }
 
+  public static async getCatalogAsync(): Promise<AITool[]> {
+    this.initializeCatalog();
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const docs = await AIToolModel.find({ activeStatus: true }).lean();
+        if (docs && docs.length > 0) {
+          const result: AITool[] = [];
+          for (const doc of docs) {
+            const rawObj = { ...doc } as any;
+            delete rawObj._id;
+            delete rawObj.__v;
+            this.catalog.set(doc.id, rawObj as AITool);
+            result.push(rawObj as AITool);
+          }
+          return result;
+        }
+      } catch (err: any) {
+        console.warn('[ToolCatalog] MongoDB getCatalogAsync warning:', err.message);
+      }
+    }
+    return Array.from(this.catalog.values()).filter(t => t.activeStatus !== false);
+  }
+
   public static getToolById(id: string): AITool | undefined {
     this.initializeCatalog();
+    return this.catalog.get(id);
+  }
+
+  public static async getToolByIdAsync(id: string): Promise<AITool | undefined> {
+    this.initializeCatalog();
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const doc = await AIToolModel.findOne({ id, activeStatus: true }).lean();
+        if (doc) {
+          const rawObj = { ...doc } as any;
+          delete rawObj._id;
+          delete rawObj.__v;
+          this.catalog.set(doc.id, rawObj as AITool);
+          return rawObj as AITool;
+        }
+      } catch (err: any) {
+        console.warn('[ToolCatalog] getToolByIdAsync DB error:', err.message);
+      }
+    }
     return this.catalog.get(id);
   }
 
@@ -703,6 +745,30 @@ export class ToolCatalogService {
     }
   }
 
+  public static async upsertToolAsync(tool: AITool): Promise<AITool> {
+    this.initializeCatalog();
+    const existing = this.catalog.get(tool.id);
+    const updatedTool: AITool = existing
+      ? {
+          ...existing,
+          ...tool,
+          lastUpdatedAt: new Date().toISOString()
+        }
+      : {
+          ...tool,
+          firstSeenAt: tool.firstSeenAt || new Date().toISOString(),
+          lastVerifiedAt: tool.lastVerifiedAt || new Date().toISOString(),
+          lastUpdatedAt: new Date().toISOString()
+        };
+
+    this.catalog.set(tool.id, updatedTool);
+
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      await AIToolModel.findOneAndUpdate({ id: tool.id }, updatedTool, { upsert: true, new: true });
+    }
+    return updatedTool;
+  }
+
   public static removeTool(id: string): boolean {
     this.initializeCatalog();
     const deleted = this.catalog.delete(id);
@@ -725,6 +791,13 @@ export class ToolCatalogService {
             this.catalog.set(doc.id, rawObj as AITool);
           }
           console.log(`[ToolCatalog] Synchronized ${docs.length} tools from MongoDB.`);
+        } else {
+          // If MongoDB has 0 tools, seed the initial catalog into DB
+          console.log(`[ToolCatalog] Database empty — seeding initial verified catalog into MongoDB...`);
+          for (const tool of Array.from(this.catalog.values())) {
+            await AIToolModel.findOneAndUpdate({ id: tool.id }, tool, { upsert: true });
+          }
+          console.log(`[ToolCatalog] Successfully seeded ${this.catalog.size} tools to MongoDB.`);
         }
       } catch (err: any) {
         console.warn('[ToolCatalog] MongoDB catalog sync failed:', err.message);
