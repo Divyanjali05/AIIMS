@@ -23,13 +23,14 @@ import { MessageCircle, BarChart3, Settings } from 'lucide-react';
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const mapPathToTab = (path: string): string => {
   const cleanPath = path.toLowerCase().replace(/^\/+|\/+$/g, '');
   if (!cleanPath || cleanPath === 'index.html') return 'home';
   if (cleanPath === 'problem-solver' || cleanPath === 'solver') return 'solver';
   if (cleanPath === 'profile' || cleanPath === 'settings') return 'settings';
-  if (cleanPath === 'wallet' || cleanPath === 'ai-wallet') return 'wallet';
+  if (cleanPath === 'wallet' || cleanPath === 'ai-wallet' || cleanPath === 'aiwallet') return 'wallet';
   return cleanPath;
 };
 
@@ -148,100 +149,110 @@ const AppContent: React.FC = () => {
           overflowY: 'auto',
           boxSizing: 'border-box'
         }}>
-          {activeTab === 'home' && (
-            <HomeScreen setActiveTab={setActiveTab} />
-          )}
+          <ErrorBoundary onReset={() => setActiveTab('home')}>
+            {activeTab === 'home' && (
+              <HomeScreen setActiveTab={setActiveTab} />
+            )}
 
-          {activeTab === 'wallet' && (
-            <AIWalletScreen setActiveTab={setActiveTab} />
-          )}
+            {activeTab === 'wallet' && (
+              <AIWalletScreen setActiveTab={setActiveTab} />
+            )}
 
-          {activeTab === 'discover' && (
-            <DiscoverScreen setActiveTab={setActiveTab} />
-          )}
+            {activeTab === 'discover' && (
+              <DiscoverScreen setActiveTab={setActiveTab} />
+            )}
 
-          {activeTab === 'journey' && (
-            <JourneyScreen setActiveTab={setActiveTab} />
-          )}
+            {activeTab === 'journey' && (
+              <JourneyScreen setActiveTab={setActiveTab} />
+            )}
 
-          {activeTab === 'assessment' && (
-            <AssessmentScreen
-              onComplete={() => { setActiveTab('analysis'); }}
-            />
-          )}
-
-          {activeTab === 'analysis' && <AnalysisScreen setActiveTab={setActiveTab} />}
-          {activeTab === 'credits' && <CreditsScreen />}
-          {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
-          {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
-
-          {activeTab === 'radar' && (
-            <RadarScreen onInvestigate={handleStartInvestigation} />
-          )}
-
-          {activeTab === 'investigation' && (
-            <InvestigationScreen
-              signal={selectedSignal}
-              onComplete={() => { setActiveTab('relevance'); }}
-            />
-          )}
-
-          {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
-
-          {activeTab === 'solver' && (
-            <ProblemSolverScreen setActiveTab={setActiveTab} />
-          )}
-
-          {activeTab === 'build' && (
-            <BuildScreen setActiveTab={setActiveTab} />
-          )}
-
-          {activeTab === 'mentor' && (
-            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <PageHeader
-                icon={<MessageCircle size={24} />}
-                title="Ainova Mentor Workspace"
-                description="Contextual guidance and observations based on your real-time LearnerState."
+            {activeTab === 'assessment' && (
+              <AssessmentScreen
+                onComplete={() => { setActiveTab('analysis'); }}
               />
-              <MentorMessage
-                title="AINOVA MENTOR ADVICE"
-                message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
-              />
-            </div>
-          )}
+            )}
 
-          {activeTab === 'insights' && (
-            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <PageHeader
-                icon={<BarChart3 size={24} />}
-                title="Growth Insights"
-                description="Personalized progression trends and capability evaluation history."
-              />
-              <Surface variant="bordered" radius="lg" padding="lg">
-                <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
-                  Insights connect directly to your baseline Assessment and completed Clarity topics.
-                </p>
-              </Surface>
-            </div>
-          )}
+            {activeTab === 'analysis' && <AnalysisScreen setActiveTab={setActiveTab} />}
+            {activeTab === 'credits' && <CreditsScreen />}
+            {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
+            {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
 
-          {activeTab === 'settings' && (
-            <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <PageHeader
-                icon={<Settings size={24} />}
-                title="Account Settings"
-                description="Manage your profile settings, preferences, and notifications."
+            {activeTab === 'radar' && (
+              <RadarScreen onInvestigate={handleStartInvestigation} />
+            )}
+
+            {activeTab === 'investigation' && (
+              <InvestigationScreen
+                signal={selectedSignal}
+                onComplete={() => { setActiveTab('relevance'); }}
               />
-              <Surface variant="bordered" radius="lg" padding="lg">
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
-                  Learner Profile
-                </div>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                  Logged in as {state.profile.name} ({state.profile.email})
-                </p>
-              </Surface>
-            </div>
-          )}
+            )}
+
+            {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
+
+            {activeTab === 'solver' && (
+              <ProblemSolverScreen setActiveTab={setActiveTab} />
+            )}
+
+            {activeTab === 'build' && (
+              <BuildScreen setActiveTab={setActiveTab} />
+            )}
+
+            {activeTab === 'mentor' && (
+              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <PageHeader
+                  icon={<MessageCircle size={24} />}
+                  title="Ainova Mentor Workspace"
+                  description="Contextual guidance and observations based on your real-time LearnerState."
+                />
+                <MentorMessage
+                  title="AINOVA MENTOR ADVICE"
+                  message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
+                />
+              </div>
+            )}
+
+            {activeTab === 'insights' && (
+              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <PageHeader
+                  icon={<BarChart3 size={24} />}
+                  title="Growth Insights"
+                  description="Personalized progression trends and capability evaluation history."
+                />
+                <Surface variant="bordered" radius="lg" padding="lg">
+                  <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
+                    Insights connect directly to your baseline Assessment and completed Clarity topics.
+                  </p>
+                </Surface>
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <PageHeader
+                  icon={<Settings size={24} />}
+                  title="Account Settings"
+                  description="Manage your profile settings, preferences, and notifications."
+                />
+                <Surface variant="bordered" radius="lg" padding="lg">
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
+                    Learner Profile
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                    Logged in as {state.profile.name} ({state.profile.email})
+                  </p>
+                </Surface>
+              </div>
+            )}
+
+            {![
+              'home', 'wallet', 'discover', 'journey', 'assessment', 'analysis',
+              'credits', 'clarity', 'focus', 'radar', 'investigation', 'relevance',
+              'solver', 'build', 'mentor', 'insights', 'settings'
+            ].includes(activeTab) && (
+              <HomeScreen setActiveTab={setActiveTab} />
+            )}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

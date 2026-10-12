@@ -204,15 +204,20 @@ export class SearchIntentService {
     let primaryGoal = 'AI Tool Recommendation';
     let intentSummary = 'Tool Search';
 
-    // Query Pattern 1: PDF/Document Understanding ("understand this 100 page PDF")
-    if ((q.includes('pdf') || q.includes('page') || q.includes('document')) && (q.includes('understand') || q.includes('read') || q.includes('summarize paper'))) {
-      primaryGoal = 'Document Understanding & Reading';
-      intentSummary = 'Understand and extract insights from long documents/PDFs';
-      tasks.push('Document Understanding', 'PDF Vector Indexing', 'Information Extraction', 'Summarization');
-      reqCap.push('document_analysis', 'pdf_summarization', 'vector_search', 'information_extraction');
-      optCap.push('citation_support', 'q_and_a');
+    // Query Pattern 1: PDF/Document Understanding & Analysis ("analyze a 100-page PDF", "understand this document")
+    const isPdfDocAction = q.includes('analyze') || q.includes('understanding') || q.includes('understand') ||
+      q.includes('read') || q.includes('summarize') || q.includes('extract') || q.includes('review') ||
+      q.includes('chat') || q.includes('insights') || q.includes('parse');
+    const hasDocKeyword = q.includes('pdf') || q.includes('page') || q.includes('document') || q.includes('paper');
+
+    if ((hasDocKeyword && isPdfDocAction) || q.includes('pdf')) {
+      primaryGoal = 'Document Understanding & Analysis';
+      intentSummary = 'Analyze and extract insights from long documents and PDFs';
+      tasks.push('Document Analysis', 'Information Extraction', 'Summarization', 'PDF Vector Indexing');
+      reqCap.push('document_analysis', 'pdf_summarization', 'information_extraction');
+      optCap.push('citation_support', 'q_and_a', 'vector_search');
       inputTypes.push('pdf', 'document', 'text');
-      outputTypes.push('summary', 'answers', 'key_points');
+      outputTypes.push('summary', 'answers', 'key_points', 'analysis');
       domains.push('Research & Knowledge');
       categories.push('Research & RAG');
     }

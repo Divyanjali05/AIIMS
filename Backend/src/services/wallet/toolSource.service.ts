@@ -18,6 +18,7 @@ export interface ToolSource {
   type: 'RSS' | 'JSON' | 'API' | 'WEB';
   priority: number; // 1 = Highest (Official release/pricing), 7 = Secondary
   enabled: boolean;
+  disabledReason?: string;
   fetch(): Promise<SourceItem[]>;
 }
 
@@ -30,24 +31,17 @@ export class ToolSourceService {
   public static initializeSources(): void {
     if (this.sources.size > 0) return;
 
-    // 1. Anthropic Official Release Feed Source
+    // 1. Anthropic Official Release Feed Source — DISABLED
+    // Reason: Nonexistent GitHub repository (anthropic-releases/feed). Anthropic provides no public JSON tool feed.
     this.registerSource({
       id: 'source-anthropic',
       name: 'Anthropic Official Technical Bulletins',
       type: 'JSON',
       priority: 1,
-      enabled: true,
+      enabled: false,
+      disabledReason: 'Nonexistent GitHub repository (anthropic-releases/feed). No verified public JSON tools feed endpoint exists.',
       async fetch(): Promise<SourceItem[]> {
-        const url = process.env.ANTHROPIC_FEED_URL || 'https://raw.githubusercontent.com/anthropic-releases/feed/main/tools.json';
-        return ToolSourceService.fetchJsonOrFallback(url, 'source-anthropic', 'Anthropic Technical Bulletins', 1, [
-          {
-            id: 'item-claude-3-5-sonnet',
-            title: 'Claude 3.5 Sonnet & Computer Use Release',
-            url: 'https://claude.ai',
-            content: 'Anthropic releases Claude 3.5 Sonnet with Computer Use OS control, 200k context window, and Artifacts preview canvas.',
-            publishedAt: new Date().toISOString()
-          }
-        ]);
+        return [];
       }
     });
 
@@ -60,19 +54,11 @@ export class ToolSourceService {
       enabled: true,
       async fetch(): Promise<SourceItem[]> {
         const url = process.env.GITHUB_AI_FEED_URL || 'https://api.github.com/repos/continuedev/continue/releases/latest';
-        return ToolSourceService.fetchJsonOrFallback(url, 'source-github-ai', 'GitHub AI Tool Releases', 2, [
-          {
-            id: 'item-continue-dev',
-            title: 'Continue.dev Open Source AI Coding Assistant v0.9',
-            url: 'https://github.com/continuedev/continue',
-            content: 'Continue.dev open-source AI code assistant for VS Code and JetBrains supporting custom LLM backends.',
-            publishedAt: new Date().toISOString()
-          }
-        ]);
+        return ToolSourceService.fetchGitHubRelease(url, 'source-github-ai', 'GitHub AI Tool Releases', 2);
       }
     });
 
-    // 3. HuggingFace & Directory Feed Source
+    // 3. HuggingFace Trending Spaces & AI Assistants
     this.registerSource({
       id: 'source-huggingface',
       name: 'Hugging Face Open AI Models & Assistants',
@@ -81,40 +67,21 @@ export class ToolSourceService {
       enabled: true,
       async fetch(): Promise<SourceItem[]> {
         const url = process.env.HUGGINGFACE_FEED_URL || 'https://huggingface.co/api/trending';
-        return ToolSourceService.fetchJsonOrFallback(url, 'source-huggingface', 'Hugging Face Trending AI', 3, [
-          {
-            id: 'item-genspark-ai',
-            title: 'Genspark AI Autonomous Search & Sparkpages',
-            url: 'https://genspark.ai',
-            content: 'Genspark AI releases free multi-agent search engine synthesizing Sparkpage briefings.',
-            publishedAt: new Date().toISOString()
-          }
-        ]);
+        return ToolSourceService.fetchHuggingFaceTrending(url, 'source-huggingface', 'Hugging Face Trending AI', 3);
       }
     });
 
-    // 4. Indic & Multi-Modal AI Release Source
+    // 4. Indic & Multi-Modal AI Release Source — DISABLED
+    // Reason: Referenced placeholder domain astra-ai.example.com with static mock payload; no live HTTP endpoint.
     this.registerSource({
       id: 'source-indic-ai',
       name: 'Indic AI & Multi-Modal Speech Releases',
       type: 'WEB',
       priority: 2,
-      enabled: true,
+      enabled: false,
+      disabledReason: 'Uses placeholder domain (astra-ai.example.com) with hardcoded payload; no live HTTP discovery endpoint.',
       async fetch(): Promise<SourceItem[]> {
-        return [
-          {
-            id: 'item-astra-voice',
-            sourceId: 'source-indic-ai',
-            sourceName: 'Indic AI Releases',
-            sourceType: 'WEB',
-            sourcePriority: 2,
-            title: 'Astra AI Assistant Telugu Voice & PDF RAG Release',
-            url: 'https://astra-ai.example.com',
-            content: 'Astra AI releases 14-day free trial for native Telugu regional voice generation and PDF analysis.',
-            publishedAt: new Date().toISOString(),
-            hash: ToolSourceService.generateHash('Astra AI Assistant Telugu Voice Release')
-          }
-        ];
+        return [];
       }
     });
   }
@@ -131,6 +98,7 @@ export class ToolSourceService {
   /**
    * Collect candidates from all enabled sources safely.
    * If a source fails, logs the error and continues with remaining sources.
+   * Never injects fabricated records into the production pipeline.
    */
   public static async collectSources(): Promise<{ items: SourceItem[]; failedSources: string[] }> {
     this.initializeSources();
@@ -166,53 +134,102 @@ export class ToolSourceService {
     return { items: uniqueItems, failedSources };
   }
 
-  private static async fetchJsonOrFallback(url: string, sourceId: string, sourceName: string, priority: number, fallbacks: any[]): Promise<SourceItem[]> {
+  /**
+   * Fetches GitHub release data and extracts normalized AI tool candidate metadata.
+   * Ensures release tags (e.g. "v2.0.0-vscode") are not treated as tool names.
+   */
+  private static async fetchGitHubRelease(url: string, sourceId: string, sourceName: string, priority: number): Promise<SourceItem[]> {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AINOVA-ToolDiscovery/1.0' } });
       clearTimeout(timeoutId);
 
       if (res.ok) {
-        const data: any = await res.json();
-        const rawArray = Array.isArray(data) ? data : [data];
-        return rawArray.map((raw: any, idx: number) => {
-          const title = raw.name || raw.title || raw.tag_name || `${sourceName} Item ${idx + 1}`;
-          const itemUrl = raw.html_url || raw.url || raw.officialWebsite || url;
-          const content = raw.body || raw.description || raw.summary || title;
+        const raw: any = await res.json();
+        // Extract repo name if available
+        const repoNameMatch = url.match(/repos\/([^/]+)\/([^/]+)/);
+        const repoOrg = repoNameMatch ? repoNameMatch[1] : '';
+        const repoBaseName = repoNameMatch ? repoNameMatch[2] : 'Continue';
 
-          return {
-            id: `${sourceId}-${idx}`,
+        // Discard raw git tag version names like "v2.0.0-vscode" in favor of the actual tool name
+        const rawTitle = raw.name || raw.tag_name || '';
+        const isVersionTag = /^v?\d+\.\d+/.test(rawTitle);
+        const title = isVersionTag
+          ? `${repoBaseName.charAt(0).toUpperCase() + repoBaseName.slice(1)} AI Coding Assistant`
+          : (rawTitle || `${repoBaseName} AI Assistant`);
+
+        const itemUrl = raw.html_url || `https://github.com/${repoOrg}/${repoBaseName}`;
+        const content = raw.body && raw.body.trim().length > 10
+          ? `${title}: ${raw.body.slice(0, 500)}`
+          : `${title} - Open-source AI code completion and chat assistant for developers.`;
+
+        return [
+          {
+            id: `${sourceId}-0`,
             sourceId,
             sourceName,
-            sourceType: 'JSON' as const,
+            sourceType: 'API',
             sourcePriority: priority,
             title,
             url: itemUrl,
             content,
             publishedAt: raw.published_at || new Date().toISOString(),
             hash: ToolSourceService.generateHash(title + itemUrl)
+          }
+        ];
+      }
+    } catch (e: any) {
+      console.warn(`[ToolSource] Real fetch to ${url} warning: ${e.message}`);
+    }
+
+    // Do NOT fabricate synthetic records on network failure
+    return [];
+  }
+
+  /**
+   * Fetches and parses Hugging Face trending spaces/assistants.
+   */
+  private static async fetchHuggingFaceTrending(url: string, sourceId: string, sourceName: string, priority: number): Promise<SourceItem[]> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AINOVA-ToolDiscovery/1.0' } });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data: any = await res.json();
+        const rawItems: any[] = Array.isArray(data) ? data : (data.recentlyTrending || []);
+
+        const spaces = rawItems.filter(item => item.repoType === 'space' && item.repoData);
+        return spaces.slice(0, 5).map((space, idx) => {
+          const rd = space.repoData;
+          const title = rd.title || rd.id?.split('/')[1] || `Hugging Face Space ${idx + 1}`;
+          const itemUrl = `https://huggingface.co/spaces/${rd.id}`;
+          const content = rd.ai_short_description || rd.shortDescription || `${title} interactive AI space on Hugging Face.`;
+
+          return {
+            id: `${sourceId}-${idx}`,
+            sourceId,
+            sourceName,
+            sourceType: 'JSON',
+            sourcePriority: priority,
+            title,
+            url: itemUrl,
+            content,
+            publishedAt: rd.lastModified || new Date().toISOString(),
+            hash: ToolSourceService.generateHash(title + itemUrl)
           };
         });
       }
     } catch (e: any) {
-      console.warn(`[ToolSource] Real fetch to ${url} warning (${e.message}). Using verified fallback feed.`);
+      console.warn(`[ToolSource] Real fetch to ${url} warning: ${e.message}`);
     }
 
-    // Fallback feed when external network endpoint is offline/unreachable
-    return fallbacks.map((f, idx) => ({
-      id: `${sourceId}-fb-${idx}`,
-      sourceId,
-      sourceName,
-      sourceType: 'JSON' as const,
-      sourcePriority: priority,
-      title: f.title,
-      url: f.url,
-      content: f.content,
-      publishedAt: f.publishedAt || new Date().toISOString(),
-      hash: ToolSourceService.generateHash(f.title + f.url)
-    }));
+    // Do NOT fabricate synthetic records on network failure
+    return [];
   }
 
   public static generateHash(text: string): string {

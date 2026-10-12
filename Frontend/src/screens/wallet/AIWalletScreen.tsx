@@ -590,7 +590,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         {/* Pricing Pill & Verified Badge */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
                           <Badge variant="purple" size="sm" icon={<Tag size={10} />}>
-                            {tool.pricingDetails.summary}
+                            {tool.pricingDetails?.summary || tool.pricing || 'Free tier available'}
                           </Badge>
                           <Badge variant="cyan" size="sm" icon={<ShieldCheck size={10} />}>
                             Verified
@@ -678,7 +678,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f0f9ff' }}>
                       <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700 }}>
-                        {tool.pricingDetails.summary}
+                        {tool.pricingDetails?.summary || tool.pricing || 'Free tier available'}
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => handleOpenDetailModal(tool)}>
                         View Details →
@@ -738,11 +738,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             {/* Catalog Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
               {catalog
-                .filter((t) => selectedCategory === 'All' || t.category === selectedCategory || t.categories.includes(selectedCategory as any))
+                .filter((t) => selectedCategory === 'All' || t.category === selectedCategory || (t.categories && t.categories.includes(selectedCategory as any)))
                 .filter((t) => {
-                  if (selectedPricing === 'Free') return t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable;
-                  if (selectedPricing === 'Trial') return t.pricingDetails.freeTrialAvailable;
-                  if (selectedPricing === 'Paid') return t.pricingDetails.type === 'PAID';
+                  if (selectedPricing === 'Free') return t.pricingDetails?.type === 'FREE' || t.pricingDetails?.freeTierAvailable || (t.pricing && t.pricing.toLowerCase().includes('free'));
+                  if (selectedPricing === 'Trial') return t.pricingDetails?.freeTrialAvailable;
+                  if (selectedPricing === 'Paid') return t.pricingDetails?.type === 'PAID';
                   return true;
                 })
                 .map((tool) => {
@@ -767,8 +767,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         </p>
 
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          <Badge variant="purple" size="sm">{tool.pricingDetails.summary}</Badge>
-                          {tool.domains.slice(0, 1).map((d, i) => (
+                          <Badge variant="purple" size="sm">{tool.pricingDetails?.summary || tool.pricing || 'Free tier available'}</Badge>
+                          {(tool.domains || []).slice(0, 1).map((d, i) => (
                             <Badge key={i} variant="neutral" size="sm">{d}</Badge>
                           ))}
                         </div>
@@ -915,14 +915,26 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
                   {/* Actions Footer */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<Info size={12} />}
-                      onClick={() => tool.detail && handleOpenDetailModal(tool.detail)}
-                    >
-                      View Details & Track
-                    </Button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Info size={12} />}
+                        onClick={() => tool.detail ? handleOpenDetailModal(tool.detail) : undefined}
+                      >
+                        View Details & Track
+                      </Button>
+                      {tool.websiteUrl && tool.websiteUrl !== '#' && (
+                        <a
+                          href={tool.websiteUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: '#6366f1' }}
+                        >
+                          Visit <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
 
                     <Button
                       variant="ghost"
@@ -1379,9 +1391,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   {detailEvidence.map((ev, i) => (
                     <div key={i} style={{ fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>• {ev.claim}:</strong> {ev.value}</span>
-                      <a href={ev.sourceUrl} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>
-                        {ev.sourceTitle || 'View Source'}
-                      </a>
+                      {ev.sourceUrl && (
+                        <a href={ev.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>
+                          {ev.sourceTitle || 'View Source'}
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1406,7 +1420,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             )}
 
             {/* 5-LEVEL LEARNING TRACK */}
-            {selectedDetailTool.learningTrack && (
+            {selectedDetailTool.learningTrack && Array.isArray(selectedDetailTool.learningTrack) && selectedDetailTool.learningTrack.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <BookOpen size={16} color="#6366f1" />
@@ -1435,7 +1449,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               <div style={{ padding: '12px', backgroundColor: '#ecfdf5', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
                 <div style={{ fontSize: '11px', fontWeight: 800, color: '#047857', marginBottom: '6px' }}>STRENGTHS</div>
                 <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#064e3b', lineHeight: 1.5 }}>
-                  {selectedDetailTool.strengths.map((s, i) => (
+                  {(selectedDetailTool.strengths || []).map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
@@ -1444,7 +1458,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               <div style={{ padding: '12px', backgroundColor: '#fffbe6', borderRadius: '10px', border: '1px solid #fde68a' }}>
                 <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>LIMITATIONS</div>
                 <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#92400e', lineHeight: 1.5 }}>
-                  {selectedDetailTool.limitations.map((l, i) => (
+                  {(selectedDetailTool.limitations || []).map((l, i) => (
                     <li key={i}>{l}</li>
                   ))}
                 </ul>
@@ -1453,14 +1467,18 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
             {/* Modal Footer Actions */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-              <a
-                href={selectedDetailTool.officialWebsite}
-                target="_blank"
-                rel="noreferrer"
-                style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#6366f1' }}
-              >
-                Official Website <ExternalLink size={14} />
-              </a>
+              {(selectedDetailTool.officialWebsite || selectedDetailTool.websiteUrl) ? (
+                <a
+                  href={selectedDetailTool.officialWebsite || selectedDetailTool.websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700, color: '#6366f1' }}
+                >
+                  Official Website <ExternalLink size={14} />
+                </a>
+              ) : (
+                <span style={{ fontSize: '12px', color: '#94a3b8' }}>Website not available</span>
+              )}
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <Button variant="ghost" size="sm" onClick={() => setSelectedDetailTool(null)}>

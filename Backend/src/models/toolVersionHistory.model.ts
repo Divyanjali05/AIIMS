@@ -55,7 +55,20 @@ const ToolVersionSchema = new Schema<ToolVersionDocument>(
     version: { type: String, required: true },
     changeType: {
       type: String,
-      enum: ['NEW_RELEASE', 'CAPABILITY_ADDED', 'PRICING_CHANGE', 'FREE_TIER_CHANGE', 'MODEL_UPDATE', 'STATUS_CHANGE', 'MAJOR_PRODUCT_UPDATE'],
+      enum: [
+        'NEW_TOOL',
+        'VERSION_UPDATE',
+        'CAPABILITY_UPDATE',
+        'PRICING_UPDATE',
+        'WEBSITE_UPDATE',
+        'STATUS_CHANGE',
+        'NEW_RELEASE',
+        'CAPABILITY_ADDED',
+        'PRICING_CHANGE',
+        'FREE_TIER_CHANGE',
+        'MODEL_UPDATE',
+        'MAJOR_PRODUCT_UPDATE'
+      ],
       required: true,
       index: true
     },

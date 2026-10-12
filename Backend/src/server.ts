@@ -12,6 +12,7 @@ if (config.mongodbUri) {
     .connect(config.mongodbUri)
     .then(async () => {
       console.log(`🌿 Connected to MongoDB Atlas successfully!`);
+      await ToolCatalogService.cleanInvalidDiscoveryRecords();
       await ToolCatalogService.syncFromDatabase();
     })
     .catch((err) => {

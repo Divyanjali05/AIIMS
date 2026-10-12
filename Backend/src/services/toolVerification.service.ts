@@ -191,6 +191,9 @@ export class ToolVerificationService {
     };
     if (status === 'VERIFIED') {
       updateFields.lastVerifiedAt = now;
+      updateFields.activeStatus = true;
+    } else if (status === 'UNVERIFIED' || status === 'DISCOVERED' || status === 'REJECTED') {
+      updateFields.activeStatus = false;
     }
     await AIToolModel.updateOne({ id: toolId }, { $set: updateFields });
 

@@ -35,8 +35,10 @@ export class ToolMatchingService {
     // 2. Requirement Understanding
     const profile: RequirementProfile = RequirementUnderstandingService.buildRequirementProfile(intent);
 
-    // 3. Tool Catalog Candidate Retrieval
-    const catalog: AITool[] = ToolCatalogService.getCatalog();
+    // 3. Tool Catalog Candidate Retrieval — strictly active, verified tools only
+    const catalog: AITool[] = ToolCatalogService.getCatalog().filter(
+      t => t.activeStatus && t.verificationStatus !== 'UNVERIFIED' && t.verificationStatus !== 'DISCOVERED' && t.verificationStatus !== 'REJECTED'
+    );
 
     // 4. Tool Ranking & Multi-Signal Matching
     let rankedMatches: ToolMatchResult[] = ToolRankingService.rankTools(catalog, profile);

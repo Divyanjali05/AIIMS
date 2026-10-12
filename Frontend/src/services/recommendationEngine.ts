@@ -96,7 +96,7 @@ export const generateWalletRecommendations = (
         type: 'FOCUS_BASED',
         priority: 2,
         reasonSnippet: `aligns with your active focus on ${activeFocus}`,
-        relatedTask: tool.useCases[0] || `${activeFocus} Execution`,
+        relatedTask: tool.useCases?.[0] || `${activeFocus} Execution`,
         relatedSkill: tool.category,
         relevance: `Matches your primary focus on ${activeFocus}`
       });
@@ -141,7 +141,7 @@ export const generateWalletRecommendations = (
         type: 'RADAR_DISCOVERY',
         priority: 1, // High relevance when connected to investigated shift
         reasonSnippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
-        relatedTask: tool.useCases[0] || 'AI Radar Workflow Exploration',
+        relatedTask: tool.useCases?.[0] || 'AI Radar Workflow Exploration',
         relatedSkill: tool.category,
         relevance: `Connected to your recent AI Radar investigation`
       });
@@ -190,7 +190,7 @@ export const generateWalletRecommendations = (
         type: 'SKILL_GAP',
         priority: 4,
         reasonSnippet: `strengthens your growth area in ${growthArea}`,
-        relatedTask: tool.useCases[0] || `${growthArea} Capability Development`,
+        relatedTask: tool.useCases?.[0] || `${growthArea} Capability Development`,
         relatedSkill: growthArea,
         relevance: `Strengthens your growth area (${growthArea})`
       });
@@ -208,7 +208,7 @@ export const generateWalletRecommendations = (
         type: 'TOOLKIT_GAP',
         priority: 5,
         reasonSnippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
-        relatedTask: tool.useCases[0] || `${tool.category} Capability`,
+        relatedTask: tool.useCases?.[0] || `${tool.category} Capability`,
         relatedSkill: tool.category,
         relevance: `Fills your ${tool.category} toolkit gap`
       });
@@ -231,7 +231,7 @@ export const generateWalletRecommendations = (
         type: 'ALTERNATIVE_TOOL',
         priority: 6,
         reasonSnippet: `offers a complementary workflow alternative to tools currently in your wallet`,
-        relatedTask: tool.useCases[0] || 'Alternative Workflow Comparison',
+        relatedTask: tool.useCases?.[0] || 'Alternative Workflow Comparison',
         relatedSkill: tool.category,
         relevance: 'Complements your existing toolkit'
       });
@@ -323,7 +323,7 @@ export const generateWalletRecommendations = (
       type: primarySignal.type,
       matchedSignals: allSignalTypes,
       reason: synthesizedReason,
-      relatedTask: primarySignal.relatedTask || tool.useCases[0],
+      relatedTask: primarySignal.relatedTask || tool.useCases?.[0] || `${tool.category} Capability`,
       relatedSkill: primarySignal.relatedSkill || tool.category,
       relevance: primarySignal.relevance || `Aligned with your ${activeFocus} workflow`,
       actionLabel,

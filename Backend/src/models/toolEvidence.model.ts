@@ -34,7 +34,7 @@ export interface ToolEvidenceItem {
   publishedAt: string;
   verifiedAt: string;
   confidence: number;
-  verificationStatus: 'VERIFIED' | 'PARTIALLY_VERIFIED' | 'UNVERIFIED' | 'CONFLICTING' | 'EXPIRED';
+  verificationStatus: EvidenceVerificationStatus;
 }
 
 export interface ToolEvidenceDocument extends Omit<ToolEvidenceItem, 'id'>, Document {
@@ -74,8 +74,17 @@ const ToolEvidenceSchema = new Schema<ToolEvidenceDocument>(
     confidence: { type: Number, required: true, default: 0.9 },
     verificationStatus: {
       type: String,
-      enum: ['VERIFIED', 'PARTIALLY_VERIFIED', 'UNVERIFIED', 'CONFLICTING', 'EXPIRED'],
-      default: 'VERIFIED',
+      enum: [
+        'PENDING',
+        'ACCEPTED',
+        'REJECTED',
+        'VERIFIED',
+        'PARTIALLY_VERIFIED',
+        'UNVERIFIED',
+        'CONFLICTING',
+        'EXPIRED'
+      ],
+      default: 'PENDING',
       index: true
     }
   },

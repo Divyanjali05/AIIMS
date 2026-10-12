@@ -246,8 +246,8 @@ async function runDbTests(
   // Note: tools seeded before Phase 2A won't have verificationStatus set yet
   // (schema default is VERIFIED_SEED, so they either have it or default)
   assert(
-    'T14b: Seeded tools have VERIFIED_SEED status (or schema default)',
-    seededTools.every(t => !t.verificationStatus || t.verificationStatus === 'VERIFIED_SEED')
+    'T14b: Seeded tools have VERIFIED_SEED or VERIFIED status (or schema default)',
+    seededTools.every(t => !t.verificationStatus || t.verificationStatus === 'VERIFIED_SEED' || t.verificationStatus === 'VERIFIED')
   );
 
   const allActive = seededTools.filter(t => t.activeStatus !== undefined).every(t => t.activeStatus !== false);

@@ -102,25 +102,37 @@ export class ToolAssessmentService {
     const sourceContent = `Title: ${item.title}\nSource: ${item.sourceName} (${item.sourceType})\nURL: ${item.url}\nContent: ${item.content}`;
     const response = await provider.assessToolCandidate(sourceContent, TOOL_ASSESSMENT_SYSTEM_PROMPT);
 
-    if (response.parsedJson && response.parsedJson.classification) {
-      return this.validateAndNormalizeAssessment(response.parsedJson, item);
+    if (response.status === 'SUCCESS' && response.parsedJson && response.parsedJson.classification) {
+      return this.validateAndNormalizeAssessment(response.parsedJson, item, response.isAIAssessed);
     }
 
-    // Fallback if model response could not be parsed as JSON
-    return this.createFallbackAssessment(item);
+    // Explicit fallback when AI provider is unavailable or assessment cannot be parsed
+    console.warn(`[ToolAssessment] AI assessment unavailable for "${item.title}" (${response.errorMessage || 'No response'}). Recording unverified candidate without fabricated claims.`);
+    return this.createUnassessedFallback(item);
   }
 
-  private static validateAndNormalizeAssessment(raw: any, item: SourceItem): StructuredAssessment {
+  private static validateAndNormalizeAssessment(raw: any, item: SourceItem, isAIAssessed: boolean): StructuredAssessment {
     const itemType = raw.classification?.itemType || 'AI_TOOL';
-    const isRelevant = itemType === 'AI_TOOL' || itemType === 'AI_PLATFORM' || itemType === 'AI_SERVICE' || raw.classification?.isRelevant === true;
+    const isVersionTag = /^v?\d+\.\d+/.test(item.title.trim()) || /^v?\d+\.\d+/.test(raw.identity?.name || '');
+    
+    // Filter out candidates that are release tags or not tools
+    const isRelevant = !isVersionTag && (itemType === 'AI_TOOL' || itemType === 'AI_PLATFORM' || itemType === 'AI_SERVICE' || raw.classification?.isRelevant === true);
+
+    const capabilities: string[] = Array.isArray(raw.taxonomy?.capabilities)
+      ? raw.taxonomy.capabilities.filter((c: any) => typeof c === 'string' && c.toLowerCase() !== 'task execution')
+      : [];
+
+    const tasks: string[] = Array.isArray(raw.taxonomy?.tasks)
+      ? raw.taxonomy.tasks.filter((t: any) => typeof t === 'string' && t.toLowerCase() !== 'ai task automation')
+      : [];
 
     return {
       classification: {
-        itemType,
+        itemType: isVersionTag ? 'NEWS' : itemType,
         isRelevant
       },
       identity: {
-        name: raw.identity?.name || item.title,
+        name: isVersionTag ? (raw.identity?.name || item.title) : (raw.identity?.name || item.title),
         provider: raw.identity?.provider || 'AI Ecosystem Provider',
         officialWebsite: raw.identity?.officialWebsite || item.url
       },
@@ -133,8 +145,8 @@ export class ToolAssessmentService {
         categories: raw.taxonomy?.categories || [raw.taxonomy?.category || 'Reasoning & Writing'],
         domains: raw.taxonomy?.domains || ['Software & Technology'],
         subdomains: raw.taxonomy?.subdomains || ['AI Tools'],
-        tasks: raw.taxonomy?.tasks || [item.title],
-        capabilities: raw.taxonomy?.capabilities || ['AI Task Execution']
+        tasks,
+        capabilities
       },
       pricing: {
         type: raw.pricing?.type || 'UNKNOWN',
@@ -149,20 +161,20 @@ export class ToolAssessmentService {
         claim: e.claim || 'Source publication',
         value: e.value || 'Verified',
         sourceUrl: e.sourceUrl || item.url,
-        confidence: e.confidence || 0.90
-      })) : [
-        { claim: 'Source publication', value: item.title, sourceUrl: item.url, confidence: 0.90 }
-      ],
-      confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.85,
-      needsVerification: Boolean(raw.needsVerification)
+        confidence: e.confidence || 0.80
+      })) : [],
+      confidence: typeof raw.confidence === 'number' ? (isAIAssessed ? raw.confidence : Math.min(raw.confidence, 0.50)) : (isAIAssessed ? 0.85 : 0.40),
+      needsVerification: !isAIAssessed || Boolean(raw.needsVerification)
     };
   }
 
-  private static createFallbackAssessment(item: SourceItem): StructuredAssessment {
+  private static createUnassessedFallback(item: SourceItem): StructuredAssessment {
+    const isVersionTag = /^v?\d+\.\d+/.test(item.title.trim());
+
     return {
       classification: {
-        itemType: 'AI_TOOL',
-        isRelevant: true
+        itemType: isVersionTag ? 'NEWS' : 'UNKNOWN',
+        isRelevant: false // Cannot promote without verified assessment
       },
       identity: {
         name: item.title,
@@ -178,8 +190,8 @@ export class ToolAssessmentService {
         categories: ['Reasoning & Writing'],
         domains: ['Software & Technology'],
         subdomains: ['AI Tools'],
-        tasks: [item.title],
-        capabilities: ['Task Execution']
+        tasks: [],
+        capabilities: [] // DO NOT fabricate Task Execution
       },
       pricing: {
         type: 'UNKNOWN',
@@ -187,11 +199,9 @@ export class ToolAssessmentService {
         freeTrialAvailable: false,
         summary: 'Pricing not verified'
       },
-      evidence: [
-        { claim: 'Source publication', value: item.title, sourceUrl: item.url, confidence: 0.80 }
-      ],
-      confidence: 0.80,
-      needsVerification: false
+      evidence: [],
+      confidence: 0.0,
+      needsVerification: true
     };
   }
 }
