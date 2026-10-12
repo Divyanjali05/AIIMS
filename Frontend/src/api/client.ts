@@ -54,11 +54,18 @@ export const apiClient = {
     return res.json();
   },
 
-  async submitAssessment(answers: any[], scores?: any) {
+  async submitAssessment(answers: any, scores?: any) {
     const res = await fetch(`${API_BASE}/assessments/submit`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ answers, scores })
+    });
+    return res.json();
+  },
+
+  async getPeerBenchmarks() {
+    const res = await fetch(`${API_BASE}/analysis/peer-benchmarks`, {
+      headers: getAuthHeaders()
     });
     return res.json();
   },

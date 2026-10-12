@@ -420,10 +420,20 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   };
 
-  const completeAssessment = () => {
+  const completeAssessment = async () => {
     const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     const rewardAmount = 50;
     const actionKey = 'ASSESSMENT_COMPLETION';
+
+    let serverEvaluationResult: AssessmentEvaluationResult | undefined;
+    try {
+      const serverRes = await apiClient.submitAssessment(state.assessment.answers || {});
+      if (serverRes?.evaluationResult) {
+        serverEvaluationResult = serverRes.evaluationResult;
+      }
+    } catch (err) {
+      console.warn('Backend evaluation endpoint call warning, falling back to client engine:', err);
+    }
 
     setState((prev) => {
       if (prev.assessment.status === 'completed' || prev.credits.claimedActions.includes(actionKey)) {
@@ -431,6 +441,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       const calculated = calculateScoresFromAnswers(prev.assessment.answers || {});
+      const finalEvalResult = serverEvaluationResult || calculated.evaluationResult;
       const newBalance = prev.credits.balance + rewardAmount;
 
       const newTx: CreditTransactionItem = {
@@ -464,17 +475,18 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: 'completed',
           completedAt: nowStr,
           rewardClaimed: true,
-          scores: calculated.scores
+          scores: finalEvalResult.legacyScores,
+          evaluationResult: finalEvalResult
         },
         analysis: {
           status: 'unlocked',
-          topCapability: calculated.topCapability,
-          growthArea: calculated.growthArea
+          topCapability: finalEvalResult.strongestSkill.name,
+          growthArea: finalEvalResult.roomToGrow.name
         },
         clarity: {
           ...prev.clarity,
           status: 'unlocked',
-          selectedAreas: [calculated.growthArea, 'AI Workflow Design', 'AI Agents & Autonomous Workflows']
+          selectedAreas: [finalEvalResult.roomToGrow.name, 'AI Workflow Design', 'AI Agents & Autonomous Workflows']
         },
         focus: {
           ...prev.focus,

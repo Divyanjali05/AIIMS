@@ -38,6 +38,7 @@ export interface IUser extends Document {
       strategicVision: number;
       mentorshipReadiness: number;
     };
+    evaluationResult?: any;
   };
   analysis: {
     status: string;
@@ -131,7 +132,8 @@ const UserSchema: Schema = new Schema({
       workflowDesign: { type: Number, default: 0 },
       strategicVision: { type: Number, default: 0 },
       mentorshipReadiness: { type: Number, default: 0 }
-    }
+    },
+    evaluationResult: { type: Schema.Types.Mixed }
   },
   analysis: {
     status: { type: String, default: 'locked' },

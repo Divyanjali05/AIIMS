@@ -1,13 +1,22 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../../config/env';
 
+export interface EvidenceCriterion {
+  criterion: string;
+  status: 'demonstrated' | 'partially_demonstrated' | 'missing' | 'incorrect';
+  explanation: string;
+}
+
 export interface OpenEndedEvaluationResult {
+  questionId: string;
+  dimension: string;
   score: number;
   confidence: number;
+  evidence: EvidenceCriterion[];
   strengths: string[];
   gaps: string[];
-  evidence: string[];
   reason: string;
+  needsReview: boolean;
   status: 'evaluated' | 'unavailable';
 }
 
@@ -21,15 +30,16 @@ export class ClaudeService {
   }
 
   /**
-   * Evaluates open-ended assessment questions (Q11, Q12, Q25) against explicit rubric.
+   * Evaluates open-ended assessment questions against explicit rubric using Anthropic Claude.
    *
    * STRICT PRINCIPLES:
    * 1. Score represents ONLY actual evidence written by learner.
    * 2. NO generous bias, NO artificial motivational scores, NO forcing into middle.
    * 3. NO chain-of-thought exposed.
-   * 4. NO fake fallback scores (e.g. 85, 80). If client is unavailable, returns status: 'unavailable'.
+   * 4. NO fake fallback scores (e.g. 85, 80). If client is unavailable or output invalid, returns status: 'unavailable'.
    */
   async evaluateOpenEndedAnswer(
+    questionId: string,
     question: string,
     purpose: string,
     capability: string,
@@ -43,67 +53,105 @@ export class ClaudeService {
     const cleanAnswer = learnerAnswer ? learnerAnswer.trim() : '';
     if (!cleanAnswer) {
       return {
+        questionId,
+        dimension: capability,
         score: 0,
         confidence: 1.0,
+        evidence: [
+          {
+            criterion: 'Response Submission',
+            status: 'missing',
+            explanation: 'No response text provided by learner.'
+          }
+        ],
         strengths: [],
         gaps: ['No response provided by learner'],
-        evidence: [],
         reason: 'Empty answer submitted.',
+        needsReview: false,
         status: 'evaluated'
       };
     }
 
-    const prompt = `You are the AINOVA Assessment Evaluator. Grade the following learner response based strictly on demonstrated evidence.
+    const prompt = `You are the AINOVA Evidence-Based Assessment Evaluator. Grade the following learner response based strictly on demonstrated evidence against the explicit rubric.
 
+QUESTION ID: ${questionId}
 EXACT QUESTION: ${question}
 PURPOSE OF QUESTION: ${purpose}
-CAPABILITY BEING MEASURED: ${capability}
+EXPECTED CAPABILITY DIMENSION: ${capability}
 EXPLICIT SCORING RUBRIC: ${rubric}
 LEARNER'S ACTUAL ANSWER: "${cleanAnswer}"
 
 STRICT EVALUATION INSTRUCTIONS:
-- Base score (0-100) ONLY on what the learner actually wrote.
-- DO NOT be generous.
+- Grade ONLY what is explicitly written in the answer.
+- DO NOT be generous or encouraging.
 - DO NOT make the score motivational.
-- DO NOT force scores into the middle range (60-80).
-- DO NOT fabricate missing evidence. If evidence is missing, score accordingly.
-- If the answer is vague, score only the evidence that actually exists.
-- If the answer demonstrates partial understanding, give partial credit.
-- If the answer is fundamentally incorrect or non-responsive, score 0-15.
-- DO NOT expose internal chain-of-thought or reasoning steps.
+- DO NOT force scores into the middle range (60-74).
+- Technical jargon, confident tone, or ambition is NOT evidence of technical competence unless supported by clear reasoning.
+- A long answer must NOT receive a higher score than a concise, accurate answer if it lacks substance.
+- If evidence is missing or incorrect, score accordingly (0-39 for weak/incorrect, 40-74 for partial, 75-100 for strong).
+- DO NOT return or store internal chain-of-thought.
 
-Return ONLY a valid JSON object matching this schema:
+Return ONLY a valid JSON object adhering strictly to this schema:
 {
+  "questionId": "${questionId}",
+  "dimension": "${capability}",
   "score": number (integer 0 to 100),
   "confidence": number (float 0.0 to 1.0),
-  "strengths": ["string array of verified strengths"],
-  "gaps": ["string array of missing elements or misconceptions"],
-  "evidence": ["string array of specific quotes or evidence from the text"],
-  "reason": "concise, direct summary explaining why this score was assigned"
+  "evidence": [
+    {
+      "criterion": "short description of evaluated criteria",
+      "status": "demonstrated" | "partially_demonstrated" | "missing" | "incorrect",
+      "explanation": "concise factual explanation based directly on answer text"
+    }
+  ],
+  "strengths": ["string array of verified demonstrated strengths"],
+  "gaps": ["string array of missing elements, misconceptions, or flaws"],
+  "reason": "concise, direct evaluation summary explaining why score was assigned",
+  "needsReview": boolean (true if answer is ambiguous or edge case)
 }`;
 
     try {
       const res = await this.client.messages.create({
         model: config.claudeModel || 'claude-3-5-sonnet-20240620',
-        max_tokens: 800,
+        max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }]
       });
 
       const contentText = res.content[0].type === 'text' ? res.content[0].text : '';
       const parsed = JSON.parse(contentText);
 
+      if (typeof parsed !== 'object' || parsed === null || typeof parsed.score !== 'number') {
+        throw new Error('Malformed JSON output from Anthropic evaluation');
+      }
+
+      const rawScore = Math.min(100, Math.max(0, Math.round(parsed.score)));
+      const rawConfidence = typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.85;
+
+      const formattedEvidence: EvidenceCriterion[] = Array.isArray(parsed.evidence)
+        ? parsed.evidence.map((ev: any) => ({
+            criterion: typeof ev?.criterion === 'string' ? ev.criterion : 'Criteria evaluation',
+            status: ['demonstrated', 'partially_demonstrated', 'missing', 'incorrect'].includes(ev?.status)
+              ? ev.status
+              : 'partially_demonstrated',
+            explanation: typeof ev?.explanation === 'string' ? ev.explanation : 'Evaluated against rubric.'
+          }))
+        : [];
+
       return {
-        score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.score))) : 0,
-        confidence: typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.8,
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-        gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
-        evidence: Array.isArray(parsed.evidence) ? parsed.evidence : [],
-        reason: typeof parsed.reason === 'string' ? parsed.reason : 'Evaluated against capability rubric.',
+        questionId: typeof parsed.questionId === 'string' ? parsed.questionId : questionId,
+        dimension: typeof parsed.dimension === 'string' ? parsed.dimension : capability,
+        score: rawScore,
+        confidence: rawConfidence,
+        evidence: formattedEvidence,
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter((s: any) => typeof s === 'string') : [],
+        gaps: Array.isArray(parsed.gaps) ? parsed.gaps.filter((g: any) => typeof g === 'string') : [],
+        reason: typeof parsed.reason === 'string' ? parsed.reason : 'Evaluated against evidence rubric.',
+        needsReview: Boolean(parsed.needsReview),
         status: 'evaluated'
       };
     } catch (err) {
       console.error('Claude API open-ended evaluation failed:', err);
-      return null; // Return null so fallback is triggered with anthropicStatus: 'unavailable'
+      return null; // Return null so fallback is triggered cleanly without fake scores
     }
   }
 
