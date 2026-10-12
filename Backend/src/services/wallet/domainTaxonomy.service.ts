@@ -49,7 +49,7 @@ export class DomainTaxonomyService {
       keywords: ['excel', 'csv', 'data', 'charts', 'graph', 'spreadsheet', 'pandas', 'statistics', 'sql', 'analysis', 'julius', 'visualize']
     },
     {
-      domain: 'Business & Operations',
+      domain: 'Business',
       subdomains: ['Process Optimization', 'Customer Feedback Analysis', 'Business Strategy', 'Lead Routing', 'Operations Automation', 'Project Management'],
       tasks: ['Analyze customer review complaints', 'Automate lead routing', 'Summarize meeting notes', 'Strategic business analysis', 'Process mapping'],
       capabilities: ['Customer Sentiment Analysis', 'Meeting Summarization', 'Workflow Automation', 'Decision Support'],
@@ -57,7 +57,7 @@ export class DomainTaxonomyService {
       keywords: ['business', 'customer reviews', 'complaints', 'operations', 'strategy', 'lead', 'management', 'work', 'status report', 'sales', 'crm']
     },
     {
-      domain: 'Marketing & Content',
+      domain: 'Marketing',
       subdomains: ['SEO Copywriting', 'Social Media Content', 'Email Marketing', 'Brand Strategy', 'Customer Research'],
       tasks: ['Write blog post', 'Generate social media copy', 'SEO keyword research', 'Create email campaign'],
       capabilities: ['SEO Writing', 'Copy Generation', 'Content Planning'],
@@ -73,7 +73,7 @@ export class DomainTaxonomyService {
       keywords: ['image', 'design', 'photo', 'picture', 'midjourney', 'art', 'graphic', 'logo', 'ui', 'ux', 'concept art', 'canva', 'render']
     },
     {
-      domain: 'Video Production',
+      domain: 'Video',
       subdomains: ['Text-to-Video', 'Image-to-Video Motion', 'Video Editing', 'Avatars', 'Short-form Video'],
       tasks: ['Create short AI video clips', 'Animate image to video', 'Add video subtitles', 'Generate product video teasers'],
       capabilities: ['Cinematic Video Generation', 'Camera Motion Control', 'Video Inpainting', 'Avatar Synthesis'],
@@ -89,12 +89,132 @@ export class DomainTaxonomyService {
       keywords: ['voice', 'audio', 'telugu', 'speech', 'text to speech', 'podcast', 'transcribe', 'dubbing', 'sound']
     },
     {
-      domain: 'Presentation & Decks',
-      subdomains: ['Slide Deck Generation', 'Pitch Decks', 'Interactive Presentation', 'Lecture Slides'],
-      tasks: ['Create presentation deck from notes', 'Make college project presentation', 'Generate investor pitch deck'],
-      capabilities: ['Instant Slide Deck Generation', 'Interactive Web Cards', 'Brand Theme Customization'],
-      categoryMapping: 'Presentation',
-      keywords: ['presentation', 'slides', 'slide deck', 'gamma', 'powerpoint', 'pitch deck', 'college presentation']
+      domain: 'Health & Wellness',
+      subdomains: ['Medical Research', 'Clinical Documentation', 'Patient Communication', 'Health Education', 'Wellness Coaching'],
+      tasks: ['Medical research paper lookup', 'Clinical document summarization', 'Wellness tracking insights'],
+      capabilities: ['Medical Literature Search', 'Clinical Summarization', 'Health Knowledge Retrieval'],
+      categoryMapping: 'Research & RAG',
+      keywords: ['health', 'medical', 'doctor', 'clinical', 'patient', 'wellness', 'medicine', 'hospital']
+    },
+    {
+      domain: 'Finance',
+      subdomains: ['Financial Analysis', 'Personal Finance', 'Bookkeeping', 'Investment Research', 'Algorithmic Trading'],
+      tasks: ['Financial model building', 'Analyze stock earnings report', 'Budget planning', 'Expense tracking'],
+      capabilities: ['Financial Data Processing', 'Earnings Ingestion', 'Budget Modeling'],
+      categoryMapping: 'Data Analysis',
+      keywords: ['finance', 'financial', 'accounting', 'budget', 'stock', 'investment', 'earnings', 'banking']
+    },
+    {
+      domain: 'Legal',
+      subdomains: ['Contract Analysis', 'Legal Research', 'Compliance Review', 'IP & Patent Filing'],
+      tasks: ['Analyze contract clauses', 'Legal document auditing', 'Patent search'],
+      capabilities: ['Contract Clause Analysis', 'Legal Retrieval', 'Compliance Auditing'],
+      categoryMapping: 'Research & RAG',
+      keywords: ['legal', 'contract', 'law', 'compliance', 'clause', 'lawyer', 'attorney', 'patent']
+    },
+    {
+      domain: 'HR & Recruitment',
+      subdomains: ['Resume Screening', 'Candidate Sourcing', 'Employee Onboarding', 'Performance Review'],
+      tasks: ['Screen resume applications', 'Draft job descriptions', 'Automate onboarding workflows'],
+      capabilities: ['Resume Parsing', 'Candidate Matching', 'HR Workflow Automation'],
+      categoryMapping: 'Automation',
+      keywords: ['hr', 'recruitment', 'hiring', 'resume', 'candidate', 'interview', 'onboarding', 'talent']
+    },
+    {
+      domain: 'Real Estate',
+      subdomains: ['Property Valuation', 'Virtual Staging', 'Lease Auditing', 'Real Estate Marketing'],
+      tasks: ['Generate virtual property tours', 'Audit lease agreements', 'Real estate listing copy'],
+      capabilities: ['Virtual Staging Synthesis', 'Contract Auditing', 'Property Listing Generation'],
+      categoryMapping: 'Image & Vision',
+      keywords: ['real estate', 'property', 'housing', 'lease', 'tenant', 'mortgage', 'listing', 'realtor']
+    },
+    {
+      domain: 'Engineering',
+      subdomains: ['CAD Design', 'Finite Element Analysis', 'PCB Design', 'Embedded Systems'],
+      tasks: ['Generate CAD models', 'Circuit schematic review', 'Engineering calculation helper'],
+      capabilities: ['CAD Script Generation', 'Schematic Inspection', 'Technical Math Solving'],
+      categoryMapping: 'Agentic Coding',
+      keywords: ['engineering', 'cad', 'circuit', 'mechanical', 'electrical', 'civil', 'schematic', 'pcb']
+    },
+    {
+      domain: 'Science',
+      subdomains: ['Bioinformatics', 'Chemical Synthesis', 'Physics Simulation', 'Lab Data Analysis'],
+      tasks: ['Protein structure analysis', 'Chemical reaction prediction', 'Genomic sequence analysis'],
+      capabilities: ['Bioinformatics Processing', 'Chemical Reaction Modeling', 'Data Synthesis'],
+      categoryMapping: 'Data Analysis',
+      keywords: ['science', 'biology', 'chemistry', 'physics', 'lab', 'genomics', 'protein', 'scientific']
+    },
+    {
+      domain: 'Government & GovTech',
+      subdomains: ['Public Policy Research', 'Citizen Services', 'Grant Writing', 'Regulatory Compliance'],
+      tasks: ['Draft policy briefing memo', 'Write government grant proposal', 'Citizen inquiry automation'],
+      capabilities: ['Policy Synthesis', 'Grant Writing Assistance', 'Public Record Querying'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['government', 'govtech', 'policy', 'grant', 'public sector', 'civic', 'regulation', 'municipal']
+    },
+    {
+      domain: 'Travel & Hospitality',
+      subdomains: ['Itinerary Planning', 'Hotel & Flight Optimization', 'Guest Concierge', 'Destination Guides'],
+      tasks: ['Create travel itinerary', 'Automate guest support responses', 'Local destination research'],
+      capabilities: ['Itinerary Generation', 'Conversational Concierge', 'Local Knowledge Retrieval'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['travel', 'hospitality', 'hotel', 'flight', 'itinerary', 'vacation', 'tourism', 'concierge']
+    },
+    {
+      domain: 'Retail & E-commerce',
+      subdomains: ['Product Catalog Management', 'Customer Support Bots', 'Price Intelligence', 'Visual Search'],
+      tasks: ['Generate e-commerce product descriptions', 'Automate customer refund tickets', 'Competitor price monitoring'],
+      capabilities: ['Product Copy Generation', 'Visual Product Matching', 'E-commerce Bot Response'],
+      categoryMapping: 'Automation',
+      keywords: ['retail', 'e-commerce', 'store', 'shopify', 'amazon', 'product description', 'checkout', 'merchant']
+    },
+    {
+      domain: 'Manufacturing',
+      subdomains: ['Supply Chain Optimization', 'Quality Inspection', 'Predictive Maintenance', 'Inventory Tracking'],
+      tasks: ['Predict machine maintenance schedules', 'Visual defect inspection', 'Supply chain bottleneck analysis'],
+      capabilities: ['Visual Defect Detection', 'Predictive Analytics', 'Supply Chain Modeling'],
+      categoryMapping: 'Data Analysis',
+      keywords: ['manufacturing', 'factory', 'supply chain', 'inventory', 'assembly', 'quality control', 'machinery']
+    },
+    {
+      domain: 'Agriculture',
+      subdomains: ['Crop Disease Diagnosis', 'Yield Prediction', 'Precision Farming', 'Soil Analysis'],
+      tasks: ['Diagnose crop leaf disease from photo', 'Predict harvest yield', 'Soil health analysis'],
+      capabilities: ['Agricultural Image Diagnosis', 'Weather & Crop Yield Modeling'],
+      categoryMapping: 'Image & Vision',
+      keywords: ['agriculture', 'farm', 'farming', 'crop', 'soil', 'harvest', 'fertilizer', 'agritech']
+    },
+    {
+      domain: 'Media & Journalism',
+      subdomains: ['Investigative Reporting', 'Article Summarization', 'News Aggregation', 'Fact Checking'],
+      tasks: ['Verify news source claims', 'Transcribe interview audio', 'Summarize press releases'],
+      capabilities: ['Audio Transcription', 'Fact Verification', 'News Ingestion'],
+      categoryMapping: 'Research & RAG',
+      keywords: ['media', 'journalism', 'news', 'press', 'interview', 'article', 'reporting', 'headline']
+    },
+    {
+      domain: 'Communication & Languages',
+      subdomains: ['Translation', 'Localization', 'Speech-to-Speech Translation', 'Subtitling'],
+      tasks: ['Translate document into Telugu', 'Generate bi-lingual video subtitles', 'Real-time conversation translation'],
+      capabilities: ['Multilingual Translation', 'Subtitling', 'Speech-to-Speech Translation'],
+      categoryMapping: 'Multi-Modal',
+      keywords: ['translation', 'language', 'translate', 'subtitles', 'multilingual', 'telugu', 'hindi', 'spanish']
+    },
+    {
+      domain: 'Personal Productivity',
+      subdomains: ['Task Management', 'Email Triage', 'Calendar Scheduling', 'Personal Note Taking'],
+      tasks: ['Organize daily todo list', 'Draft email response', 'Synthesize daily meeting notes'],
+      capabilities: ['Email Drafting', 'Task Extraction', 'Personal Knowledge Management'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['productivity', 'personal', 'todo', 'notes', 'calendar', 'schedule', 'routine', 'time management']
+    },
+    {
+      domain: 'Creator Economy',
+      subdomains: ['YouTube Automation', 'Podcast Production', 'Thumbnail Generation', 'Shorts & Reels Creation'],
+      tasks: ['Create YouTube video script', 'Generate eye-catching thumbnail', 'Edit short video clip'],
+      capabilities: ['Script Writing', 'Thumbnail Image Generation', 'Short Video Editing'],
+      categoryMapping: 'Video',
+      keywords: ['creator', 'youtube', 'podcast', 'influencer', 'thumbnail', 'tiktok', 'reels', 'content creator']
     },
     {
       domain: 'Architecture & Construction',
@@ -105,28 +225,60 @@ export class DomainTaxonomyService {
       keywords: ['house', 'architecture', 'floor plan', 'building', 'construction', 'home design', 'render 3d']
     },
     {
-      domain: 'Health & Wellness',
-      subdomains: ['Medical Research', 'Clinical Documentation', 'Patient Communication', 'Health Education'],
-      tasks: ['Medical research paper lookup', 'Clinical document summarization'],
-      capabilities: ['Medical Literature Search', 'Clinical Summarization'],
-      categoryMapping: 'Research & RAG',
-      keywords: ['health', 'medical', 'doctor', 'clinical', 'patient', 'wellness']
-    },
-    {
-      domain: 'Legal & Compliance',
-      subdomains: ['Contract Analysis', 'Legal Research', 'Compliance Review'],
-      tasks: ['Analyze contract clauses', 'Legal document auditing'],
-      capabilities: ['Contract Clause Analysis', 'Legal Retrieval'],
-      categoryMapping: 'Research & RAG',
-      keywords: ['legal', 'contract', 'law', 'compliance', 'clause', 'lawyer']
-    },
-    {
-      domain: 'Finance & Accounting',
-      subdomains: ['Financial Analysis', 'Personal Finance', 'Bookkeeping', 'Investment Research'],
-      tasks: ['Financial model building', 'Analyze stock earnings report', 'Budget planning'],
-      capabilities: ['Financial Data Processing', 'Earnings Ingestion'],
+      domain: 'Automotive',
+      subdomains: ['Autonomous Vehicle Systems', 'Vehicle Telematics', 'Connected Car AI'],
+      tasks: ['Vehicle diagnostic troubleshooting', 'Autonomous sensor data analysis'],
+      capabilities: ['Telematics Data Processing', 'Diagnostic Guidance'],
       categoryMapping: 'Data Analysis',
-      keywords: ['finance', 'financial', 'accounting', 'budget', 'stock', 'investment', 'earnings']
+      keywords: ['automotive', 'car', 'vehicle', 'driving', 'ev', 'telematics', 'auto']
+    },
+    {
+      domain: 'Sports',
+      subdomains: ['Athlete Performance Analytics', 'Game Video Analysis', 'Sports Coaching'],
+      tasks: ['Analyze match strategy video', 'Track athlete fitness telemetry'],
+      capabilities: ['Video Movement Tracking', 'Sports Statistical Modeling'],
+      categoryMapping: 'Video',
+      keywords: ['sports', 'athlete', 'coaching', 'fitness', 'game', 'football', 'cricket', 'performance']
+    },
+    {
+      domain: 'Fashion',
+      subdomains: ['Virtual Try-On', 'Apparel Design', 'Trend Forecasting'],
+      tasks: ['Generate virtual clothing try-on', 'Forecast seasonal fashion trends'],
+      capabilities: ['Virtual Apparel Rendering', 'Trend Analysis'],
+      categoryMapping: 'Image & Vision',
+      keywords: ['fashion', 'apparel', 'clothing', 'style', 'outfit', 'trend', 'wear']
+    },
+    {
+      domain: 'Food & Restaurants',
+      subdomains: ['Recipe Generation', 'Menu Optimization', 'Kitchen Operations'],
+      tasks: ['Generate custom dietary recipes', 'Calculate food cost margins'],
+      capabilities: ['Recipe Synthesis', 'Menu Cost Analysis'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['food', 'restaurant', 'recipe', 'cooking', 'chef', 'menu', 'dining']
+    },
+    {
+      domain: 'Nonprofit & Social Impact',
+      subdomains: ['Donor Management', 'Impact Reporting', 'Grant Writing'],
+      tasks: ['Draft donor campaign letter', 'Synthesize social impact metrics'],
+      capabilities: ['Grant Proposal Generation', 'Impact Report Synthesis'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['nonprofit', 'social impact', 'donor', 'charity', 'ngo', 'volunteer', 'cause']
+    },
+    {
+      domain: 'Career & Professional Development',
+      subdomains: ['Resume Building', 'Interview Prep', 'Skill Gap Analysis', 'Portfolio Creation'],
+      tasks: ['Practice mock AI job interview', 'Optimize resume for ATS', 'Identify skill gap'],
+      capabilities: ['Mock Interview Q&A', 'Resume Analysis', 'Career Guidance'],
+      categoryMapping: 'Reasoning & Writing',
+      keywords: ['career', 'resume', 'job', 'interview', 'portfolio', 'salary', 'promotion', 'skills']
+    },
+    {
+      domain: 'Security & Risk',
+      subdomains: ['Cybersecurity Auditing', 'Vulnerability Scanning', 'Threat Intelligence', 'Fraud Detection'],
+      tasks: ['Audit code for security vulnerabilities', 'Analyze suspicious network logs', 'Fraud detection'],
+      capabilities: ['Static Code Security Auditing', 'Log Anomaly Detection'],
+      categoryMapping: 'Agentic Coding',
+      keywords: ['security', 'cybersecurity', 'vulnerability', 'hack', 'audit', 'threat', 'fraud', 'risk']
     }
   ];
 

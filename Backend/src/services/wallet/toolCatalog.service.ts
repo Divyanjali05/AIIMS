@@ -679,8 +679,50 @@ export class ToolCatalogService {
     return Array.from(this.catalog.values());
   }
 
+  public static async getCatalogAsync(): Promise<AITool[]> {
+    this.initializeCatalog();
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const docs = await AIToolModel.find({ activeStatus: true }).lean();
+        if (docs && docs.length > 0) {
+          const result: AITool[] = [];
+          for (const doc of docs) {
+            const rawObj = { ...doc } as any;
+            delete rawObj._id;
+            delete rawObj.__v;
+            this.catalog.set(doc.id, rawObj as AITool);
+            result.push(rawObj as AITool);
+          }
+          return result;
+        }
+      } catch (err: any) {
+        console.warn('[ToolCatalog] MongoDB getCatalogAsync warning:', err.message);
+      }
+    }
+    return Array.from(this.catalog.values()).filter(t => t.activeStatus !== false);
+  }
+
   public static getToolById(id: string): AITool | undefined {
     this.initializeCatalog();
+    return this.catalog.get(id);
+  }
+
+  public static async getToolByIdAsync(id: string): Promise<AITool | undefined> {
+    this.initializeCatalog();
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const doc = await AIToolModel.findOne({ id, activeStatus: true }).lean();
+        if (doc) {
+          const rawObj = { ...doc } as any;
+          delete rawObj._id;
+          delete rawObj.__v;
+          this.catalog.set(doc.id, rawObj as AITool);
+          return rawObj as AITool;
+        }
+      } catch (err: any) {
+        console.warn('[ToolCatalog] getToolByIdAsync DB error:', err.message);
+      }
+    }
     return this.catalog.get(id);
   }
 
@@ -715,6 +757,10 @@ export class ToolCatalogService {
     }
 
     return updatedTool;
+  }
+
+  public static async upsertToolAsync(tool: AITool): Promise<AITool> {
+    return this.upsertTool(tool);
   }
 
   public static async removeTool(id: string): Promise<boolean> {

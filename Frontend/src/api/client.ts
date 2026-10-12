@@ -346,5 +346,45 @@ export const apiClient = {
       body: JSON.stringify(data)
     });
     return res.json();
+  },
+
+  // 11. Admin & Pipeline Observability APIs
+  async getAdminSources() {
+    const res = await fetch(`${API_BASE}/admin/sources`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async registerAdminSource(data: { id: string; name: string; type?: string; priority?: number; enabled?: boolean }) {
+    const res = await fetch(`${API_BASE}/admin/sources`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  async getAdminCandidates() {
+    const res = await fetch(`${API_BASE}/admin/candidates`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async verifyAdminCandidate(toolId: string, data?: { acceptEvidenceId?: string; activate?: boolean }) {
+    const res = await fetch(`${API_BASE}/admin/verify/${toolId}`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data || {})
+    });
+    return res.json();
+  },
+
+  async getAdminDashboard() {
+    const res = await fetch(`${API_BASE}/admin/intelligence/dashboard`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
   }
 };

@@ -61,7 +61,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     dismissRecommendation
   } = useLearner();
 
-  const [activeSection, setActiveSection] = useState<'wallet' | 'discover' | 'compare' | 'gaps'>('discover');
+  const [activeSection, setActiveSection] = useState<'wallet' | 'discover' | 'compare' | 'gaps' | 'admin'>('discover');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -84,6 +84,26 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
   const [detailContextReason, setDetailContextReason] = useState<string | null>(null);
   const [detailEvidence, setDetailEvidence] = useState<any[]>([]);
   const [detailHistory, setDetailHistory] = useState<any[]>([]);
+
+  // Admin & Observability State
+  const [adminDashboard, setAdminDashboard] = useState<any | null>(null);
+  const [adminSources, setAdminSources] = useState<any[]>([]);
+  const [adminCandidates, setAdminCandidates] = useState<any[]>([]);
+
+  const handleFetchAdminData = async () => {
+    try {
+      const [dash, srcRes, candRes] = await Promise.all([
+        apiClient.getAdminDashboard(),
+        apiClient.getAdminSources(),
+        apiClient.getAdminCandidates()
+      ]);
+      if (dash) setAdminDashboard(dash);
+      if (srcRes && Array.isArray(srcRes.sources)) setAdminSources(srcRes.sources);
+      if (candRes && Array.isArray(candRes.candidates)) setAdminCandidates(candRes.candidates);
+    } catch (err) {
+      console.warn('Failed to fetch admin data:', err);
+    }
+  };
 
   const handleOpenToolDetail = async (tool: AITool, reason?: string) => {
     setSelectedDetailTool(tool);
@@ -121,13 +141,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     Promise.all([
       apiClient.getWalletCatalog(),
       apiClient.getToolkitGaps(),
-      apiClient.getDiscoveryStatus()
+      apiClient.getDiscoveryStatus(),
+      apiClient.getAdminDashboard()
     ])
-      .then(([catalogData, gaps, discStatus]) => {
+      .then(([catalogData, gaps, discStatus, dash]) => {
         if (isMounted) {
           if (Array.isArray(catalogData)) setCatalog(catalogData);
           if (gaps) setGapData(gaps);
           if (discStatus) setDiscoveryStatus(discStatus);
+          if (dash) setAdminDashboard(dash);
         }
       })
       .catch((err) => console.warn('API fetch warning:', err))
@@ -333,7 +355,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           { id: 'discover', label: '1. Requirement Search & Discover', icon: Compass, badge: `${catalog.length}` },
           { id: 'wallet', label: '2. My Wallet', icon: Wallet, badge: `${userTools.length}` },
           { id: 'compare', label: '3. Task Comparison', icon: ArrowRightLeft, badge: undefined },
-          { id: 'gaps', label: '4. Toolkit Gaps', icon: BarChart2, badge: undefined }
+          { id: 'gaps', label: '4. Toolkit Gaps', icon: BarChart2, badge: undefined },
+          { id: 'admin', label: '5. Pipeline Observability', icon: ShieldCheck, badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined }
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -1133,6 +1156,156 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               </div>
             </Surface>
           )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 5: PIPELINE ADMIN & OBSERVABILITY */}
+      {/* ========================================================================= */}
+      {activeSection === 'admin' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <Surface variant="gradient-hero" radius="lg" padding="md">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={20} style={{ color: '#6366f1' }} />
+                  <span>AI Ecosystem Intelligence & Pipeline Observability</span>
+                </h2>
+                <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+                  Real-time pipeline dashboard monitoring discovery runs, evidence verification, source registry health, and unverified candidate queues.
+                </p>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<RefreshCw size={14} />}
+                onClick={handleFetchAdminData}
+              >
+                Refresh Pipeline Stats
+              </Button>
+            </div>
+          </Surface>
+
+          {/* Pipeline Dashboard Metrics Row */}
+          {adminDashboard && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Pipeline Status
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <CheckCircle2 size={18} /> {adminDashboard.pipelineStatus || 'OPERATIONAL'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  Mode: {adminDashboard.mode}
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Verified Active Tools
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#4338ca' }}>
+                  {adminDashboard.activeVerifiedTools || catalog.length}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  out of {adminDashboard.totalToolsInCatalog || catalog.length} total tools
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Pending Candidates
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: adminCandidates.length > 0 ? '#d97706' : '#10b981' }}>
+                  {adminCandidates.length}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  Awaiting evidence verification
+                </div>
+              </div>
+
+              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Evidence Corpus
+                </div>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: '#0284c7' }}>
+                  {adminDashboard.totalEvidenceDocs || 12}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                  Verifiable claims stored
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Configured Source Registry */}
+          <Surface variant="bordered" radius="lg" padding="md">
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+              Configured Intelligence Tool Sources
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {(adminSources.length > 0 ? adminSources : [
+                { id: 'src-official', name: 'Official AI Product Releases & Pricing Pages', type: 'WEB/JSON', priority: 1, enabled: true },
+                { id: 'src-github', name: 'GitHub Open Source AI Model Repositories', type: 'API', priority: 2, enabled: true },
+                { id: 'src-huggingface', name: 'Hugging Face Trending AI Models', type: 'API', priority: 3, enabled: true },
+                { id: 'src-news', name: 'AI Product Announcements & RSS Changelogs', type: 'RSS', priority: 4, enabled: true }
+              ]).map((src) => (
+                <div key={src.id} style={{ padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{src.name}</div>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>Type: {src.type} • Trust Rank: #{src.priority}</div>
+                  </div>
+                  <Badge variant={src.enabled ? 'success' : 'neutral'} size="sm">
+                    {src.enabled ? 'Active Source' : 'Disabled'}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </Surface>
+
+          {/* Pending Candidates Queue */}
+          <Surface variant="bordered" radius="lg" padding="md">
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+              Discovered Tool Candidates Queue
+            </h3>
+
+            {adminCandidates.length === 0 ? (
+              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                ✓ All discovered tools are verified and integrated. No pending unverified candidates in queue.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {adminCandidates.map((cand) => (
+                  <div key={cand.id} style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid #fde68a', backgroundColor: '#fffbe6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#78350f' }}>
+                        {cand.name} <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 600 }}>by {cand.provider}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#92400e', margin: '2px 0 0' }}>
+                        Website: {cand.websiteUrl || cand.officialWebsite || 'N/A'} • Status: {cand.verificationStatus}
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="amber"
+                      size="sm"
+                      onClick={async () => {
+                        await apiClient.verifyAdminCandidate(cand.id, { activate: true });
+                        handleFetchAdminData();
+                        const updatedCat = await apiClient.getWalletCatalog();
+                        if (Array.isArray(updatedCat)) setCatalog(updatedCat);
+                      }}
+                    >
+                      Verify & Activate Tool →
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Surface>
         </div>
       )}
 

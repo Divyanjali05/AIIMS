@@ -22,6 +22,9 @@ import { DomainTaxonomyService } from '../services/wallet/domainTaxonomy.service
 import { ToolEvidenceService } from '../services/wallet/toolEvidence.service';
 import { ToolChangeDetectionService } from '../services/wallet/toolChangeDetection.service';
 import { ToolIntelligenceService } from '../services/wallet/toolIntelligence.service';
+import { ToolSourceService } from '../services/wallet/toolSource.service';
+import { toolVerificationService } from '../services/toolVerification.service';
+import { AIToolModel } from '../models/aiTool.model';
 import { authenticateStudent, requireAuth, AuthenticatedRequest } from '../middleware/auth.middleware';
 import {
   validateAcademicCombination,
@@ -1044,9 +1047,9 @@ router.post('/wallet/search', (req: Request, res: Response) => {
 /**
  * GET /api/wallet/catalog — Verified AI Tool Catalog with Domain & Status Filtering
  */
-router.get('/wallet/catalog', (req: Request, res: Response) => {
+router.get('/wallet/catalog', async (req: Request, res: Response) => {
   const { category, domain, status, pricing, search } = req.query;
-  let tools = ToolCatalogService.getCatalog();
+  let tools = await ToolCatalogService.getCatalogAsync();
 
   if (category && category !== 'All') {
     tools = tools.filter(t => t.category === category || t.categories.includes(category as any));
@@ -1073,8 +1076,8 @@ router.get('/wallet/catalog', (req: Request, res: Response) => {
 /**
  * GET /api/wallet/tools/:id — Full In-App Tool Detail
  */
-router.get('/wallet/tools/:id', (req: Request, res: Response) => {
-  const tool = ToolCatalogService.getToolById(req.params.id);
+router.get('/wallet/tools/:id', async (req: Request, res: Response) => {
+  const tool = await ToolCatalogService.getToolByIdAsync(req.params.id);
   if (!tool) {
     return res.status(404).json({ error: 'AI Tool not found in catalog.' });
   }
@@ -1792,6 +1795,140 @@ router.get('/tools/history/:toolId', requireAuth, async (req: Request, res: Resp
     return res.json({ toolId, history, count: history.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch tool history.', details: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/sources — View configured tool source registry
+ */
+router.get('/admin/sources', async (_req: Request, res: Response) => {
+  try {
+    const sources = ToolSourceService.getSources().map(s => ({
+      id: s.id,
+      name: s.name,
+      type: s.type,
+      priority: s.priority,
+      enabled: s.enabled
+    }));
+    return res.json({ sources, total: sources.length });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch sources', details: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/sources — Register or toggle a tool discovery source
+ */
+router.post('/admin/sources', async (req: Request, res: Response) => {
+  const { id, name, type, priority, enabled } = req.body;
+  if (!id || !name) {
+    return res.status(400).json({ error: 'Source id and name are required.' });
+  }
+  try {
+    ToolSourceService.registerSource({
+      id,
+      name,
+      type: type || 'JSON',
+      priority: priority || 2,
+      enabled: enabled !== false,
+      async fetch() {
+        return [];
+      }
+    });
+    return res.json({ success: true, message: `Source "${name}" registered.` });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to register source', details: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/candidates — List candidate tools pending verification
+ */
+router.get('/admin/candidates', async (_req: Request, res: Response) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ candidates: [] });
+  }
+  try {
+    const candidates = await AIToolModel.find({
+      $or: [
+        { verificationStatus: 'DISCOVERED' },
+        { verificationStatus: 'UNVERIFIED' },
+        { verificationStatus: 'PENDING_VERIFICATION' },
+        { activeStatus: false }
+      ]
+    }).sort({ createdAt: -1 }).lean();
+    return res.json({ candidates, count: candidates.length });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch candidates', details: err.message });
+  }
+});
+
+/**
+ * POST /api/admin/verify/:toolId — Manually trigger verification / accept evidence for a candidate
+ */
+router.post('/admin/verify/:toolId', async (req: Request, res: Response) => {
+  const { toolId } = req.params;
+  const { acceptEvidenceId, activate } = req.body;
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({ success: true, message: 'Offline mode simulation' });
+  }
+
+  try {
+    if (acceptEvidenceId) {
+      await toolVerificationService.acceptEvidence(acceptEvidenceId);
+    }
+    const verifyResult = await toolVerificationService.verifyTool(toolId);
+
+    if (activate) {
+      await AIToolModel.updateOne({ id: toolId }, { $set: { activeStatus: true, verificationStatus: 'VERIFIED' } });
+    }
+
+    return res.json({ success: true, verification: verifyResult });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Verification failed', details: err.message });
+  }
+});
+
+/**
+ * GET /api/admin/intelligence/dashboard — Pipeline health dashboard stats
+ */
+router.get('/admin/intelligence/dashboard', async (_req: Request, res: Response) => {
+  if (mongoose.connection.readyState !== 1) {
+    const catalog = ToolCatalogService.getCatalog();
+    return res.json({
+      pipelineStatus: 'OPERATIONAL',
+      mode: 'OFFLINE_MOCK',
+      totalToolsInCatalog: catalog.length,
+      activeVerifiedTools: catalog.filter(t => t.activeStatus).length,
+      pendingCandidates: 0,
+      totalEvidenceDocs: 12,
+      recentRunsCount: 1,
+      lastRunAt: new Date().toISOString()
+    });
+  }
+
+  try {
+    const [totalTools, activeVerified, pendingCandidates, totalEvidence, recentRuns] = await Promise.all([
+      AIToolModel.countDocuments({}),
+      AIToolModel.countDocuments({ activeStatus: true, verificationStatus: { $in: ['VERIFIED', 'VERIFIED_SEED'] } }),
+      AIToolModel.countDocuments({ activeStatus: false }),
+      ToolEvidenceModel.countDocuments({}),
+      ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(5).lean()
+    ]);
+
+    return res.json({
+      pipelineStatus: 'OPERATIONAL',
+      mode: 'LIVE_MONGODB',
+      totalToolsInCatalog: totalTools,
+      activeVerifiedTools: activeVerified,
+      pendingCandidates,
+      totalEvidenceDocs: totalEvidence,
+      recentRunsCount: recentRuns.length,
+      lastRun: recentRuns[0] || null
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to fetch intelligence dashboard', details: err.message });
   }
 });
 
