@@ -674,7 +674,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d', fontFamily: "'Fredoka', sans-serif" }}>
                     {peerData.userPercentile}th <span style={{ fontSize: '14px', color: '#166534' }}>Percentile</span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#15803d', fontWeight 700, marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', color: '#15803d', fontWeight: 700, marginTop: '4px' }}>
                     Calculated from actual comparison distribution
                   </div>
                 </div>

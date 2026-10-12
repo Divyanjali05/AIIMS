@@ -38,6 +38,7 @@ export interface LearnerState {
       strategicVision: number;
       mentorshipReadiness: number;
     };
+    evaluationResult?: AssessmentEvaluationResult;
   };
   analysis: {
     status: 'locked' | 'unlocked' | 'viewed';
