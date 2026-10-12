@@ -55,6 +55,9 @@ export class ToolRankingService {
   /**
    * Evaluates match for a single tool
    */
+  /**
+   * Evaluates match for a single tool
+   */
   public static evaluateToolMatch(
     tool: AITool,
     profile: RequirementProfile,
@@ -85,7 +88,7 @@ export class ToolRankingService {
     const freshnessScore = this.calculateFreshnessScore(tool);
 
     // Weighted Combined Match Score (0 to 100)
-    const rawWeightedScore =
+    let rawWeightedScore =
       capabilityScore * weights.capabilityMatch +
       taskScore * weights.taskWorkflowMatch +
       outputScore * weights.outputMatch +
@@ -95,18 +98,40 @@ export class ToolRankingService {
       evidenceCoverage * weights.verifiedEvidence +
       freshnessScore * weights.freshness;
 
+    // HARD REQUIREMENT GATING:
+    // A discovered or catalog tool MUST NOT receive a strong match score unless its supported
+    // capabilities provide evidence for the requested task.
+    if (profile.requiredCapabilities && profile.requiredCapabilities.length > 0) {
+      if (capabilityScore === 0) {
+        // Zero capability match completely disqualifies the tool from being recommended
+        rawWeightedScore = Math.min(rawWeightedScore * 0.25, 0.20);
+      } else if (capabilityScore < 0.35) {
+        // Poor capability match caps the score below standard recommendation threshold
+        rawWeightedScore = Math.min(rawWeightedScore, 0.40);
+      }
+    }
+
+    // Heavy penalty for unverified candidates attempting to enter recommendations
+    if (tool.verificationStatus === 'UNVERIFIED' || tool.verificationStatus === 'DISCOVERED' || !tool.activeStatus) {
+      rawWeightedScore = Math.min(rawWeightedScore * 0.3, 0.25);
+    }
+
     const matchScore = Math.min(100, Math.max(0, Math.round(rawWeightedScore * 100)));
 
     // Confidence Calculation (based on verification status, source count, evidence coverage)
-    let baseConfidence = tool.verificationStatus === 'VERIFIED' ? 0.90 : tool.verificationStatus === 'COMMUNITY_VERIFIED' ? 0.75 : 0.60;
-    if (evidenceCoverage > 0.7) baseConfidence += 0.08;
+    let baseConfidence = (tool.verificationStatus === 'VERIFIED' || tool.verificationStatus === 'VERIFIED_SEED')
+      ? 0.90
+      : tool.verificationStatus === 'COMMUNITY_VERIFIED'
+      ? 0.65
+      : 0.20;
+    if (evidenceCoverage > 0.7 && tool.verificationStatus === 'VERIFIED') baseConfidence += 0.08;
     const confidence = Math.min(0.99, Math.round(baseConfidence * 100) / 100);
 
-    // Human-friendly Match Label
+    // Human-friendly Match Label — only allow strong match if capabilityScore is high
     let matchLabel: 'Strong match' | 'Good match' | 'Potential match' = 'Potential match';
-    if (matchScore >= 75 && evidenceCoverage >= 0.5) {
+    if (matchScore >= 75 && evidenceCoverage >= 0.5 && capabilityScore >= 0.5) {
       matchLabel = 'Strong match';
-    } else if (matchScore >= 55) {
+    } else if (matchScore >= 55 && capabilityScore >= 0.3) {
       matchLabel = 'Good match';
     }
 
@@ -122,29 +147,42 @@ export class ToolRankingService {
       matchedCapabilities: this.extractMatchedCapabilities(tool, profile.requiredCapabilities),
       missingCapabilities: this.extractMissingCapabilities(tool, profile.requiredCapabilities),
       matchedDomains: [profile.domain],
-      isExactRequirementMatch: matchScore >= 70
+      isExactRequirementMatch: matchScore >= 70 && capabilityScore >= 0.6
     };
   }
 
   private static calculateCapabilityMatch(tool: AITool, requiredCapabilities: string[]): number {
-    if (!requiredCapabilities || requiredCapabilities.length === 0) return 0.8;
+    if (!requiredCapabilities || requiredCapabilities.length === 0) return 0.5;
     const toolCaps = (tool.capabilities || []).map(c => c.toLowerCase());
+    const toolTasks = (tool.tasks || []).concat(tool.useCases || []).map(t => t.toLowerCase());
+    const toolDesc = (tool.description || '').toLowerCase();
     let matchedCount = 0;
 
     for (const reqCap of requiredCapabilities) {
       const normalizedReq = reqCap.toLowerCase().replace(/_/g, ' ');
+      // Direct capability match
       const isMatched = toolCaps.some(tc => {
         const normTC = tc.replace(/_/g, ' ');
         return normTC.includes(normalizedReq) || normalizedReq.includes(normTC);
       });
+
       if (isMatched) {
-        matchedCount++;
+        matchedCount += 1.0;
       } else {
-        // Partial semantic keyword match in description/tasks
-        const inDesc = (tool.description || '').toLowerCase().includes(normalizedReq);
-        const inTasks = (tool.tasks || []).some(t => t.toLowerCase().includes(normalizedReq));
-        if (inDesc || inTasks) {
-          matchedCount += 0.5;
+        // Morphological & task-level match (e.g. document_analysis -> analyze document)
+        const words = normalizedReq.split(' ').filter(w => w.length > 2);
+        const matchesInTasks = toolTasks.some(task =>
+          words.every(w => task.includes(w) || (w === 'analysis' && task.includes('analyze')) || (w === 'summarization' && task.includes('summarize')))
+        );
+        if (matchesInTasks) {
+          matchedCount += 0.85;
+        } else {
+          const matchesInDesc = words.every(w =>
+            toolDesc.includes(w) || (w === 'analysis' && toolDesc.includes('analyze')) || (w === 'summarization' && toolDesc.includes('summarize'))
+          );
+          if (matchesInDesc) {
+            matchedCount += 0.65;
+          }
         }
       }
     }
@@ -153,8 +191,9 @@ export class ToolRankingService {
   }
 
   private static calculateTaskMatch(tool: AITool, workflow: string[]): number {
-    if (!workflow || workflow.length === 0) return 0.8;
+    if (!workflow || workflow.length === 0) return 0.5;
     const toolTasks = (tool.tasks || []).concat(tool.useCases || []).map(t => t.toLowerCase());
+    if (toolTasks.length === 0) return 0.1;
     let score = 0;
 
     for (const wfStep of workflow) {
@@ -163,7 +202,7 @@ export class ToolRankingService {
       if (matched) score += 1.0;
       else {
         const inDesc = (tool.description || '').toLowerCase().includes(normStep);
-        if (inDesc) score += 0.4;
+        if (inDesc) score += 0.3;
       }
     }
 
@@ -171,19 +210,26 @@ export class ToolRankingService {
   }
 
   private static calculateOutputMatch(tool: AITool, desiredOutput: string): number {
-    if (!desiredOutput) return 0.8;
+    if (!desiredOutput) return 0.6;
     const normDesired = desiredOutput.toLowerCase();
     const toolOutputs = (tool.outputTypes || []).map(o => o.toLowerCase());
     const matched = toolOutputs.some(to => normDesired.includes(to) || to.includes(normDesired));
     if (matched) return 1.0;
     
     const textMatch = (tool.description || '').toLowerCase().includes(normDesired);
-    return textMatch ? 0.6 : 0.4;
+    return textMatch ? 0.5 : 0.2;
   }
 
   private static calculateInputMatch(tool: AITool, profile: RequirementProfile): number {
-    if (!tool.inputTypes || tool.inputTypes.length === 0) return 0.8;
-    return 0.9;
+    const goal = (profile.goal || '').toLowerCase();
+    const isDocQuery = goal.includes('pdf') || goal.includes('document');
+    if (isDocQuery) {
+      const desc = (tool.description || '').toLowerCase();
+      const caps = (tool.capabilities || []).map(c => c.toLowerCase()).join(' ');
+      const hasDocInput = desc.includes('pdf') || desc.includes('document') || caps.includes('pdf') || caps.includes('document') || caps.includes('rag');
+      return hasDocInput ? 1.0 : 0.15;
+    }
+    return 0.6;
   }
 
   private static calculateConstraintMatch(tool: AITool, constraints: any): number {
@@ -194,7 +240,7 @@ export class ToolRankingService {
       if (tool.pricingDetails?.type === 'FREE' || tool.pricingDetails?.freeTierAvailable) {
         score += 0.1;
       } else {
-        score -= 0.4;
+        score -= 0.5;
       }
     }
 
@@ -210,29 +256,23 @@ export class ToolRankingService {
   }
 
   private static calculateDomainMatch(tool: AITool, domain: string, specificity: string): number {
-    if (specificity === 'unspecified' || domain === 'General') return 0.8;
+    if (specificity === 'unspecified' || !domain || domain === 'General') return 0.5;
     const toolDomains = (tool.domains || []).map(d => d.toLowerCase());
     const normDomain = domain.toLowerCase();
 
     if (toolDomains.some(td => td.includes(normDomain) || normDomain.includes(td))) {
       return 1.0;
     }
-    return 0.5;
+    return 0.2;
   }
 
   private static calculateEvidenceCoverage(tool: AITool, requiredCapabilities: string[]): number {
-    if (tool.verificationStatus !== 'VERIFIED') return 0.5;
-    if (!requiredCapabilities || requiredCapabilities.length === 0) return 0.8;
-
-    const verifiedCaps = (tool.capabilities || []).map(c => c.toLowerCase());
-    let matched = 0;
-    for (const req of requiredCapabilities) {
-      const normReq = req.toLowerCase().replace(/_/g, ' ');
-      if (verifiedCaps.some(vc => vc.includes(normReq) || normReq.includes(vc))) {
-        matched++;
-      }
+    if (tool.verificationStatus !== 'VERIFIED' && tool.verificationStatus !== 'VERIFIED_SEED') {
+      return 0.0;
     }
-    return Math.min(1.0, matched / requiredCapabilities.length);
+    if (!requiredCapabilities || requiredCapabilities.length === 0) return 0.8;
+    const matched = this.extractMatchedCapabilities(tool, requiredCapabilities);
+    return Math.min(1.0, matched.length / requiredCapabilities.length);
   }
 
   private static calculateFreshnessScore(tool: AITool): number {
@@ -247,14 +287,25 @@ export class ToolRankingService {
 
   private static extractMatchedCapabilities(tool: AITool, requiredCapabilities: string[]): string[] {
     const toolCaps = (tool.capabilities || []).map(c => c.toLowerCase());
-    return requiredCapabilities.filter(req => {
+    const toolTasks = (tool.tasks || []).concat(tool.useCases || []).map(t => t.toLowerCase());
+    const toolDesc = (tool.description || '').toLowerCase();
+
+    return (requiredCapabilities || []).filter(req => {
       const normReq = req.toLowerCase().replace(/_/g, ' ');
-      return toolCaps.some(tc => tc.includes(normReq) || normReq.includes(tc));
+      if (toolCaps.some(tc => tc.includes(normReq) || normReq.includes(tc))) return true;
+      const words = normReq.split(' ').filter(w => w.length > 2);
+      const inTasks = toolTasks.some(task =>
+        words.every(w => task.includes(w) || (w === 'analysis' && task.includes('analyze')) || (w === 'summarization' && task.includes('summarize')))
+      );
+      if (inTasks) return true;
+      return words.every(w =>
+        toolDesc.includes(w) || (w === 'analysis' && toolDesc.includes('analyze')) || (w === 'summarization' && toolDesc.includes('summarize'))
+      );
     });
   }
 
   private static extractMissingCapabilities(tool: AITool, requiredCapabilities: string[]): string[] {
     const matched = this.extractMatchedCapabilities(tool, requiredCapabilities);
-    return requiredCapabilities.filter(req => !matched.includes(req));
+    return (requiredCapabilities || []).filter(req => !matched.includes(req));
   }
 }

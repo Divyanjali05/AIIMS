@@ -80,7 +80,7 @@ export class ToolCatalogService {
         categories: ['Reasoning & Writing', 'Agentic Coding'],
         domains: ['Software & Technology', 'Research & Knowledge', 'Education & Learning', 'Business & Operations'],
         subdomains: ['Agentic Coding', 'Academic Research', 'Technical Writing', 'Process Optimization'],
-        capabilities: ['Extended Context Processing', 'Complex Technical Reasoning', 'Artifact Rendering', 'Computer Use OS Control', 'System Prompt Following'],
+        capabilities: ['Document Analysis', 'Extended Context Processing', 'Complex Technical Reasoning', 'Artifact Rendering', 'Computer Use OS Control', 'System Prompt Following'],
         useCases: ['Analyzing 100+ page documents', 'Complex multi-file refactoring', 'Nuanced editorial writing', 'GUI automation'],
         tasks: ['Analyze 100-page PDF', 'Refactor code architecture', 'Write technical documentation', 'Automate desktop GUI'],
         strengths: ['Superior long-form coherence', 'Minimal fluff and hallucination', 'Artifacts live preview canvas', 'Precise instruction following'],
@@ -243,7 +243,7 @@ export class ToolCatalogService {
         categories: ['Research & RAG'],
         domains: ['Education & Learning', 'Research & Knowledge', 'Legal & Compliance'],
         subdomains: ['Academic Writing', 'Paper Summarization', 'Document RAG', 'Knowledge Discovery'],
-        capabilities: ['Strict Source-grounded Q&A', 'Audio Overview Podcast Synthesis', 'Multi-document Cross Indexing', 'Citation Highlighting'],
+        capabilities: ['Document Analysis', 'PDF Summarization', 'Strict Source-grounded Q&A', 'Audio Overview Podcast Synthesis', 'Multi-document Cross Indexing', 'Citation Highlighting'],
         useCases: ['Studying complex textbooks', 'Synthesizing internal company docs', 'Generating podcast-style summaries'],
         tasks: ['Analyze textbook PDF', 'Summarize 100-page document', 'Generate podcast audio summary', 'Study exam material'],
         strengths: ['Zero hallucination outside uploaded sources', 'Automatic podcast-style audio discussions', '100% Free Google tool'],
@@ -668,6 +668,12 @@ export class ToolCatalogService {
     this.isInitialized = true;
   }
 
+  private static degradedMode = false;
+
+  public static isDegradedMode(): boolean {
+    return this.degradedMode || !mongoose.connection || mongoose.connection.readyState !== 1;
+  }
+
   public static getCatalog(): AITool[] {
     this.initializeCatalog();
     return Array.from(this.catalog.values());
@@ -678,7 +684,7 @@ export class ToolCatalogService {
     return this.catalog.get(id);
   }
 
-  public static upsertTool(tool: AITool): void {
+  public static async upsertTool(tool: AITool): Promise<AITool> {
     this.initializeCatalog();
     const existing = this.catalog.get(tool.id);
     const updatedTool: AITool = existing
@@ -696,45 +702,145 @@ export class ToolCatalogService {
 
     this.catalog.set(tool.id, updatedTool);
 
-    // Persist to MongoDB if connection is active
+    // Persist to MongoDB as authoritative store
     if (mongoose.connection && mongoose.connection.readyState === 1) {
-      AIToolModel.findOneAndUpdate({ id: tool.id }, updatedTool, { upsert: true, new: true })
-        .catch(err => console.warn(`[ToolCatalog] MongoDB upsert warning (${tool.id}):`, err.message));
+      try {
+        await AIToolModel.findOneAndUpdate({ id: tool.id }, updatedTool, { upsert: true, new: true });
+      } catch (err: any) {
+        this.degradedMode = true;
+        console.warn(`[ToolCatalog] MongoDB upsert warning (${tool.id}):`, err.message);
+      }
+    } else {
+      this.degradedMode = true;
     }
+
+    return updatedTool;
   }
 
-  public static removeTool(id: string): boolean {
+  public static async removeTool(id: string): Promise<boolean> {
     this.initializeCatalog();
     const deleted = this.catalog.delete(id);
-    if (deleted && mongoose.connection && mongoose.connection.readyState === 1) {
-      AIToolModel.deleteOne({ id }).catch(err => console.warn(`[ToolCatalog] MongoDB delete warning (${id}):`, err.message));
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        await AIToolModel.deleteOne({ id });
+      } catch (err: any) {
+        console.warn(`[ToolCatalog] MongoDB delete warning (${id}):`, err.message);
+      }
     }
     return deleted;
   }
 
+  /**
+   * Synchronizes tool catalog from MongoDB.
+   * If MongoDB has tools, replaces the in-memory cache completely with database documents.
+   * If MongoDB is empty, seeds the 12 curated seed tools safely to MongoDB.
+   * If MongoDB fails or is offline, enters explicit DEGRADED mode.
+   */
   public static async syncFromDatabase(): Promise<void> {
     this.initializeCatalog();
     if (mongoose.connection && mongoose.connection.readyState === 1) {
       try {
         const docs = await AIToolModel.find({}).exec();
         if (docs && docs.length > 0) {
+          const freshCatalog = new Map<string, AITool>();
           for (const doc of docs) {
             const rawObj = doc.toObject() as any;
             delete rawObj._id;
             delete rawObj.__v;
-            this.catalog.set(doc.id, rawObj as AITool);
+            const seedFallback = this.catalog.get(doc.id);
+            const mergedTool: AITool = {
+              ...(seedFallback || {}),
+              ...rawObj,
+              officialWebsite: rawObj.officialWebsite || seedFallback?.officialWebsite || rawObj.websiteUrl || '',
+              websiteUrl: rawObj.websiteUrl || seedFallback?.websiteUrl || rawObj.officialWebsite || '',
+              pricingDetails: rawObj.pricingDetails || seedFallback?.pricingDetails || {
+                type: (rawObj.pricing && rawObj.pricing.toLowerCase().includes('free')) ? 'FREEMIUM' : 'PAID',
+                summary: rawObj.pricing || 'Free tier available',
+                freeTierAvailable: true,
+                freeTrialAvailable: false,
+                verified: true,
+                lastVerifiedAt: new Date().toISOString()
+              },
+              learningTrack: (rawObj.learningTrack && rawObj.learningTrack.length > 0) ? rawObj.learningTrack : (seedFallback?.learningTrack || []),
+              domains: (rawObj.domains && rawObj.domains.length > 0) ? rawObj.domains : (seedFallback?.domains || [rawObj.category || 'Software & Technology']),
+              categories: (rawObj.categories && rawObj.categories.length > 0) ? rawObj.categories : (seedFallback?.categories || [rawObj.category || 'Reasoning & Writing']),
+              tasks: (rawObj.tasks && rawObj.tasks.length > 0) ? rawObj.tasks : (seedFallback?.tasks || rawObj.taskMappings || []),
+              strengths: (rawObj.strengths && rawObj.strengths.length > 0) ? rawObj.strengths : (seedFallback?.strengths || []),
+              limitations: (rawObj.limitations && rawObj.limitations.length > 0) ? rawObj.limitations : (seedFallback?.limitations || []),
+              useCases: (rawObj.useCases && rawObj.useCases.length > 0) ? rawObj.useCases : (seedFallback?.useCases || []),
+              status: rawObj.status || seedFallback?.status || 'ACTIVE',
+              verificationStatus: rawObj.verificationStatus || seedFallback?.verificationStatus || 'VERIFIED',
+              activeStatus: rawObj.activeStatus ?? true
+            };
+
+            // If MongoDB document was missing pricingDetails or learningTrack, backfill MongoDB
+            if (!rawObj.pricingDetails || !rawObj.learningTrack || rawObj.learningTrack.length === 0) {
+              await AIToolModel.updateOne({ id: doc.id }, { $set: mergedTool }).catch(() => {});
+            }
+
+            freshCatalog.set(doc.id, mergedTool);
           }
-          console.log(`[ToolCatalog] Synchronized ${docs.length} tools from MongoDB.`);
+
+          // Also ensure all seed tools are present in catalog
+          for (const [seedId, seedTool] of this.catalog.entries()) {
+            if (!freshCatalog.has(seedId)) {
+              freshCatalog.set(seedId, seedTool);
+              await AIToolModel.findOneAndUpdate({ id: seedId }, seedTool, { upsert: true, new: true }).catch(() => {});
+            }
+          }
+
+          this.catalog = freshCatalog;
+          this.degradedMode = false;
+          console.log(`[ToolCatalog] Synchronized ${freshCatalog.size} tools from MongoDB with full schema integrity.`);
+        } else {
+          console.log('[ToolCatalog] MongoDB empty. Migrating initial curated seed tools to MongoDB...');
+          for (const tool of this.catalog.values()) {
+            await AIToolModel.findOneAndUpdate({ id: tool.id }, tool, { upsert: true, new: true });
+          }
+          this.degradedMode = false;
+          console.log('[ToolCatalog] Completed initial seed migration to MongoDB.');
         }
       } catch (err: any) {
-        console.warn('[ToolCatalog] MongoDB catalog sync failed:', err.message);
+        this.degradedMode = true;
+        console.warn('[ToolCatalog] MongoDB catalog sync failed (Operating in DEGRADED mode):', err.message);
       }
+    } else {
+      this.degradedMode = true;
+      console.warn('[ToolCatalog] MongoDB not connected. Operating in DEGRADED mode.');
     }
+  }
+
+  /**
+   * Cleans invalid discovery records (fake tools, git tags) from MongoDB
+   */
+  public static async cleanInvalidDiscoveryRecords(): Promise<number> {
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      const invalidIds = [
+        'tool-v2-0-0-vscode',
+        'tool-astra',
+        'tool-hugging-face-trending-ai-item-1',
+        'tool-claude-3-5-sonnet-computer-use-release'
+      ];
+      const res = await AIToolModel.deleteMany({ id: { $in: invalidIds } });
+      for (const id of invalidIds) {
+        this.catalog.delete(id);
+      }
+
+      // Enforce: unverified / community-verified discovery candidates are not active by default
+      await AIToolModel.updateMany(
+        { verificationStatus: { $in: ['COMMUNITY_VERIFIED', 'UNVERIFIED', 'DISCOVERED'] } },
+        { $set: { activeStatus: false } }
+      );
+
+      console.log(`[ToolCatalog] Cleaned ${res.deletedCount} invalid/polluted records from MongoDB and deactivated unverified candidates.`);
+      return res.deletedCount || 0;
+    }
+    return 0;
   }
 
   public static getNewAndRecentlyUpdatedTools(): AITool[] {
     this.initializeCatalog();
     const tools = Array.from(this.catalog.values());
-    return tools.filter(t => t.status === 'NEW' || t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED');
+    return tools.filter(t => t.activeStatus && (t.status === 'NEW' || t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED'));
   }
 }
