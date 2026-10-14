@@ -586,6 +586,7 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
   const q11Text = typeof userAnswers[11] === 'string' ? userAnswers[11] : userAnswers['11'];
   if (q11Text) {
     const eval11 = await claudeService.evaluateOpenEndedAnswer(
+      'Q11',
       'AI THINKING LAB: Designing Software Architecture',
       'Evaluates authentic problem-framing, system boundary definition, role setting, and technical constraint specification.',
       'Solving with AI',
@@ -598,6 +599,7 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
   const q12Text = typeof userAnswers[12] === 'string' ? userAnswers[12] : userAnswers['12'];
   if (q12Text) {
     const eval12 = await claudeService.evaluateOpenEndedAnswer(
+      'Q12',
       'AI THINKING LAB: Building a Working Prototype (MVP)',
       'Evaluates code generation prompting strategy: component modularity, API contract definition, and edge case instructions.',
       'Solving with AI',
@@ -610,6 +612,7 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
   const q25Text = typeof userAnswers[25] === 'string' ? userAnswers[25] : userAnswers['25'];
   if (q25Text) {
     const eval25 = await claudeService.evaluateOpenEndedAnswer(
+      'Q25',
       'AI THINKING LAB: What separates someone who merely uses AI from someone who adapts to AI?',
       'Evaluates meta-cognition, understanding of paradigm shifts, workflow redesign, and human-AI co-evolution.',
       'Adapting to AI',
@@ -637,7 +640,8 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
       currentQuestionIndex: 25,
       completedAt: new Date().toISOString(),
       rewardClaimed: true,
-      scores: evaluationResult.legacyScores
+      scores: evaluationResult.legacyScores,
+      evaluationResult
     };
 
     req.user.analysis = {
@@ -704,6 +708,98 @@ router.post('/assessments/submit', async (req: AuthenticatedRequest, res: Respon
 // ==========================================
 // 5. ANALYSIS MODULE
 // ==========================================
+
+router.get('/analysis/peer-benchmarks', async (req: AuthenticatedRequest, res: Response) => {
+  const MIN_REQUIRED_RECORDS = 30;
+
+  if (mongoose.connection.readyState !== 1) {
+    return res.json({
+      available: false,
+      totalComparableRecords: 0,
+      minRequiredRecords: MIN_REQUIRED_RECORDS,
+      message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+    });
+  }
+
+  try {
+    const completedUsers = await User.find({
+      'assessment.status': 'completed',
+      'assessment.evaluationResult.scoringVersion': '3.0.0-evidence-based'
+    }).select('assessment.evaluationResult');
+
+    if (completedUsers.length < MIN_REQUIRED_RECORDS) {
+      return res.json({
+        available: false,
+        totalComparableRecords: completedUsers.length,
+        minRequiredRecords: MIN_REQUIRED_RECORDS,
+        message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+      });
+    }
+
+    let sumUsingAI = 0;
+    let sumUnderstandingAI = 0;
+    let sumSolvingWithAI = 0;
+    let sumCheckingAI = 0;
+    let sumAdaptingToAI = 0;
+    let sumOverall = 0;
+    const allOverallScores: number[] = [];
+
+    completedUsers.forEach((u) => {
+      const evalRes = u.assessment?.evaluationResult;
+      if (evalRes && evalRes.capabilities) {
+        const uScore = evalRes.capabilities.usingAI?.score || 0;
+        const undScore = evalRes.capabilities.understandingAI?.score || 0;
+        const solScore = evalRes.capabilities.solvingWithAI?.score || 0;
+        const chkScore = evalRes.capabilities.checkingAI?.score || 0;
+        const adpScore = evalRes.capabilities.adaptingToAI?.score || 0;
+        const ovScore = evalRes.overallScore || Math.round((uScore + undScore + solScore + chkScore + adpScore) / 5);
+
+        sumUsingAI += uScore;
+        sumUnderstandingAI += undScore;
+        sumSolvingWithAI += solScore;
+        sumCheckingAI += chkScore;
+        sumAdaptingToAI += adpScore;
+        sumOverall += ovScore;
+        allOverallScores.push(ovScore);
+      }
+    });
+
+    const count = completedUsers.length;
+    const benchmarks = {
+      usingAI: Math.round(sumUsingAI / count),
+      understandingAI: Math.round(sumUnderstandingAI / count),
+      solvingWithAI: Math.round(sumSolvingWithAI / count),
+      checkingAI: Math.round(sumCheckingAI / count),
+      adaptingToAI: Math.round(sumAdaptingToAI / count)
+    };
+    const peerOverallAverage = Math.round(sumOverall / count);
+
+    let userPercentile = 50;
+    if (req.user?.assessment?.evaluationResult?.overallScore !== undefined) {
+      const userOverall = req.user.assessment.evaluationResult.overallScore;
+      const lowerCount = allOverallScores.filter((s) => s < userOverall).length;
+      const equalCount = allOverallScores.filter((s) => s === userOverall).length;
+      userPercentile = Math.min(99, Math.max(1, Math.round(((lowerCount + 0.5 * equalCount) / count) * 100)));
+    }
+
+    return res.json({
+      available: true,
+      totalComparableRecords: count,
+      minRequiredRecords: MIN_REQUIRED_RECORDS,
+      benchmarks,
+      peerOverallAverage,
+      userPercentile
+    });
+  } catch (err) {
+    console.error('Failed to compute peer benchmarks:', err);
+    return res.json({
+      available: false,
+      totalComparableRecords: 0,
+      minRequiredRecords: MIN_REQUIRED_RECORDS,
+      message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+    });
+  }
+});
 
 router.get('/analysis/individual', (req: AuthenticatedRequest, res: Response) => {
   const profile = req.user ? formatUserState(req.user).profile : mockUser;

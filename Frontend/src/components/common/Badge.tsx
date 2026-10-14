@@ -2,7 +2,7 @@ import React from 'react';
 
 export interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'success' | 'warning' | 'cyan' | 'purple' | 'neutral';
+  variant?: 'primary' | 'success' | 'warning' | 'cyan' | 'purple' | 'neutral' | 'outline';
   size?: 'sm' | 'md';
   icon?: React.ReactNode;
   style?: React.CSSProperties;
@@ -27,6 +27,8 @@ export const Badge: React.FC<BadgeProps> = ({
         return { backgroundColor: '#f3e8ff', color: '#6b21a8', border: '1px solid #e9d5ff' };
       case 'neutral':
         return { backgroundColor: '#f4f3ff', color: '#475569', border: '1px solid #ede9fe' };
+      case 'outline':
+        return { backgroundColor: '#ffffff', color: '#64748b', border: '1px solid #cbd5e1' };
       case 'primary':
       default:
         return { backgroundColor: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe' };

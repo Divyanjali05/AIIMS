@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLearner } from '../../context/LearnerContext';
+import { apiClient } from '../../api/client';
 import {
   BarChart3,
   Users,
@@ -8,17 +9,13 @@ import {
   AlertTriangle,
   Lock,
   ArrowRight,
-  Zap,
-  Target,
   FileText,
   Wallet,
   Sparkles,
   Award,
   CheckCircle2,
-  TrendingDown,
-  Activity,
-  Layers,
-  PieChart
+  Target,
+  ShieldCheck
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
@@ -27,7 +24,12 @@ import { MentorMessage } from '../../components/common/MentorMessage';
 import { Badge } from '../../components/common/Badge';
 import { RadarChart } from '../../components/charts/RadarChart';
 import { DimensionScore } from '../../types';
-import { evaluateAssessment, CAPABILITY_NAMES, CAPABILITY_DESCRIPTIONS, CapabilityKey } from '../../services/assessmentScoring';
+import {
+  evaluateAssessment,
+  CAPABILITY_DESCRIPTIONS,
+  CapabilityKey,
+  AssessmentEvaluationResult
+} from '../../services/assessmentScoring';
 
 interface AnalysisScreenProps {
   setActiveTab?: (tab: string) => void;
@@ -37,11 +39,26 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
   const { state, viewAnalysis, selectClarityArea } = useLearner();
   const [activeSubTab, setActiveSubTab] = useState<'me' | 'compare' | 'overall'>('me');
 
+  const [peerData, setPeerData] = useState<{
+    available: boolean;
+    totalComparableRecords: number;
+    minRequiredRecords: number;
+    message?: string;
+    benchmarks?: { usingAI: number; understandingAI: number; solvingWithAI: number; checkingAI: number; adaptingToAI: number };
+    peerOverallAverage?: number;
+    userPercentile?: number;
+  }>({ available: false, totalComparableRecords: 0, minRequiredRecords: 30 });
+
   const isCompleted = state.assessment.status === 'completed';
 
   useEffect(() => {
     if (isCompleted) {
       viewAnalysis();
+      apiClient.getPeerBenchmarks()
+        .then((res) => {
+          if (res) setPeerData(res);
+        })
+        .catch((err) => console.warn('Peer benchmarks notice:', err));
     }
   }, [isCompleted]);
 
@@ -76,7 +93,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           </h2>
 
           <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
-            Complete your baseline assessment first. Your diagnostic responses will give AIIMS the information it needs to construct your personal capability profile.
+            Complete your baseline assessment first. Your diagnostic responses will give AINOVA the evidence needed to construct your personal capability profile.
           </p>
 
           <Button
@@ -92,41 +109,35 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
     );
   }
 
-  // Evaluate assessment responses using AINOVA Assessment Scoring Engine
+  // Evaluate assessment responses using authoritative result or fallback engine
   const userAnswers = state.assessment.answers || {};
-  const evaluationResult = evaluateAssessment(userAnswers);
-  const { overallScore, capabilities, strongestSkill, roomToGrow } = evaluationResult;
-  const scores = evaluationResult.legacyScores;
+  const evaluationResult: AssessmentEvaluationResult = state.assessment.evaluationResult || evaluateAssessment(userAnswers);
+  const {
+    overallScore,
+    overallConfidence,
+    overallEvidenceCoverage,
+    assessmentStatus,
+    scoringVersion,
+    evaluatedAt,
+    capabilities,
+    strongestSkill,
+    roomToGrow
+  } = evaluationResult;
 
-  const peerBenchmarks = {
-    usingAI: 62,
-    understandingAI: 68,
-    solvingWithAI: 58,
-    checkingAI: 72,
-    adaptingToAI: 60
-  };
-
-  const peerOverallAverage = 64;
-
-  const cohortStats = {
-    totalParticipants: 1248,
-    cohortAverage: 64,
-    userPercentile: Math.min(99, Math.max(10, Math.round((overallScore / 100) * 85))),
-    dimensions: [
-      { name: 'Using AI', key: 'usingAI', userScore: capabilities.usingAI.score, peerAvg: 62, min: 20, max: 95, percentile: Math.round((capabilities.usingAI.score / 100) * 90) },
-      { name: 'Understanding AI', key: 'understandingAI', userScore: capabilities.understandingAI.score, peerAvg: 68, min: 25, max: 98, percentile: Math.round((capabilities.understandingAI.score / 100) * 90) },
-      { name: 'Solving with AI', key: 'solvingWithAI', userScore: capabilities.solvingWithAI.score, peerAvg: 58, min: 15, max: 95, percentile: Math.round((capabilities.solvingWithAI.score / 100) * 90) },
-      { name: 'Checking AI', key: 'checkingAI', userScore: capabilities.checkingAI.score, peerAvg: 72, min: 20, max: 98, percentile: Math.round((capabilities.checkingAI.score / 100) * 90) },
-      { name: 'Adapting to AI', key: 'adaptingToAI', userScore: capabilities.adaptingToAI.score, peerAvg: 60, min: 10, max: 92, percentile: Math.round((capabilities.adaptingToAI.score / 100) * 90) }
-    ]
+  const activePeerBenchmarks = peerData.benchmarks || {
+    usingAI: 0,
+    understandingAI: 0,
+    solvingWithAI: 0,
+    checkingAI: 0,
+    adaptingToAI: 0
   };
 
   const radarScores: DimensionScore[] = [
-    { dimension: 'Using AI', score: capabilities.usingAI.score, benchmark: peerBenchmarks.usingAI },
-    { dimension: 'Understanding AI', score: capabilities.understandingAI.score, benchmark: peerBenchmarks.understandingAI },
-    { dimension: 'Solving with AI', score: capabilities.solvingWithAI.score, benchmark: peerBenchmarks.solvingWithAI },
-    { dimension: 'Checking AI', score: capabilities.checkingAI.score, benchmark: peerBenchmarks.checkingAI },
-    { dimension: 'Adapting to AI', score: capabilities.adaptingToAI.score, benchmark: peerBenchmarks.adaptingToAI }
+    { dimension: 'Using AI', score: capabilities.usingAI.score, benchmark: activePeerBenchmarks.usingAI },
+    { dimension: 'Understanding AI', score: capabilities.understandingAI.score, benchmark: activePeerBenchmarks.understandingAI },
+    { dimension: 'Solving with AI', score: capabilities.solvingWithAI.score, benchmark: activePeerBenchmarks.solvingWithAI },
+    { dimension: 'Checking AI', score: capabilities.checkingAI.score, benchmark: activePeerBenchmarks.checkingAI },
+    { dimension: 'Adapting to AI', score: capabilities.adaptingToAI.score, benchmark: activePeerBenchmarks.adaptingToAI }
   ];
 
   const topCapability = strongestSkill.name;
@@ -141,8 +152,8 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
       <PageHeader
         icon={<FileText size={24} />}
         title="MY AI PROFILE"
-        description="Your assessment indicates how you currently evaluate, interact, and work with AI."
-        badge={{ label: 'Diagnostic Profile', variant: 'primary', icon: <BarChart3 size={12} /> }}
+        description="Evidence-backed AI Capability Profile and Anthropic Diagnostic Evaluation."
+        badge={{ label: `Engine ${scoringVersion || '3.0.0-evidence-based'}`, variant: 'primary', icon: <ShieldCheck size={12} /> }}
         action={
           <div style={{
             display: 'flex',
@@ -157,7 +168,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             <Award size={24} color="#7c3aed" />
             <div>
               <div style={{ fontSize: '10px', fontWeight: 800, color: '#6d28d9', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
-                Overall AI Proficiency Score
+                Overall AI Capability Score
               </div>
               <div style={{ fontSize: '22px', fontWeight: 900, color: '#4c1d95', fontFamily: "'Fredoka', sans-serif", lineHeight: 1.1 }}>
                 {overallScore} <span style={{ fontSize: '13px', color: '#7c3aed', fontWeight: 700 }}>/ 100</span>
@@ -176,19 +187,17 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           onClick={() => setActiveSubTab('me')}
         >
           <span>My Profile Report</span>
-          {isCompleted && (
-            <span style={{
-              marginLeft: '8px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              fontSize: '11px',
-              fontWeight: 800,
-              backgroundColor: activeSubTab === 'me' ? 'rgba(255, 255, 255, 0.25)' : '#e0e7ff',
-              color: activeSubTab === 'me' ? '#ffffff' : '#3730a3'
-            }}>
-              Score: {overallScore}/100
-            </span>
-          )}
+          <span style={{
+            marginLeft: '8px',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontWeight: 800,
+            backgroundColor: activeSubTab === 'me' ? 'rgba(255, 255, 255, 0.25)' : '#e0e7ff',
+            color: activeSubTab === 'me' ? '#ffffff' : '#3730a3'
+          }}>
+            Score: {overallScore}/100
+          </span>
         </Button>
 
         <Button
@@ -198,19 +207,17 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           onClick={() => setActiveSubTab('compare')}
         >
           <span>Peer Benchmarks</span>
-          {isCompleted && (
-            <span style={{
-              marginLeft: '8px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              fontSize: '11px',
-              fontWeight: 800,
-              backgroundColor: activeSubTab === 'compare' ? 'rgba(255, 255, 255, 0.25)' : '#f3e8ff',
-              color: activeSubTab === 'compare' ? '#ffffff' : '#6b21a8'
-            }}>
-              Peer Avg: {peerOverallAverage}/100
-            </span>
-          )}
+          <span style={{
+            marginLeft: '8px',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontWeight: 800,
+            backgroundColor: activeSubTab === 'compare' ? 'rgba(255, 255, 255, 0.25)' : '#f3e8ff',
+            color: activeSubTab === 'compare' ? '#ffffff' : '#6b21a8'
+          }}>
+            {peerData.available ? `Peer Avg: ${peerData.peerOverallAverage}/100` : 'Pending Data'}
+          </span>
         </Button>
 
         <Button
@@ -220,159 +227,189 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           onClick={() => setActiveSubTab('overall')}
         >
           <span>Cohort Overview</span>
-          {isCompleted && (
-            <span style={{
-              marginLeft: '8px',
-              padding: '2px 8px',
-              borderRadius: '10px',
-              fontSize: '11px',
-              fontWeight: 800,
-              backgroundColor: activeSubTab === 'overall' ? 'rgba(255, 255, 255, 0.25)' : '#e0e7ff',
-              color: activeSubTab === 'overall' ? '#ffffff' : '#0369a1'
-            }}>
-              {cohortStats.userPercentile}th Percentile
-            </span>
-          )}
+          <span style={{
+            marginLeft: '8px',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            fontSize: '11px',
+            fontWeight: 800,
+            backgroundColor: activeSubTab === 'overall' ? 'rgba(255, 255, 255, 0.25)' : '#e0e7ff',
+            color: activeSubTab === 'overall' ? '#ffffff' : '#0369a1'
+          }}>
+            {peerData.available ? `${peerData.userPercentile}th Percentile` : 'Cohort Stats'}
+          </span>
         </Button>
       </div>
 
       {activeSubTab === 'me' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
-          {/* EMPATHETIC SUMMARY BANNER */}
+          {/* EVIDENCE-BASED SUMMARY BANNER */}
           <Surface variant="highlight" radius="lg" padding="md" style={{ borderLeft: '5px solid #6366f1' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <Sparkles size={24} color="#4f46e5" />
                 <div>
                   <h3 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800, color: '#3730a3' }}>
-                    Diagnostic Profile Summary
+                    Diagnostic Profile Summary (Scoring Version {scoringVersion || '3.0.0-evidence-based'})
                   </h3>
                   <p style={{ margin: 0, fontSize: '13px', color: '#4338ca', lineHeight: 1.4 }}>
-                    Your assessment indicates an established strength in <strong>{topCapability}</strong>, with a key opportunity to develop <strong>{growthArea}</strong>.
+                    Your assessment demonstrates verified evidence of strength in <strong>{topCapability}</strong> ({capabilities[strongestSkill.key].score}/100), with a key opportunity in <strong>{growthArea}</strong> ({capabilities[roomToGrow.key].score}/100).
                   </p>
                 </div>
               </div>
-              <div style={{ padding: '6px 14px', backgroundColor: '#e0e7ff', borderRadius: '10px', fontSize: '13px', fontWeight: 800, color: '#3730a3' }}>
-                Overall Baseline Index: {overallScore} / 100
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Badge variant={assessmentStatus === 'complete' ? 'success' : 'warning'} icon={<CheckCircle2 size={12} />}>
+                  {assessmentStatus === 'complete' ? 'Evaluation Complete' : 'Provisional Preview'}
+                </Badge>
+                <div style={{ padding: '6px 12px', backgroundColor: '#e0e7ff', borderRadius: '10px', fontSize: '12px', fontWeight: 800, color: '#3730a3' }}>
+                  Coverage: {Math.round((overallEvidenceCoverage || 1) * 100)}% • Confidence: {Math.round((overallConfidence || 0.9) * 100)}%
+                </div>
               </div>
             </div>
           </Surface>
 
-          {/* SECTION 1: CORE CAPABILITY DIMENSIONS */}
+          {/* SECTION 1: CORE CAPABILITY DIMENSIONS WITH EVIDENCE & GAPS */}
           <Surface variant="bordered" radius="lg" padding="lg">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', fontFamily: "'Fredoka', sans-serif" }}>
-                  AI Capability Dimensions
+                  Five AI Capability Dimensions
                 </h2>
                 <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                  Your baseline responses across 5 core dimensions of practical AI usage:
+                  Evaluated strictly against demonstrated diagnostic evidence:
                 </p>
               </div>
-              <Badge variant="primary">Overall Average: {overallScore}/100</Badge>
+              <Badge variant="primary">Overall Score: {overallScore}/100</Badge>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
 
+              {/* 1. USING AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #4f46e5' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>Using AI</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>USING AI</span>
+                  <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.usingAI.evidenceCoverage || 1) * 100)}%</Badge>
+                </div>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
                   {capabilities.usingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.usingAI.score}%`, height: '100%', backgroundColor: '#4f46e5', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.usingAI}
                 </p>
+                {capabilities.usingAI.demonstratedStrengths && capabilities.usingAI.demonstratedStrengths.length > 0 && (
+                  <div style={{ fontSize: '11px', color: '#15803d', marginTop: '6px' }}>
+                    <strong>Strengths:</strong>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                      {capabilities.usingAI.demonstratedStrengths.slice(0, 2).map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
+              {/* 2. UNDERSTANDING AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #059669' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>Understanding AI</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>UNDERSTANDING AI</span>
+                  <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.understandingAI.evidenceCoverage || 1) * 100)}%</Badge>
+                </div>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
                   {capabilities.understandingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.understandingAI.score}%`, height: '100%', backgroundColor: '#059669', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.understandingAI}
                 </p>
+                {capabilities.understandingAI.demonstratedStrengths && capabilities.understandingAI.demonstratedStrengths.length > 0 && (
+                  <div style={{ fontSize: '11px', color: '#15803d', marginTop: '6px' }}>
+                    <strong>Strengths:</strong>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                      {capabilities.understandingAI.demonstratedStrengths.slice(0, 2).map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
+              {/* 3. SOLVING WITH AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #d97706' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>Solving with AI</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>SOLVING WITH AI</span>
+                  <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.solvingWithAI.evidenceCoverage || 1) * 100)}%</Badge>
+                </div>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
                   {capabilities.solvingWithAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.solvingWithAI.score}%`, height: '100%', backgroundColor: '#d97706', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.solvingWithAI}
                 </p>
+                {capabilities.solvingWithAI.identifiedGaps && capabilities.solvingWithAI.identifiedGaps.length > 0 && (
+                  <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>
+                    <strong>Gaps / Growth Areas:</strong>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                      {capabilities.solvingWithAI.identifiedGaps.slice(0, 2).map((g, i) => <li key={i}>{g}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
+              {/* 4. CHECKING AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #9333ea' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#9333ea', textTransform: 'uppercase' }}>Checking AI</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#9333ea', textTransform: 'uppercase' }}>CHECKING AI</span>
+                  <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.checkingAI.evidenceCoverage || 1) * 100)}%</Badge>
+                </div>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
                   {capabilities.checkingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.checkingAI.score}%`, height: '100%', backgroundColor: '#9333ea', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.checkingAI}
                 </p>
+                {capabilities.checkingAI.demonstratedStrengths && capabilities.checkingAI.demonstratedStrengths.length > 0 && (
+                  <div style={{ fontSize: '11px', color: '#15803d', marginTop: '6px' }}>
+                    <strong>Strengths:</strong>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                      {capabilities.checkingAI.demonstratedStrengths.slice(0, 2).map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
+              {/* 5. ADAPTING TO AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #0284c7' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>Adapting to AI</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>ADAPTING TO AI</span>
+                  <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.adaptingToAI.evidenceCoverage || 1) * 100)}%</Badge>
+                </div>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: '#0284c7', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
                   {capabilities.adaptingToAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
                 </div>
                 <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.adaptingToAI.score}%`, height: '100%', backgroundColor: '#0284c7', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.adaptingToAI}
                 </p>
+                {capabilities.adaptingToAI.demonstratedStrengths && capabilities.adaptingToAI.demonstratedStrengths.length > 0 && (
+                  <div style={{ fontSize: '11px', color: '#15803d', marginTop: '6px' }}>
+                    <strong>Strengths:</strong>
+                    <ul style={{ margin: '2px 0 0 14px', padding: 0 }}>
+                      {capabilities.adaptingToAI.demonstratedStrengths.slice(0, 2).map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
               </Surface>
 
-            </div>
-          </Surface>
-
-          {/* VISUAL RADAR FOOTPRINT & BENCHMARK SUMMARY */}
-          <Surface variant="bordered" radius="lg" padding="lg">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', alignItems: 'center' }}>
-              <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
-                  Visual AI Footprint
-                </h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 16px', lineHeight: 1.5 }}>
-                  This radar graph maps your 5 capability dimension scores against baseline peer benchmarks.
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Your Overall Score</span>
-                    <span style={{ fontSize: '16px', fontWeight: 900, color: '#4f46e5', fontFamily: "'Fredoka', sans-serif" }}>{overallScore} / 100</span>
-                  </div>
-                  <div style={{ padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>Peer Benchmark Average</span>
-                    <span style={{ fontSize: '16px', fontWeight: 900, color: '#7c3aed', fontFamily: "'Fredoka', sans-serif" }}>{peerOverallAverage} / 100</span>
-                  </div>
-                  <div style={{ padding: '10px 14px', backgroundColor: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#166534' }}>Variance vs Peer Baseline</span>
-                    <span style={{ fontSize: '14px', fontWeight: 800, color: '#15803d' }}>+{overallScore - peerOverallAverage} Points (+{Math.round(((overallScore - peerOverallAverage) / peerOverallAverage) * 100)}%)</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                <RadarChart scores={radarScores} size={280} />
-              </div>
             </div>
           </Surface>
 
@@ -392,11 +429,11 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               </h3>
 
               <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#166534', lineHeight: 1.5 }}>
-                Your highest actual capability score demonstrated across your assessment evidence.
+                Your highest actual capability score supported by verified diagnostic evidence.
               </p>
 
               <div style={{ padding: '10px 12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '12px', color: '#064e3b' }}>
-                <strong>Verified Evidence: </strong> High accuracy and reasoning across relevant diagnostic questions.
+                <strong>Verified Evidence: </strong> Strong accuracy and reasoning across contributing questions.
               </div>
             </Surface>
 
@@ -428,8 +465,6 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             </Surface>
           </div>
 
-
-
           {/* SECTION 3: CURRENT FOCUS & TOOLKIT COVERAGE */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <Surface variant="bordered" radius="lg" padding="lg">
@@ -454,23 +489,23 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 {userToolsCount} Tools in Wallet
               </p>
               <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
-                Your current toolkit has initial coverage. Explore AI Wallet to discover workflow automation tools.
+                Explore AI Wallet to discover workflow automation tools mapped to your growth areas.
               </p>
             </Surface>
           </div>
 
-          {/* SECTION 4: YOUR NEXT OPPORTUNITY (DIRECT AI WALLET LINK) */}
+          {/* SECTION 4: YOUR NEXT OPPORTUNITY */}
           <Surface variant="highlight" radius="lg" padding="lg" style={{ border: '2px solid #6366f1' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <div>
                 <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  YOUR NEXT OPPORTUNITY
+                  YOUR RECOMMENDED ACTION
                 </span>
                 <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '4px 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
                   Connect {growthArea} to your AI Toolkit
                 </h2>
                 <p style={{ fontSize: '13px', color: '#475569', margin: 0, maxWidth: '650px', lineHeight: 1.5 }}>
-                  Your assessment indicates an opportunity in {growthArea}. Discover and evaluate tools in AI Wallet specifically suited for automation and workflow design.
+                  Your assessment indicates a key opportunity in {growthArea}. Discover and evaluate tools in AI Wallet specifically suited for workflow automation.
                 </p>
               </div>
 
@@ -487,7 +522,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
 
           {/* MENTOR GUIDANCE OBSERVATION */}
           <MentorMessage
-            message={`"Your baseline score of ${overallScore}/100 indicates strong critical evaluation skills. By connecting your growth opportunity in ${growthArea} (score ${scores.workflowDesign}/100) with evaluated tools in AI Wallet, you can accelerate your workflow output safely."`}
+            message={`"Your overall score of ${overallScore}/100 is supported by evidence in ${topCapability} (score ${capabilities[strongestSkill.key].score}/100). Focus your next learning steps on ${growthArea} (score ${capabilities[roomToGrow.key].score}/100) using evaluated tools in AI Wallet."`}
           />
 
         </div>
@@ -495,376 +530,160 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
 
       {activeSubTab === 'compare' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* COMPARISON OVERVIEW HEADER */}
-          <Surface variant="bordered" radius="lg" padding="lg">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
-                  Peer Benchmark Comparison
-                </h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                  Comparing your profile dimension scores with baseline product & engineering peers.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ padding: '10px 16px', backgroundColor: '#e0e7ff', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: '#3730a3', textTransform: 'uppercase' }}>Your Score</div>
-                  <div style={{ fontSize: '24px', fontWeight: 900, color: '#4f46e5', fontFamily: "'Fredoka', sans-serif" }}>{overallScore} / 100</div>
-                </div>
-
-                <div style={{ padding: '10px 16px', backgroundColor: '#f3e8ff', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase' }}>Peer Average</div>
-                  <div style={{ fontSize: '24px', fontWeight: 900, color: '#7c3aed', fontFamily: "'Fredoka', sans-serif" }}>{peerOverallAverage} / 100</div>
-                </div>
-              </div>
-            </div>
-          </Surface>
-
-          {/* VISUAL RADAR & DETAILED DIMENSION SCORE COMPARISON */}
-          <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
-            
-            {/* RADAR CHART DISPLAY */}
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', textAlign: 'center', fontFamily: "'Fredoka', sans-serif" }}>
-                Score Overlay vs Peers
+          {!peerData.available ? (
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: '#f8fafc' }}>
+              <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+                Peer Benchmarks Not Available Yet
               </h3>
-              <RadarChart scores={radarScores} size={280} />
+              <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+                {peerData.message || 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
+              </p>
+              <Badge variant="warning">
+                Completed Assessments: {peerData.totalComparableRecords} / {peerData.minRequiredRecords} required
+              </Badge>
             </Surface>
-
-            {/* DIMENSION SCORE COMPARISON LIST */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-
-              {/* USING AI */}
-              <Surface variant="bordered" radius="md" padding="md">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
-                    Using AI
+          ) : (
+            <>
+              {/* COMPARISON OVERVIEW HEADER */}
+              <Surface variant="bordered" radius="lg" padding="lg">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+                      Peer Benchmark Comparison
+                    </h2>
+                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                      Comparing your profile dimension scores with actual completed peer assessments ({peerData.totalComparableRecords} records).
+                    </p>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>You: {capabilities.usingAI.score}/100</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {peerBenchmarks.usingAI}/100</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800 }}>
-                      +{capabilities.usingAI.score - peerBenchmarks.usingAI} pts
-                    </span>
-                  </div>
-                </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', width: '70px' }}>Your Score</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${capabilities.usingAI.score}%`, height: '100%', backgroundColor: '#4f46e5', borderRadius: '4px' }}></div>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ padding: '10px 16px', backgroundColor: '#e0e7ff', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 800, color: '#3730a3', textTransform: 'uppercase' }}>Your Score</div>
+                      <div style={{ fontSize: '24px', fontWeight: 900, color: '#4f46e5', fontFamily: "'Fredoka', sans-serif" }}>{overallScore} / 100</div>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${peerBenchmarks.usingAI}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
+
+                    <div style={{ padding: '10px 16px', backgroundColor: '#f3e8ff', borderRadius: '12px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase' }}>Peer Average</div>
+                      <div style={{ fontSize: '24px', fontWeight: 900, color: '#7c3aed', fontFamily: "'Fredoka', sans-serif" }}>{peerData.peerOverallAverage} / 100</div>
                     </div>
                   </div>
                 </div>
               </Surface>
 
-              {/* UNDERSTANDING AI */}
-              <Surface variant="bordered" radius="md" padding="md">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
-                    Understanding AI
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#059669' }}>You: {capabilities.understandingAI.score}/100</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {peerBenchmarks.understandingAI}/100</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800 }}>
-                      +{capabilities.understandingAI.score - peerBenchmarks.understandingAI} pts
-                    </span>
-                  </div>
+              {/* VISUAL RADAR & DETAILED DIMENSION SCORE COMPARISON */}
+              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+                <Surface variant="bordered" radius="lg" padding="lg" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', textAlign: 'center', fontFamily: "'Fredoka', sans-serif" }}>
+                    Score Overlay vs Peers
+                  </h3>
+                  <RadarChart scores={radarScores} size={280} />
+                </Surface>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {(['usingAI', 'understandingAI', 'solvingWithAI', 'checkingAI', 'adaptingToAI'] as CapabilityKey[]).map((key) => {
+                    const uScore = capabilities[key].score;
+                    const pScore = activePeerBenchmarks[key] || 0;
+                    const diff = uScore - pScore;
+                    return (
+                      <Surface key={key} variant="bordered" radius="md" padding="md">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
+                            {capabilities[key].capabilityName}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>You: {uScore}/100</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {pScore}/100</span>
+                            <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: diff >= 0 ? '#dcfce7' : '#fef3c7', color: diff >= 0 ? '#15803d' : '#b45309', fontSize: '11px', fontWeight: 800 }}>
+                              {diff >= 0 ? `+${diff}` : diff} pts
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', width: '70px' }}>Your Score</span>
+                            <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${uScore}%`, height: '100%', backgroundColor: '#4f46e5', borderRadius: '4px' }}></div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
+                            <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${pScore}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </Surface>
+                    );
+                  })}
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', width: '70px' }}>Your Score</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${capabilities.understandingAI.score}%`, height: '100%', backgroundColor: '#059669', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${peerBenchmarks.understandingAI}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </Surface>
-
-              {/* SOLVING WITH AI */}
-              <Surface variant="bordered" radius="md" padding="md">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
-                    Solving with AI
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#d97706' }}>You: {capabilities.solvingWithAI.score}/100</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {peerBenchmarks.solvingWithAI}/100</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800 }}>
-                      +{capabilities.solvingWithAI.score - peerBenchmarks.solvingWithAI} pts
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', width: '70px' }}>Your Score</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${capabilities.solvingWithAI.score}%`, height: '100%', backgroundColor: '#d97706', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${peerBenchmarks.solvingWithAI}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </Surface>
-
-              {/* CHECKING AI */}
-              <Surface variant="bordered" radius="md" padding="md">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
-                    Checking AI
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#9333ea' }}>You: {capabilities.checkingAI.score}/100</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {peerBenchmarks.checkingAI}/100</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800 }}>
-                      +{capabilities.checkingAI.score - peerBenchmarks.checkingAI} pts
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#9333ea', width: '70px' }}>Your Score</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${capabilities.checkingAI.score}%`, height: '100%', backgroundColor: '#9333ea', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${peerBenchmarks.checkingAI}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </Surface>
-
-              {/* ADAPTING TO AI */}
-              <Surface variant="bordered" radius="md" padding="md">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
-                    Adapting to AI
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#0284c7' }}>You: {capabilities.adaptingToAI.score}/100</span>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {peerBenchmarks.adaptingToAI}/100</span>
-                    <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: '#dcfce7', color: '#15803d', fontSize: '11px', fontWeight: 800 }}>
-                      +{capabilities.adaptingToAI.score - peerBenchmarks.adaptingToAI} pts
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7', width: '70px' }}>Your Score</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${capabilities.adaptingToAI.score}%`, height: '100%', backgroundColor: '#0284c7', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                    <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div style={{ width: `${peerBenchmarks.adaptingToAI}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </Surface>
-
-            </div>
-
-          </div>
-
-          {/* QUALITATIVE PEER BENCHMARK SUMMARY CARDS */}
-          <Surface variant="bordered" radius="lg" padding="lg">
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', fontFamily: "'Fredoka', sans-serif" }}>
-              Key Peer Comparison Insights
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#4f46e5' }}>Checking AI ({capabilities.checkingAI.score}/100 vs Peer Avg {peerBenchmarks.checkingAI}/100): </strong>
-                Your responses place you in the upper tier ({capabilities.checkingAI.score - peerBenchmarks.checkingAI > 0 ? `+${capabilities.checkingAI.score - peerBenchmarks.checkingAI}` : capabilities.checkingAI.score - peerBenchmarks.checkingAI} points) for output verification compared to baseline peers.
               </div>
-
-              <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                <strong style={{ color: '#0284c7' }}>Solving with AI ({capabilities.solvingWithAI.score}/100 vs Peer Avg {peerBenchmarks.solvingWithAI}/100): </strong>
-                Your profile indicates your performance ({capabilities.solvingWithAI.score - peerBenchmarks.solvingWithAI > 0 ? `+${capabilities.solvingWithAI.score - peerBenchmarks.solvingWithAI}` : capabilities.solvingWithAI.score - peerBenchmarks.solvingWithAI} points vs average) in multi-step AI workflow design.
-              </div>
-            </div>
-          </Surface>
-
+            </>
+          )}
         </div>
       )}
 
       {activeSubTab === 'overall' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* COHORT HEADER METRICS */}
-          <Surface variant="bordered" radius="lg" padding="lg">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-              <div>
-                <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
-                  Cohort Capability Overview
-                </h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                  Aggregated, privacy-scoped statistics across all AIIMS diagnostic assessments ({cohortStats.totalParticipants} participants).
-                </p>
-              </div>
-
-              <Badge variant="cyan" icon={<Globe size={12} />}>
-                Active Cohort Sample: {cohortStats.totalParticipants}
+          {!peerData.available ? (
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: '#f8fafc' }}>
+              <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+                Cohort Overview Not Available Yet
+              </h3>
+              <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+                {peerData.message || 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
+              </p>
+              <Badge variant="warning">
+                Completed Assessments: {peerData.totalComparableRecords} / {peerData.minRequiredRecords} required
               </Badge>
-            </div>
-
-            {/* STAT KPI CARDS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-              
-              <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Cohort Average Score
+            </Surface>
+          ) : (
+            <Surface variant="bordered" radius="lg" padding="lg">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+                    Cohort Capability Overview
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                    Aggregated statistics across {peerData.totalComparableRecords} completed assessments.
+                  </p>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 900, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
-                  {cohortStats.cohortAverage} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 700, marginTop: '4px' }}>
-                  Your Score: {overallScore} / 100 (+{overallScore - cohortStats.cohortAverage})
-                </div>
+                <Badge variant="cyan" icon={<Globe size={12} />}>
+                  Cohort Sample: {peerData.totalComparableRecords}
+                </Badge>
               </div>
 
-              <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Your Cohort Percentile
-                </div>
-                <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d', fontFamily: "'Fredoka', sans-serif" }}>
-                  {cohortStats.userPercentile}th <span style={{ fontSize: '14px', color: '#166534' }}>Percentile</span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#15803d', fontWeight: 700, marginTop: '4px' }}>
-                  Top 32% across all assessment takers
-                </div>
-              </div>
-
-              <div style={{ padding: '16px', backgroundColor: '#f5f3ff', borderRadius: '12px', border: '1px solid #ddd6fe', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#6d28d9', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Top Cohort Strength
-                </div>
-                <div style={{ fontSize: '18px', fontWeight: 900, color: '#5b21b6', fontFamily: "'Fredoka', sans-serif", margin: '6px 0' }}>
-                  Evaluation Scrutiny
-                </div>
-                <div style={{ fontSize: '12px', color: '#6d28d9', fontWeight: 700 }}>
-                  Cohort Average: 75/100
-                </div>
-              </div>
-
-              <div style={{ padding: '16px', backgroundColor: '#fffbeb', borderRadius: '12px', border: '1px solid #fde68a', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#92400e', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Common Cohort Gap
-                </div>
-                <div style={{ fontSize: '18px', fontWeight: 900, color: '#b45309', fontFamily: "'Fredoka', sans-serif", margin: '6px 0' }}>
-                  Workflow Design
-                </div>
-                <div style={{ fontSize: '12px', color: '#92400e', fontWeight: 700 }}>
-                  Cohort Opportunity Area
-                </div>
-              </div>
-
-            </div>
-          </Surface>
-
-          {/* DETAILED COHORT SCORE DISTRIBUTION BY DIMENSION */}
-          <Surface variant="bordered" radius="lg" padding="lg">
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
-              Cohort Score Distribution & Distribution Range
-            </h3>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px' }}>
-              Showing how your scores compare to the minimum, median cohort average, and maximum observed scores across {cohortStats.totalParticipants} assessments:
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {cohortStats.dimensions.map((dim, idx) => (
-                <div key={idx} style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontWeight: 800, fontSize: '15px', color: '#0f172a' }}>
-                      {dim.name}
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>
-                      Your Score: {dim.userScore}/100 <span style={{ color: '#64748b', fontWeight: 500 }}>({dim.percentile}th Percentile)</span>
-                    </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Cohort Average Score
                   </div>
-
-                  {/* VISUAL DISTRIBUTION BAR */}
-                  <div style={{ position: 'relative', margin: '14px 0 8px', height: '12px', backgroundColor: '#e2e8f0', borderRadius: '6px' }}>
-                    {/* Cohort range fill */}
-                    <div style={{
-                      position: 'absolute',
-                      left: `${dim.min}%`,
-                      width: `${dim.max - dim.min}%`,
-                      height: '100%',
-                      backgroundColor: '#cbd5e1',
-                      borderRadius: '6px'
-                    }}></div>
-
-                    {/* Peer average marker */}
-                    <div style={{
-                      position: 'absolute',
-                      left: `${dim.peerAvg}%`,
-                      top: '-4px',
-                      width: '3px',
-                      height: '20px',
-                      backgroundColor: '#7c3aed',
-                      borderRadius: '2px',
-                      zIndex: 2
-                    }} title={`Cohort Average: ${dim.peerAvg}`}></div>
-
-                    {/* User score pin */}
-                    <div style={{
-                      position: 'absolute',
-                      left: `${dim.userScore}%`,
-                      top: '-6px',
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      backgroundColor: '#4f46e5',
-                      border: '3px solid #ffffff',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                      transform: 'translateX(-50%)',
-                      zIndex: 3
-                    }} title={`Your Score: ${dim.userScore}`}></div>
+                  <div style={{ fontSize: '28px', fontWeight: 900, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                    {peerData.peerOverallAverage} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
                   </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', fontWeight: 600, marginTop: '6px' }}>
-                    <span>Cohort Min: {dim.min}</span>
-                    <span style={{ color: '#7c3aed', fontWeight: 800 }}>Cohort Avg: {dim.peerAvg}/100</span>
-                    <span>Cohort High: {dim.max}</span>
+                  <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 700, marginTop: '4px' }}>
+                    Your Score: {overallScore} / 100 ({overallScore - (peerData.peerOverallAverage || 0) >= 0 ? `+${overallScore - (peerData.peerOverallAverage || 0)}` : overallScore - (peerData.peerOverallAverage || 0)})
                   </div>
                 </div>
-              ))}
-            </div>
-          </Surface>
 
+                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Your Cohort Percentile
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d', fontFamily: "'Fredoka', sans-serif" }}>
+                    {peerData.userPercentile}th <span style={{ fontSize: '14px', color: '#166534' }}>Percentile</span>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#15803d', fontWeight: 700, marginTop: '4px' }}>
+                    Calculated from actual comparison distribution
+                  </div>
+                </div>
+              </div>
+            </Surface>
+          )}
         </div>
       )}
 
     </div>
   );
 };
-
