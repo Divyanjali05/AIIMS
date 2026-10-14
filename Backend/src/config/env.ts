@@ -11,6 +11,8 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET || 'aiims-secret-key-2026',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || 'mock-claude-key',
   claudeModel: 'claude-3-5-sonnet-20241022',
+  geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
   mongodbUri: process.env.MONGODB_URI || ''
 };
 

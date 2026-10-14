@@ -161,6 +161,5 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
 StudentProfileSchema.index({ stream: 1, educationLevel: 1 });
 StudentProfileSchema.index({ instituteId: 1, stream: 1 });
 StudentProfileSchema.index({ programId: 1, specializationId: 1, stream: 1 });
-StudentProfileSchema.index({ cohortId: 1 });
 
 export const StudentProfile = mongoose.model<IStudentProfile>('StudentProfile', StudentProfileSchema);

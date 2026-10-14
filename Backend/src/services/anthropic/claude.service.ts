@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../../config/env';
 
 export interface OpenEndedEvaluationResult {
@@ -13,10 +14,15 @@ export interface OpenEndedEvaluationResult {
 
 export class ClaudeService {
   private client: Anthropic | null = null;
+  private geminiClient: GoogleGenerativeAI | null = null;
 
   constructor() {
     if (config.anthropicApiKey && config.anthropicApiKey !== 'mock-claude-key') {
       this.client = new Anthropic({ apiKey: config.anthropicApiKey });
+    }
+    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || config.geminiApiKey;
+    if (geminiKey && !geminiKey.startsWith('mock-') && geminiKey.length > 10) {
+      this.geminiClient = new GoogleGenerativeAI(geminiKey);
     }
   }
 
@@ -36,7 +42,7 @@ export class ClaudeService {
     rubric: string,
     learnerAnswer: string
   ): Promise<OpenEndedEvaluationResult | null> {
-    if (!this.client) {
+    if (!this.client && !this.geminiClient) {
       return null; // Return null so caller relies on deterministic rubric fallback without fake scores
     }
 
@@ -83,14 +89,28 @@ Return ONLY a valid JSON object matching this schema:
 }`;
 
     try {
-      const res = await this.client.messages.create({
-        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
-        max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }]
-      });
+      let contentText = '';
+      if (this.client) {
+        const res = await this.client.messages.create({
+          model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        contentText = res.content[0].type === 'text' ? res.content[0].text : '';
+      } else if (this.geminiClient) {
+        contentText = await this.generateWithGemini(prompt, 800, 0.1);
+      }
 
-      const contentText = res.content[0].type === 'text' ? res.content[0].text : '';
-      const parsed = JSON.parse(contentText);
+      let parsed: any = {};
+      try {
+        let cleaned = contentText.trim();
+        if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
+      } catch (e) {
+        console.warn('[ClaudeService] Response JSON parsing warning:', e);
+      }
 
       return {
         score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, Math.round(parsed.score))) : 0,
@@ -102,14 +122,14 @@ Return ONLY a valid JSON object matching this schema:
         status: 'evaluated'
       };
     } catch (err) {
-      console.error('Claude API open-ended evaluation failed:', err);
-      return null; // Return null so fallback is triggered with anthropicStatus: 'unavailable'
+      console.error('AI open-ended evaluation failed:', err);
+      return null;
     }
   }
 
   // AI Relevance Engine ("Why does this matter to me?")
   async generateRelevanceReport(learnerRole: string, goal: string, gapSummary: string, signalTitle: string, signalSummary: string) {
-    if (!this.client) {
+    if (!this.client && !this.geminiClient) {
       return {
         relevanceScore: 85,
         whyItMatters: `As a ${learnerRole} working towards "${goal}", ${signalTitle} alters how you handle workflow automation and technical tools.`,
@@ -131,14 +151,25 @@ Return a JSON object with:
 }`;
 
     try {
-      const res = await this.client.messages.create({
-        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
-        max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }]
-      });
+      let text = '';
+      if (this.client) {
+        const res = await this.client.messages.create({
+          model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        text = res.content[0].type === 'text' ? res.content[0].text : '';
+      } else if (this.geminiClient) {
+        text = await this.generateWithGemini(prompt, 800, 0.2);
+      }
 
-      const text = res.content[0].type === 'text' ? res.content[0].text : '';
-      return JSON.parse(text);
+      let parsed: any;
+      let cleaned = text.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
+      return parsed;
     } catch {
       return {
         relevanceScore: 75,
@@ -150,7 +181,7 @@ Return a JSON object with:
 
   // Radar Signal 4-part Scaffolding
   async scaffoldRadarSignal(title: string, rawDescription: string) {
-    if (!this.client) {
+    if (!this.client && !this.geminiClient) {
       return {
         yesterday: 'Manual script writing and static step execution.',
         today: 'Dynamic reasoning and automated multi-step resolution.',
@@ -172,14 +203,25 @@ Return JSON with:
 }`;
 
     try {
-      const res = await this.client.messages.create({
-        model: config.claudeModel || 'claude-3-5-sonnet-20240620',
-        max_tokens: 800,
-        messages: [{ role: 'user', content: prompt }]
-      });
+      let text = '';
+      if (this.client) {
+        const res = await this.client.messages.create({
+          model: config.claudeModel || 'claude-3-5-sonnet-20240620',
+          max_tokens: 800,
+          messages: [{ role: 'user', content: prompt }]
+        });
+        text = res.content[0].type === 'text' ? res.content[0].text : '';
+      } else if (this.geminiClient) {
+        text = await this.generateWithGemini(prompt, 800, 0.2);
+      }
 
-      const text = res.content[0].type === 'text' ? res.content[0].text : '';
-      return JSON.parse(text);
+      let parsed: any;
+      let cleaned = text.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
+      return parsed;
     } catch {
       return {
         yesterday: 'Legacy approach',
@@ -188,5 +230,35 @@ Return JSON with:
         whosAffected: 'Target roles'
       };
     }
+  }
+
+  private async generateWithGemini(prompt: string, maxTokens: number = 800, temperature: number = 0.1): Promise<string> {
+    if (!this.geminiClient) throw new Error('Gemini client not configured');
+    const candidateModels = Array.from(new Set([
+      config.geminiModel || 'gemini-3.5-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-flash-latest',
+      'gemini-3.8-flash'
+    ]));
+
+    let lastErr: any = null;
+    for (const m of candidateModels) {
+      try {
+        const genModel = this.geminiClient.getGenerativeModel({
+          model: m,
+          generationConfig: {
+            temperature,
+            maxOutputTokens: maxTokens,
+            responseMimeType: 'application/json'
+          }
+        });
+        const res = await genModel.generateContent(prompt);
+        return res.response.text();
+      } catch (err: any) {
+        lastErr = err;
+      }
+    }
+    throw lastErr;
   }
 }
