@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle, LogOut } from 'lucide-react';
+import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle, LogOut, Lock } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Badge } from './Badge';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
@@ -78,10 +78,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     { title: 'AI Wallet', desc: 'Personalized AI toolkit & recommendations', tab: 'wallet' },
     { title: 'Take Baseline Assessment', desc: '25-question multidimensional diagnostic', tab: 'assessment' },
     { title: 'View AI Profile Analysis', desc: 'Individual, comparison, & cohort insights', tab: 'analysis' },
-    { title: 'Explore AI Radar', desc: 'Emerging tech shifts & model releases', tab: 'radar' },
+    { title: 'Explore AI Radar (Locked)', desc: 'Emerging tech shifts & model releases', tab: 'radar' },
     { title: 'Ainova Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
     { title: 'Select Focus Track', desc: 'Prioritize skill development tracks', tab: 'focus' },
     { title: 'My AI Journey', desc: 'Development timeline & milestone history', tab: 'journey' },
+    { title: 'Problem Solver (Locked)', desc: 'Derive workflows for real tasks', tab: 'solver' },
+    { title: 'Projects Workspace (Locked)', desc: 'Build production project templates', tab: 'build' },
+    { title: 'Mentor Workspace (Locked)', desc: 'Adaptive AI mentorship and guidance', tab: 'mentor' },
   ];
 
   const filteredSearchResults = searchQuery.trim()
@@ -120,12 +123,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
         {/* Top Primary Navigation Links with Semantic Active Colors */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {[
-            { id: 'home', label: 'Home', activeBg: '#eef2ff', activeColor: '#4338ca' },
-            { id: 'journey', label: 'My Journey', activeBg: '#f3e8ff', activeColor: '#6b21a8' },
-            { id: 'discover', label: 'Discover', activeBg: '#e0f2fe', activeColor: '#0369a1' },
-            { id: 'clarity', label: 'Develop', activeBg: '#ecfdf5', activeColor: '#047857' },
-            { id: 'radar', label: 'AI Change', activeBg: '#ecfeff', activeColor: '#155e75' },
-            { id: 'mentor', label: 'Mentor', activeBg: '#f3e8ff', activeColor: '#6b21a8' }
+            { id: 'home', label: 'Home', activeBg: '#eef2ff', activeColor: '#4338ca', locked: false },
+            { id: 'journey', label: 'My Journey', activeBg: '#f3e8ff', activeColor: '#6b21a8', locked: false },
+            { id: 'discover', label: 'Discover', activeBg: '#e0f2fe', activeColor: '#0369a1', locked: false },
+            { id: 'clarity', label: 'Develop', activeBg: '#ecfdf5', activeColor: '#047857', locked: false },
+            { id: 'radar', label: 'AI Change', activeBg: '#ecfeff', activeColor: '#155e75', locked: true },
+            { id: 'mentor', label: 'Mentor', activeBg: '#f3e8ff', activeColor: '#6b21a8', locked: true }
           ].map((tab) => {
             const isActive = activeTab === tab.id || (tab.id === 'clarity' && (activeTab === 'clarity' || activeTab === 'focus')) || (tab.id === 'radar' && (activeTab === 'radar' || activeTab === 'investigation' || activeTab === 'relevance'));
             return (
@@ -134,18 +137,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                 onClick={() => setActiveTab(tab.id)}
                 style={{
                   backgroundColor: isActive ? tab.activeBg : 'transparent',
-                  color: isActive ? tab.activeColor : '#475569',
+                  color: isActive ? tab.activeColor : tab.locked ? '#94a3b8' : '#475569',
                   border: 'none',
                   borderRadius: '10px',
-                  padding: '7px 15px',
+                  padding: '7px 14px',
                   fontSize: '13px',
                   fontWeight: isActive ? 800 : 600,
                   fontFamily: "'Nunito', sans-serif",
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
                 }}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                {tab.locked && <Lock size={11} color={isActive ? tab.activeColor : '#94a3b8'} />}
               </button>
             );
           })}

@@ -47,6 +47,8 @@ import {
 import { apiClient } from '../../api/client';
 import { generateWalletRecommendations } from '../../services/recommendationEngine';
 import { trackLearningLoopEvent } from '../../services/learningLoop';
+import { getAssessmentToolInsights } from '../../services/assessmentToolMatcher';
+import { AssessmentPromptSuggestions } from './AssessmentPromptSuggestions';
 
 interface AIWalletScreenProps {
   setActiveTab: (tab: string) => void;
@@ -56,6 +58,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
   const {
     state,
     addToolToWallet,
+    addMultipleToolsToWallet,
     removeToolFromWallet,
     updateToolFamiliarity,
     dismissRecommendation
@@ -163,6 +166,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
   const userTools = state.aiWallet?.userTools || [];
   const recommendations: ToolRecommendation[] = generateWalletRecommendations(state, catalog);
+  const assessmentInsights = getAssessmentToolInsights(state, catalog);
+
+  // Auto-provision AI tools based on assessment prompts if wallet is currently empty
+  useEffect(() => {
+    if (
+      !loading &&
+      catalog.length > 0 &&
+      userTools.length === 0 &&
+      assessmentInsights.hasAssessmentData &&
+      assessmentInsights.autoAddTools.length > 0
+    ) {
+      addMultipleToolsToWallet(assessmentInsights.autoAddTools);
+    }
+  }, [loading, catalog.length, userTools.length, assessmentInsights, addMultipleToolsToWallet]);
 
   const categories: TaskCategory[] = [
     'Reasoning & Writing',
@@ -690,6 +707,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             </Surface>
           )}
 
+          {/* ASSESSMENT PROMPT SUGGESTIONS IN DISCOVER */}
+          {assessmentInsights.hasAssessmentData && (
+            <AssessmentPromptSuggestions
+              insights={assessmentInsights}
+              userTools={userTools}
+              onAddTool={addToolToWallet}
+              onAddAllTools={addMultipleToolsToWallet}
+              onOpenToolDetail={(toolId) => {
+                const found = catalog.find(t => t.id === toolId);
+                if (found) handleOpenToolDetail(found, 'Suggested based on your assessment prompts');
+              }}
+            />
+          )}
+
           {/* MULTI-DOMAIN CATEGORY EXPLORER */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -801,6 +832,21 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
       {/* ========================================================================= */}
       {activeSection === 'wallet' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* ASSESSMENT PROMPT SUGGESTIONS & AUTO-ADD PANEL */}
+          {assessmentInsights.hasAssessmentData && (
+            <AssessmentPromptSuggestions
+              insights={assessmentInsights}
+              userTools={userTools}
+              onAddTool={addToolToWallet}
+              onAddAllTools={addMultipleToolsToWallet}
+              onOpenToolDetail={(toolId) => {
+                const found = catalog.find(t => t.id === toolId);
+                if (found) handleOpenToolDetail(found, 'Suggested based on your assessment prompts');
+              }}
+            />
+          )}
+
           <Surface variant="gradient-hero" radius="lg" padding="md">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <div>
@@ -812,9 +858,21 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 </p>
               </div>
 
-              <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setActiveSection('discover')}>
-                Discover & Add Tools
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                {assessmentInsights.autoAddTools.some(t => !userTools.some(u => u.toolId === t.toolId)) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Sparkles size={14} color="#6366f1" />}
+                    onClick={() => addMultipleToolsToWallet(assessmentInsights.autoAddTools)}
+                  >
+                    Sync Assessment Prompts
+                  </Button>
+                )}
+                <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setActiveSection('discover')}>
+                  Discover & Add Tools
+                </Button>
+              </div>
             </div>
           </Surface>
 
@@ -839,9 +897,24 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   <div>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
                       <div>
-                        <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                          {tool.name}
-                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                            {tool.name}
+                          </h3>
+                          {(tool.userNotes?.toLowerCase().includes('assessment') || tool.customTags?.some(t => t.includes('assessment'))) && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 800,
+                              color: '#6366f1',
+                              backgroundColor: '#eef2ff',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid #c7d2fe'
+                            }}>
+                              ✨ Assessment Prompt Match
+                            </span>
+                          )}
+                        </div>
                         <Badge variant="neutral" size="sm">
                           {tool.primaryCategory}
                         </Badge>

@@ -52,6 +52,7 @@ export interface IUser extends Document {
     selectedTopic: string | null;
     completedTopics: string[];
     reflections: Record<string, string>;
+    taskScores?: Record<string, any>;
   };
   focus: {
     status: string;
@@ -63,11 +64,23 @@ export interface IUser extends Document {
     status: string;
     investigatedSignalIds: string[];
     followedSignalIds: string[];
+    savedSignalIds?: string[];
+    dismissedSignalIds?: string[];
+    lastViewedRadar?: string | null;
+    radarProgress?: number;
   };
   investigation: {
     status: string;
     selectedSignalId: string | null;
     userNotes: Record<string, string>;
+  };
+  solver?: {
+    latestWorkflow: any;
+    history: any[];
+  };
+  build?: {
+    projects: any[];
+    activeProjectId: string | null;
   };
   transactions: ICreditTransaction[];
   notifications: Array<{
@@ -146,7 +159,8 @@ const UserSchema: Schema = new Schema({
     selectedAreas: { type: [String], default: [] },
     selectedTopic: { type: String, default: null },
     completedTopics: { type: [String], default: [] },
-    reflections: { type: Schema.Types.Mixed, default: {} }
+    reflections: { type: Schema.Types.Mixed, default: {} },
+    taskScores: { type: Schema.Types.Mixed, default: {} }
   },
   focus: {
     status: { type: String, default: 'locked' },
@@ -155,15 +169,21 @@ const UserSchema: Schema = new Schema({
     activatedAt: { type: String, default: null }
   },
   radar: {
-    status: { type: String, default: 'available' },
+    status: { type: String, default: 'locked' },
     investigatedSignalIds: { type: [String], default: [] },
-    followedSignalIds: { type: [String], default: [] }
+    followedSignalIds: { type: [String], default: [] },
+    savedSignalIds: { type: [String], default: [] },
+    dismissedSignalIds: { type: [String], default: [] },
+    lastViewedRadar: { type: String, default: null },
+    radarProgress: { type: Number, default: 0 }
   },
   investigation: {
     status: { type: String, default: 'locked' },
     selectedSignalId: { type: String, default: null },
     userNotes: { type: Schema.Types.Mixed, default: {} }
   },
+  solver: { type: Schema.Types.Mixed, default: { latestWorkflow: null, history: [] } },
+  build: { type: Schema.Types.Mixed, default: { projects: [], activeProjectId: null } },
   transactions: { type: [CreditTransactionSchema], default: [] },
   notifications: {
     type: [
@@ -205,7 +225,7 @@ const UserSchema: Schema = new Schema({
     dismissedRecommendations: { type: [String], default: [] }
   },
   createdAt: { type: Date, default: Date.now }
-});
+}, { versionKey: false });
 
 // Pre-save hook: Hash password with bcrypt before saving
 UserSchema.pre<IUser>('save', async function () {

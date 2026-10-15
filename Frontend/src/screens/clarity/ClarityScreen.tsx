@@ -3,7 +3,9 @@ import { useLearner } from '../../context/LearnerContext';
 import {
   Sparkles,
   ArrowRight,
+  ArrowUp,
   Lock,
+  Unlock,
   CheckCircle2,
   Brain,
   Compass,
@@ -11,17 +13,108 @@ import {
   HelpCircle,
   Lightbulb,
   Check,
-  BookOpen
+  BookOpen,
+  Edit3
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { PageHeader } from '../../components/common/PageHeader';
 import { MentorMessage } from '../../components/common/MentorMessage';
+import { Level2AITaskLab } from './Level2AITaskLab';
+import { apiClient } from '../../api/client';
 
 interface ClarityScreenProps {
   setActiveTab?: (tab: string) => void;
 }
+
+interface ReflectionTemplate {
+  question: string;
+  guidance: string;
+  placeholder: string;
+  chips: { label: string; text: string }[];
+}
+
+const getReflectionContent = (topicName: string): ReflectionTemplate => {
+  const isAgents = topicName.toLowerCase().includes('agent') || topicName.toLowerCase().includes('autonom');
+  const isCheckingAI = topicName.toLowerCase().includes('check') || topicName.toLowerCase().includes('eval');
+
+  if (isAgents) {
+    return {
+      question: 'Where could you delegate a multi-step objective to an autonomous AI agent, and what guardrails will you establish?',
+      guidance: 'Identify a recurring task requiring multi-file analysis, continuous research, or cross-tool workflows. Where will you place supervisory checkpoints before taking action?',
+      placeholder: 'e.g. In my weekly sprint cycle, I can delegate codebase documentation audits to an agent that scans changed files, identifies missing API schemas, and submits a PR draft for my review before merging...',
+      chips: [
+        {
+          label: '🤖 Repo Documentation Auditor',
+          text: 'In my engineering workflow, I can deploy an AI agent to scan pull requests for missing docstrings and API schema drifts, creating draft suggestions for my approval before merge.'
+        },
+        {
+          label: '🔎 Competitor Intelligence Scout',
+          text: 'In my weekly strategy syncs, I can delegate an agent to monitor release notes across 5 competitor sites, summarize product changes, and flag strategic opportunities in a single briefing.'
+        },
+        {
+          label: '⚡ Support Ticket Triager',
+          text: 'In customer operations, I can configure an agent to categorize incoming bug reports, reproduce steps from logs, and draft troubleshooting steps for the engineering lead to verify.'
+        },
+        {
+          label: '🛡️ Compliance Checklist Agent',
+          text: 'In security audits, I can set up an autonomous agent to evaluate repository config files against our security checklist, flagging missing environment variables for human verification.'
+        }
+      ]
+    };
+  }
+
+  if (isCheckingAI) {
+    return {
+      question: 'In which critical deliverables does an unverified AI hallucination carry the highest risk, and what is your personal verification protocol?',
+      guidance: 'Define the explicit verification checklist (e.g. source cross-referencing, unit test execution, boundary validation) you will use before AI-assisted work is shipped.',
+      placeholder: 'e.g. When using AI to draft client contract summaries and financial models, I will require citation tags linking directly to the source PDF and manually verify all numerical figures before distribution...',
+      chips: [
+        {
+          label: '📑 Financial & Metric Citation Check',
+          text: 'When preparing financial forecasts and executive summaries, I will enforce a verification rule where all numerical figures must cite direct source ledger lines before presenting to stakeholders.'
+        },
+        {
+          label: '🛡️ Code Pull Request Verification',
+          text: 'When generating database migrations or backend logic with AI, I will execute automated test suites and inspect boundary edge cases manually to prevent regression bugs.'
+        },
+        {
+          label: '✍️ Client Deliverable Fact-check',
+          text: 'For customer-facing documentation, I will cross-check all AI-generated technical steps against live staging environments to eliminate outdated instructions or hallucinations.'
+        },
+        {
+          label: '🧪 Unit Test & Edge Case Coverage',
+          text: 'When AI generates unit tests, I will test for false-positive assertions and inject deliberate failure inputs to verify that the tests genuinely fail when expected.'
+        }
+      ]
+    };
+  }
+
+  return {
+    question: 'Where could structured, repeatable AI workflows replace ad-hoc prompts in your day-to-day work?',
+    guidance: 'Think about a recurring process you handle weekly (sprint reports, spec documents, data summaries). How will you standardize inputs, prompts, and quality checks?',
+    placeholder: 'e.g. In my weekly status reporting, I will establish a template where raw commit logs and ticket status are fed into an AI prompt with a strict 3-section markdown schema, cutting prep time from 45 mins to 5 mins...',
+    chips: [
+      {
+        label: '📋 Sprint Review & Metric Digest',
+        text: 'In our weekly sprint closure, I will turn our ad-hoc prompt into a standard pipeline: input commit logs and Jira tickets, apply a strict 3-bullet schema, and verify blockers before sharing.'
+      },
+      {
+        label: '🔍 PR Code Quality & Docs Review',
+        text: 'For daily code reviews, I will establish a repeatable prompt workflow that inspects diffs against our team style guide, highlights missing tests, and drafts inline review comments for my final check.'
+      },
+      {
+        label: '📊 User Interview Theme Synthesis',
+        text: 'For monthly user research, I will create a structured pipeline that parses interview transcripts into categorized pain points, quote citations, and priority ranking.'
+      },
+      {
+        label: '📑 Executive Client Briefing',
+        text: 'For client deliverables, I will configure a template that ingests raw project milestones, generates concise executive summaries, and leaves placeholders for key financial metrics I verify manually.'
+      }
+    ]
+  };
+};
 
 interface TopicContent {
   title: string;
@@ -230,13 +323,18 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [reflectionInput, setReflectionInput] = useState<string>('');
   const [reflectionSaved, setReflectionSaved] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isDraftingAI, setIsDraftingAI] = useState<boolean>(false);
+  const [reflectionNotice, setReflectionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (selectedTopic) {
       const storedRef = reflections[selectedTopic] || '';
       setReflectionInput(storedRef);
       setReflectionSaved(!!storedRef);
+      setIsEditing(!storedRef);
       setSelectedOptionId(null);
+      setReflectionNotice(null);
     }
   }, [selectedTopic, reflections]);
 
@@ -389,17 +487,66 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
 
   const topicData = TOPIC_DATABASE[selectedTopic] || getFallbackTopicContent(selectedTopic);
   const isTopicCompleted = completedTopics.includes(selectedTopic);
+  const reflectionTemplate = getReflectionContent(selectedTopic);
 
   const isConceptRead = true;
   const isExampleRead = true;
-  const isTryThisDone = selectedOptionId !== null || isTopicCompleted;
+  const hasCompletedAnyTask = Object.keys(state.clarity.taskScores?.[selectedTopic] || {}).length > 0;
+  const isTryThisDone = selectedOptionId !== null || hasCompletedAnyTask || isTopicCompleted;
   const isReflectDone = reflectionSaved || isTopicCompleted;
+
+  const handleChipClick = (text: string) => {
+    setReflectionInput(text);
+    setReflectionSaved(false);
+    setIsEditing(true);
+    setReflectionNotice('Filled from practical scenario template. Tweak details to match your workflow.');
+  };
+
+  const handleSuggestReflection = async () => {
+    setIsDraftingAI(true);
+    setReflectionNotice(null);
+    try {
+      const topicScores = state.clarity.taskScores?.[selectedTopic] || {};
+      const scoreValues = Object.values(topicScores);
+      const numericScores = scoreValues.map((v: any) => typeof v === 'number' ? v : (v?.score || 85));
+      const topScore = numericScores.length > 0 ? Math.max(...numericScores) : 85;
+
+      const res = await apiClient.suggestClarityReflection({
+        topic: selectedTopic,
+        taskTitle: `${topicData.title} Task`,
+        score: topScore
+      });
+
+      if (res && res.suggestion) {
+        setReflectionInput(res.suggestion);
+        setReflectionSaved(false);
+        setIsEditing(true);
+        setReflectionNotice('✨ Drafted by AI based on your Step 3 Lab performance! Personalize it before saving.');
+      } else {
+        const fallbackTemplate = reflectionTemplate.chips[0].text;
+        setReflectionInput(fallbackTemplate);
+        setReflectionSaved(false);
+        setIsEditing(true);
+        setReflectionNotice('Generated from recommended workflow template. Personalize it before saving.');
+      }
+    } catch {
+      const fallbackTemplate = reflectionTemplate.chips[0].text;
+      setReflectionInput(fallbackTemplate);
+      setReflectionSaved(false);
+      setIsEditing(true);
+      setReflectionNotice('Generated from recommended workflow template. Personalize it before saving.');
+    } finally {
+      setIsDraftingAI(false);
+    }
+  };
 
   const handleSaveReflection = () => {
     if (!reflectionInput.trim()) return;
     saveClarityReflection(selectedTopic, reflectionInput);
     setReflectionSaved(true);
+    setIsEditing(false);
     completeClarityTopic(selectedTopic);
+    setReflectionNotice(null);
   };
 
   const handleContinueToFocus = () => {
@@ -463,8 +610,22 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: isTryThisDone ? '#059669' : '#94a3b8' }}>
             <HelpCircle size={14} /> 3. Try It
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700, color: isReflectDone ? '#059669' : '#94a3b8' }}>
-            <MessageCircle size={14} /> 4. Reflect
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '12px',
+            fontWeight: 700,
+            color: isReflectDone ? '#059669' : (!isTryThisDone ? '#94a3b8' : '#047857')
+          }}>
+            {!isTryThisDone ? (
+              <Lock size={13} style={{ color: '#94a3b8' }} />
+            ) : isReflectDone ? (
+              <Check size={14} style={{ color: '#059669' }} />
+            ) : (
+              <MessageCircle size={14} style={{ color: '#047857' }} />
+            )}
+            4. Reflect {!isTryThisDone && '(Locked)'}
           </div>
         </div>
       </Surface>
@@ -522,139 +683,324 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
         </div>
       </Surface>
 
-      {/* 3. TRY THIS (TURQUOISE / SKY) */}
-      <Surface variant="sky" radius="lg" padding="lg">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <HelpCircle style={{ width: '18px', height: '18px', color: '#0284c7' }} />
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
-            3. Try This
-          </h2>
-        </div>
-
-        <p style={{ fontSize: '14px', fontWeight: 600, color: '#075985', lineHeight: 1.45, margin: '0 0 16px' }}>
-          {topicData.tryThis.question}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {topicData.tryThis.options.map((option) => {
-            const isSelected = selectedOptionId === option.id;
-
-            return (
-              <div
-                key={option.id}
-                onClick={() => setSelectedOptionId(option.id)}
-                style={{
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  border: isSelected
-                    ? (option.isRecommended ? '2px solid #059669' : '2px solid #0284c7')
-                    : '1px solid #bae6fd',
-                  backgroundColor: isSelected
-                    ? (option.isRecommended ? '#ecfdf5' : '#ffffff')
-                    : '#ffffff',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
-                    backgroundColor: isSelected ? (option.isRecommended ? '#059669' : '#0284c7') : '#e0f2fe',
-                    color: isSelected ? '#ffffff' : '#0369a1',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    flexShrink: 0
-                  }}>
-                    {option.id}
-                  </div>
-
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600, color: '#0f172a', lineHeight: 1.4 }}>
-                      {option.text}
-                    </p>
-
-                    {isSelected && (
-                      <div style={{
-                        marginTop: '8px',
-                        padding: '8px 12px',
-                        backgroundColor: '#ffffff',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        color: option.isRecommended ? '#047857' : '#334155',
-                        border: '1px solid rgba(0,0,0,0.05)',
-                        lineHeight: 1.4
-                      }}>
-                        <strong>{option.isRecommended ? 'Spot on: ' : 'Explanation: '}</strong>
-                        {option.explanation}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Surface>
-
-      {/* 4. REFLECT (DEEPER MINT) */}
-      <Surface variant="mint" radius="lg" padding="lg">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <MessageCircle style={{ width: '18px', height: '18px', color: '#059669' }} />
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
-            4. Personal Connection
-          </h2>
-        </div>
-
-        <p style={{ fontSize: '13px', color: '#064e3b', lineHeight: 1.45, margin: '0 0 12px' }}>
-          Where could this show up in your actual daily work or projects?
-        </p>
-
-        <textarea
-          rows={3}
-          value={reflectionInput}
-          onChange={(e) => {
-            setReflectionInput(e.target.value);
-            setReflectionSaved(false);
-          }}
-          placeholder="e.g. I can build a repeatable prompt template for summarizing weekly user interview notes..."
-          style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            borderRadius: '10px',
-            border: '1px solid #a7f3d0',
-            padding: '12px',
-            fontSize: '13px',
-            color: '#0f172a',
-            fontFamily: 'inherit',
-            outline: 'none',
-            marginBottom: '12px',
-            backgroundColor: '#ffffff'
+      {/* 3. TRY THIS: LEVEL 2 INTERACTIVE AI TASKS */}
+      <div id="step-3-try-this">
+        <Level2AITaskLab
+          topicName={selectedTopic}
+          legacyTryThis={topicData.tryThis}
+          onTaskCompleted={(diff, score) => {
+            setSelectedOptionId(diff);
           }}
         />
+      </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Button
-            variant={reflectionSaved ? 'secondary' : 'green'}
-            size="md"
-            icon={reflectionSaved ? <Check size={14} /> : <CheckCircle2 size={14} />}
-            disabled={!reflectionInput.trim()}
-            onClick={handleSaveReflection}
-          >
-            {reflectionSaved ? 'Reflection Saved' : 'Save Reflection'}
-          </Button>
+      {/* 4. REFLECT / PERSONAL CONNECTION */}
+      {!isTryThisDone ? (
+        <Surface
+          variant="mint"
+          radius="lg"
+          padding="lg"
+          style={{
+            border: '2px dashed #86efac',
+            backgroundColor: '#f8fafc',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '10px',
+                backgroundColor: '#fee2e2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#dc2626'
+              }}>
+                <Lock size={20} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#334155', fontFamily: "'Fredoka', sans-serif" }}>
+                  4. Personal Connection
+                </h2>
+                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                  Locked • Complete at least one task in Step 3 to unlock
+                </span>
+              </div>
+            </div>
+            <Badge variant="neutral" icon={<Lock size={11} />}>
+              Locked
+            </Badge>
+          </div>
 
-          {reflectionSaved && (
-            <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
-              ✓ Saved to your LearnerState profile
-            </span>
+          <div style={{
+            padding: '16px 18px',
+            borderRadius: '12px',
+            backgroundColor: '#ffffff',
+            border: '1px solid #e2e8f0',
+            marginBottom: '16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '16px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                Practical experience required before reflection
+              </p>
+              <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+                Run at least one AI prompt task in <strong>Step 3 (Try It)</strong> above to unlock this reflection. Observing AI task outputs and reviewing rubric scores gives you the tangible insight required to anchor this topic in your actual work.
+              </p>
+            </div>
+            <Button
+              variant="green"
+              size="md"
+              icon={<ArrowUp size={14} />}
+              onClick={() => document.getElementById('step-3-try-this')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              Complete Step 3 to Unlock ↑
+            </Button>
+          </div>
+
+          {/* Locked Preview Ghost */}
+          <div style={{ opacity: 0.5, filter: 'grayscale(0.4)', pointerEvents: 'none', userSelect: 'none' }}>
+            <p style={{ fontSize: '13px', color: '#064e3b', fontWeight: 600, margin: '0 0 8px' }}>
+              Preview: {reflectionTemplate.question}
+            </p>
+            <div style={{
+              height: '76px',
+              borderRadius: '10px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: '#f1f5f9',
+              padding: '12px',
+              fontSize: '12px',
+              color: '#94a3b8',
+              fontStyle: 'italic'
+            }}>
+              {reflectionTemplate.placeholder}
+            </div>
+          </div>
+        </Surface>
+      ) : reflectionSaved && !isEditing ? (
+        <Surface variant="mint" radius="lg" padding="lg">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: '#d1fae5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#059669'
+              }}>
+                <CheckCircle2 size={18} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                  4. Personal Connection
+                </h2>
+                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
+                  ✓ Synced to your Learner Profile
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Badge variant="success" icon={<Check size={12} />}>
+                Reflection Saved
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Edit3 size={13} />}
+                onClick={() => setIsEditing(true)}
+              >
+                Edit Reflection
+              </Button>
+            </div>
+          </div>
+
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            border: '1.5px solid #a7f3d0',
+            padding: '16px 18px',
+            fontSize: '14px',
+            color: '#064e3b',
+            lineHeight: 1.6,
+            fontWeight: 500,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}>
+            "{reflectionInput}"
+          </div>
+        </Surface>
+      ) : (
+        <Surface variant="mint" radius="lg" padding="lg">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MessageCircle style={{ width: '20px', height: '20px', color: '#059669' }} />
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                4. Personal Connection
+              </h2>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Badge variant="success" icon={<Unlock size={12} />}>
+                Unlocked
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Sparkles size={13} style={{ color: '#059669' }} />}
+                disabled={isDraftingAI}
+                onClick={handleSuggestReflection}
+              >
+                {isDraftingAI ? 'Drafting with AI...' : '✨ Suggest with AI'}
+              </Button>
+            </div>
+          </div>
+
+          <p style={{ fontSize: '14px', fontWeight: 700, color: '#064e3b', lineHeight: 1.45, margin: '0 0 6px' }}>
+            {reflectionTemplate.question}
+          </p>
+
+          <p style={{ fontSize: '12.5px', color: '#047857', lineHeight: 1.5, margin: '0 0 14px' }}>
+            {reflectionTemplate.guidance}
+          </p>
+
+          {/* INSPIRATION CHIPS */}
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+              Quick-Select Inspiration Scenarios (Click to Fill):
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {reflectionTemplate.chips.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleChipClick(chip.text)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '20px',
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: '#064e3b',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ecfdf5';
+                    e.currentTarget.style.borderColor = '#059669';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#ffffff';
+                    e.currentTarget.style.borderColor = '#a7f3d0';
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {reflectionNotice && (
+            <div style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              backgroundColor: '#ecfdf5',
+              border: '1px solid #6ee7b7',
+              color: '#047857',
+              fontSize: '12px',
+              fontWeight: 600,
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <Sparkles size={14} style={{ color: '#059669', flexShrink: 0 }} />
+              <span>{reflectionNotice}</span>
+            </div>
           )}
-        </div>
-      </Surface>
+
+          <textarea
+            rows={4}
+            value={reflectionInput}
+            onChange={(e) => {
+              setReflectionInput(e.target.value);
+              setReflectionSaved(false);
+              setReflectionNotice(null);
+            }}
+            placeholder={reflectionTemplate.placeholder}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              borderRadius: '12px',
+              border: '1.5px solid #a7f3d0',
+              padding: '12px 14px',
+              fontSize: '13.5px',
+              color: '#0f172a',
+              fontFamily: 'inherit',
+              outline: 'none',
+              marginBottom: '8px',
+              backgroundColor: '#ffffff',
+              lineHeight: 1.5,
+              transition: 'border-color 0.15s ease'
+            }}
+            onFocus={(e) => (e.target.style.borderColor = '#059669')}
+            onBlur={(e) => (e.target.style.borderColor = '#a7f3d0')}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', fontSize: '11.5px', color: '#047857', flexWrap: 'wrap', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span>🎯 <strong>Target Use Case</strong></span>
+              <span>•</span>
+              <span>🛡️ <strong>Quality Checkpoint</strong></span>
+              <span>•</span>
+              <span>⏱️ <strong>Leverage Gain</strong></span>
+            </div>
+            <span style={{ fontWeight: 600, color: reflectionInput.length >= 40 ? '#059669' : '#94a3b8' }}>
+              {reflectionInput.length} chars {reflectionInput.length >= 40 ? '• Good depth' : '(aim for 40+ chars)'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Button
+                variant="green"
+                size="md"
+                icon={<CheckCircle2 size={15} />}
+                disabled={!reflectionInput.trim() || reflectionInput.trim().length < 10}
+                onClick={handleSaveReflection}
+              >
+                Save Reflection
+              </Button>
+              {reflectionSaved && isEditing && (
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            <span style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>
+              {reflectionSaved ? '✓ Saved to your Learner Profile' : 'Saves to your LearnerState profile'}
+            </span>
+          </div>
+        </Surface>
+      )}
 
       {/* FOCUS HANDOFF */}
       {(isTopicCompleted || reflectionSaved) && (

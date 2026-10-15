@@ -84,6 +84,33 @@ export const generateWalletRecommendations = (
     const toolRelatedTools = tool.relatedTools || [];
 
     // ------------------------------------------------------------------------
+    // SIGNAL 0: ASSESSMENT_PROMPT (HIGHEST PRIORITY)
+    // Matches authentic prompt strings written in Assessment Challenges 11 & 12
+    // ------------------------------------------------------------------------
+    const answers = state.assessment?.answers || {};
+    const archPrompt = typeof answers[11] === 'string' ? answers[11].toLowerCase() : '';
+    const protoPrompt = typeof answers[12] === 'string' ? answers[12].toLowerCase() : '';
+    const combinedPrompts = `${archPrompt} ${protoPrompt}`;
+
+    const matchesAssessmentPrompt =
+      combinedPrompts.length > 5 && (
+        (tool.category === 'Agentic Coding' && /code|prototype|react|next|app|fullstack|backend|api/i.test(combinedPrompts)) ||
+        (tool.id === 'tool-claude' && /architecture|system|design|schema|database|microservice/i.test(combinedPrompts)) ||
+        (tool.category === 'Research & RAG' && /research|search|papers|verify|rag|data/i.test(combinedPrompts))
+      );
+
+    if (matchesAssessmentPrompt && !familiarity) {
+      matchedSignals.push({
+        type: 'ASSESSMENT_PROMPT',
+        priority: 1,
+        reasonSnippet: `directly accelerates the workflow you formulated in your Assessment prompts`,
+        relatedTask: tool.useCases?.[0] || 'Assessment Prompt Workflow',
+        relatedSkill: tool.category,
+        relevance: 'Matched to your authentic Assessment prompts'
+      });
+    }
+
+    // ------------------------------------------------------------------------
     // SIGNAL 1: FOCUS_BASED
     // Matches active Focus track or growth area against tool focusTracks & categories
     // ------------------------------------------------------------------------

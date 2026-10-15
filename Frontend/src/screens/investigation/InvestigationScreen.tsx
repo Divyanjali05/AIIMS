@@ -66,8 +66,8 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
   const handleSubmit = async () => {
     if (!personalInterpretation.trim()) return;
     setIsSubmitting(true);
-    await apiClient.submitInvestigation(activeSignal.id, personalInterpretation);
-    investigateSignal(activeSignal.id, personalInterpretation);
+    const res = await apiClient.submitInvestigation(activeSignal.id, personalInterpretation);
+    investigateSignal(activeSignal.id, personalInterpretation, res);
     trackLearningLoopEvent({
       eventType: 'INVESTIGATION_COMPLETED',
       signalId: activeSignal.id,

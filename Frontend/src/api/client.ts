@@ -393,5 +393,67 @@ export const apiClient = {
       headers: getAuthHeaders()
     });
     return res.json();
+  },
+
+  // 12. Level 2 Clarity Interactive AI Tasks
+  async generateClarityPrompt(params: {
+    topic: string;
+    difficulty: string;
+    taskTitle: string;
+    taskObjective: string;
+    scenario: string;
+  }) {
+    const res = await fetch(`${API_BASE}/clarity/generate-prompt`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params)
+    });
+    return res.json();
+  },
+
+  async runClarityTask(params: {
+    topic: string;
+    difficulty: string;
+    taskTitle: string;
+    taskObjective?: string;
+    userPrompt: string;
+    contextData?: string;
+  }) {
+    const res = await fetch(`${API_BASE}/clarity/run-task`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params)
+    });
+    return res.json();
+  },
+
+  async saveClarityTaskScore(params: {
+    topic: string;
+    difficulty: string;
+    taskId: string;
+    score: number;
+    userPrompt?: string;
+    output?: string;
+  }) {
+    const res = await fetch(`${API_BASE}/clarity/save-task-score`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params)
+    });
+    return res.json();
+  },
+
+  async suggestClarityReflection(params: {
+    topic: string;
+    taskTitle?: string;
+    score?: number;
+  }) {
+    const res = await fetch(`${API_BASE}/clarity/suggest-reflection`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params)
+    });
+    return res.json();
   }
 };
+

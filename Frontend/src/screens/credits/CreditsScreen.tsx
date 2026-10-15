@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useLearner, CreditTransactionItem } from '../../context/LearnerContext';
+import { apiClient } from '../../api/client';
 import {
   Wallet,
   ArrowUpRight,
@@ -76,7 +77,7 @@ export const CreditsScreen: React.FC = () => {
           How You Earn Credits
         </h2>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
           <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', marginBottom: '4px' }}>+50 AC</div>
             <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Baseline Diagnostic</h3>
@@ -90,9 +91,15 @@ export const CreditsScreen: React.FC = () => {
           </div>
 
           <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: '12px', fontWeight: 800, color: '#059669', marginBottom: '4px' }}>+25 AC</div>
-            <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Relevance Synthesis</h3>
-            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Calculate personal AI payoff & action plan.</p>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: '#059669', marginBottom: '4px' }}>+15 AC</div>
+            <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>Clarity AI Tasks</h3>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Execute hands-on prompt tasks in Level 2.</p>
+          </div>
+
+          <div style={{ padding: '14px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: '#d97706', marginBottom: '4px' }}>+10 AC</div>
+            <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>AI Quest Levels</h3>
+            <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>Complete progression stages in learning journey.</p>
           </div>
         </div>
       </Surface>

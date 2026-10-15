@@ -104,13 +104,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           id: 'radar',
           label: 'AI Radar',
           icon: Radar,
-          locked: false
+          locked: true,
+          lockMsg: 'AI Radar is locked for now. It will unlock based on your learning activities.'
         },
         {
           id: 'relevance',
           label: 'AI Relevance',
           icon: Sparkles,
-          locked: false
+          locked: true,
+          lockMsg: 'AI Relevance is locked for now. It will unlock based on your learning activities.'
         }
       ]
     },
@@ -121,7 +123,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           id: 'solver',
           label: 'Problem Solver',
           icon: Wrench,
-          locked: false
+          locked: true,
+          lockMsg: 'Problem Solver is locked for now. It will unlock based on your learning activities.'
         }
       ]
     },
@@ -132,14 +135,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           id: 'build',
           label: 'Projects',
           icon: Layers,
-          locked: false
+          locked: true,
+          lockMsg: 'Projects is locked for now. It will unlock based on your learning activities.'
         }
       ]
     },
     {
       group: 'OTHER',
       items: [
-        { id: 'mentor', label: 'Mentor Workspace', icon: MessageCircle, locked: false },
+        {
+          id: 'mentor',
+          label: 'Mentor Workspace',
+          icon: MessageCircle,
+          locked: true,
+          lockMsg: 'Mentor Workspace is locked for now. It will unlock based on your learning activities.'
+        },
         { id: 'credits', label: 'Credits & Progress', icon: Coins, locked: false },
         { id: 'settings', label: 'Settings', icon: Settings, locked: false }
       ]
@@ -150,8 +160,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
     if (item.locked) {
       setLockedModal({
         title: `${item.label} is Locked`,
-        message: item.lockMsg || 'Complete the preceding stage to unlock this module.',
-        targetTab: 'assessment'
+        message: item.lockMsg || 'This interface is currently locked. It will unlock based on your learning activities.',
+        targetTab: isAssessmentDone ? 'journey' : 'assessment'
       });
       return;
     }
@@ -335,7 +345,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
                   cursor: 'pointer'
                 }}
               >
-                Go to Baseline Assessment
+                {isAssessmentDone ? 'View Active Journey' : 'Go to Baseline Assessment'}
               </button>
             </div>
           </div>

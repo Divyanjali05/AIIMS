@@ -208,7 +208,8 @@ export type RecommendationType =
   | 'SKILL_GAP'
   | 'TOOLKIT_GAP'
   | 'LEARNING_RECOMMENDATION'
-  | 'RADAR_DISCOVERY';
+  | 'RADAR_DISCOVERY'
+  | 'ASSESSMENT_PROMPT';
 
 export interface AITool {
   id: string;

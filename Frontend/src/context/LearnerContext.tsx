@@ -51,6 +51,17 @@ export interface LearnerState {
     selectedTopic: string | null;
     completedTopics: string[];
     reflections: Record<string, string>;
+    taskScores?: Record<string, Record<string, {
+      score: number;
+      output: string;
+      userPrompt: string;
+      breakdown?: { clarity: number; constraints: number; structure: number; reliability: number };
+      grade?: string;
+      strengths?: string[];
+      gaps?: string[];
+      tip?: string;
+      completedAt?: string;
+    }>>;
   };
   focus: {
     status: 'locked' | 'unlocked' | 'active' | 'completed';
@@ -59,7 +70,7 @@ export interface LearnerState {
     activatedAt: string | null;
   };
   radar: {
-    status: 'available';
+    status: 'locked' | 'available';
     investigatedSignalIds: string[];
     savedSignalIds: string[];
     dismissedSignalIds: string[];
@@ -136,7 +147,8 @@ const initialLearnerState: LearnerState = {
     selectedAreas: [],
     selectedTopic: null,
     completedTopics: [],
-    reflections: {}
+    reflections: {},
+    taskScores: {}
   },
   focus: {
     status: 'locked',
@@ -145,7 +157,7 @@ const initialLearnerState: LearnerState = {
     activatedAt: null
   },
   radar: {
-    status: 'available',
+    status: 'locked',
     investigatedSignalIds: [],
     savedSignalIds: [],
     dismissedSignalIds: [],
@@ -257,15 +269,17 @@ interface LearnerContextType {
   setClarityTopic: (topicName: string | null) => void;
   saveClarityReflection: (topicName: string, text: string) => void;
   completeClarityTopic: (topicName: string) => void;
+  saveClarityTaskResult: (topicName: string, difficulty: 'easy' | 'medium' | 'advanced', result: any) => void;
   selectFocusTrack: (trackName: string) => void;
   changeFocusTrack: (newTrackName: string) => void;
   clearFocusSelection: () => void;
-  investigateSignal: (signalId: string, notes?: string) => void;
+  investigateSignal: (signalId: string, notes?: string, serverRes?: any) => void;
   completeRelevance: (signalId?: string) => void;
   toggleSaveSignal: (signalId: string) => void;
   dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
   addToolToWallet: (toolId: string, primaryCategory: TaskCategory, familiarity?: ToolFamiliarity, userNotes?: string) => void;
+  addMultipleToolsToWallet: (tools: UserToolItem[]) => void;
   removeToolFromWallet: (toolId: string) => void;
   updateToolFamiliarity: (toolId: string, familiarity: ToolFamiliarity, userNotes?: string) => void;
   dismissRecommendation: (recommendationId: string) => void;
@@ -337,14 +351,19 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       apiClient.getLearnerState()
         .then((res) => {
           if (res?.success && res?.state) {
-            setState(res.state);
+            const loaded = res.state;
+            if (loaded.profile && loaded.credits) {
+              // Ensure display balance is strictly locked to authoritative profile balance
+              loaded.credits.balance = loaded.profile.aiimsCredits;
+            }
+            setState(loaded);
             setIsAuthenticated(true);
-          } else if (res?.error || res?.code === 'UNAUTHORIZED') {
+          } else if (res?.code === 'UNAUTHORIZED') {
             logout();
           }
         })
-        .catch(() => {
-          logout();
+        .catch((err) => {
+          console.warn('Network issue fetching live state, preserving local session:', err);
         });
     }
   }, []);
@@ -427,10 +446,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const actionKey = 'ASSESSMENT_COMPLETION';
 
     let serverEvaluationResult: AssessmentEvaluationResult | undefined;
+    let serverUpdatedBalance: number | undefined;
     try {
       const serverRes = await apiClient.submitAssessment(state.assessment.answers || {});
       if (serverRes?.evaluationResult) {
         serverEvaluationResult = serverRes.evaluationResult;
+      }
+      if (typeof serverRes?.updatedBalance === 'number') {
+        serverUpdatedBalance = serverRes.updatedBalance;
       }
     } catch (err) {
       console.warn('Backend evaluation endpoint call warning, falling back to client engine:', err);
@@ -443,7 +466,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const calculated = calculateScoresFromAnswers(prev.assessment.answers || {});
       const finalEvalResult = serverEvaluationResult || calculated.evaluationResult;
-      const newBalance = prev.credits.balance + rewardAmount;
+      const newBalance = typeof serverUpdatedBalance === 'number' ? serverUpdatedBalance : prev.credits.balance + rewardAmount;
 
       const newTx: CreditTransactionItem = {
         id: `tx-assessment-${Date.now()}`,
@@ -498,6 +521,37 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           balance: newBalance,
           transactions: [newTx, ...prev.credits.transactions],
           claimedActions: [...prev.credits.claimedActions, actionKey]
+        },
+        aiWallet: {
+          ...prev.aiWallet,
+          userTools: prev.aiWallet?.userTools && prev.aiWallet.userTools.length > 0
+            ? prev.aiWallet.userTools
+            : [
+                {
+                  toolId: 'tool-chatgpt',
+                  addedAt: nowStr,
+                  familiarity: 'proficient',
+                  primaryCategory: 'Reasoning & Writing',
+                  userNotes: 'Auto-added from Assessment: Daily reasoning & prompt engineering',
+                  customTags: ['assessment-baseline']
+                },
+                {
+                  toolId: 'tool-cursor',
+                  addedAt: nowStr,
+                  familiarity: 'practicing',
+                  primaryCategory: 'Agentic Coding',
+                  userNotes: 'Auto-added from Assessment: Matched Challenge 12 Prototype Prompt',
+                  customTags: ['assessment-prompt']
+                },
+                {
+                  toolId: 'tool-claude',
+                  addedAt: nowStr,
+                  familiarity: 'practicing',
+                  primaryCategory: 'Reasoning & Writing',
+                  userNotes: 'Auto-added from Assessment: Matched Challenge 11 Architecture Prompt',
+                  customTags: ['assessment-prompt']
+                }
+              ]
         },
         notifications: [newNotif, ...prev.notifications]
       };
@@ -595,20 +649,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Strictly Idempotent Investigation Reward Handling
-  const investigateSignal = (signalId: string, notes?: string) => {
+  const investigateSignal = (signalId: string, notes?: string, serverRes?: any) => {
     const rewardAmount = 30;
     const actionKey = `INVESTIGATE_SIGNAL_${signalId}`;
     const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
     setState((prev) => {
-      const alreadyClaimed = prev.credits.claimedActions.includes(actionKey);
+      const alreadyClaimed = prev.credits.claimedActions.includes(actionKey) || prev.credits.claimedActions.includes(signalId);
       const newInvestigated = prev.radar.investigatedSignalIds.includes(signalId)
         ? prev.radar.investigatedSignalIds
         : [...prev.radar.investigatedSignalIds, signalId];
 
-      if (alreadyClaimed) {
+      if (alreadyClaimed || serverRes?.awarded === false) {
+        const syncBalance = typeof serverRes?.newBalance === 'number' ? serverRes.newBalance : prev.credits.balance;
         return {
           ...prev,
+          profile: { ...prev.profile, aiimsCredits: syncBalance },
+          credits: { ...prev.credits, balance: syncBalance },
           radar: { ...prev.radar, investigatedSignalIds: newInvestigated },
           investigation: {
             ...prev.investigation,
@@ -620,7 +677,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
       }
 
-      const newBalance = prev.credits.balance + rewardAmount;
+      const newBalance = typeof serverRes?.newBalance === 'number' ? serverRes.newBalance : prev.credits.balance + rewardAmount;
       const newTx: CreditTransactionItem = {
         id: `tx-investigate-${Date.now()}`,
         description: `Signal Investigation Completed`,
@@ -653,7 +710,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         credits: {
           balance: newBalance,
           transactions: [newTx, ...prev.credits.transactions],
-          claimedActions: [...prev.credits.claimedActions, actionKey]
+          claimedActions: [...prev.credits.claimedActions, actionKey, signalId]
         },
         notifications: [newNotif, ...prev.notifications]
       };
@@ -792,6 +849,135 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   };
 
+  const saveClarityTaskResult = (topicName: string, difficulty: 'easy' | 'medium' | 'advanced', result: any) => {
+    // 1. Immediately record task execution in state
+    setState((prev) => {
+      const prevScores = prev.clarity.taskScores || {};
+      const topicScores = prevScores[topicName] || {};
+      const updatedTopicScores = {
+        ...topicScores,
+        [difficulty]: {
+          ...result,
+          completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      };
+
+      return {
+        ...prev,
+        clarity: {
+          ...prev.clarity,
+          status: 'in_progress',
+          taskScores: {
+            ...prevScores,
+            [topicName]: updatedTopicScores
+          }
+        }
+      };
+    });
+
+    const taskId = `task-${difficulty}`;
+    // 2. Sync to authoritative server endpoint
+    apiClient.saveClarityTaskScore({
+      topic: topicName,
+      difficulty,
+      taskId,
+      score: result.score,
+      userPrompt: result.userPrompt,
+      output: result.output
+    }).then((serverRes) => {
+      if (serverRes?.success) {
+        setState((prev) => {
+          const actionKey = serverRes.actionKey || `clarity::${topicName}::${difficulty}::${taskId}`;
+          const isAlreadyClaimed = prev.credits.claimedActions.includes(actionKey);
+
+          if (!serverRes.awarded || isAlreadyClaimed) {
+            // Already awarded previously: synchronize authoritative balance without duplicate tx
+            return {
+              ...prev,
+              profile: {
+                ...prev.profile,
+                xpPoints: serverRes.totalXP ?? prev.profile.xpPoints,
+                aiimsCredits: serverRes.totalCredits ?? prev.profile.aiimsCredits
+              },
+              credits: {
+                ...prev.credits,
+                balance: serverRes.totalCredits ?? prev.credits.balance,
+                claimedActions: isAlreadyClaimed ? prev.credits.claimedActions : [...prev.credits.claimedActions, actionKey]
+              }
+            };
+          }
+
+          // First-time award from server
+          const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+          const newTx: CreditTransactionItem = serverRes.transaction ? {
+            id: serverRes.transaction.id,
+            description: serverRes.transaction.description,
+            amount: serverRes.transaction.amount,
+            type: serverRes.transaction.type || 'EARN',
+            timestamp: serverRes.transaction.timestamp || nowStr,
+            actionKey
+          } : {
+            id: `tx-task-${Date.now()}`,
+            description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${serverRes.rewardCredits || 15} AC)`,
+            amount: serverRes.rewardCredits || 15,
+            type: 'EARN',
+            timestamp: nowStr,
+            actionKey
+          };
+
+          return {
+            ...prev,
+            profile: {
+              ...prev.profile,
+              xpPoints: serverRes.totalXP ?? (prev.profile.xpPoints + 50),
+              aiimsCredits: serverRes.totalCredits ?? (prev.profile.aiimsCredits + 15)
+            },
+            credits: {
+              ...prev.credits,
+              balance: serverRes.totalCredits ?? (prev.credits.balance + 15),
+              transactions: [newTx, ...prev.credits.transactions],
+              claimedActions: [...prev.credits.claimedActions, actionKey]
+            }
+          };
+        });
+      }
+    }).catch((err) => {
+      console.warn('Failed to sync task score to server, applying idempotent local fallback:', err);
+      setState((prev) => {
+        const actionKey = `clarity::${topicName}::${difficulty}::${taskId}`;
+        if (prev.credits.claimedActions.includes(actionKey)) return prev;
+
+        const rewardCredits = 15;
+        const rewardXP = 50;
+        const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const tx: CreditTransactionItem = {
+          id: `tx-task-${Date.now()}`,
+          description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${rewardCredits} AC)`,
+          amount: rewardCredits,
+          type: 'EARN',
+          timestamp: nowStr,
+          actionKey
+        };
+
+        const newBal = prev.credits.balance + rewardCredits;
+        return {
+          ...prev,
+          profile: {
+            ...prev.profile,
+            xpPoints: prev.profile.xpPoints + rewardXP,
+            aiimsCredits: newBal
+          },
+          credits: {
+            ...prev.credits,
+            balance: newBal,
+            transactions: [tx, ...prev.credits.transactions],
+            claimedActions: [...prev.credits.claimedActions, actionKey]
+          }
+        };
+      });
+    });
+  };
+
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch('/api/auth/login', {
@@ -888,6 +1074,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         aiWallet: {
           ...prev.aiWallet,
           userTools: [newItem, ...currentTools]
+        }
+      };
+    });
+  };
+
+  const addMultipleToolsToWallet = (newTools: UserToolItem[]) => {
+    setState((prev) => {
+      const currentTools = prev.aiWallet?.userTools || [];
+      const currentIds = new Set(currentTools.map(t => t.toolId));
+      const toolsToAdd = newTools.filter(t => !currentIds.has(t.toolId));
+      if (toolsToAdd.length === 0) return prev;
+
+      return {
+        ...prev,
+        aiWallet: {
+          ...prev.aiWallet,
+          userTools: [...toolsToAdd, ...currentTools]
         }
       };
     });
@@ -999,6 +1202,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setClarityTopic,
         saveClarityReflection,
         completeClarityTopic,
+        saveClarityTaskResult,
         selectFocusTrack,
         changeFocusTrack,
         clearFocusSelection,
@@ -1008,6 +1212,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         dismissSignal,
         awardCredits,
         addToolToWallet,
+        addMultipleToolsToWallet,
         removeToolFromWallet,
         updateToolFamiliarity,
         dismissRecommendation,

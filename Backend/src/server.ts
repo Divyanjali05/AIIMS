@@ -29,6 +29,9 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'AIIMS Backend API', version: '1.0.0' });
 });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'AIIMS Backend API', version: '1.0.0' });
+});
 
 // Serve 3D Learner Mascot Image
 app.get('/api/mascot', (req, res) => {

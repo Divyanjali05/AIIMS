@@ -24,6 +24,10 @@ import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { LockedInterfaceScreen } from './components/common/LockedInterfaceScreen';
+
+// Interfaces locked for now — unlocking logic will be integrated based on user activities
+export const LOCKED_INTERFACES = ['radar', 'investigation', 'relevance', 'solver', 'build', 'mentor'];
 
 const mapPathToTab = (path: string): string => {
   const cleanPath = path.toLowerCase().replace(/^\/+|\/+$/g, '');
@@ -177,28 +181,34 @@ const AppContent: React.FC = () => {
             {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
             {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
 
-            {activeTab === 'radar' && (
+            {/* Activity-Gated Interfaces: AI Radar, AI Relevance, Problem Solver, Projects, Mentor Workspace */}
+            {LOCKED_INTERFACES.includes(activeTab) ? (
+              <LockedInterfaceScreen targetTab={activeTab} setActiveTab={setActiveTab} />
+            ) : null}
+
+            {/* Inactive behind lock for now — logic to unlock will be enabled based on user activities */}
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'radar' && (
               <RadarScreen onInvestigate={handleStartInvestigation} />
             )}
 
-            {activeTab === 'investigation' && (
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'investigation' && (
               <InvestigationScreen
                 signal={selectedSignal}
                 onComplete={() => { setActiveTab('relevance'); }}
               />
             )}
 
-            {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
 
-            {activeTab === 'solver' && (
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'solver' && (
               <ProblemSolverScreen setActiveTab={setActiveTab} />
             )}
 
-            {activeTab === 'build' && (
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'build' && (
               <BuildScreen setActiveTab={setActiveTab} />
             )}
 
-            {activeTab === 'mentor' && (
+            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'mentor' && (
               <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <PageHeader
                   icon={<MessageCircle size={24} />}

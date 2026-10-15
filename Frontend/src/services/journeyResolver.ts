@@ -6,7 +6,7 @@ export interface JourneyStageItem {
   number: number;
   name: string;
   subtitle: string;
-  status: 'completed' | 'current' | 'upcoming';
+  status: 'completed' | 'current' | 'upcoming' | 'locked';
   description: string;
   targetTab: string;
 }
@@ -125,46 +125,15 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     targetTab = 'focus';
     actionButtonLabel = 'Choose Focus Track';
     progressPercent = 50;
-  } else if (!isRadarInvestigated) {
-    currentStageKey = 'radar';
-    currentStageTitle = '6. AI RADAR';
-    nextActionTitle = 'Explore an AI opportunity';
-    nextActionReason = `Discover what's changing in AI and investigate opportunities relevant to your focus (${activeFocus}).`;
-    targetTab = 'radar';
-    actionButtonLabel = 'Explore AI Radar';
-    progressPercent = 60;
-  } else if (!isRelevanceCompleted) {
-    currentStageKey = 'relevance';
-    currentStageTitle = '7. AI RELEVANCE';
-    nextActionTitle = 'Understand why it matters';
-    nextActionReason = 'Review how your active focus and evaluated tools connect with emerging ecosystem developments.';
-    targetTab = 'relevance';
-    actionButtonLabel = 'View Relevance Breakdown';
-    progressPercent = 70;
-  } else if (!hasSolvedWorkflow) {
-    currentStageKey = 'solver';
-    currentStageTitle = '8. PROBLEM SOLVER';
-    nextActionTitle = 'Solve a real problem';
-    nextActionReason = 'Input a real task to derive required tool capabilities and an actionable execution workflow.';
-    targetTab = 'solver';
-    actionButtonLabel = 'Launch Problem Solver';
-    progressPercent = 80;
-  } else if (!hasBuildProject) {
-    currentStageKey = 'build';
-    currentStageTitle = '9. BUILD';
-    nextActionTitle = 'Build something';
-    nextActionReason = 'Transform your solved workflow into a reusable project or template.';
-    targetTab = 'build';
-    actionButtonLabel = 'Open Build Workspace';
-    progressPercent = 90;
   } else {
-    currentStageKey = 'mentor';
-    currentStageTitle = '10. IMPROVE';
-    nextActionTitle = 'See what Ainova learned';
-    nextActionReason = 'Review updated learner insights and mentor recommendations based on your real activity.';
-    targetTab = 'mentor';
-    actionButtonLabel = 'See Learner Insights';
-    progressPercent = 100;
+    // Advanced stages 6-10 (Radar, Relevance, Problem Solver, Projects, Mentor) are locked for now
+    currentStageKey = 'wallet';
+    currentStageTitle = 'DEVELOP & EXPLORE';
+    nextActionTitle = 'Curate AI Wallet & Deepen Clarity';
+    nextActionReason = 'You have selected your Focus Track! Advanced workspaces (AI Radar, Relevance, Problem Solver, Projects, Mentor) will unlock as you complete learning activities.';
+    targetTab = 'wallet';
+    actionButtonLabel = 'Explore AI Wallet';
+    progressPercent = 55;
   }
 
   // Canonical 10-Stage Journey Statuses
@@ -219,8 +188,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 6,
       name: 'AI RADAR',
       subtitle: "What's Changing in AI",
-      status: isRadarInvestigated ? 'completed' : isFocusSelected ? 'current' : 'upcoming',
-      description: 'Discover AI opportunities and tech shifts.',
+      status: 'locked',
+      description: 'Discover AI opportunities and tech shifts (Activity-Gated).',
       targetTab: 'radar'
     },
     {
@@ -228,8 +197,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 7,
       name: 'AI RELEVANCE',
       subtitle: 'Why This Matters to You',
-      status: isRelevanceCompleted ? 'completed' : isRadarInvestigated ? 'current' : 'upcoming',
-      description: 'Understand why emerging opportunities matter to your work.',
+      status: 'locked',
+      description: 'Understand why emerging opportunities matter to your work (Activity-Gated).',
       targetTab: 'relevance'
     },
     {
@@ -237,8 +206,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 8,
       name: 'PROBLEM SOLVER',
       subtitle: 'Solve a Real Problem',
-      status: hasSolvedWorkflow ? 'completed' : isRelevanceCompleted ? 'current' : 'upcoming',
-      description: 'Apply AI tools to derive workflows for real tasks.',
+      status: 'locked',
+      description: 'Apply AI tools to derive workflows for real tasks (Activity-Gated).',
       targetTab: 'solver'
     },
     {
@@ -246,8 +215,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 9,
       name: 'BUILD',
       subtitle: 'Create a Project',
-      status: hasBuildProject ? 'completed' : hasSolvedWorkflow ? 'current' : 'upcoming',
-      description: 'Turn your solved workflows into reusable projects.',
+      status: 'locked',
+      description: 'Turn your solved workflows into reusable projects (Activity-Gated).',
       targetTab: 'build'
     },
     {
@@ -255,8 +224,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 10,
       name: 'IMPROVE',
       subtitle: 'What Ainova Learned',
-      status: hasBuildProject ? 'completed' : isAssessmentDone ? 'current' : 'upcoming',
-      description: 'Review updated insights and continuous growth guidance.',
+      status: 'locked',
+      description: 'Review updated insights and continuous growth guidance (Activity-Gated).',
       targetTab: 'mentor'
     }
   ];

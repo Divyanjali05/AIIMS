@@ -9,7 +9,8 @@ import {
   Clock,
   Compass,
   Wallet,
-  Activity
+  Activity,
+  Lock
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
@@ -152,21 +153,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
           {nextAction.journeyStages.map((stage) => {
             const isCompleted = stage.status === 'completed';
             const isCurrent = stage.status === 'current';
+            const isLocked = stage.status === 'locked';
 
             return (
               <div
                 key={stage.id}
                 onClick={() => setActiveTab(stage.targetTab)}
                 style={{
-                  backgroundColor: isCurrent ? '#EEF2FF' : isCompleted ? '#F8FAFC' : '#ffffff',
-                  border: isCurrent ? '2px solid #5B4BFF' : isCompleted ? '1px solid #CBD5E1' : '1px dashed #CBD5E1',
+                  backgroundColor: isCurrent ? '#EEF2FF' : isCompleted ? '#F8FAFC' : isLocked ? '#fafafc' : '#ffffff',
+                  border: isCurrent ? '2px solid #5B4BFF' : isCompleted ? '1px solid #CBD5E1' : isLocked ? '1px solid #E2E8F0' : '1px dashed #CBD5E1',
                   borderRadius: '12px',
                   padding: '12px 10px',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '6px'
+                  gap: '6px',
+                  opacity: isLocked ? 0.75 : 1
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -182,6 +185,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                     <CheckCircle2 size={14} color="#16A34A" />
                   ) : isCurrent ? (
                     <Clock size={14} color="#5B4BFF" />
+                  ) : isLocked ? (
+                    <Lock size={13} color="#94A3B8" />
                   ) : (
                     <Circle size={14} color="#94A3B8" />
                   )}
@@ -207,7 +212,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                   color: isCompleted ? '#16A34A' : isCurrent ? '#5B4BFF' : '#94A3B8',
                   marginTop: 'auto'
                 }}>
-                  {isCompleted ? '✓ Done' : isCurrent ? '● Recommended' : '○ Available'}
+                  {isCompleted ? '✓ Done' : isCurrent ? '● Recommended' : isLocked ? '🔒 Locked' : '○ Available'}
                 </div>
               </div>
             );
@@ -269,10 +274,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
             <Button
               variant="outline"
               size="sm"
-              icon={<ArrowRight size={13} />}
+              icon={<Lock size={13} />}
               onClick={() => setActiveTab('radar')}
             >
-              Explore Opportunity
+              Locked (Explore Activities)
             </Button>
           </Surface>
         )}

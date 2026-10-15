@@ -18,7 +18,6 @@ import {
   Award,
   Wallet,
   ClipboardCheck,
-  Edit3,
   ListChecks
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
@@ -404,7 +403,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
           </div>
 
           <p style={{ color: '#64748b', fontSize: '13px', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-            Verify all responses before final submission. Click <strong>Edit</strong> on any question to modify your answer or complete missing selections.
+            Verify all responses before final submission.
           </p>
 
           {/* Validation Notice */}
@@ -485,19 +484,6 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete }
                           <Badge variant={isAnswered ? 'success' : 'warning'} size="sm">
                             {isAnswered ? '✓ Answered' : '⚠ Needs Attention'}
                           </Badge>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Edit3 size={11} />}
-                            onClick={() => {
-                              updateCurrentQuestionIndex(qIdx);
-                              setReturnToReview(true);
-                              setStage('QUESTION');
-                            }}
-                          >
-                            Edit
-                          </Button>
                         </div>
                       </div>
                     );

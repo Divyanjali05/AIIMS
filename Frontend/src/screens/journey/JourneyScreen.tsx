@@ -163,59 +163,56 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
     {
       id: 'radar',
       title: '5. AI Radar Signals',
-      icon: <Radar size={18} style={{ color: '#0284c7' }} />,
-      status: state.radar.investigatedSignalIds.length > 0 ? 'completed' : 'current',
-      date: 'Available',
-      summary: `${state.radar.investigatedSignalIds.length} technical AI market shifts explored`,
+      icon: <Radar size={18} style={{ color: '#94a3b8' }} />,
+      status: 'locked',
+      date: 'Locked',
+      summary: 'Technical AI market shifts and emerging capabilities',
       explanation: 'Continuous discovery feed of real model releases, tool-calling breakthroughs, and workflow shifts.',
       variant: 'cyan',
       btnVariant: 'cyan',
-      badgeVariant: 'cyan',
+      badgeVariant: 'neutral',
       history: [
-        'Signal: "Autonomous Tool-Calling Agents"',
-        'Connected to active focus track'
+        'Activity-Gated Module — will unlock based on completed learning activities'
       ],
       reward: '+30 Credits per Investigation',
-      actionLabel: 'Explore AI Radar',
+      actionLabel: 'Locked (Activity Gated)',
       tabTarget: 'radar'
     },
     {
       id: 'investigation',
       title: '6. Technical Signal Investigation',
-      icon: <Search size={18} style={{ color: '#0369a1' }} />,
-      status: isInvestigationDone ? 'completed' : 'upcoming',
-      date: isInvestigationDone ? 'Completed' : 'Next Stage',
+      icon: <Search size={18} style={{ color: '#94a3b8' }} />,
+      status: 'locked',
+      date: 'Locked',
       summary: 'Structured 4-step research scaffold (Yesterday vs. Today vs. What Changed)',
       explanation: 'Formulate hypotheses and record your reflection on how technical shifts impact your work.',
       variant: 'sky',
       btnVariant: 'cyan',
-      badgeVariant: 'cyan',
+      badgeVariant: 'neutral',
       history: [
-        'Recorded personal evidence & interpretation',
-        'Received AIIMS Mentor reflective question'
+        'Activity-Gated Module — will unlock based on completed learning activities'
       ],
       reward: '+30 AIIMS Credits',
-      actionLabel: isInvestigationDone ? 'View Investigation' : 'Start Investigation',
+      actionLabel: 'Locked (Activity Gated)',
       tabTarget: 'radar'
     },
     {
       id: 'relevance',
       title: '7. AI Relevance Synthesis',
-      icon: <Sparkles size={18} style={{ color: '#4f46e5' }} />,
-      status: isRelevanceUnlocked ? 'unlocked' : 'locked',
-      date: isRelevanceUnlocked ? 'Unlocked' : 'Future Stage',
+      icon: <Sparkles size={18} style={{ color: '#94a3b8' }} />,
+      status: 'locked',
+      date: 'Locked',
       summary: 'Personalized payoff map connecting Profile → Focus → Signal → Action',
       explanation: 'Synthesizes all journey steps into clear, actionable advice on why this AI shift matters for your work.',
       variant: 'gradient-relevance',
       btnVariant: 'primary',
-      badgeVariant: 'purple',
+      badgeVariant: 'neutral',
       history: [
-        'Calculated personal relevance score & badge',
-        'Generated recommended 3-step action protocol'
+        'Activity-Gated Module — will unlock based on completed learning activities'
       ],
       reward: '+25 AIIMS Credits',
-      actionLabel: isRelevanceUnlocked ? 'View Relevance Map' : 'Investigate Signal to Unlock',
-      tabTarget: isRelevanceUnlocked ? 'relevance' : 'radar'
+      actionLabel: 'Locked (Activity Gated)',
+      tabTarget: 'relevance'
     }
   ];
 
