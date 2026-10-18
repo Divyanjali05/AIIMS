@@ -6,7 +6,7 @@ import apiRoutes from './routes/api.routes';
 import { ToolDiscoveryService } from './services/wallet/toolDiscovery.service';
 import { ToolCatalogService } from './services/wallet/toolCatalog.service';
 
-// Connect to MongoDB Atlas
+// Connect to MongoDB Atlas (AIIMS)
 if (config.mongodbUri) {
   mongoose
     .connect(config.mongodbUri)
