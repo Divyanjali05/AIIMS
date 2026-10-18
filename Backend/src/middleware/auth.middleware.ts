@@ -62,10 +62,15 @@ export const authenticateStudent = async (
     }
 
     if (!dbUser && email) {
+      const validObjectId = decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)
+        ? new mongoose.Types.ObjectId(decoded.userId)
+        : new mongoose.Types.ObjectId();
+
       dbUser = new User({
-        _id: decoded.userId || `usr-${email}`,
+        _id: validObjectId,
         name: email === 'alex.ai@example.com' ? 'Alex AI' : (mockUser.email.toLowerCase() === email ? mockUser.name : email.split('@')[0]),
         email: email,
+        password: '$2a$10$inMemoryFallbackHashedPasswordMock12345',
         role: 'Student / AI Learner',
         college: email === 'alex.ai@example.com' ? 'Stanford University' : 'Engineering & Technology College',
         targetGoal: 'Master AI Intelligence & Mentoring',
@@ -73,6 +78,20 @@ export const authenticateStudent = async (
         xpPoints: 100,
         aiimsCredits: 100
       });
+
+      if (mongoose.connection.readyState === 1) {
+        try {
+          await dbUser.save();
+        } catch {
+          // If save fails due to duplicate key or network, attempt findOne again
+          try {
+            const existing = await User.findOne({ email });
+            if (existing) dbUser = existing;
+          } catch {
+            // Keep in-memory document
+          }
+        }
+      }
     }
 
     if (dbUser) {
