@@ -254,16 +254,17 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
             OR CHOOSE A PRESET PROBLEM TEMPLATE
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+          <div className="aiims-card-grid" style={{ gap: '12px' }}>
             {PRESETS.map((preset) => (
               <div
                 key={preset.id}
                 onClick={() => handleSelectPreset(preset)}
                 style={{
-                  backgroundColor: '#ffffff',
-                  borderRadius: '10px',
+                  backgroundColor: 'var(--aiims-bg-card)',
+                  borderRadius: 'var(--aiims-card-radius, 12px)',
                   padding: '12px 14px',
-                  border: '1px solid #c7d2fe',
+                  border: '1px solid var(--aiims-border-card)',
+                  boxShadow: 'var(--aiims-shadow-card)',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
                   display: 'flex',
@@ -273,14 +274,14 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
               >
                 <div>
                   <Badge variant="cyan" style={{ marginBottom: '6px' }}>{preset.category}</Badge>
-                  <h4 style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                  <h4 style={{ margin: '0 0 4px', fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                     {preset.title}
                   </h4>
-                  <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.35 }}>
+                  <p style={{ margin: 0, fontSize: '11px', color: 'var(--aiims-text-muted)', lineHeight: 1.35 }}>
                     {preset.description}
                   </p>
                 </div>
-                <div style={{ marginTop: '10px', fontSize: '11px', fontWeight: 700, color: '#4f46e5', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ marginTop: '10px', fontSize: '11px', fontWeight: 700, color: 'var(--aiims-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <span>Try Preset</span> <ArrowRight size={12} />
                 </div>
               </div>
@@ -384,31 +385,32 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
                 4. RELEVANT AI WALLET & DISCOVERY TOOLS
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+              <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
                 {activeSolution.matchedTools.map((tool, idx) => (
                   <div
                     key={idx}
                     style={{
-                      backgroundColor: '#ffffff',
-                      borderRadius: '10px',
-                      padding: '14px',
-                      border: tool.inWallet ? '2px solid #22c55e' : '1px solid #cbd5e1',
+                      backgroundColor: 'var(--aiims-bg-card)',
+                      borderRadius: 'var(--aiims-card-radius, 12px)',
+                      padding: '16px',
+                      border: tool.inWallet ? '2px solid #22c55e' : '1px solid var(--aiims-border-card)',
+                      boxShadow: 'var(--aiims-shadow-card)',
                       display: 'flex',
                       flexDirection: 'column',
                       justifyContent: 'space-between',
-                      gap: '10px'
+                      gap: '12px'
                     }}
                   >
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{tool.name}</h4>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>{tool.name}</h4>
                         {tool.inWallet ? (
-                          <Badge variant="success">In Your Wallet</Badge>
+                           <Badge variant="success">In Your Wallet</Badge>
                         ) : (
                           <Badge variant="cyan">Discovery Catalog</Badge>
                         )}
                       </div>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                      <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--aiims-text-muted)', lineHeight: 1.4 }}>
                         {tool.reason}
                       </p>
                     </div>

@@ -84,11 +84,14 @@ export const formatUserState = (dbUser: IUser) => {
       reflections: dbUser.clarity?.reflections || {},
       taskScores: (dbUser.clarity as any)?.taskScores || {}
     },
-    focus: dbUser.focus || {
-      status: 'locked',
-      selectedTrack: null,
-      history: [],
-      activatedAt: null
+    focus: {
+      status: dbUser.focus?.status || 'locked',
+      selectedTrack: dbUser.focus?.selectedTrack || null,
+      history: dbUser.focus?.history || [],
+      activatedAt: dbUser.focus?.activatedAt || null,
+      sessionHistory: (dbUser.focus as any)?.sessionHistory || [],
+      activeSession: (dbUser.focus as any)?.activeSession || null,
+      sessionConfig: (dbUser.focus as any)?.sessionConfig || null
     },
     radar: {
       status: dbUser.radar?.status || 'locked',

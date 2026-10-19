@@ -34,62 +34,106 @@ export interface QuestLevel {
   challengeIds: number[];
   mentorQuote: string;
   completionMessage: string;
+  stationName: string;
+  domainKey: 'usingAI' | 'understandingAI' | 'solvingWithAI' | 'checkingAI' | 'adaptingToAI';
+  domainTitle: string;
+  narrative: string;
+  transitionRecap: string;
+  transitionTeaser: string;
+  themeColor: string;
 }
 
-export const QUEST_LEVELS: QuestLevel[] = [
+export const STORY_STATIONS: QuestLevel[] = [
   {
     id: 1,
-    title: 'AI Exposure',
-    subtitle: 'Challenges 1–5: Discovering your AI workflow integration & frequency',
-    icon: '⚡',
+    title: 'Using AI — Workbench',
+    stationName: 'Workbench',
+    domainKey: 'usingAI',
+    domainTitle: 'Using AI',
+    subtitle: 'Challenges 1–5: Calibrating hands-on tool routines, frequency & practical integration',
+    narrative: 'Step onto the Workbench. Here we calibrate your hands-on daily craft with AI tools, workflow integration, and practical usage routines.',
+    transitionRecap: 'Workbench calibrated! Your daily tool habits and hands-on integration patterns are recorded.',
+    transitionTeaser: 'Next, ascend into the Machine Room to investigate model mechanics, token prediction, and retrieval systems under the hood.',
+    icon: '🛠️',
     challengeIds: [1, 2, 3, 4, 5],
+    themeColor: '#4f46e5',
     mentorQuote: "I'm getting to know how you work with AI in your daily routine.",
     completionMessage: "Good start! I'm beginning to understand how you currently work with AI."
   },
   {
     id: 2,
-    title: 'AI Fluency',
-    subtitle: 'Challenges 6–10: Testing your mental model of AI capability & mechanics',
-    icon: '🧠',
+    title: 'Understanding AI — Machine Room',
+    stationName: 'Machine Room',
+    domainKey: 'understandingAI',
+    domainTitle: 'Understanding AI',
+    subtitle: 'Challenges 6–10: Investigating model mechanics, token prediction & retrieval architecture',
+    narrative: 'Enter the Machine Room. Under the hood, we explore your mental model of AI model boundaries, token prediction mechanics, context limits, and retrieval systems.',
+    transitionRecap: 'Machine Room insights locked! Your understanding of model constraints, hallucinations, and RAG architecture is verified.',
+    transitionTeaser: 'Next, enter the Architecture Studio to test your problem framing and raw prompt construction in real-world scenarios.',
+    icon: '⚙️',
     challengeIds: [6, 7, 8, 9, 10],
+    themeColor: '#0284c7',
     mentorQuote: "Understanding how AI works under the hood unlocks smarter prompting.",
     completionMessage: "Great progress! I'm starting to see how you conceptualize AI model boundaries."
   },
   {
     id: 3,
-    title: 'AI Thinking',
-    subtitle: 'Challenges 11–15: AI Thinking Labs & problem-framing challenges',
-    icon: '🧪',
+    title: 'Solving with AI — Architecture Studio',
+    stationName: 'Architecture Studio',
+    domainKey: 'solvingWithAI',
+    domainTitle: 'Solving with AI',
+    subtitle: 'Challenges 11–15: Framing problem boundaries & scaffolding real-world solutions',
+    narrative: 'Ascend to the Architecture Studio. Here you draft raw prompts, frame problem boundaries, and scaffold real-world solutions and prototypes in our interactive Thinking Labs.',
+    transitionRecap: 'Architecture Studio challenges cleared! Your prompt framing strategies and workflow designs provide authentic behavioral evidence.',
+    transitionTeaser: 'Next, report to the Inspection Desk to evaluate verification rigor, ethics, and human-in-the-loop accountability.',
+    icon: '📐',
     challengeIds: [11, 12, 13, 14, 15],
+    themeColor: '#7c3aed',
     mentorQuote: "How you frame prompts reveals your core problem-solving strategy.",
     completionMessage: "Impressive! Your raw prompt strategies give deep insight into your AI-thinking style."
   },
   {
     id: 4,
-    title: 'Human Judgment',
-    subtitle: 'Challenges 16–20: Verification, ethics, and human-in-the-loop oversight',
-    icon: '⚖️',
+    title: 'Checking AI — Inspection Desk',
+    stationName: 'Inspection Desk',
+    domainKey: 'checkingAI',
+    domainTitle: 'Checking AI',
+    subtitle: 'Challenges 16–20: Rigorous verification, fact-checking, privacy hygiene & accountability',
+    narrative: 'Approach the Inspection Desk. Real AI mastery demands uncompromised human judgment, fact-checking rigor, data privacy hygiene, and accountability for AI-generated artifacts.',
+    transitionRecap: 'Inspection Desk verification complete! Your approach to human oversight, critical checking, and liability is logged.',
+    transitionTeaser: 'Finally, climb to the Radar Tower to scan emerging capabilities, growth mindset, and adaptability.',
+    icon: '🔬',
     challengeIds: [16, 17, 18, 19, 20],
+    themeColor: '#b45309',
     mentorQuote: "True AI mastery combines high automation with uncompromised human judgment.",
     completionMessage: "Almost there! Your approach to human oversight and ethics is now clear."
   },
   {
     id: 5,
-    title: 'Innovation Readiness',
-    subtitle: 'Challenges 21–25: Growth mindset & adaptiveness to emerging AI shifts',
-    icon: '🚀',
+    title: 'Adapting to AI — Radar Tower',
+    stationName: 'Radar Tower',
+    domainKey: 'adaptingToAI',
+    domainTitle: 'Adapting to AI',
+    subtitle: 'Challenges 21–25: Scanning the horizon for growth mindset, technological agility & shifts',
+    narrative: 'Reach the Radar Tower. Scanning the horizon, we evaluate your growth mindset, learning agility, and readiness for fast-moving AI shifts and autonomous agents.',
+    transitionRecap: 'Radar Tower sweep complete! All 5 Stations have been conquered.',
+    transitionTeaser: 'Your responses are ready for final review and multi-dimensional capability synthesis.',
+    icon: '📡',
     challengeIds: [21, 22, 23, 24, 25],
+    themeColor: '#059669',
     mentorQuote: "Final stretch! Exploring how fast you adapt as AI tools evolve.",
     completionMessage: "Quest Complete! Your multi-dimensional baseline is ready for analysis."
   }
 ];
+
+export const QUEST_LEVELS: QuestLevel[] = STORY_STATIONS;
 
 export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   // LEVEL 01 — AI EXPOSURE (Challenges 1–5)
   {
     id: 1,
     levelId: 1,
-    levelTitle: 'AI Exposure',
+    levelTitle: 'Using AI — Workbench',
     challengeNumber: 1,
     title: 'How frequently do you currently use AI tools in your work or study?',
     type: 'single_select',
@@ -104,7 +148,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 2,
     levelId: 1,
-    levelTitle: 'AI Exposure',
+    levelTitle: 'Using AI — Workbench',
     challengeNumber: 2,
     title: 'Which AI models or tools do you regularly interact with?',
     subtitle: 'Select all tools you have hands-on experience with (at least 1)',
@@ -123,7 +167,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 3,
     levelId: 1,
-    levelTitle: 'AI Exposure',
+    levelTitle: 'Using AI — Workbench',
     challengeNumber: 3,
     title: 'When starting a new assignment or project, what is your first instinct?',
     type: 'single_select',
@@ -165,7 +209,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 6,
     levelId: 2,
-    levelTitle: 'AI Fluency',
+    levelTitle: 'Understanding AI — Machine Room',
     challengeNumber: 1,
     title: 'How would you explain how Large Language Models (LLMs) generate answers?',
     type: 'single_select',
@@ -179,7 +223,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 7,
     levelId: 2,
-    levelTitle: 'AI Fluency',
+    levelTitle: 'Understanding AI — Machine Room',
     challengeNumber: 2,
     title: 'Have you ever encountered an AI "hallucination" (a confident but false answer)?',
     type: 'single_select',
@@ -193,7 +237,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 8,
     levelId: 2,
-    levelTitle: 'AI Fluency',
+    levelTitle: 'Understanding AI — Machine Room',
     challengeNumber: 3,
     title: 'What does "Context Window" mean when working with an AI model?',
     type: 'single_select',
@@ -237,7 +281,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 11,
     levelId: 3,
-    levelTitle: 'AI Thinking',
+    levelTitle: 'Solving with AI — Architecture Studio',
     challengeNumber: 1,
     title: 'AI THINKING LAB: Designing Software Architecture',
     subtitle: 'Imagine you have an idea for a software product and open ChatGPT, Gemini, or Claude right now. What would you actually type?',
@@ -248,7 +292,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 12,
     levelId: 3,
-    levelTitle: 'AI Thinking',
+    levelTitle: 'Solving with AI — Architecture Studio',
     challengeNumber: 2,
     title: 'AI THINKING LAB: Building a Working Prototype (MVP)',
     subtitle: 'Now imagine you want the AI to write code or build a working prototype/MVP for your idea. What prompt would you enter?',
@@ -259,7 +303,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 13,
     levelId: 3,
-    levelTitle: 'AI Thinking',
+    levelTitle: 'Solving with AI — Architecture Studio',
     challengeNumber: 3,
     title: 'When an AI model gives you an incomplete or slightly incorrect answer, what do you do?',
     type: 'single_select',
@@ -273,7 +317,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 14,
     levelId: 3,
-    levelTitle: 'AI Thinking',
+    levelTitle: 'Solving with AI — Architecture Studio',
     challengeNumber: 4,
     title: 'You have an idea for solving a real-world problem. What would you most likely ask AI first?',
     type: 'single_select',
@@ -303,7 +347,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 16,
     levelId: 4,
-    levelTitle: 'Human Judgment',
+    levelTitle: 'Checking AI — Inspection Desk',
     challengeNumber: 1,
     title: 'How often do you fact-check AI outputs against authoritative documentation or primary sources?',
     type: 'single_select',
@@ -317,7 +361,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 17,
     levelId: 4,
-    levelTitle: 'Human Judgment',
+    levelTitle: 'Checking AI — Inspection Desk',
     challengeNumber: 2,
     title: 'What is your stance on pasting proprietary code or sensitive personal data into public AI chats?',
     type: 'single_select',
@@ -331,7 +375,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 18,
     levelId: 4,
-    levelTitle: 'Human Judgment',
+    levelTitle: 'Checking AI — Inspection Desk',
     challengeNumber: 3,
     title: 'What best describes "Human-in-the-Loop" decision making?',
     type: 'single_select',
@@ -345,7 +389,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 19,
     levelId: 4,
-    levelTitle: 'Human Judgment',
+    levelTitle: 'Checking AI — Inspection Desk',
     challengeNumber: 4,
     title: 'Before asking AI to design a solution, how much time do you spend framing the user problem?',
     type: 'single_select',
@@ -375,7 +419,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 21,
     levelId: 5,
-    levelTitle: 'Innovation Readiness',
+    levelTitle: 'Adapting to AI — Radar Tower',
     challengeNumber: 1,
     title: 'How comfortable are you adapting your workflow when a major new AI capability is released?',
     type: 'scale',
@@ -387,7 +431,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 22,
     levelId: 5,
-    levelTitle: 'Innovation Readiness',
+    levelTitle: 'Adapting to AI — Radar Tower',
     challengeNumber: 2,
     title: 'How do you approach learning a brand-new AI tool or framework (e.g. LangChain, Cursor, Agentic SDKs)?',
     type: 'single_select',
@@ -401,7 +445,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 23,
     levelId: 5,
-    levelTitle: 'Innovation Readiness',
+    levelTitle: 'Adapting to AI — Radar Tower',
     challengeNumber: 3,
     title: 'What is your biggest concern about the rapid rise of AI in your field?',
     type: 'single_select',
@@ -415,7 +459,7 @@ export const ASSESSMENT_QUESTIONS: QuestionData[] = [
   {
     id: 24,
     levelId: 5,
-    levelTitle: 'Innovation Readiness',
+    levelTitle: 'Adapting to AI — Radar Tower',
     challengeNumber: 4,
     title: 'Which AI skills do you most want to master over the next 6 months?',
     subtitle: 'Select exactly 3 priority areas',

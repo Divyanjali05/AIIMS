@@ -580,7 +580,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
         </div>
 
         {/* 3 TASK DIFFICULTY SELECTOR TILES */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
+        <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))', gap: '12px' }}>
           {tasks.map((task) => {
             const isCurrent = activeTab === task.difficulty;
             const saved = topicScoresObj[task.difficulty];
@@ -713,7 +713,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           {/* 1. SCENARIO & OBJECTIVE BRIEFING */}
-          <Surface variant="bordered" radius="lg" padding="md" style={{ backgroundColor: '#ffffff' }}>
+          <Surface variant="bordered" radius="lg" padding="md">
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
@@ -778,7 +778,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
           </Surface>
 
           {/* 2. PROMPT GENERATOR & PROMPT EDITOR */}
-          <Surface variant="bordered" radius="lg" padding="md" style={{ backgroundColor: '#ffffff' }}>
+          <Surface variant="bordered" radius="lg" padding="md">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <FileCode size={18} color="#0284c7" />
@@ -850,12 +850,12 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                   width: '100%',
                   boxSizing: 'border-box',
                   borderRadius: '6px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid var(--aiims-input-border)',
                   padding: '8px 10px',
                   fontSize: '12px',
                   fontFamily: 'monospace',
-                  color: '#334155',
-                  backgroundColor: '#ffffff'
+                  color: 'var(--aiims-input-text)',
+                  backgroundColor: 'var(--aiims-input-bg)'
                 }}
               />
             </div>
@@ -887,11 +887,11 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
 
           {/* 3. LIVE AI OUTPUT TERMINAL (SEEING OUTPUT HERE ITSELF) */}
           {aiOutput && (
-            <Surface variant="bordered" radius="lg" padding="md" style={{ backgroundColor: '#ffffff' }}>
+            <Surface variant="bordered" radius="lg" padding="md">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Terminal size={18} color="#059669" />
-                  <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                     Live AI Generated Output
                   </span>
                   <Badge variant="success">Executed Here</Badge>
@@ -934,32 +934,32 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                     width: '68px',
                     height: '68px',
                     borderRadius: '50%',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: 'var(--aiims-bg-card)',
                     border: taskScore >= 85 ? '4px solid #059669' : '4px solid #d97706',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 4px 10px rgba(0,0,0,0.06)'
+                    boxShadow: 'var(--aiims-shadow-card)'
                   }}>
                     <span style={{ fontSize: '20px', fontWeight: 800, color: taskScore >= 85 ? '#059669' : '#d97706', lineHeight: 1 }}>
                       {taskScore}
                     </span>
-                    <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>
+                    <span style={{ fontSize: '10px', color: 'var(--aiims-text-muted)', fontWeight: 700 }}>
                       / 100
                     </span>
                   </div>
 
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                         Individual Task Evaluation: {currentTask.difficultyLabel}
                       </h3>
                       <Badge variant={taskScore >= 85 ? 'success' : 'warning'}>
                         {grade || (taskScore >= 85 ? 'Mastery' : 'Proficient')}
                       </Badge>
                     </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#064e3b' }}>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-body)' }}>
                       Rigorous rubric evaluation based on your submitted prompt & generated AI response.
                     </p>
                   </div>
@@ -981,52 +981,53 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                   gap: '12px',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--aiims-bg-card)',
                   padding: '14px',
                   borderRadius: '10px',
-                  border: '1px solid #a7f3d0',
-                  marginBottom: '16px'
+                  border: '1px solid var(--aiims-border-card)',
+                  marginBottom: '16px',
+                  boxShadow: 'var(--aiims-shadow-card)'
                 }}>
                   {/* Clarity */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                       <span>🎯 Clarity & Intent</span>
                       <span>{scoreBreakdown.clarity}/25</span>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'var(--aiims-border-subtle)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(scoreBreakdown.clarity / 25) * 100}%`, backgroundColor: '#059669' }} />
                     </div>
                   </div>
 
                   {/* Constraints */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                       <span>🛡️ Constraints & Bounds</span>
                       <span>{scoreBreakdown.constraints}/25</span>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'var(--aiims-border-subtle)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(scoreBreakdown.constraints / 25) * 100}%`, backgroundColor: '#0284c7' }} />
                     </div>
                   </div>
 
                   {/* Structure */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                       <span>📋 Output Schema</span>
                       <span>{scoreBreakdown.structure}/25</span>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'var(--aiims-border-subtle)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(scoreBreakdown.structure / 25) * 100}%`, backgroundColor: '#7c3aed' }} />
                     </div>
                   </div>
 
                   {/* Reliability */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                       <span>⚡ Verification & Reliability</span>
                       <span>{scoreBreakdown.reliability}/25</span>
                     </div>
-                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: '#e2e8f0', overflow: 'hidden' }}>
+                    <div style={{ height: '6px', borderRadius: '3px', backgroundColor: 'var(--aiims-border-subtle)', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${(scoreBreakdown.reliability / 25) * 100}%`, backgroundColor: '#d97706' }} />
                     </div>
                   </div>
@@ -1036,11 +1037,11 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
               {/* STRENGTHS & IMPROVEMENTS */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '14px' }}>
                 {strengths.length > 0 && (
-                  <div style={{ padding: '10px 12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #d1fae5' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>
+                  <div style={{ padding: '10px 12px', backgroundColor: 'var(--aiims-tint-emerald-bg)', borderRadius: '8px', border: '1px solid var(--aiims-tint-emerald-border)' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', textTransform: 'uppercase' }}>
                       Demonstrated Strengths
                     </span>
-                    <ul style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px', color: '#064e3b', lineHeight: 1.45 }}>
+                    <ul style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px', color: 'var(--aiims-tint-emerald-text)', lineHeight: 1.45 }}>
                       {strengths.map((str, idx) => (
                         <li key={idx}>{str}</li>
                       ))}
@@ -1049,11 +1050,11 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                 )}
 
                 {gaps.length > 0 && (
-                  <div style={{ padding: '10px 12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #fed7aa' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase' }}>
+                  <div style={{ padding: '10px 12px', backgroundColor: 'var(--aiims-tint-amber-bg)', borderRadius: '8px', border: '1px solid var(--aiims-tint-amber-border)' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-amber-text)', textTransform: 'uppercase' }}>
                       Target Improvements
                     </span>
-                    <ul style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px', color: '#7c2d12', lineHeight: 1.45 }}>
+                    <ul style={{ margin: '6px 0 0', paddingLeft: '18px', fontSize: '12px', color: 'var(--aiims-tint-amber-text)', lineHeight: 1.45 }}>
                       {gaps.map((gap, idx) => (
                         <li key={idx}>{gap}</li>
                       ))}
@@ -1066,14 +1067,14 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
               {evalTip && (
                 <div style={{
                   padding: '10px 14px',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--aiims-tint-emerald-bg)',
                   borderRadius: '8px',
-                  border: '1px solid #a7f3d0',
+                  border: '1px solid var(--aiims-tint-emerald-border)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   fontSize: '12px',
-                  color: '#065f46'
+                  color: 'var(--aiims-tint-emerald-text)'
                 }}>
                   <Lightbulb size={16} color="#d97706" style={{ flexShrink: 0 }} />
                   <span><strong>AI Evaluator Tip: </strong>{evalTip}</span>

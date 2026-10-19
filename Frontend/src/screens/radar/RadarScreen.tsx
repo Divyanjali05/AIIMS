@@ -161,32 +161,32 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
           </h2>
 
           {/* 5-STEP STRUCTURED OPPORTUNITY CARD FOR UX 5-SECOND TEST */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          <div className="aiims-card-grid" style={{ gap: '12px', marginBottom: '20px' }}>
 
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #bae6fd' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>1. WHAT CHANGED?</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#334155', lineHeight: 1.4, fontWeight: 600 }}>
+            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>1. WHAT CHANGED?</span>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4, fontWeight: 600 }}>
                 {forYouItem.signal.scaffold.whatChanged || forYouItem.signal.summary}
               </p>
             </div>
 
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #bae6fd' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>2. WHY IT MATTERS</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#334155', lineHeight: 1.4, fontWeight: 600 }}>
+            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>2. WHY IT MATTERS</span>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4, fontWeight: 600 }}>
                 {forYouItem.signal.scaffold.today || 'Enables automated execution loops.'}
               </p>
             </div>
 
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #a7f3d0' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>3. OPPORTUNITY FOR YOU</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#064e3b', lineHeight: 1.4, fontWeight: 700 }}>
+            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', textTransform: 'uppercase' }}>3. OPPORTUNITY FOR YOU</span>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-heading)', lineHeight: 1.4, fontWeight: 700 }}>
                 {forYouItem.relevance.personalConnection}
               </p>
             </div>
 
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '10px', padding: '12px 14px', border: '1px solid #c7d2fe' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>4. WHY YOU'RE SEEING THIS</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#3730a3', lineHeight: 1.4, fontWeight: 700, fontStyle: 'italic' }}>
+            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>4. WHY YOU'RE SEEING THIS</span>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-muted)', lineHeight: 1.4, fontWeight: 700, fontStyle: 'italic' }}>
                 "{forYouItem.relevance.attributionReason}"
               </p>
             </div>
@@ -262,7 +262,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
           )}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+        <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))', gap: '12px' }}>
           {trendingDomains.map((dom) => {
             const Icon = dom.icon;
             const isSelected = activeDomainFilter === dom.filterKey;
@@ -311,7 +311,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
             </p>
           </Surface>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+          <div className="aiims-card-grid-2col">
             {whatsNewItems.map((sig) => {
               const isInvestigated = investigatedIds.has(sig.id);
               const isSaved = savedIds.has(sig.id);
@@ -356,15 +356,15 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                       </button>
                     </div>
 
-                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 6px', color: 'var(--aiims-text-heading)' }}>
                       {sig.title}
                     </h3>
 
-                    <p style={{ fontSize: '13px', color: '#334155', margin: '0 0 12px', lineHeight: 1.45 }}>
+                    <p style={{ fontSize: '13px', color: 'var(--aiims-text-body)', margin: '0 0 12px', lineHeight: 1.45 }}>
                       {sig.summary}
                     </p>
 
-                    <div style={{ padding: '8px 10px', backgroundColor: '#ffffff', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '11px', color: '#0369a1' }}>
+                    <div style={{ padding: '8px 10px', backgroundColor: 'var(--aiims-bg-card-subtle)', border: '1px solid var(--aiims-border-subtle)', borderRadius: '8px', fontSize: '11px', color: 'var(--aiims-primary)' }}>
                       <strong>Today: </strong>{sig.scaffold.today}
                     </div>
                   </div>
@@ -401,7 +401,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
             <span>Saved Signals ({savedSignals.length})</span>
           </h2>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+          <div className="aiims-card-grid">
             {savedSignals.map((sig) => (
               <Surface key={sig.id} variant="mint" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
                 <div>

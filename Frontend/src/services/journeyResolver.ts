@@ -1,5 +1,6 @@
 import { LearnerState } from '../context/LearnerContext';
 import { buildLearnerProfileContext } from './learnerProfileContext';
+import { getFeatureAccess } from './featureAccessService';
 
 export interface JourneyStageItem {
   id: string;
@@ -136,7 +137,16 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     progressPercent = 55;
   }
 
-  // Canonical 10-Stage Journey Statuses
+  // Canonical 10-Stage Journey Statuses aligned with featureAccessService
+  const profileAccess = getFeatureAccess('analysis', state);
+  const clarityAccess = getFeatureAccess('clarity', state);
+  const focusAccess = getFeatureAccess('focus', state);
+  const radarAccess = getFeatureAccess('radar', state);
+  const relevanceAccess = getFeatureAccess('relevance', state);
+  const solverAccess = getFeatureAccess('solver', state);
+  const buildAccess = getFeatureAccess('build', state);
+  const mentorAccess = getFeatureAccess('mentor', state);
+
   const journeyStages: JourneyStageItem[] = [
     {
       id: 'understand',
@@ -152,7 +162,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 2,
       name: 'MY AI PROFILE',
       subtitle: 'Your AI Skills',
-      status: isAnalysisViewed ? 'completed' : isAssessmentDone ? 'current' : 'upcoming',
+      status: isAnalysisViewed ? 'completed' : !profileAccess.unlocked ? 'locked' : isAssessmentDone ? 'current' : 'locked',
       description: 'Understand your top AI skills and growth areas.',
       targetTab: 'analysis'
     },
@@ -170,7 +180,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 4,
       name: 'CLARITY',
       subtitle: 'Your AI Goals',
-      status: isClarityCompleted ? 'completed' : isWalletExplored ? 'current' : 'upcoming',
+      status: isClarityCompleted ? 'completed' : !clarityAccess.unlocked ? 'locked' : isWalletExplored ? 'current' : 'upcoming',
       description: 'Define what you actually want AI to help you accomplish.',
       targetTab: 'clarity'
     },
@@ -179,7 +189,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 5,
       name: 'FOCUS',
       subtitle: 'Your Focus Track',
-      status: isFocusSelected ? 'completed' : isClarityCompleted ? 'current' : 'upcoming',
+      status: isFocusSelected ? 'completed' : !focusAccess.unlocked ? 'locked' : isClarityCompleted ? 'current' : 'upcoming',
       description: 'Select your concentration area right now.',
       targetTab: 'focus'
     },
@@ -188,7 +198,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 6,
       name: 'AI RADAR',
       subtitle: "What's Changing in AI",
-      status: 'locked',
+      status: !radarAccess.unlocked ? 'locked' : isRadarInvestigated ? 'completed' : 'upcoming',
       description: 'Discover AI opportunities and tech shifts (Activity-Gated).',
       targetTab: 'radar'
     },
@@ -197,7 +207,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 7,
       name: 'AI RELEVANCE',
       subtitle: 'Why This Matters to You',
-      status: 'locked',
+      status: !relevanceAccess.unlocked ? 'locked' : isRelevanceCompleted ? 'completed' : 'upcoming',
       description: 'Understand why emerging opportunities matter to your work (Activity-Gated).',
       targetTab: 'relevance'
     },
@@ -206,7 +216,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 8,
       name: 'PROBLEM SOLVER',
       subtitle: 'Solve a Real Problem',
-      status: 'locked',
+      status: !solverAccess.unlocked ? 'locked' : hasSolvedWorkflow ? 'completed' : 'upcoming',
       description: 'Apply AI tools to derive workflows for real tasks (Activity-Gated).',
       targetTab: 'solver'
     },
@@ -215,7 +225,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 9,
       name: 'BUILD',
       subtitle: 'Create a Project',
-      status: 'locked',
+      status: !buildAccess.unlocked ? 'locked' : hasBuildProject ? 'completed' : 'upcoming',
       description: 'Turn your solved workflows into reusable projects (Activity-Gated).',
       targetTab: 'build'
     },
@@ -223,8 +233,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       id: 'improve',
       number: 10,
       name: 'IMPROVE',
-      subtitle: 'What Ainova Learned',
-      status: 'locked',
+      subtitle: 'What AIIMS Learned',
+      status: !mentorAccess.unlocked ? 'locked' : 'upcoming',
       description: 'Review updated insights and continuous growth guidance (Activity-Gated).',
       targetTab: 'mentor'
     }

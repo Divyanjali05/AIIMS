@@ -100,6 +100,28 @@ export const apiClient = {
     return res.json();
   },
 
+  async getCreditsLedger(params?: { type?: string; limit?: number; skip?: number }) {
+    const query = new URLSearchParams(params as any).toString();
+    const res = await fetch(`${API_BASE}/credits/ledger${query ? `?${query}` : ''}`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getCreditsBalance() {
+    const res = await fetch(`${API_BASE}/credits/balance`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
+  async getCreditsReconciliation() {
+    const res = await fetch(`${API_BASE}/credits/reconcile`, {
+      headers: getAuthHeaders()
+    });
+    return res.json();
+  },
+
   async awardLevelCredits(levelId: number) {
     const res = await fetch(`${API_BASE}/credits/award-level`, {
       method: 'POST',
@@ -109,11 +131,11 @@ export const apiClient = {
     return res.json();
   },
 
-  async investCredits(amount: number, description: string) {
+  async investCredits(amount: number, description: string, idempotencyKey?: string) {
     const res = await fetch(`${API_BASE}/credits/invest`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ amount, description })
+      body: JSON.stringify({ amount, description, idempotencyKey })
     });
     return res.json();
   },

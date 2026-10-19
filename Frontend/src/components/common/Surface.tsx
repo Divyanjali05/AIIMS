@@ -42,103 +42,112 @@ export const Surface: React.FC<SurfaceProps> = ({
     switch (variant) {
       case 'flat':
         return {
-          backgroundColor: '#ffffff',
-          border: 'none'
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          border: 'none',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'subtle':
         return {
-          backgroundColor: '#f8f7fd',
-          border: '1px solid #ede9fe'
+          backgroundColor: 'var(--aiims-bg-card-hover, #f8f7fd)',
+          border: '1px solid var(--aiims-border-card, #ede9fe)',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'highlight':
         return {
-          backgroundColor: '#f0eeff',
-          border: '1px solid #c7d2fe'
+          backgroundColor: 'var(--aiims-card-banner-bg, #f0eeff)',
+          border: '1px solid var(--aiims-border-card, #c7d2fe)',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'dark':
         return {
-          backgroundColor: '#1e1b4b',
+          backgroundColor: 'var(--aiims-bg-card, #1e1b4b)',
           color: '#ffffff',
-          border: '1px solid #312e81'
+          border: '1px solid var(--aiims-border-card, #312e81)'
         };
       case 'mint':
         return {
-          backgroundColor: '#ecfdf5',
-          border: '1px solid #a7f3d0',
-          color: '#064e3b'
+          backgroundColor: 'var(--aiims-card-mint-bg, #ecfdf5)',
+          border: '1px solid var(--aiims-card-mint-border, #a7f3d0)',
+          color: 'var(--aiims-card-mint-text, #064e3b)'
         };
       case 'sky':
         return {
-          backgroundColor: '#e0f2fe',
-          border: '1px solid #bae6fd',
-          color: '#075985'
+          backgroundColor: 'var(--aiims-card-sky-bg, #e0f2fe)',
+          border: '1px solid var(--aiims-card-sky-border, #bae6fd)',
+          color: 'var(--aiims-card-sky-text, #075985)'
         };
       case 'amber':
         return {
-          backgroundColor: '#fffbeb',
-          border: '1px solid #fde68a',
-          color: '#78350f'
+          backgroundColor: 'var(--aiims-card-amber-bg, #fffbeb)',
+          border: '1px solid var(--aiims-card-amber-border, #fde68a)',
+          color: 'var(--aiims-card-amber-text, #78350f)'
         };
       case 'cyan':
         return {
-          backgroundColor: '#ecfeff',
-          border: '1px solid #a5f3fc',
-          color: '#155e75'
+          backgroundColor: 'var(--aiims-card-cyan-bg, #ecfeff)',
+          border: '1px solid var(--aiims-card-cyan-border, #a5f3fc)',
+          color: 'var(--aiims-card-cyan-text, #155e75)'
         };
       case 'violet':
         return {
-          backgroundColor: '#f5f3ff',
-          border: '1px solid #ddd6fe',
-          color: '#4c1d95'
+          backgroundColor: 'var(--aiims-card-violet-bg, #f5f3ff)',
+          border: '1px solid var(--aiims-card-violet-border, #ddd6fe)',
+          color: 'var(--aiims-card-violet-text, #4c1d95)'
         };
       case 'rose':
         return {
-          backgroundColor: '#fff1f2',
-          border: '1px solid #fecdd3',
-          color: '#881337'
+          backgroundColor: 'var(--aiims-card-rose-bg, #fff1f2)',
+          border: '1px solid var(--aiims-card-rose-border, #fecdd3)',
+          color: 'var(--aiims-card-rose-text, #881337)'
         };
       case 'peach':
         return {
-          backgroundColor: '#fff7ed',
-          border: '1px solid #ffedd5',
-          color: '#7c2d12'
+          backgroundColor: 'var(--aiims-card-peach-bg, #fff7ed)',
+          border: '1px solid var(--aiims-card-peach-border, #ffedd5)',
+          color: 'var(--aiims-card-peach-text, #7c2d12)'
         };
       case 'gradient-hero':
         return {
-          background: 'linear-gradient(135deg, #eef2ff 0%, #f5f3ff 50%, #e0f2fe 100%)',
-          border: '1px solid #c7d2fe',
-          boxShadow: '0 8px 30px rgba(99, 102, 241, 0.1)'
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 50%, rgba(2, 132, 199, 0.12) 100%)',
+          border: '1px solid var(--aiims-border-card, #c7d2fe)',
+          boxShadow: 'var(--aiims-shadow-card, 0 8px 30px rgba(99, 102, 241, 0.1))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'gradient-radar':
         return {
-          background: 'linear-gradient(135deg, #e0f2fe 0%, #ecfeff 60%, #eef2ff 100%)',
-          border: '1px solid #bae6fd',
-          boxShadow: '0 8px 30px rgba(2, 132, 199, 0.1)'
+          background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.15) 0%, rgba(6, 182, 212, 0.1) 60%, rgba(99, 102, 241, 0.12) 100%)',
+          border: '1px solid var(--aiims-border-card, #bae6fd)',
+          boxShadow: 'var(--aiims-shadow-card, 0 8px 30px rgba(2, 132, 199, 0.1))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'gradient-clarity':
         return {
-          background: 'linear-gradient(135deg, #ecfdf5 0%, #e6fffa 60%, #e0f2fe 100%)',
-          border: '1px solid #a7f3d0',
-          boxShadow: '0 8px 30px rgba(5, 150, 105, 0.1)'
+          background: 'linear-gradient(135deg, rgba(5, 150, 105, 0.15) 0%, rgba(16, 185, 129, 0.1) 60%, rgba(2, 132, 199, 0.1) 100%)',
+          border: '1px solid var(--aiims-border-card, #a7f3d0)',
+          boxShadow: 'var(--aiims-shadow-card, 0 8px 30px rgba(5, 150, 105, 0.1))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'gradient-focus':
         return {
-          background: 'linear-gradient(135deg, #fffbeb 0%, #fff7ed 60%, #fef3c7 100%)',
-          border: '1px solid #fde68a',
-          boxShadow: '0 8px 30px rgba(217, 119, 6, 0.1)'
+          background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.15) 0%, rgba(249, 115, 22, 0.1) 60%, rgba(245, 158, 11, 0.1) 100%)',
+          border: '1px solid var(--aiims-border-card, #fde68a)',
+          boxShadow: 'var(--aiims-shadow-card, 0 8px 30px rgba(217, 119, 6, 0.1))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'gradient-relevance':
         return {
-          background: 'linear-gradient(135deg, #eef2ff 0%, #f3e8ff 50%, #ecfdf5 100%)',
-          border: '1px solid #c7d2fe',
-          boxShadow: '0 8px 30px rgba(99, 102, 241, 0.12)'
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.1) 50%, rgba(16, 185, 129, 0.1) 100%)',
+          border: '1px solid var(--aiims-border-card, #c7d2fe)',
+          boxShadow: 'var(--aiims-shadow-card, 0 8px 30px rgba(99, 102, 241, 0.12))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
       case 'bordered':
       default:
         return {
-          backgroundColor: '#ffffff',
-          border: '1px solid #ede9fe',
-          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02)'
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          border: '1px solid var(--aiims-border-card, #ede9fe)',
+          boxShadow: 'var(--aiims-shadow-card, 0 4px 16px rgba(99, 102, 241, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02))',
+          color: 'var(--aiims-text-primary, #0f172a)'
         };
     }
   };

@@ -1,5 +1,5 @@
 /**
- * AINOVA Academic Taxonomy Configuration
+ * AIIMS Academic Taxonomy Configuration
  *
  * Centralized definitions for:
  * - Streams and sub-categories

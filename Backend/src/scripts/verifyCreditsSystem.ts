@@ -28,7 +28,7 @@ async function run() {
   let isDbConnected = false;
   if (config.mongodbUri) {
     try {
-      await mongoose.connect(config.mongodbUri);
+      await mongoose.connect(config.mongodbUri, { serverSelectionTimeoutMS: 2000 });
       isDbConnected = mongoose.connection.readyState === 1;
       console.log(`🌿 Direct MongoDB connection established: ${isDbConnected}`);
     } catch (e: any) {

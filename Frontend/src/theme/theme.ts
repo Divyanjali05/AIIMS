@@ -58,11 +58,35 @@ export const theme = {
     }
   },
   radius: {
+    card: '12px',
     sm: '10px',
     md: '14px',
     lg: '20px',
     xl: '24px',
     pill: '9999px'
+  },
+  tokens: {
+    // Phase 4 Baseline Standard Values
+    cardMinWidthDesktop: '260px',
+    cardWidthPhone: '100%',
+    journeyTileMinSize: '120px',
+    gridGapPhone: '16px',
+    gridGapDesktop: '20px',
+    cardPaddingPhone: '16px',
+    cardPaddingDesktop: '20px',
+    cardRadius: '12px',
+    iconInline: 16,
+    iconButton: 20,
+    iconCardHeader: 24,
+    iconLevelCard: 32,
+    cardTitleSize: '16px',
+    cardTitleWeight: 600,
+    cardBodySize: '14px',
+    cardBodyWeight: 400,
+    cardBodyMaxLines: 2,
+    cardImageAspectRatio: '16/9',
+    cardImageMaxSizeKb: 150,
+    statusBadgeSize: '12px'
   },
   shadows: {
     none: 'none',

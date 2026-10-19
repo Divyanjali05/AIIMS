@@ -6,6 +6,8 @@ import { mockUser, mockDimensionScores, mockLearnerFullState, mockTransactions }
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { evaluateAssessment } from '../services/assessmentScoring';
 import { CREDIT_RULES, formatUserState } from '../config/credits.config';
+import { creditsLedgerService } from '../services/creditsLedger.service';
+import { registeredUsers } from '../models/userStore';
 
 const claudeService = new ClaudeService();
 
@@ -81,7 +83,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     if (eval25) openEndedEvaluations[25] = eval25;
   }
 
-  // Calculate scores using AINOVA Assessment Scoring Engine
+  // Calculate scores using AIIMS Assessment Scoring Engine
   const evaluationResult = evaluateAssessment(userAnswers, openEndedEvaluations);
 
   const creditReward = CREDIT_RULES.ASSESSMENT_COMPLETION.credits;
@@ -136,6 +138,18 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
 
       if (updatedUser) {
         req.user = updatedUser;
+        const userId = String(req.user._id || req.user.id);
+        await creditsLedgerService.executeTransaction({
+          userId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: creditReward,
+          reason: `Completed Baseline Diagnostic Assessment (+${creditReward} AC)`,
+          source: 'ASSESSMENT',
+          sourceId: 'DIAGNOSTIC_ASSESSMENT',
+          idempotencyKey: `assessment::${userId}::completed`
+        }).catch((e) => console.warn('[Assessment] Ledger dual-write warning:', e.message));
+
         return res.json({
           message: 'Assessment completed and saved to MongoDB Atlas!',
           earnedCredits: creditReward,
@@ -183,25 +197,52 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     let earnedCredits = 0;
 
     if (!alreadyClaimed) {
-      req.user.aiimsCredits = previousBalance + creditReward;
-      req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
-      earnedCredits = creditReward;
+      const userId = String(req.user._id || req.user.id);
+      const actionKey = `assessment::${userId}::diagnostic`;
 
-      const tx = {
-        id: `tx-assess-${Date.now()}`,
-        transactionType: 'LEVEL_COMPLETION',
-        type: 'EARN' as const,
+      const ledgerResult = await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'EARN',
+        category: 'REWARD',
+        amount: creditReward,
+        reason: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
         source: 'ASSESSMENT',
         sourceId: 'DIAGNOSTIC_ASSESSMENT',
-        amount: creditReward,
-        description: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance,
-        newBalance: req.user.aiimsCredits
-      };
+        idempotencyKey: actionKey
+      }).catch((e) => {
+        console.warn('[Assessment] Ledger offline write notice:', e.message);
+        return null;
+      });
 
-      req.user.transactions = req.user.transactions || [];
-      req.user.transactions.unshift(tx);
+      if (ledgerResult && ledgerResult.duplicate) {
+        earnedCredits = 0;
+      } else {
+        req.user.aiimsCredits = ledgerResult?.newBalance ?? (previousBalance + creditReward);
+        req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
+        earnedCredits = creditReward;
+
+        const tx = {
+          id: ledgerResult?.transaction?.id || `tx-assess-${Date.now()}`,
+          transactionType: 'LEVEL_COMPLETION',
+          type: 'EARN' as const,
+          source: 'ASSESSMENT',
+          sourceId: 'DIAGNOSTIC_ASSESSMENT',
+          amount: creditReward,
+          description: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          previousBalance,
+          newBalance: req.user.aiimsCredits
+        };
+
+        req.user.transactions = req.user.transactions || [];
+        req.user.transactions.unshift(tx);
+
+        if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
+          const reg = registeredUsers[req.user.email.toLowerCase()];
+          reg.aiimsCredits = req.user.aiimsCredits;
+          reg.xpPoints = req.user.xpPoints;
+        }
+      }
     }
 
     req.user.stage = 'Understanding';
@@ -221,6 +262,13 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       growthArea: evaluationResult.roomToGrow.name,
       unlockedAt: req.user.analysis?.unlockedAt || new Date().toISOString()
     };
+
+    if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
+      const reg = registeredUsers[req.user.email.toLowerCase()];
+      reg.stage = 'Understanding';
+      reg.assessment = req.user.assessment;
+      reg.analysis = req.user.analysis;
+    }
 
     return res.json({
       message: alreadyClaimed ? 'Assessment updated (reward already claimed)' : 'Assessment completed and saved to MongoDB Atlas!',

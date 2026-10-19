@@ -18,20 +18,20 @@ export const Badge: React.FC<BadgeProps> = ({
   const getVariantStyles = (): React.CSSProperties => {
     switch (variant) {
       case 'success':
-        return { backgroundColor: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' };
+        return { backgroundColor: 'var(--aiims-card-mint-bg, #ecfdf5)', color: 'var(--aiims-card-mint-text, #047857)', border: '1px solid var(--aiims-card-mint-border, #a7f3d0)' };
       case 'warning':
-        return { backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' };
+        return { backgroundColor: 'var(--aiims-card-amber-bg, #fef3c7)', color: 'var(--aiims-card-amber-text, #b45309)', border: '1px solid var(--aiims-card-amber-border, #fde68a)' };
       case 'cyan':
-        return { backgroundColor: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' };
+        return { backgroundColor: 'var(--aiims-card-cyan-bg, #e0f2fe)', color: 'var(--aiims-card-cyan-text, #0369a1)', border: '1px solid var(--aiims-card-cyan-border, #bae6fd)' };
       case 'purple':
-        return { backgroundColor: '#f3e8ff', color: '#6b21a8', border: '1px solid #e9d5ff' };
+        return { backgroundColor: 'var(--aiims-card-violet-bg, #f3e8ff)', color: 'var(--aiims-card-violet-text, #6b21a8)', border: '1px solid var(--aiims-card-violet-border, #e9d5ff)' };
       case 'neutral':
-        return { backgroundColor: '#f4f3ff', color: '#475569', border: '1px solid #ede9fe' };
+        return { backgroundColor: 'var(--aiims-bg-card-hover, #f4f3ff)', color: 'var(--aiims-text-secondary, #475569)', border: '1px solid var(--aiims-border-card, #ede9fe)' };
       case 'outline':
-        return { backgroundColor: '#ffffff', color: '#64748b', border: '1px solid #cbd5e1' };
+        return { backgroundColor: 'var(--aiims-bg-card, #ffffff)', color: 'var(--aiims-text-secondary, #64748b)', border: '1px solid var(--aiims-border-card, #cbd5e1)' };
       case 'primary':
       default:
-        return { backgroundColor: '#eef2ff', color: '#4338ca', border: '1px solid #c7d2fe' };
+        return { backgroundColor: 'var(--aiims-card-banner-bg, #eef2ff)', color: 'var(--aiims-primary, #4338ca)', border: '1px solid var(--aiims-border-card, #c7d2fe)' };
     }
   };
 

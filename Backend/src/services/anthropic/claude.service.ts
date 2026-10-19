@@ -78,7 +78,7 @@ export class ClaudeService {
       };
     }
 
-    const prompt = `You are the AINOVA Evidence-Based Assessment Evaluator. Grade the following learner response based strictly on demonstrated evidence against the explicit rubric.
+    const prompt = `You are the AIIMS Evidence-Based Assessment Evaluator. Grade the following learner response based strictly on demonstrated evidence against the explicit rubric.
 
 QUESTION ID: ${questionId}
 EXACT QUESTION: ${question}
@@ -185,7 +185,7 @@ Return ONLY a valid JSON object adhering strictly to this schema:
       };
     }
 
-    const prompt = `You are the AINOVA Personal AI Mentor. Calculate personalized relevance.
+    const prompt = `You are the AIIMS Personal AI Mentor. Calculate personalized relevance.
 Learner Role: ${learnerRole}
 Learner Target Goal: ${goal}
 Identified Gaps: ${gapSummary}
@@ -238,7 +238,7 @@ Return a JSON object with:
       };
     }
 
-    const prompt = `Scaffold this AI signal into the AINOVA 4-step framework.
+    const prompt = `Scaffold this AI signal into the AIIMS 4-step framework.
 Title: ${title}
 Description: ${rawDescription}
 
@@ -287,7 +287,7 @@ Return JSON with:
     taskObjective: string;
     scenario: string;
   }): Promise<{ prompt: string; model: string }> {
-    const systemPrompt = `You are an elite AI Prompt Engineering & Workflow Architect for AINOVA Level 2 (Clarity).
+    const systemPrompt = `You are an elite AI Prompt Engineering & Workflow Architect for AIIMS Level 2 (Clarity).
 Generate a battle-tested, structured prompt for a learner tackling the following AI task:
 - Topic: ${params.topic}
 - Difficulty: ${params.difficulty}
@@ -347,7 +347,7 @@ OUTPUT FORMAT:
 - Key Findings (bulleted)
 - Recommended Remediation or Action Item
 - Confidence Score: (0.0 to 1.0)`,
-      model: 'AINOVA AI Prompt Engine'
+      model: 'AIIMS AI Prompt Engine'
     };
   }
 
@@ -392,8 +392,8 @@ OUTPUT FORMAT:
 **Actionable Recommendation:**
 Proceed with downstream workflow integration. Human checkpoint logged for auditability.
 
-*Executed locally via AINOVA AI Engine.*`,
-      model: 'AINOVA AI Execution Engine'
+*Executed locally via AIIMS AI Engine.*`,
+      model: 'AIIMS AI Execution Engine'
     };
   }
 
@@ -411,7 +411,7 @@ Proceed with downstream workflow integration. Human checkpoint logged for audita
     gaps: string[];
     tip: string;
   }> {
-    const evalPrompt = `You are the AINOVA Level 2 AI Evaluator. Grade this learner's AI prompt and resulting execution.
+    const evalPrompt = `You are the AIIMS Level 2 AI Evaluator. Grade this learner's AI prompt and resulting execution.
 Topic: ${params.topic}
 Task Difficulty: ${params.difficulty}
 Task Title: ${params.taskTitle}

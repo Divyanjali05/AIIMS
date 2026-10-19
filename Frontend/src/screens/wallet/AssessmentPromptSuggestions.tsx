@@ -136,10 +136,10 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
       {/* PROMPT EVIDENCE DRAWER */}
       {showPrompts && (
         <div style={{
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--aiims-bg-card)',
           borderRadius: '10px',
           padding: '12px 16px',
-          border: '1px solid #e0e7ff',
+          border: '1px solid var(--aiims-border-card)',
           marginBottom: '16px',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
@@ -147,17 +147,17 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
         }}>
           {/* Challenge 11 Prompt */}
           <div style={{ fontSize: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#4338ca', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: 'var(--aiims-primary)', marginBottom: '4px' }}>
               <FileCode size={14} /> Your Architecture Prompt (Challenge 11):
             </div>
             <div style={{
-              backgroundColor: '#f8fafc',
+              backgroundColor: 'var(--aiims-bg-card-subtle)',
               padding: '8px 10px',
               borderRadius: '6px',
               fontStyle: 'italic',
-              color: '#334155',
+              color: 'var(--aiims-text-body)',
               lineHeight: 1.45,
-              border: '1px solid #f1f5f9'
+              border: '1px solid var(--aiims-border-subtle)'
             }}>
               "{insights.architecturePrompt.slice(0, 140)}
               {insights.architecturePrompt.length > 140 ? '...' : ''}"
@@ -166,17 +166,17 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
 
           {/* Challenge 12 Prompt */}
           <div style={{ fontSize: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: '#059669', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', marginBottom: '4px' }}>
               <Terminal size={14} /> Your Prototype Prompt (Challenge 12):
             </div>
             <div style={{
-              backgroundColor: '#f8fafc',
+              backgroundColor: 'var(--aiims-bg-card-subtle)',
               padding: '8px 10px',
               borderRadius: '6px',
               fontStyle: 'italic',
-              color: '#334155',
+              color: 'var(--aiims-text-body)',
               lineHeight: 1.45,
-              border: '1px solid #f1f5f9'
+              border: '1px solid var(--aiims-border-subtle)'
             }}>
               "{insights.prototypePrompt.slice(0, 140)}
               {insights.prototypePrompt.length > 140 ? '...' : ''}"
@@ -186,7 +186,7 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
       )}
 
       {/* SUGGESTED TOOLS CARDS GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
+      <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
         {insights.suggestedTools.map((item) => {
           const isInWallet = userToolIdSet.has(item.toolId);
           const wasJustAdded = justAddedId === item.toolId;
@@ -195,15 +195,15 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
             <div
               key={item.toolId}
               style={{
-                backgroundColor: '#ffffff',
+                backgroundColor: 'var(--aiims-bg-card)',
                 borderRadius: '12px',
                 padding: '14px 16px',
-                border: isInWallet ? '1.5px solid #a7f3d0' : '1px solid #e2e8f0',
+                border: isInWallet ? '1.5px solid var(--aiims-tint-emerald-border)' : '1px solid var(--aiims-border-card)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
                 gap: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                boxShadow: 'var(--aiims-shadow-card)',
                 transition: 'all 0.15s ease'
               }}
             >
@@ -211,10 +211,10 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
                 {/* TOP META ROW */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
                   <div>
-                    <h4 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                    <h4 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                       {item.toolName}
                     </h4>
-                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                    <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
                       {item.provider} • {item.category}
                     </span>
                   </div>
@@ -222,8 +222,8 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: '#059669',
-                    backgroundColor: '#ecfdf5',
+                    color: 'var(--aiims-tint-emerald-text)',
+                    backgroundColor: 'var(--aiims-tint-emerald-bg)',
                     padding: '2px 6px',
                     borderRadius: '6px'
                   }}>
@@ -236,8 +236,8 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
                   <span style={{
                     fontSize: '10.5px',
                     fontWeight: 700,
-                    color: '#4338ca',
-                    backgroundColor: '#eef2ff',
+                    color: 'var(--aiims-primary)',
+                    backgroundColor: 'var(--aiims-primary-light)',
                     padding: '2px 8px',
                     borderRadius: '4px'
                   }}>
@@ -246,14 +246,14 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
                 </div>
 
                 {/* REASON */}
-                <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
                   {item.reason}
                 </p>
               </div>
 
               {/* ACTION FOOTER */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid #f1f5f9' }}>
-                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--aiims-border-subtle)' }}>
+                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
                   {item.pricing}
                 </span>
 

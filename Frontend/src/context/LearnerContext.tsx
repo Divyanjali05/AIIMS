@@ -1,7 +1,23 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, AcademicProfile, UserToolItem, TaskCategory, ToolFamiliarity, SolvedWorkflow, UserProject } from '../types';
+import {
+  UserProfile,
+  AcademicProfile,
+  UserToolItem,
+  TaskCategory,
+  ToolFamiliarity,
+  SolvedWorkflow,
+  UserProject,
+  AudienceMode,
+  FocusSessionLifecycleState,
+  FocusPeriodType,
+  FocusSessionConfig,
+  ActiveFocusSessionState,
+  FocusSessionRecord
+} from '../types';
 import { apiClient } from '../api/client';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
+import { playSessionCompleteSound, playBreakCompleteSound } from '../utils/focusAudio';
+import { sendFocusNotification } from '../utils/focusNotifications';
 
 export interface CreditTransactionItem {
   id: string;
@@ -20,6 +36,19 @@ export interface AppNotification {
   targetTab: string;
   read: boolean;
 }
+
+export const resolveAudienceMode = (
+  savedMode?: any,
+  primaryGoal?: string
+): AudienceMode => {
+  if (savedMode === 'student' || savedMode === 'entrepreneur') {
+    return savedMode;
+  }
+  if (primaryGoal === 'ENTREPRENEURSHIP') {
+    return 'entrepreneur';
+  }
+  return 'student';
+};
 
 export interface LearnerState {
   profile: UserProfile;
@@ -68,6 +97,9 @@ export interface LearnerState {
     selectedTrack: string | null;
     history: string[];
     activatedAt: string | null;
+    sessionConfig?: FocusSessionConfig;
+    activeSession?: ActiveFocusSessionState | null;
+    sessionHistory?: FocusSessionRecord[];
   };
   radar: {
     status: 'locked' | 'available';
@@ -94,6 +126,7 @@ export interface LearnerState {
   aiWallet: {
     userTools: UserToolItem[];
     dismissedRecommendations: string[];
+    audienceMode?: AudienceMode;
   };
   solver?: {
     latestWorkflow: SolvedWorkflow | null;
@@ -154,7 +187,17 @@ const initialLearnerState: LearnerState = {
     status: 'locked',
     selectedTrack: null,
     history: [],
-    activatedAt: null
+    activatedAt: null,
+    sessionConfig: {
+      focusDurationMinutes: 25,
+      breakDurationMinutes: 5,
+      enableLongBreak: true,
+      longBreakDurationMinutes: 15,
+      longBreakInterval: 4,
+      soundEnabled: true
+    },
+    activeSession: null,
+    sessionHistory: []
   },
   radar: {
     status: 'locked',
@@ -189,7 +232,7 @@ const initialLearnerState: LearnerState = {
   notifications: [
     {
       id: 'notif-welcome-1',
-      title: 'Welcome to Ainova',
+      title: 'Welcome to AIIMS',
       message: 'Your AI journey starts here. Discover your AI profile by taking your baseline assessment.',
       timestamp: 'Just now',
       targetTab: 'assessment',
@@ -215,7 +258,8 @@ const initialLearnerState: LearnerState = {
         customTags: ['coding']
       }
     ],
-    dismissedRecommendations: []
+    dismissedRecommendations: [],
+    audienceMode: 'student'
   },
   solver: {
     latestWorkflow: null,
@@ -273,11 +317,21 @@ interface LearnerContextType {
   selectFocusTrack: (trackName: string) => void;
   changeFocusTrack: (newTrackName: string) => void;
   clearFocusSelection: () => void;
+  updateFocusSessionConfig: (config: Partial<FocusSessionConfig>) => void;
+  startFocusSession: (params?: { trackTitle?: string; intention?: string; customFocusMinutes?: number; customBreakMinutes?: number }) => boolean;
+  pauseFocusSession: () => void;
+  resumeFocusSession: () => void;
+  completeFocusPeriod: () => void;
+  startBreakPeriod: (forceLongBreak?: boolean) => void;
+  skipBreakPeriod: () => void;
+  endFocusSession: (saveAsAbandoned?: boolean) => void;
+  clearFocusSessionHistory: () => void;
   investigateSignal: (signalId: string, notes?: string, serverRes?: any) => void;
   completeRelevance: (signalId?: string) => void;
   toggleSaveSignal: (signalId: string) => void;
   dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
+  setAudienceMode: (mode: AudienceMode) => void;
   addToolToWallet: (toolId: string, primaryCategory: TaskCategory, familiarity?: ToolFamiliarity, userNotes?: string) => void;
   addMultipleToolsToWallet: (tools: UserToolItem[]) => void;
   removeToolFromWallet: (toolId: string) => void;
@@ -318,10 +372,22 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           const scoped = localStorage.getItem(scopedByEmail);
           if (scoped) {
             const parsed = JSON.parse(scoped);
+            const resolvedMode = resolveAudienceMode(
+              parsed.aiWallet?.audienceMode,
+              parsed.academicProfile?.primaryGoal || parsed.profile?.targetGoal
+            );
             return {
               ...initialLearnerState,
               ...parsed,
-              aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
+              focus: {
+                ...initialLearnerState.focus,
+                ...(parsed.focus || {})
+              },
+              aiWallet: {
+                ...initialLearnerState.aiWallet,
+                ...(parsed.aiWallet || {}),
+                audienceMode: resolvedMode
+              }
             };
           }
         }
@@ -331,10 +397,22 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const parsed = JSON.parse(saved);
         // Only load if there's a real user (not the old hardcoded demo)
         if (parsed?.profile?.email && parsed.profile.email !== 'divya@example.com') {
+          const resolvedMode = resolveAudienceMode(
+            parsed.aiWallet?.audienceMode,
+            parsed.academicProfile?.primaryGoal || parsed.profile?.targetGoal
+          );
           return {
             ...initialLearnerState,
             ...parsed,
-            aiWallet: parsed.aiWallet || initialLearnerState.aiWallet
+            focus: {
+              ...initialLearnerState.focus,
+              ...(parsed.focus || {})
+            },
+            aiWallet: {
+              ...initialLearnerState.aiWallet,
+              ...(parsed.aiWallet || {}),
+              audienceMode: resolvedMode
+            }
           };
         }
       }
@@ -392,6 +470,128 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return () => clearTimeout(timer);
     }
   }, [state, isAuthenticated]);
+
+  // Reliable Timer Heartbeat & Background-Sleep Synchronizer (Phase 6C)
+  // Uses persisted target epoch ms timestamps rather than simple setInterval decrements.
+  useEffect(() => {
+    const checkTimerSync = () => {
+      setState((prev) => {
+        const active = prev.focus?.activeSession;
+        if (!active || (active.sessionState !== 'focusing' && active.sessionState !== 'break')) {
+          return prev;
+        }
+
+        if (!active.targetEndTime) {
+          return prev;
+        }
+
+        const now = Date.now();
+        const msRemaining = active.targetEndTime - now;
+
+        // Has period elapsed?
+        if (msRemaining <= 0) {
+          if (active.periodType === 'focus') {
+            const accumulated = active.totalPeriodSeconds;
+            const newCycles = active.completedCycles + 1;
+            const record: FocusSessionRecord = {
+              id: active.id,
+              trackTitle: active.trackTitle,
+              intention: active.intention,
+              focusDurationMinutes: Math.round(active.totalPeriodSeconds / 60),
+              actualFocusSeconds: accumulated,
+              breakDurationMinutes: active.config.breakDurationMinutes,
+              startedAt: new Date(active.sessionStartEpoch).toISOString(),
+              completedAt: new Date().toISOString(),
+              status: 'completed',
+              cyclesCompleted: newCycles
+            };
+
+            playSessionCompleteSound(active.config.soundEnabled);
+            sendFocusNotification(
+              'Focus Period Completed!',
+              `Great job! You finished ${Math.round(active.totalPeriodSeconds / 60)} minutes of focus on ${active.trackTitle}.`
+            );
+
+            const prevHistory = prev.focus.sessionHistory || [];
+            // Prevent duplicate completion records
+            const alreadyLogged = prevHistory.some(r => r.id === active.id && r.cyclesCompleted === newCycles);
+            const updatedHistory = alreadyLogged ? prevHistory : [record, ...prevHistory];
+
+            return {
+              ...prev,
+              focus: {
+                ...prev.focus,
+                activeSession: {
+                  ...active,
+                  sessionState: 'completed',
+                  remainingSeconds: 0,
+                  targetEndTime: null,
+                  completedCycles: newCycles,
+                  accumulatedFocusSeconds: accumulated
+                },
+                sessionHistory: updatedHistory
+              }
+            };
+          } else {
+            // Break period finished
+            playBreakCompleteSound(active.config.soundEnabled);
+            sendFocusNotification(
+              'Break Finished!',
+              'Your break has ended. Ready to start your next focus session?'
+            );
+
+            return {
+              ...prev,
+              focus: {
+                ...prev.focus,
+                activeSession: {
+                  ...active,
+                  sessionState: 'idle',
+                  remainingSeconds: 0,
+                  targetEndTime: null
+                }
+              }
+            };
+          }
+        } else {
+          // Period still running: sync remainingSeconds accurately
+          const remainingSec = Math.max(0, Math.ceil(msRemaining / 1000));
+          if (remainingSec === active.remainingSeconds) {
+            return prev;
+          }
+          const elapsed = active.periodType === 'focus' ? Math.max(0, active.totalPeriodSeconds - remainingSec) : 0;
+          const newAccumulated = active.periodType === 'focus' ? Math.max(active.accumulatedFocusSeconds, elapsed) : active.accumulatedFocusSeconds;
+
+          return {
+            ...prev,
+            focus: {
+              ...prev.focus,
+              activeSession: {
+                ...active,
+                remainingSeconds: remainingSec,
+                accumulatedFocusSeconds: newAccumulated
+              }
+            }
+          };
+        }
+      });
+    };
+
+    const interval = setInterval(checkTimerSync, 500);
+
+    const handleVisibilityOrFocus = () => {
+      checkTimerSync();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, []);
 
   const saveAssessmentAnswer = (questionId: number, value: any) => {
     setState((prev) => ({
@@ -644,6 +844,361 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       focus: {
         ...prev.focus,
         status: prev.focus.status === 'locked' ? 'locked' : 'unlocked'
+      }
+    }));
+  };
+
+  // ==========================================
+  // FOCUS SESSION MANAGEMENT (Phase 6C)
+  // ==========================================
+
+  const updateFocusSessionConfig = (newConfig: Partial<FocusSessionConfig>) => {
+    setState((prev) => {
+      const currentConfig = prev.focus.sessionConfig || {
+        focusDurationMinutes: 25,
+        breakDurationMinutes: 5,
+        enableLongBreak: true,
+        longBreakDurationMinutes: 15,
+        longBreakInterval: 4,
+        soundEnabled: true
+      };
+
+      const updated = {
+        ...currentConfig,
+        ...newConfig
+      };
+
+      const parsedFocus = Number(updated.focusDurationMinutes);
+      updated.focusDurationMinutes = isNaN(parsedFocus) ? 25 : Math.max(1, Math.min(180, parsedFocus));
+
+      const parsedBreak = Number(updated.breakDurationMinutes);
+      updated.breakDurationMinutes = isNaN(parsedBreak) ? 5 : Math.max(1, Math.min(60, parsedBreak));
+
+      const parsedLongBreak = Number(updated.longBreakDurationMinutes);
+      updated.longBreakDurationMinutes = isNaN(parsedLongBreak) ? 15 : Math.max(1, Math.min(60, parsedLongBreak));
+
+      const parsedInterval = Number(updated.longBreakInterval);
+      updated.longBreakInterval = isNaN(parsedInterval) ? 4 : Math.max(1, Math.min(12, parsedInterval));
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          sessionConfig: updated,
+          activeSession: prev.focus.activeSession ? {
+            ...prev.focus.activeSession,
+            config: updated
+          } : prev.focus.activeSession
+        }
+      };
+    });
+  };
+
+  const startFocusSession = (params?: {
+    trackTitle?: string;
+    intention?: string;
+    customFocusMinutes?: number;
+    customBreakMinutes?: number;
+  }): boolean => {
+    let started = false;
+
+    setState((prev) => {
+      // Guard against starting if session is currently active
+      if (
+        prev.focus.activeSession &&
+        (prev.focus.activeSession.sessionState === 'focusing' ||
+         prev.focus.activeSession.sessionState === 'paused' ||
+         prev.focus.activeSession.sessionState === 'break')
+      ) {
+        return prev;
+      }
+
+      const config = prev.focus.sessionConfig || {
+        focusDurationMinutes: 25,
+        breakDurationMinutes: 5,
+        enableLongBreak: true,
+        longBreakDurationMinutes: 15,
+        longBreakInterval: 4,
+        soundEnabled: true
+      };
+
+      const parsedCustomFocus = params?.customFocusMinutes !== undefined ? Number(params.customFocusMinutes) : NaN;
+      const focusMinutes = !isNaN(parsedCustomFocus)
+        ? Math.max(1, Math.min(180, parsedCustomFocus))
+        : config.focusDurationMinutes;
+
+      const parsedCustomBreak = params?.customBreakMinutes !== undefined ? Number(params.customBreakMinutes) : NaN;
+      const breakMinutes = !isNaN(parsedCustomBreak)
+        ? Math.max(1, Math.min(60, parsedCustomBreak))
+        : config.breakDurationMinutes;
+
+      const effectiveConfig: FocusSessionConfig = {
+        ...config,
+        focusDurationMinutes: focusMinutes,
+        breakDurationMinutes: breakMinutes
+      };
+
+      const track = params?.trackTitle?.trim() || prev.focus.selectedTrack || 'AI Workflow Design';
+      const durationSeconds = focusMinutes * 60;
+      const now = Date.now();
+      const targetEndTime = now + (durationSeconds * 1000);
+
+      const newSession: ActiveFocusSessionState = {
+        id: `foc-sess-${now}`,
+        trackTitle: track,
+        intention: params?.intention?.trim() || '',
+        sessionState: 'focusing',
+        periodType: 'focus',
+        targetEndTime,
+        totalPeriodSeconds: durationSeconds,
+        remainingSeconds: durationSeconds,
+        pausedAt: null,
+        accumulatedFocusSeconds: 0,
+        sessionStartEpoch: now,
+        completedCycles: 0,
+        config: effectiveConfig
+      };
+
+      started = true;
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          status: 'active',
+          selectedTrack: track,
+          activeSession: newSession
+        }
+      };
+    });
+
+    return started;
+  };
+
+  const pauseFocusSession = () => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active || (active.sessionState !== 'focusing' && active.sessionState !== 'break')) {
+        return prev;
+      }
+
+      const now = Date.now();
+      const remainingSeconds = active.targetEndTime
+        ? Math.max(0, Math.ceil((active.targetEndTime - now) / 1000))
+        : active.remainingSeconds;
+
+      const elapsed = active.periodType === 'focus'
+        ? Math.max(0, active.totalPeriodSeconds - remainingSeconds)
+        : 0;
+      const newAccumulated = active.periodType === 'focus'
+        ? Math.max(active.accumulatedFocusSeconds, elapsed)
+        : active.accumulatedFocusSeconds;
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: {
+            ...active,
+            sessionState: 'paused',
+            remainingSeconds,
+            targetEndTime: null,
+            pausedAt: now,
+            accumulatedFocusSeconds: newAccumulated
+          }
+        }
+      };
+    });
+  };
+
+  const resumeFocusSession = () => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active || active.sessionState !== 'paused') {
+        return prev;
+      }
+
+      const now = Date.now();
+      const targetEndTime = now + (active.remainingSeconds * 1000);
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: {
+            ...active,
+            sessionState: active.periodType === 'focus' ? 'focusing' : 'break',
+            targetEndTime,
+            pausedAt: null
+          }
+        }
+      };
+    });
+  };
+
+  const completeFocusPeriod = () => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active) return prev;
+
+      const newCycles = active.completedCycles + 1;
+      const actualSeconds = active.periodType === 'focus'
+        ? Math.max(active.accumulatedFocusSeconds, active.totalPeriodSeconds - active.remainingSeconds)
+        : active.accumulatedFocusSeconds;
+
+      const record: FocusSessionRecord = {
+        id: active.id,
+        trackTitle: active.trackTitle,
+        intention: active.intention,
+        focusDurationMinutes: Math.round(active.totalPeriodSeconds / 60),
+        actualFocusSeconds: actualSeconds,
+        breakDurationMinutes: active.config.breakDurationMinutes,
+        startedAt: new Date(active.sessionStartEpoch).toISOString(),
+        completedAt: new Date().toISOString(),
+        status: 'completed',
+        cyclesCompleted: newCycles
+      };
+
+      playSessionCompleteSound(active.config.soundEnabled);
+      sendFocusNotification(
+        'Focus Period Completed!',
+        `Great job! You finished ${Math.round(active.totalPeriodSeconds / 60)} minutes of focus on ${active.trackTitle}.`
+      );
+
+      const prevHistory = prev.focus.sessionHistory || [];
+      const alreadyLogged = prevHistory.some(r => r.id === active.id && r.cyclesCompleted === newCycles);
+      const updatedHistory = alreadyLogged ? prevHistory : [record, ...prevHistory];
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: {
+            ...active,
+            sessionState: 'completed',
+            remainingSeconds: 0,
+            targetEndTime: null,
+            completedCycles: newCycles,
+            accumulatedFocusSeconds: actualSeconds
+          },
+          sessionHistory: updatedHistory
+        }
+      };
+    });
+  };
+
+  const startBreakPeriod = (forceLongBreak?: boolean) => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active) return prev;
+
+      const isLong = forceLongBreak || (
+        active.config.enableLongBreak &&
+        active.completedCycles > 0 &&
+        active.completedCycles % active.config.longBreakInterval === 0
+      );
+
+      const breakMins = isLong
+        ? active.config.longBreakDurationMinutes
+        : active.config.breakDurationMinutes;
+      const breakSecs = breakMins * 60;
+      const now = Date.now();
+      const targetEndTime = now + (breakSecs * 1000);
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: {
+            ...active,
+            sessionState: 'break',
+            periodType: isLong ? 'long_break' : 'short_break',
+            totalPeriodSeconds: breakSecs,
+            remainingSeconds: breakSecs,
+            targetEndTime,
+            pausedAt: null
+          }
+        }
+      };
+    });
+  };
+
+  const skipBreakPeriod = () => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active) return prev;
+
+      const focusMins = active.config.focusDurationMinutes;
+      const focusSecs = focusMins * 60;
+      const now = Date.now();
+      const targetEndTime = now + (focusSecs * 1000);
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: {
+            ...active,
+            sessionState: 'focusing',
+            periodType: 'focus',
+            totalPeriodSeconds: focusSecs,
+            remainingSeconds: focusSecs,
+            targetEndTime,
+            pausedAt: null
+          }
+        }
+      };
+    });
+  };
+
+  const endFocusSession = (saveAsAbandoned?: boolean) => {
+    setState((prev) => {
+      const active = prev.focus.activeSession;
+      if (!active) return prev;
+
+      let updatedHistory = prev.focus.sessionHistory || [];
+
+      // Save partial session if user spent at least 30 seconds focused and it wasn't finished
+      const shouldSaveAbandoned = (saveAsAbandoned ?? true) &&
+        active.sessionState !== 'completed' &&
+        active.accumulatedFocusSeconds >= 30;
+
+      if (shouldSaveAbandoned) {
+        const record: FocusSessionRecord = {
+          id: active.id,
+          trackTitle: active.trackTitle,
+          intention: active.intention,
+          focusDurationMinutes: Math.round(active.totalPeriodSeconds / 60),
+          actualFocusSeconds: active.accumulatedFocusSeconds,
+          breakDurationMinutes: active.config.breakDurationMinutes,
+          startedAt: new Date(active.sessionStartEpoch).toISOString(),
+          completedAt: new Date().toISOString(),
+          status: 'abandoned',
+          cyclesCompleted: active.completedCycles
+        };
+        const alreadyLogged = updatedHistory.some(r => r.id === active.id && r.status === 'abandoned');
+        if (!alreadyLogged) {
+          updatedHistory = [record, ...updatedHistory];
+        }
+      }
+
+      return {
+        ...prev,
+        focus: {
+          ...prev.focus,
+          activeSession: null,
+          sessionHistory: updatedHistory
+        }
+      };
+    });
+  };
+
+  const clearFocusSessionHistory = () => {
+    setState((prev) => ({
+      ...prev,
+      focus: {
+        ...prev.focus,
+        sessionHistory: []
       }
     }));
   };
@@ -1021,17 +1576,25 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       localStorage.setItem('aiims_auth_token', resData.token);
       setIsAuthenticated(true);
+      const defaultMode: AudienceMode = payload.primaryGoal === 'ENTREPRENEURSHIP' ? 'entrepreneur' : 'student';
       if (resData.state) {
         setState({
           ...initialLearnerState,
           ...resData.state,
-          aiWallet: resData.state.aiWallet || initialLearnerState.aiWallet
+          aiWallet: {
+            ...(resData.state.aiWallet || initialLearnerState.aiWallet),
+            audienceMode: resData.state.aiWallet?.audienceMode || defaultMode
+          }
         });
       } else if (resData.user) {
         setState((prev) => ({
           ...prev,
           profile: { ...prev.profile, ...resData.user },
-          academicProfile: resData.academicProfile || prev.academicProfile
+          academicProfile: resData.academicProfile || prev.academicProfile,
+          aiWallet: {
+            ...prev.aiWallet,
+            audienceMode: prev.aiWallet?.audienceMode || defaultMode
+          }
         }));
       }
       return { success: true };
@@ -1047,6 +1610,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (window.location.pathname !== '/') {
       window.history.pushState(null, '', '/');
     }
+  };
+
+  const setAudienceMode = (mode: AudienceMode) => {
+    setState((prev) => ({
+      ...prev,
+      aiWallet: {
+        ...prev.aiWallet,
+        audienceMode: mode
+      }
+    }));
   };
 
   const addToolToWallet = (
@@ -1206,11 +1779,21 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectFocusTrack,
         changeFocusTrack,
         clearFocusSelection,
+        updateFocusSessionConfig,
+        startFocusSession,
+        pauseFocusSession,
+        resumeFocusSession,
+        completeFocusPeriod,
+        startBreakPeriod,
+        skipBreakPeriod,
+        endFocusSession,
+        clearFocusSessionHistory,
         investigateSignal,
         completeRelevance,
         toggleSaveSignal,
         dismissSignal,
         awardCredits,
+        setAudienceMode,
         addToolToWallet,
         addMultipleToolsToWallet,
         removeToolFromWallet,

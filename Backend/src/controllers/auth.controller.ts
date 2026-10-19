@@ -9,6 +9,7 @@ import { Cohort } from '../models/Cohort.model';
 import { mockUser } from '../models/aiims.models';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { formatUserState } from '../config/credits.config';
+import { creditsLedgerService } from '../services/creditsLedger.service';
 import {
   PROGRAMS,
   SPECIALIZATIONS,
@@ -29,26 +30,8 @@ export const generateAuthToken = (userId: string, email: string): string => {
   );
 };
 
-// In-memory fallback cache seeded with standard test accounts
-export const registeredUsers: Record<string, any> = {
-  [mockUser.email.toLowerCase()]: {
-    ...mockUser,
-    college: 'Engineering & Technology College',
-    password: bcrypt.hashSync('password123', 10)
-  },
-  'alex.ai@example.com': {
-    id: 'usr-alex-101',
-    name: 'Alex AI',
-    email: 'alex.ai@example.com',
-    role: 'Student / AI Learner',
-    college: 'Stanford University',
-    targetGoal: 'Master AI Intelligence & Mentoring',
-    stage: 'Knowing',
-    xpPoints: 100,
-    aiimsCredits: 100,
-    password: bcrypt.hashSync('password123', 10)
-  }
-};
+import { registeredUsers } from '../models/userStore';
+export { registeredUsers };
 
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -198,8 +181,22 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: `usr-${Date.now().toString().slice(-6)}`,
+    const stableId = new mongoose.Types.ObjectId().toHexString();
+    const welcomeTx = {
+      id: `tx-welcome-${Date.now()}`,
+      transactionType: 'REWARD',
+      type: 'EARN' as const,
+      source: 'SYSTEM',
+      sourceId: 'WELCOME_BONUS',
+      amount: 100,
+      description: 'Welcome Learning Grant (+100 AC)',
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      previousBalance: 0,
+      newBalance: 100
+    };
+    const newUser: any = {
+      _id: stableId,
+      id: stableId,
       name: displayName,
       email: normalizedEmail,
       role: 'STUDENT',
@@ -207,16 +204,28 @@ export const register = async (req: Request, res: Response) => {
       targetGoal: 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
-      aiimsCredits: 100,
+      aiimsCredits: 0,
       password: hashedPassword,
       stream,
       programName,
-      specializationName
+      specializationName,
+      transactions: []
     };
     registeredUsers[normalizedEmail] = newUser;
+    await creditsLedgerService.executeTransaction({
+      userId: stableId,
+      type: 'EARN',
+      category: 'REWARD',
+      amount: 100,
+      reason: 'Welcome Learning Grant (+100 AC)',
+      source: 'SYSTEM',
+      sourceId: 'WELCOME_BONUS',
+      idempotencyKey: `welcome::${stableId}`
+    }).catch(() => {});
+
     const token = generateAuthToken(newUser.id, newUser.email);
     const baseState = formatUserState(new User(newUser) as IUser);
-    return res.json({
+    return res.status(201).json({
       token,
       user: { ...newUser, id: newUser.id },
       state: {
@@ -243,8 +252,20 @@ export const register = async (req: Request, res: Response) => {
       targetGoal: 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
-      aiimsCredits: 100
+      aiimsCredits: 0
     });
+
+    // Record welcome bonus in CreditLedger
+    await creditsLedgerService.executeTransaction({
+      userId: String(dbUser._id),
+      type: 'EARN',
+      category: 'REWARD',
+      amount: 100,
+      reason: 'Welcome Learning Grant (+100 AC)',
+      source: 'SYSTEM',
+      sourceId: 'WELCOME_BONUS',
+      idempotencyKey: `welcome::${String(dbUser._id)}`
+    }).catch((e) => console.warn('[Auth] Welcome ledger entry warning:', e.message));
 
     let cohortDoc: typeof Cohort.prototype | null = null;
     try {
@@ -365,7 +386,20 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     if (role) req.user.role = role;
     if (college) req.user.college = college;
     if (targetGoal) req.user.targetGoal = targetGoal;
-    await req.user.save();
+
+    if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+      try {
+        await req.user.save();
+      } catch (saveErr: any) {
+        console.warn('Could not persist profile update to MongoDB:', saveErr.message);
+      }
+    } else if (req.user.email && registeredUsers && registeredUsers[req.user.email.toLowerCase()]) {
+      const reg = registeredUsers[req.user.email.toLowerCase()];
+      if (name) reg.name = name;
+      if (role) reg.role = role;
+      if (college) reg.college = college;
+      if (targetGoal) reg.targetGoal = targetGoal;
+    }
 
     return res.json({
       id: String(req.user._id || req.user.id),

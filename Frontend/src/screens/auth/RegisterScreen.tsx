@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   AlertCircle, CheckCircle, ArrowLeft, ArrowRight, Check,
   Building2, GraduationCap, Sparkles, User, Eye, EyeOff,
-  Search, ChevronDown, ChevronUp, Plus, Loader2
+  Search, ChevronDown, ChevronUp, Plus, Loader2, Sun, Moon
 } from 'lucide-react';
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
-import { AinovaLogo } from '../../components/common/AinovaLogo';
+import { useTheme } from '../../context/ThemeContext';
+import { AiimsLogo } from '../../components/common/AiimsLogo';
 import {
   STREAMS, TECH_SUB_CATEGORIES, NON_TECH_SUB_CATEGORIES,
   EDUCATION_LEVELS, PROGRAMS, SPECIALIZATIONS,
@@ -41,9 +42,9 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '11px 14px',
   borderRadius: '10px',
-  border: '1.5px solid #E2E8F0',
-  backgroundColor: '#ffffff',
-  color: '#0F172A',
+  border: '1.5px solid var(--aiims-input-border, #E2E8F0)',
+  backgroundColor: 'var(--aiims-input-bg, #ffffff)',
+  color: 'var(--aiims-input-text, #0F172A)',
   fontSize: '14px',
   fontFamily: 'inherit',
   boxSizing: 'border-box',
@@ -55,7 +56,7 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: '13px',
   fontWeight: 650,
-  color: '#334155',
+  color: 'var(--aiims-text-secondary, #334155)',
   marginBottom: '6px'
 };
 
@@ -71,6 +72,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   onNavigateToHome
 }) => {
   const { register } = useLearner();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [step, setStep] = useState<Step>(1);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -291,9 +293,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const btnSecondary: React.CSSProperties = {
-    background: '#ffffff',
-    color: '#334155',
-    border: '1.5px solid #E2E8F0',
+    background: 'var(--aiims-bg-card)',
+    color: 'var(--aiims-text-heading)',
+    border: '1px solid var(--aiims-border-card)',
     borderRadius: '10px',
     padding: '12px 20px',
     fontSize: '14px',
@@ -322,15 +324,43 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     <div style={{
       minHeight: '100vh',
       width: '100%',
-      backgroundColor: '#F8F9FE',
+      backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
       fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
-      color: '#0F172A',
+      color: 'var(--aiims-text-primary, #0F172A)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       padding: '32px 16px 64px',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      position: 'relative'
     }}>
+      {/* Logged-out Theme Toggle */}
+      <button
+        id="register-theme-toggle-btn"
+        onClick={toggleTheme}
+        aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '24px',
+          width: '38px',
+          height: '38px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          border: '1px solid var(--aiims-border-card, #E2E8F0)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: isDarkMode ? '#fbbf24' : '#4f46e5',
+          boxShadow: 'var(--aiims-shadow-card, 0 2px 8px rgba(0,0,0,0.06))',
+          transition: 'all 0.2s ease',
+          zIndex: 50
+        }}
+      >
+        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
       <style>{`
         .reg-input:focus {
           border-color: #5B4BFF !important;
@@ -344,11 +374,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         .reg-pill {
           padding: 8px 14px;
           border-radius: 100px;
-          border: 1.5px solid #E2E8F0;
-          background: #fff;
+          border: 1.5px solid var(--aiims-border-card, #E2E8F0);
+          background: var(--aiims-bg-card, #fff);
           font-size: 13px;
           font-weight: 600;
-          color: #475569;
+          color: var(--aiims-text-secondary, #475569);
           cursor: pointer;
           transition: all 0.15s;
           font-family: inherit;
@@ -360,14 +390,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
         .reg-pill.selected {
           border-color: #5B4BFF;
-          background: rgba(91,75,255,0.08);
+          background: rgba(91,75,255,0.12);
           color: #4338CA;
         }
         .reg-stream-card {
           padding: 16px;
           border-radius: 12px;
-          border: 2px solid #E2E8F0;
-          background: #fff;
+          border: 2px solid var(--aiims-border-card, #E2E8F0);
+          background: var(--aiims-bg-card, #fff);
           cursor: pointer;
           transition: all 0.15s;
           text-align: left;
@@ -376,11 +406,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
         .reg-stream-card:hover {
           border-color: #5B4BFF;
-          background: rgba(91,75,255,0.04);
+          background: rgba(91,75,255,0.06);
         }
         .reg-stream-card.selected {
           border-color: #5B4BFF;
-          background: rgba(91,75,255,0.07);
+          background: rgba(91,75,255,0.12);
         }
         .reg-fade {
           animation: regFade 0.25s ease forwards;
@@ -393,10 +423,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           position: absolute;
           top: calc(100% + 4px);
           left: 0; right: 0;
-          background: #fff;
-          border: 1.5px solid #E2E8F0;
+          background: var(--aiims-modal-bg, #fff);
+          border: 1.5px solid var(--aiims-modal-border, #E2E8F0);
           border-radius: 10px;
-          box-shadow: 0 8px 24px -4px rgba(0,0,0,0.12);
+          box-shadow: var(--aiims-shadow-dropdown, 0 8px 24px -4px rgba(0,0,0,0.12));
           max-height: 220px;
           overflow-y: auto;
           z-index: 100;
@@ -406,16 +436,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           cursor: pointer;
           font-size: 13px;
           transition: background 0.1s;
-          border-bottom: 1px solid #F1F5F9;
+          border-bottom: 1px solid var(--aiims-border-card, #F1F5F9);
+          color: var(--aiims-text-primary, #0F172A);
         }
         .institute-item:last-child { border-bottom: none; }
-        .institute-item:hover { background: #F8FAFC; }
-        .institute-item.selected { background: rgba(91,75,255,0.07); color: #4338CA; font-weight: 600; }
+        .institute-item:hover { background: var(--aiims-bg-card-hover, #F8FAFC); }
+        .institute-item.selected { background: rgba(91,75,255,0.12); color: #4338CA; font-weight: 600; }
       `}</style>
 
       {/* Logo */}
       <div style={{ marginBottom: '28px', cursor: 'pointer' }} onClick={onNavigateToHome}>
-        <AinovaLogo size="lg" showWordmark={true} />
+        <AiimsLogo size="lg" showWordmark={true} />
       </div>
 
       {/* Step Indicator */}
@@ -466,11 +497,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       <div style={{
         maxWidth: '520px',
         width: '100%',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--aiims-bg-card, #ffffff)',
         borderRadius: '20px',
-        border: '1px solid #E2E8F0',
+        border: '1px solid var(--aiims-border-card, #E2E8F0)',
         padding: '36px 32px',
-        boxShadow: '0 20px 40px -15px rgba(0,0,0,0.06)',
+        boxShadow: 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0,0,0,0.06))',
         boxSizing: 'border-box'
       }}>
         {/* Error Banner */}
@@ -490,10 +521,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 1 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
-                Create your AINOVA account
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+                Create your AIIMS account
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
                 Your journey into AI intelligence starts here.
               </p>
             </div>
@@ -895,7 +926,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* Primary Goal */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>What's your primary goal with AINOVA? <span style={{ color: '#EF4444' }}>*</span></label>
+                <label style={labelStyle}>What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span></label>
                 <select
                   id="reg-primary-goal"
                   className="reg-select"
@@ -915,7 +946,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 padding: '12px 14px', background: '#F0F9FF', border: '1px solid #BAE6FD',
                 borderRadius: '10px', fontSize: '12px', color: '#0369A1', lineHeight: 1.5
               }}>
-                <strong>Note:</strong> Your AI Profile is for personalization only. Your actual capability score is measured exclusively through the AINOVA Assessment — not by what you say here.
+                <strong>Note:</strong> Your AI Profile is for personalization only. Your actual capability score is measured exclusively through the AIIMS Assessment — not by what you say here.
               </div>
             </div>
           </div>

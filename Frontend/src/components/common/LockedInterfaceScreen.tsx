@@ -11,12 +11,15 @@ import {
   Compass,
   CheckCircle2,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  BarChart3,
+  Target
 } from 'lucide-react';
 import { Surface } from './Surface';
 import { Button } from './Button';
 import { Badge } from './Badge';
 import { useLearner } from '../../context/LearnerContext';
+import { getFeatureAccess } from '../../services/featureAccessService';
 
 interface LockedInterfaceScreenProps {
   targetTab: string;
@@ -34,6 +37,33 @@ interface InterfaceConfig {
 }
 
 const INTERFACE_CONFIGS: Record<string, InterfaceConfig> = {
+  analysis: {
+    name: 'My AI Profile',
+    tagline: 'AI Capability Diagnostic & Radar',
+    description: 'Your personalized 5-dimension AI capability breakdown, top skill strengths, and growth recommendations.',
+    icon: BarChart3,
+    primaryColor: '#4f46e5',
+    secondaryBg: '#eef2ff',
+    borderColor: '#c7d2fe'
+  },
+  clarity: {
+    name: 'Clarity',
+    tagline: 'AI Goal Clarification & Prompt Lab',
+    description: 'Interactive prompt engineering tasks and AI model evaluations to build hands-on capability.',
+    icon: Compass,
+    primaryColor: '#0ea5e9',
+    secondaryBg: '#f0f9ff',
+    borderColor: '#bae6fd'
+  },
+  focus: {
+    name: 'Focus Track',
+    tagline: 'Targeted AI Learning Concentration',
+    description: 'Select a concentrated discipline track to personalize your technical discovery stream and practice tasks.',
+    icon: Target,
+    primaryColor: '#10b981',
+    secondaryBg: '#ecfdf5',
+    borderColor: '#a7f3d0'
+  },
   radar: {
     name: 'AI Radar',
     tagline: 'Technical AI Market Shifts',
@@ -87,6 +117,15 @@ const INTERFACE_CONFIGS: Record<string, InterfaceConfig> = {
     primaryColor: '#7c3aed',
     secondaryBg: '#f5f3ff',
     borderColor: '#ddd6fe'
+  },
+  insights: {
+    name: 'Growth Insights',
+    tagline: 'Personalized Progression Trends',
+    description: 'Historical capability evolution tracking and benchmark comparison across AI dimensions.',
+    icon: BarChart3,
+    primaryColor: '#8b5cf6',
+    secondaryBg: '#f5f3ff',
+    borderColor: '#ddd6fe'
   }
 };
 
@@ -95,15 +134,16 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
   setActiveTab
 }) => {
   const { state } = useLearner();
+  const access = getFeatureAccess(targetTab, state);
 
   const isAssessmentCompleted = state.assessment.status === 'completed';
   const isClarityStarted = (state.clarity.completedTopics?.length || 0) > 0 || !!state.clarity.selectedTopic;
   const isFocusSelected = !!state.focus.selectedTrack;
 
   const currentConfig: InterfaceConfig = INTERFACE_CONFIGS[targetTab] || {
-    name: 'Advanced Interface',
-    tagline: 'Activity-Gated Feature',
-    description: 'This workspace is locked for now. It will unlock based on your learning activities.',
+    name: access.name || 'Advanced Interface',
+    tagline: `${access.level} Activity-Gated Feature`,
+    description: access.reason || 'This workspace is locked for now. It will unlock based on your learning activities.',
     icon: Lock,
     primaryColor: '#4f46e5',
     secondaryBg: '#f1f5f9',
@@ -113,7 +153,9 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
   const IconComponent = currentConfig.icon;
 
   const handleNextActiveTab = () => {
-    if (!isAssessmentCompleted) {
+    if (access.targetTab) {
+      setActiveTab(access.targetTab);
+    } else if (!isAssessmentCompleted) {
       setActiveTab('assessment');
     } else if (!isClarityStarted) {
       setActiveTab('clarity');
@@ -125,10 +167,11 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
   };
 
   const getRecommendedActionLabel = () => {
-    if (!isAssessmentCompleted) return 'Complete Baseline Assessment';
-    if (!isClarityStarted) return 'Explore Clarity Lessons';
-    if (!isFocusSelected) return 'Choose Focus Track';
-    return 'Explore AI Wallet';
+    return access.unlockAction || (
+      !isAssessmentCompleted ? 'Complete Baseline Assessment' :
+      !isClarityStarted ? 'Explore Clarity Lessons' :
+      !isFocusSelected ? 'Choose Focus Track' : 'Explore AI Wallet'
+    );
   };
 
   return (
@@ -143,11 +186,11 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
       {/* 1. HERO LOCK BANNER */}
       <div style={{
         position: 'relative',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--aiims-bg-card, #ffffff)',
         borderRadius: '24px',
-        border: `1px solid ${currentConfig.borderColor}`,
+        border: `1px solid var(--aiims-border-card, ${currentConfig.borderColor})`,
         padding: '36px 32px',
-        boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.05)',
+        boxShadow: 'var(--aiims-shadow-card, 0 10px 30px -10px rgba(0, 0, 0, 0.05))',
         overflow: 'hidden'
       }}>
         {/* Subtle decorative background gradient */}
@@ -233,7 +276,7 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
               <h1 style={{
                 fontSize: '26px',
                 fontWeight: 900,
-                color: '#0f172a',
+                color: 'var(--aiims-text-heading, #0f172a)',
                 margin: '0 0 6px',
                 fontFamily: "'Plus Jakarta Sans', sans-serif"
               }}>
@@ -241,7 +284,7 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
               </h1>
               <p style={{
                 fontSize: '14.5px',
-                color: '#475569',
+                color: 'var(--aiims-text-secondary, #475569)',
                 margin: 0,
                 lineHeight: 1.5,
                 maxWidth: '680px'
@@ -316,95 +359,91 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
         </p>
 
         {/* 4 Steps Visual Progression */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '14px'
-        }}>
+        <div className="aiims-card-grid">
           {/* Step 1: Assessment */}
           <div style={{
-            backgroundColor: isAssessmentCompleted ? '#f0fdf4' : '#f8fafc',
-            border: isAssessmentCompleted ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+            backgroundColor: isAssessmentCompleted ? 'var(--aiims-card-mint-bg, #f0fdf4)' : 'var(--aiims-bg-card-hover, #f8fafc)',
+            border: isAssessmentCompleted ? '1px solid var(--aiims-card-mint-border, #bbf7d0)' : '1px solid var(--aiims-border-card, #e2e8f0)',
             borderRadius: '12px',
             padding: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>STEP 1</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)' }}>STEP 1</span>
               {isAssessmentCompleted ? (
                 <CheckCircle2 size={16} color="#16a34a" />
               ) : (
                 <Clock size={16} color="#94a3b8" />
               )}
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)', marginBottom: '4px' }}>
               Baseline Assessment
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+            <div style={{ fontSize: '11.5px', color: 'var(--aiims-text-secondary, #64748b)' }}>
               {isAssessmentCompleted ? 'Completed 25 diagnostic questions' : 'Diagnostic not yet completed'}
             </div>
           </div>
 
           {/* Step 2: Capability Clarity */}
           <div style={{
-            backgroundColor: isClarityStarted ? '#f0fdf4' : '#f8fafc',
-            border: isClarityStarted ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+            backgroundColor: isClarityStarted ? 'var(--aiims-card-mint-bg, #f0fdf4)' : 'var(--aiims-bg-card-hover, #f8fafc)',
+            border: isClarityStarted ? '1px solid var(--aiims-card-mint-border, #bbf7d0)' : '1px solid var(--aiims-border-card, #e2e8f0)',
             borderRadius: '12px',
             padding: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>STEP 2</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)' }}>STEP 2</span>
               {isClarityStarted ? (
                 <CheckCircle2 size={16} color="#16a34a" />
               ) : (
                 <Clock size={16} color="#94a3b8" />
               )}
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)', marginBottom: '4px' }}>
               Clarity Reflections
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+            <div style={{ fontSize: '11.5px', color: 'var(--aiims-text-secondary, #64748b)' }}>
               {isClarityStarted ? 'Lessons & mental models explored' : 'Explore capability lessons & submit reflections'}
             </div>
           </div>
 
           {/* Step 3: Focus Selection */}
           <div style={{
-            backgroundColor: isFocusSelected ? '#f0fdf4' : '#f8fafc',
-            border: isFocusSelected ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+            backgroundColor: isFocusSelected ? 'var(--aiims-card-mint-bg, #f0fdf4)' : 'var(--aiims-bg-card-hover, #f8fafc)',
+            border: isFocusSelected ? '1px solid var(--aiims-card-mint-border, #bbf7d0)' : '1px solid var(--aiims-border-card, #e2e8f0)',
             borderRadius: '12px',
             padding: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>STEP 3</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)' }}>STEP 3</span>
               {isFocusSelected ? (
                 <CheckCircle2 size={16} color="#16a34a" />
               ) : (
                 <Clock size={16} color="#94a3b8" />
               )}
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)', marginBottom: '4px' }}>
               Active Focus Track
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+            <div style={{ fontSize: '11.5px', color: 'var(--aiims-text-secondary, #64748b)' }}>
               {isFocusSelected ? `Selected: ${state.focus.selectedTrack}` : 'Choose primary direction of concentration'}
             </div>
           </div>
 
           {/* Step 4: Activity Unlocking */}
           <div style={{
-            backgroundColor: '#f8fafc',
-            border: '1px dashed #cbd5e1',
+            backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+            border: '1px dashed var(--aiims-border-card, #cbd5e1)',
             borderRadius: '12px',
             padding: '14px'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b' }}>STEP 4</span>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)' }}>STEP 4</span>
               <Lock size={16} color="#94a3b8" />
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)', marginBottom: '4px' }}>
               Activity-Gated Workspaces
             </div>
-            <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+            <div style={{ fontSize: '11.5px', color: 'var(--aiims-text-secondary, #64748b)' }}>
               Radar, Relevance, Problem Solver, Projects & Mentor unlock based on activity
             </div>
           </div>
@@ -441,18 +480,18 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
                   justifyContent: 'space-between',
                   padding: '12px 14px',
                   borderRadius: '10px',
-                  backgroundColor: isCurrent ? '#f1f5f9' : '#ffffff',
-                  border: isCurrent ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                  backgroundColor: isCurrent ? 'var(--aiims-card-banner-bg, #f1f5f9)' : 'var(--aiims-bg-card, #ffffff)',
+                  border: isCurrent ? '2px solid var(--aiims-primary, #6366f1)' : '1px solid var(--aiims-border-card, #e2e8f0)',
                   transition: 'all 0.15s ease'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <ItemIcon size={18} color="#94a3b8" />
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)' }}>
                       {item.name}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-secondary, #64748b)' }}>
                       {item.desc}
                     </div>
                   </div>

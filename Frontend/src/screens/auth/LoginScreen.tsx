@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
-import { AinovaLogo } from '../../components/common/AinovaLogo';
+import { useTheme } from '../../context/ThemeContext';
+import { AiimsLogo } from '../../components/common/AiimsLogo';
 import { RegisterScreen } from './RegisterScreen';
 
 interface LoginScreenProps {
@@ -11,6 +12,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode }) => {
   const { login } = useLearner();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
 
   // Determine view based on URL pathname or prop
   const getModeFromPath = (): 'home' | 'login' | 'register' => {
@@ -101,28 +103,60 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       style={{
         minHeight: '100vh',
         width: '100%',
-        backgroundColor: '#F8F9FE',
+        backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
         fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
-        color: '#0F172A',
+        color: 'var(--aiims-text-primary, #0F172A)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '32px 16px',
         boxSizing: 'border-box',
-        overflowX: 'hidden'
+        overflowX: 'hidden',
+        position: 'relative'
       }}
     >
+      {/* Logged-out Theme Toggle */}
+      <button
+        id="login-theme-toggle-btn"
+        onClick={toggleTheme}
+        aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        style={{
+          position: 'absolute',
+          top: '20px',
+          right: '24px',
+          width: '38px',
+          height: '38px',
+          borderRadius: '50%',
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          border: '1px solid var(--aiims-border-card, #E2E8F0)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          color: isDarkMode ? '#fbbf24' : '#4f46e5',
+          boxShadow: 'var(--aiims-shadow-card, 0 2px 8px rgba(0,0,0,0.06))',
+          transition: 'all 0.2s ease',
+          zIndex: 50
+        }}
+      >
+        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+      </button>
       <style>{`
-        .ainova-fade-in {
-          animation: ainovaFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        .aiims-fade-in, .ainova-fade-in {
+          animation: aiimsFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes aiimsFadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
         }
         @keyframes ainovaFadeIn {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
 
-        .ainova-btn-primary {
+        .aiims-btn-primary, .ainova-btn-primary {
           background: #5B4BFF;
           color: #ffffff;
           border: 1px solid #5B4BFF;
@@ -131,61 +165,61 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
           outline: none;
           cursor: pointer;
         }
-        .ainova-btn-primary:hover:not(:disabled) {
+        .aiims-btn-primary:hover:not(:disabled), .ainova-btn-primary:hover:not(:disabled) {
           background: #4338CA;
           border-color: #4338CA;
           transform: translateY(-1px);
           box-shadow: 0 6px 20px -2px rgba(91, 75, 255, 0.45);
         }
-        .ainova-btn-primary:focus-visible {
+        .aiims-btn-primary:focus-visible, .ainova-btn-primary:focus-visible {
           ring: 3px solid rgba(91, 75, 255, 0.4);
           outline: 2px solid #5B4BFF;
         }
-        .ainova-btn-primary:disabled {
+        .aiims-btn-primary:disabled, .ainova-btn-primary:disabled {
           opacity: 0.65;
           cursor: not-allowed;
           transform: none;
         }
 
-        .ainova-btn-secondary {
-          background: #ffffff;
-          color: #1E293B;
-          border: 1.5px solid #E2E8F0;
+        .aiims-btn-secondary, .ainova-btn-secondary {
+          background: var(--aiims-bg-card, #ffffff);
+          color: var(--aiims-text-primary, #1E293B);
+          border: 1.5px solid var(--aiims-border-card, #E2E8F0);
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
           transition: all 0.2s ease;
           outline: none;
           cursor: pointer;
         }
-        .ainova-btn-secondary:hover {
-          background: #F8FAFC;
-          border-color: #CBD5E1;
-          color: #0F172A;
+        .aiims-btn-secondary:hover, .ainova-btn-secondary:hover {
+          background: var(--aiims-bg-card-hover, #F8FAFC);
+          border-color: var(--aiims-border-card, #CBD5E1);
+          color: var(--aiims-text-heading, #0F172A);
           transform: translateY(-1px);
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
-        .ainova-btn-secondary:focus-visible {
+        .aiims-btn-secondary:focus-visible, .ainova-btn-secondary:focus-visible {
           outline: 2px solid #5B4BFF;
         }
 
-        .ainova-input {
+        .aiims-input, .ainova-input {
           width: 100%;
           padding: 12px 14px;
           border-radius: 10px;
-          border: 1.5px solid #E2E8F0;
-          background-color: #ffffff;
-          color: #0F172A;
+          border: 1.5px solid var(--aiims-input-border, #E2E8F0);
+          background-color: var(--aiims-input-bg, #ffffff);
+          color: var(--aiims-input-text, #0F172A);
           font-size: 14px;
           font-family: inherit;
           transition: border-color 0.2s ease, box-shadow 0.2s ease;
           box-sizing: border-box;
           outline: none;
         }
-        .ainova-input:focus {
+        .aiims-input:focus, .ainova-input:focus {
           border-color: #5B4BFF;
           box-shadow: 0 0 0 3px rgba(91, 75, 255, 0.12);
         }
-        .ainova-input::placeholder {
-          color: #94A3B8;
+        .aiims-input::placeholder, .ainova-input::placeholder {
+          color: var(--aiims-text-muted, #94A3B8);
         }
       `}</style>
 
@@ -194,7 +228,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       {/* ==================================================== */}
       {mode === 'home' && (
         <div
-          className="ainova-fade-in"
+          className="aiims-fade-in"
           style={{
             maxWidth: '680px',
             width: '100%',
@@ -208,7 +242,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         >
           {/* Brand Visual Logo */}
           <div style={{ marginBottom: '32px' }}>
-            <AinovaLogo size="xl" showWordmark={true} onClick={() => navigateTo('home')} />
+            <AiimsLogo size="xl" showWordmark={true} onClick={() => navigateTo('home')} />
           </div>
 
           {/* Main Title */}
@@ -217,7 +251,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
               fontSize: 'clamp(32px, 5vw, 44px)',
               fontWeight: 800,
               lineHeight: 1.15,
-              color: '#0F172A',
+              color: 'var(--aiims-text-heading, #0F172A)',
               letterSpacing: '-1.2px',
               margin: '0 0 16px 0'
             }}
@@ -230,7 +264,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
             style={{
               fontSize: 'clamp(15px, 2.5vw, 18px)',
               lineHeight: 1.6,
-              color: '#475569',
+              color: 'var(--aiims-text-secondary, #475569)',
               fontWeight: 450,
               margin: '0 0 40px 0',
               maxWidth: '540px'
@@ -253,7 +287,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
           >
             <button
               id="register-button"
-              className="ainova-btn-primary"
+              className="aiims-btn-primary"
               onClick={() => navigateTo('register')}
               style={{
                 flex: '1 1 150px',
@@ -268,7 +302,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
 
             <button
               id="signin-button"
-              className="ainova-btn-secondary"
+              className="aiims-btn-secondary"
               onClick={() => navigateTo('login')}
               style={{
                 flex: '1 1 150px',
@@ -290,7 +324,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       {/* ==================================================== */}
       {mode === 'login' && (
         <div
-          className="ainova-fade-in"
+          className="aiims-fade-in"
           style={{
             maxWidth: '440px',
             width: '100%',
@@ -301,18 +335,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         >
           {/* Top Brand Logo */}
           <div style={{ marginBottom: '24px' }}>
-            <AinovaLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
+            <AiimsLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
           </div>
 
           {/* Card Container */}
           <div
             style={{
               width: '100%',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--aiims-bg-card, #ffffff)',
               borderRadius: '20px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--aiims-border-card, #E2E8F0)',
               padding: '36px 32px',
-              boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.06)',
+              boxShadow: 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0, 0, 0, 0.06))',
               boxSizing: 'border-box'
             }}
           >
@@ -321,14 +355,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
                 style={{
                   fontSize: '24px',
                   fontWeight: 800,
-                  color: '#0F172A',
+                  color: 'var(--aiims-text-heading, #0F172A)',
                   letterSpacing: '-0.5px',
                   margin: '0 0 6px 0'
                 }}
               >
                 Welcome back
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
                 Sign in to continue your AI journey.
               </p>
             </div>
@@ -358,12 +392,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
             <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Email */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: 'var(--aiims-text-secondary, #334155)', marginBottom: '6px' }}>
                   Email
                 </label>
                 <input
                   type="email"
-                  className="ainova-input"
+                  className="aiims-input"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -374,13 +408,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
 
               {/* Password */}
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: '#334155', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: 'var(--aiims-text-secondary, #334155)', marginBottom: '6px' }}>
                   Password
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="ainova-input"
+                    className="aiims-input"
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -410,7 +444,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
               {/* Primary Action Button */}
               <button
                 type="submit"
-                className="ainova-btn-primary"
+                className="aiims-btn-primary"
                 disabled={isLoading}
                 style={{
                   width: '100%',

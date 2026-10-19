@@ -1,5 +1,5 @@
 /**
- * AINOVA Evidence-Based Assessment Scoring Engine (v3.0.0-evidence-based)
+ * AIIMS Evidence-Based Assessment Scoring Engine (v3.0.0-evidence-based)
  *
  * Principles:
  * 1. Score represents actual thinking, understanding, accuracy, relevance, and evidence demonstrated.

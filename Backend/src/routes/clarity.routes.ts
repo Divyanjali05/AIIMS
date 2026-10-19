@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { aiExecutionRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   getGaps,
   mentorOverride,
@@ -12,10 +13,11 @@ import {
 const router = Router();
 
 router.get('/clarity/gaps', getGaps);
-router.post('/clarity/mentor-override', mentorOverride);
-router.post('/clarity/generate-prompt', generatePrompt);
-router.post('/clarity/run-task', runTask);
+router.post('/clarity/mentor-override', requireAuth, mentorOverride);
+router.post('/clarity/generate-prompt', requireAuth, aiExecutionRateLimiter, generatePrompt);
+router.post('/clarity/run-task', requireAuth, aiExecutionRateLimiter, runTask);
 router.post('/clarity/save-task-score', requireAuth, saveTaskScore);
-router.post('/clarity/suggest-reflection', suggestReflection);
+router.post('/clarity/suggest-reflection', requireAuth, suggestReflection);
 
 export default router;
+

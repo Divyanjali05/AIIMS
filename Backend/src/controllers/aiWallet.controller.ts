@@ -414,8 +414,14 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
         if (familiarity) existing.familiarity = familiarity;
         if (userNotes !== undefined) existing.userNotes = userNotes;
         req.user.aiWallet = wallet;
-        req.user.markModified('aiWallet');
-        await req.user.save();
+        if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+          try {
+            req.user.markModified('aiWallet');
+            await req.user.save();
+          } catch (err: any) {
+            console.error('[/wallet/add] DB save error:', err.message);
+          }
+        }
         return res.json({ success: true, item: existing, action: 'updated' });
       }
 
@@ -437,11 +443,17 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
 
       wallet.userTools.unshift(newItem as any);
       req.user.aiWallet = wallet;
-      req.user.markModified('aiWallet');
-      await req.user.save();
+      if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+        try {
+          req.user.markModified('aiWallet');
+          await req.user.save();
+        } catch (err: any) {
+          console.error('[/wallet/add] DB save error:', err.message);
+        }
+      }
       return res.json({ success: true, item: newItem, action: 'added' });
     } catch (err: any) {
-      console.error('[/wallet/add] DB error, falling back to mock:', err.message);
+      console.error('[/wallet/add] error, falling back to mock:', err.message);
     }
   }
 
@@ -475,15 +487,24 @@ export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response
   if (req.user) {
     try {
       const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
-      const item = wallet.userTools.find((t: any) => t.toolId === toolId);
+      let item = wallet.userTools.find((t: any) => t.toolId === toolId);
+      if (!item) {
+        item = mockUserTools.find(t => t.toolId === toolId);
+      }
       if (!item) {
         return res.status(404).json({ error: 'Tool not found in user wallet' });
       }
       if (familiarity) item.familiarity = familiarity;
       if (userNotes !== undefined) item.userNotes = userNotes;
       req.user.aiWallet = wallet;
-      req.user.markModified('aiWallet');
-      await req.user.save();
+      if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+        try {
+          req.user.markModified('aiWallet');
+          await req.user.save();
+        } catch (err: any) {
+          console.error('[/wallet/update-familiarity] DB save error:', err.message);
+        }
+      }
       return res.json({ success: true, item });
     } catch (err: any) {
       console.error('[/wallet/update-familiarity] DB error:', err.message);

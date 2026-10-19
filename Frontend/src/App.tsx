@@ -18,15 +18,17 @@ import { RadarSignal } from './types';
 import { Surface } from './components/common/Surface';
 import { PageHeader } from './components/common/PageHeader';
 import { MentorMessage } from './components/common/MentorMessage';
-import { MessageCircle, BarChart3, Settings } from 'lucide-react';
+import { MessageCircle, BarChart3, Settings, Sun, Moon } from 'lucide-react';
 
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LockedInterfaceScreen } from './components/common/LockedInterfaceScreen';
+import { getFeatureAccess } from './services/featureAccessService';
 
-// Interfaces locked for now — unlocking logic will be integrated based on user activities
+// Interfaces locked for now — unlocking logic is managed centrally by featureAccessService
 export const LOCKED_INTERFACES = ['radar', 'investigation', 'relevance', 'solver', 'build', 'mentor'];
 
 const mapPathToTab = (path: string): string => {
@@ -60,6 +62,7 @@ const AppContent: React.FC = () => {
   });
 
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
@@ -134,134 +137,137 @@ const AppContent: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      backgroundColor: '#f8f7fd',
-      color: '#0f172a',
+      backgroundColor: 'var(--aiims-bg-page, #f8f7fd)',
+      color: 'var(--aiims-text-primary, #0f172a)',
       fontFamily: "'Nunito', -apple-system, sans-serif"
     }}>
       {/* Sticky Top Header */}
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+      />
 
       {/* Main Body Layout: Sidebar + Canvas */}
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
-        {/* Left Navigation Sidebar */}
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+        {/* Left Navigation Sidebar (Desktop + Mobile Drawer) */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+        />
 
         {/* Main Content Canvas */}
-        <main style={{
-          flex: 1,
-          padding: '24px 32px 48px 32px',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}>
+        <main
+          className="aiims-main-canvas"
+          style={{
+            flex: 1,
+            padding: '24px 32px 48px 32px',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+            minWidth: 0
+          }}
+        >
           <ErrorBoundary onReset={() => setActiveTab('home')}>
-            {activeTab === 'home' && (
-              <HomeScreen setActiveTab={setActiveTab} />
-            )}
+            {(() => {
+              const access = getFeatureAccess(activeTab, state);
 
-            {activeTab === 'wallet' && (
-              <AIWalletScreen setActiveTab={setActiveTab} />
-            )}
+              if (!access.unlocked) {
+                return <LockedInterfaceScreen targetTab={activeTab} setActiveTab={setActiveTab} />;
+              }
 
-            {activeTab === 'discover' && (
-              <DiscoverScreen setActiveTab={setActiveTab} />
-            )}
+              return (
+                <>
+                  {activeTab === 'home' && (
+                    <HomeScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {activeTab === 'journey' && (
-              <JourneyScreen setActiveTab={setActiveTab} />
-            )}
+                  {activeTab === 'wallet' && (
+                    <AIWalletScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {activeTab === 'assessment' && (
-              <AssessmentScreen
-                onComplete={() => { setActiveTab('analysis'); }}
-              />
-            )}
+                  {activeTab === 'discover' && (
+                    <DiscoverScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {activeTab === 'analysis' && <AnalysisScreen setActiveTab={setActiveTab} />}
-            {activeTab === 'credits' && <CreditsScreen />}
-            {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
-            {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
+                  {activeTab === 'journey' && (
+                    <JourneyScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {/* Activity-Gated Interfaces: AI Radar, AI Relevance, Problem Solver, Projects, Mentor Workspace */}
-            {LOCKED_INTERFACES.includes(activeTab) ? (
-              <LockedInterfaceScreen targetTab={activeTab} setActiveTab={setActiveTab} />
-            ) : null}
+                  {activeTab === 'assessment' && (
+                    <AssessmentScreen
+                      onComplete={() => { setActiveTab('analysis'); }}
+                    />
+                  )}
 
-            {/* Inactive behind lock for now — logic to unlock will be enabled based on user activities */}
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'radar' && (
-              <RadarScreen onInvestigate={handleStartInvestigation} />
-            )}
+                  {activeTab === 'analysis' && <AnalysisScreen setActiveTab={setActiveTab} />}
+                  {activeTab === 'credits' && <CreditsScreen />}
+                  {activeTab === 'clarity' && <ClarityScreen setActiveTab={setActiveTab} />}
+                  {activeTab === 'focus' && <FocusScreen setActiveTab={setActiveTab} />}
 
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'investigation' && (
-              <InvestigationScreen
-                signal={selectedSignal}
-                onComplete={() => { setActiveTab('relevance'); }}
-              />
-            )}
+                  {activeTab === 'radar' && (
+                    <RadarScreen onInvestigate={handleStartInvestigation} />
+                  )}
 
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
+                  {activeTab === 'investigation' && (
+                    <InvestigationScreen
+                      signal={selectedSignal}
+                      onComplete={() => { setActiveTab('relevance'); }}
+                    />
+                  )}
 
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'solver' && (
-              <ProblemSolverScreen setActiveTab={setActiveTab} />
-            )}
+                  {activeTab === 'relevance' && <RelevanceScreen signal={selectedSignal} />}
 
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'build' && (
-              <BuildScreen setActiveTab={setActiveTab} />
-            )}
+                  {activeTab === 'solver' && (
+                    <ProblemSolverScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {!LOCKED_INTERFACES.includes(activeTab) && activeTab === 'mentor' && (
-              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <PageHeader
-                  icon={<MessageCircle size={24} />}
-                  title="Ainova Mentor Workspace"
-                  description="Contextual guidance and observations based on your real-time LearnerState."
-                />
-                <MentorMessage
-                  title="AINOVA MENTOR ADVICE"
-                  message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
-                />
-              </div>
-            )}
+                  {activeTab === 'build' && (
+                    <BuildScreen setActiveTab={setActiveTab} />
+                  )}
 
-            {activeTab === 'insights' && (
-              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <PageHeader
-                  icon={<BarChart3 size={24} />}
-                  title="Growth Insights"
-                  description="Personalized progression trends and capability evaluation history."
-                />
-                <Surface variant="bordered" radius="lg" padding="lg">
-                  <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
-                    Insights connect directly to your baseline Assessment and completed Clarity topics.
-                  </p>
-                </Surface>
-              </div>
-            )}
+                  {activeTab === 'mentor' && (
+                    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <PageHeader
+                        icon={<MessageCircle size={24} />}
+                        title="AIIMS Mentor Workspace"
+                        description="Contextual guidance and observations based on your real-time LearnerState."
+                      />
+                      <MentorMessage
+                        title="AIIMS MENTOR ADVICE"
+                        message={`"Hello ${state.profile.name.split(' ')[0]}! You are currently at the '${state.profile.stage}' stage of your AI journey. Keep advancing through your Focus track and Signal Investigations."`}
+                      />
+                    </div>
+                  )}
 
-            {activeTab === 'settings' && (
-              <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <PageHeader
-                  icon={<Settings size={24} />}
-                  title="Account Settings"
-                  description="Manage your profile settings, preferences, and notifications."
-                />
-                <Surface variant="bordered" radius="lg" padding="lg">
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', marginBottom: '8px' }}>
-                    Learner Profile
-                  </div>
-                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                    Logged in as {state.profile.name} ({state.profile.email})
-                  </p>
-                </Surface>
-              </div>
-            )}
+                  {activeTab === 'insights' && (
+                    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <PageHeader
+                        icon={<BarChart3 size={24} />}
+                        title="Growth Insights"
+                        description="Personalized progression trends and capability evaluation history."
+                      />
+                      <Surface variant="bordered" radius="lg" padding="lg">
+                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
+                          Insights connect directly to your baseline Assessment and completed Clarity topics.
+                        </p>
+                      </Surface>
+                    </div>
+                  )}
 
-            {![
-              'home', 'wallet', 'discover', 'journey', 'assessment', 'analysis',
-              'credits', 'clarity', 'focus', 'radar', 'investigation', 'relevance',
-              'solver', 'build', 'mentor', 'insights', 'settings'
-            ].includes(activeTab) && (
-              <HomeScreen setActiveTab={setActiveTab} />
-            )}
+                  {activeTab === 'settings' && <SettingsView />}
+
+                  {![
+                    'home', 'wallet', 'discover', 'journey', 'assessment', 'analysis',
+                    'credits', 'clarity', 'focus', 'radar', 'investigation', 'relevance',
+                    'solver', 'build', 'mentor', 'insights', 'settings'
+                  ].includes(activeTab) && (
+                    <HomeScreen setActiveTab={setActiveTab} />
+                  )}
+                </>
+              );
+            })()}
           </ErrorBoundary>
         </main>
       </div>
@@ -269,11 +275,111 @@ const AppContent: React.FC = () => {
   );
 };
 
+const SettingsView: React.FC = () => {
+  const { state } = useLearner();
+  const { theme, setTheme, isDarkMode } = useTheme();
+
+  return (
+    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <PageHeader
+        icon={<Settings size={24} />}
+        title="Account & System Settings"
+        description="Manage your profile settings, preferences, and theme appearance."
+      />
+
+      {/* Appearance & Theme Setting */}
+      <Surface variant="bordered" radius="lg" padding="lg">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)', marginBottom: '4px' }}>
+              Appearance & Theme
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0 }}>
+              Customize your interface theme. Selection persists across sessions and synchronizes with the header toggle.
+            </p>
+          </div>
+          <div style={{
+            display: 'inline-flex',
+            padding: '4px',
+            backgroundColor: 'var(--aiims-bg-card-hover, #f1f5f9)',
+            borderRadius: '12px',
+            border: '1px solid var(--aiims-border-card, #e2e8f0)',
+            gap: '4px'
+          }}>
+            <button
+              id="theme-light-btn"
+              type="button"
+              onClick={() => setTheme('light')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: !isDarkMode ? 700 : 500,
+                backgroundColor: !isDarkMode ? 'var(--aiims-bg-card, #ffffff)' : 'transparent',
+                color: !isDarkMode ? '#4f46e5' : 'var(--aiims-text-secondary, #64748b)',
+                boxShadow: !isDarkMode ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Sun size={16} /> Light
+            </button>
+            <button
+              id="theme-dark-btn"
+              type="button"
+              onClick={() => setTheme('dark')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: isDarkMode ? 700 : 500,
+                backgroundColor: isDarkMode ? '#6366f1' : 'transparent',
+                color: isDarkMode ? '#ffffff' : 'var(--aiims-text-secondary, #64748b)',
+                boxShadow: isDarkMode ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Moon size={16} /> Dark
+            </button>
+          </div>
+        </div>
+        <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
+          Active theme: <strong style={{ color: 'var(--aiims-text-primary, #0f172a)', textTransform: 'capitalize' }}>{theme} Theme</strong>
+        </div>
+      </Surface>
+
+      {/* Learner Profile */}
+      <Surface variant="bordered" radius="lg" padding="lg">
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)', marginBottom: '8px' }}>
+          Learner Profile
+        </div>
+        <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0 }}>
+          Logged in as <strong>{state.profile.name}</strong> ({state.profile.email})
+        </p>
+        <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
+          Stage: {state.profile.stage} • ID: {state.profile.id}
+        </div>
+      </Surface>
+    </div>
+  );
+};
+
 export const App: React.FC = () => {
   return (
-    <LearnerProvider>
-      <AppContent />
-    </LearnerProvider>
+    <ThemeProvider>
+      <LearnerProvider>
+        <AppContent />
+      </LearnerProvider>
+    </ThemeProvider>
   );
 };
 

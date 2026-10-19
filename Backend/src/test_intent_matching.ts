@@ -5,7 +5,7 @@ import { ToolCatalogService } from './services/wallet/toolCatalog.service';
 
 function runTests() {
   console.log('====================================================');
-  console.log('AINOVA SEARCH INTENT & REQUIREMENT MATCHING BENCHMARK');
+  console.log('AIIMS SEARCH INTENT & REQUIREMENT MATCHING BENCHMARK');
   console.log('====================================================\n');
 
   // Initialize tool catalog

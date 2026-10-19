@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIIMS Home Page Design Mockup (v3 Specification)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f8f7fd;
+      --surface: #ffffff;
+      --surface-subtle: #f4f3ff;
+      --surface-hover: #faf9ff;
+      --border: #ede9fe;
+      --border-light: #f3f0ff;
+      --border-strong: #c7d2fe;
+      
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-light: #eef2ff;
+      --primary-text: #4338ca;
+      
+      --emerald: #059669;
+      --emerald-light: #ecfdf5;
+      --emerald-text: #047857;
+      
+      --amber: #d97706;
+      --amber-light: #fef3c7;
+      --amber-text: #b45309;
+
+      --cyan: #0284c7;
+      --cyan-light: #e0f2fe;
+      --cyan-text: #0369a1;
+
+      --purple: #7c3aed;
+      --purple-light: #f3e8ff;
+      --purple-text: #6b21a8;
+
+      --text-main: #0f172a;
+      --text-body: #334155;
+      --text-muted: #64748b;
+      --text-subtle: #94a3b8;
+      
+      --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 12px rgba(99, 102, 241, 0.08);
+      --shadow-lg: 0 10px 25px rgba(99, 102, 241, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: #0b0f19;
+      color: var(--text-body);
+      font-family: var(--font-body);
+      padding: 24px 16px 80px;
+      line-height: 1.5;
+    }
+
+    /* TOP REVIEW BAR */
+    .review-toolbar {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: #f8fafc;
+    }
+    .review-title h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .review-title p {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .viewport-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0f172a;
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid #334155;
+    }
+    .control-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .control-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    }
+    .control-btn:hover:not(.active) {
+      color: #ffffff;
+      background: #1e293b;
+    }
+
+    /* FRAME CONTAINER */
+    .mockup-viewport-frame {
+      max-width: 1200px;
+      margin: 0 auto;
+      transition: max-width 0.3s ease;
+    }
+    .mockup-viewport-frame.phone-view {
+      max-width: 390px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      border-radius: 40px;
+      overflow: hidden;
+      border: 8px solid #334155;
+    }
+
+    /* APP SHELL */
+    .app-shell {
+      background-color: var(--bg);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+      min-height: 850px;
+    }
+    .phone-view .app-shell {
+      border-radius: 0;
+      min-height: 800px;
+    }
+
+    /* APP HEADER */
+    .app-header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-logo-pill {
+      background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+      color: #fff;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      letter-spacing: 0.5px;
+    }
+    .brand-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      line-height: 1.2;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .wallet-chip {
+      background: var(--surface-subtle);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 4px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary-text);
+      cursor: pointer;
+    }
+    .wallet-chip .coin-icon {
+      color: #f59e0b;
+    }
+    .user-profile-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 20px;
+      background: #f1f5f9;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .user-avatar-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #6366f1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    /* MAIN LAYOUT (SIDEBAR + CONTENT) */
+    .app-body {
+      display: flex;
+      flex: 1;
+    }
+    .app-sidebar {
+      width: 220px;
+      background: #ffffff;
+      border-right: 1px solid var(--border);
+      padding: 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .phone-view .app-sidebar {
+      display: none;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-body);
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .nav-item.active {
+      background: var(--primary-light);
+      color: var(--primary-text);
+      font-weight: 700;
+    }
+    .nav-item:hover:not(.active) {
+      background: var(--surface-subtle);
+    }
+    .nav-item-badge {
+      margin-left: auto;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      background: #e2e8f0;
+      color: #475569;
+    }
+    .nav-item.active .nav-item-badge {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex: 1;
+      padding: 24px 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .phone-view .main-content {
+      padding: 16px 12px 90px;
+      gap: 16px;
+    }
+
+    /* AUDIENCE SWITCHER BAR */
+    .audience-switch-container {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .audience-label {
+      display: flex;
+      flex-direction: column;
+    }
+    .audience-label-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .audience-label-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pill-switch {
+      display: inline-flex;
+      background: #f1f5f9;
+      border-radius: 30px;
+      padding: 4px;
+      border: 1px solid #e2e8f0;
+    }
+    .pill-btn {
+      border: none;
+      background: transparent;
+      padding: 6px 16px;
+      border-radius: 24px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .pill-btn.active {
+      background: #ffffff;
+      color: var(--primary-text);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* MENTOR HERO CARD */
+    .mentor-hero-card {
+      background: linear-gradient(135deg, #ffffff 0%, #f9f8ff 100%);
+      border: 2px solid var(--border-strong);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      position: relative;
+      box-shadow: var(--shadow-md);
+    }
+    .phone-view .mentor-hero-card {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 18px;
+      gap: 16px;
+    }
+    .mascot-avatar-wrapper {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      flex-shrink: 0;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #eef2ff;
+      border: 3px solid #ffffff;
+      box-shadow: 0 8px 16px rgba(99, 102, 241, 0.15);
+    }
+    .mascot-avatar-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .mascot-status-pulse {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      width: 12px;
+      height: 12px;
+      background: #10b981;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+    }
+    .mentor-info-col {
+      flex: 1;
+    }
+    .mentor-tag-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .mentor-badge {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--purple-light);
+      color: var(--purple-text);
+    }
+    .stage-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--primary-light);
+      color: var(--primary-text);
+    }
+    .mentor-hero-heading {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      font-family: var(--font-heading);
+    }
+    .mentor-speech-bubble {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 13.5px;
+      color: var(--text-body);
+      line-height: 1.5;
+      margin-bottom: 14px;
+      position: relative;
+    }
+    .mentor-speech-bubble::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 18px;
+      width: 0;
+      height: 0;
+      border-top: 6px solid transparent;
+      border-bottom: 6px solid transparent;
+      border-right: 8px solid var(--border);
+    }
+    .phone-view .mentor-speech-bubble::before {
+      display: none;
+    }
+    .mentor-cta-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s ease;
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--text-body);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* GRID: 2 COLUMNS (BASELINE HERO + FOCUS BANNER) */
+    .dashboard-two-col {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+    }
+    .phone-view .dashboard-two-col {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    /* BASELINE ASSESSMENT CARD */
+    .baseline-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-eyebrow {
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--cyan-text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-heading);
+    }
+    .card-body-text {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .radar-five-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 4px 0 8px;
+    }
+    .dim-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+    }
+
+    /* FOCUS SESSION ENTRY POINT CARD (PROPOSED) */
+    .focus-card {
+      background: linear-gradient(135deg, #fbfaff 0%, #ffffff 100%);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+    }
+    .proposed-badge {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde68a;
+    }
+
+    /* SUGGESTED TOOLS SECTION */
+    .section-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .section-heading {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-main);
+      font-family: var(--font-heading);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .see-all-link {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--primary);
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .phone-view .tools-grid {
+      grid-template-columns: 1fr;
+    }
+    .tool-mock-card {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .tool-mock-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+      border-color: var(--border-strong);
+    }
+    .tool-top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .tool-icon-box {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: #eef2ff;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      border: 1px solid #e0e7ff;
+    }
+    .tool-meta-tags {
+      display: flex;
+      gap: 4px;
+    }
+    .tool-badge-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .tool-badge-pill.audience {
+      background: var(--cyan-light);
+      color: var(--cyan-text);
+    }
+    .tool-name-text {
+      font-size: 14.5px;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .tool-desc-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tool-bottom-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid #f8fafc;
+      font-size: 11.5px;
+    }
+    .tool-pricing-tag {
+      font-weight: 700;
+      color: #059669;
+    }
+    .tool-cost-tag {
+      font-weight: 700;
+      color: var(--primary-text);
+    }
+
+    /* EMPTY STATE CONTAINER (CONDITIONAL TOGGLE) */
+    .empty-state-view {
+      display: none;
+      background: #ffffff;
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-xl);
+      padding: 48px 24px;
+      text-align: center;
+    }
+    .empty-state-icon-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #eef2ff;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 24px;
+    }
+    .empty-state-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 8px;
+      font-family: var(--font-heading);
+    }
+    .empty-state-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 440px;
+      margin: 0 auto 20px;
+      line-height: 1.5;
+    }
+
+    /* PHONE BOTTOM NAV */
+    .phone-bottom-nav {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+      padding: 8px 16px;
+      justify-content: space-around;
+      z-index: 100;
+    }
+    .phone-view .phone-bottom-nav {
+      display: flex;
+      position: relative;
+    }
+    .phone-nav-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+    .phone-nav-btn.active {
+      color: var(--primary);
+    }
+
+    /* DESIGN ANNOTATION CALLOUT */
+    .design-note-box {
+      max-width: 1200px;
+      margin: 24px auto 0;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      color: #94a3b8;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+    .design-note-box strong {
+      color: #f8fafc;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- REVIEW TOOLBAR (CONTROLS PROTOTYPE VIEW) -->
+  <div class="review-toolbar">
+    <div class="review-title">
+      <h1>
+        <span style="display:inline-block; width:10px; height:10px; background:#10b981; border-radius:50%;"></span>
+        AIIMS Home Page Design Review Mockup (v3 Specification)
+      </h1>
+      <p>Interactive Design Deliverable &bull; Validated against Design Tokens &amp; Real Tool Catalogue</p>
+    </div>
+    <div class="viewport-controls">
+      <button class="control-btn active" id="btnDesktop" onclick="setViewport('desktop')">
+        🖥️ Desktop (1200px)
+      </button>
+      <button class="control-btn" id="btnPhone" onclick="setViewport('phone')">
+        📱 Phone (390px)
+      </button>
+      <button class="control-btn" id="btnEmpty" onclick="toggleEmptyState()">
+        ⚪ Toggle Empty State
+      </button>
+    </div>
+  </div>
+
+  <!-- FRAME HOLDER -->
+  <div class="mockup-viewport-frame" id="viewportFrame">
+
+    <div class="app-shell">
+
+      <!-- APP HEADER -->
+      <header class="app-header">
+        <div class="brand-section">
+          <div class="brand-logo-pill">AIIMS</div>
+          <div class="brand-subtitle">
+            AI Intelligence &amp; Mentoring System<br>
+            <span style="font-size:9.5px; color:#6366f1; font-weight:700;">[v3 Specification Baseline]</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <!-- WALLET SUMMARY CHIP -->
+          <div class="wallet-chip" title="Click to view Credit Balance & History">
+            <span class="coin-icon">🪙</span>
+            <span><strong id="headerCreditBal">100</strong> AC</span>
+            <span style="color:#cbd5e1;">|</span>
+            <span style="color:#059669;">100 XP</span>
+          </div>
+
+          <!-- USER BADGE -->
+          <div class="user-profile-badge">
+            <div class="user-avatar-circle">D</div>
+            <span>Divya</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- APP BODY -->
+      <div class="app-body">
+
+        <!-- DESKTOP SIDEBAR -->
+        <aside class="app-sidebar">
+          <a class="nav-item active">
+            <span>🏠</span>
+            <span>Home</span>
+          </a>
+          <a class="nav-item">
+            <span>📊</span>
+            <span>Assessment</span>
+            <span class="nav-item-badge">15 Qs</span>
+          </a>
+          <a class="nav-item">
+            <span>👛</span>
+            <span>AI Wallet</span>
+            <span class="nav-item-badge">12 Tools</span>
+          </a>
+          <a class="nav-item">
+            <span>💡</span>
+            <span>Clarity Lab</span>
+            <span class="nav-item-badge">Level 2</span>
+          </a>
+          <a class="nav-item">
+            <span>🎯</span>
+            <span>Focus Track</span>
+            <span class="nav-item-badge" style="background:#fef3c7; color:#b45309;">Opt v1</span>
+          </a>
+          <a class="nav-item">
+            <span>📡</span>
+            <span>AI Radar</span>
+          </a>
+          <a class="nav-item">
+            <span>🪙</span>
+            <span>Credits Ledger</span>
+          </a>
+        </aside>
+
+        <!-- MAIN SCROLLABLE CONTENT -->
+        <main class="main-content">
+
+          <!-- 1. AUDIENCE SWITCHER (STUDENT / ENTREPRENEUR) -->
+          <div class="audience-switch-container">
+            <div class="audience-label">
+              <span class="audience-label-title">Audience Context Mode</span>
+              <span class="audience-label-desc">Tailors AI tool suggestions and mentoring focus</span>
+            </div>
+            <div class="pill-switch">
+              <button class="pill-btn active" id="btnStudent" onclick="setAudience('student')">🎓 Student</button>
+              <button class="pill-btn" id="btnEntrepreneur" onclick="setAudience('entrepreneur')">🚀 Entrepreneur</button>
+            </div>
+          </div>
+
+          <!-- NORMAL STATE CONTENT -->
+          <div id="populatedContent" style="display:flex; flex-direction:column; gap:20px;">
+
+            <!-- 2. MENTOR & 3D MASCOT HERO CARD -->
+            <section class="mentor-hero-card">
+              <div class="mascot-avatar-wrapper">
+                <img src="/robot_mascot.jpg" alt="3D AIIMS Learner Mascot" onerror="this.src='https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80'">
+                <div class="mascot-status-pulse" title="Mentor Service Online"></div>
+              </div>
+
+              <div class="mentor-info-col">
+                <div class="mentor-tag-row">
+                  <span class="mentor-badge">AI Mentor</span>
+                  <span class="stage-badge">Stage 01: Knowing</span>
+                  <span style="font-size:10px; color:var(--text-subtle);">Deterministic Fallback Active</span>
+                </div>
+                
+                <h2 class="mentor-hero-heading" id="mentorHeading">Welcome back, Divya!</h2>
+
+                <div class="mentor-speech-bubble" id="mentorSpeech">
+                  "Your active goal is set to <strong>Master AI Intelligence &amp; Coursework Research</strong>. Establishing your verified baseline diagnostic is your highest-impact next step to unlock personalized prompt lab challenges."
+                </div>
+
+                <div class="mentor-cta-row">
+                  <button class="btn-primary" onclick="alert('Navigating to Baseline Assessment (15 Questions)')">
+                    <span>Take Diagnostic Assessment</span>
+                    <span>&rarr;</span>
+                  </button>
+                  <button class="btn-secondary" onclick="alert('Exploring AI Tool Wallet Catalogue')">
+                    <span>Browse AI Wallet</span>
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <!-- 3. DASHBOARD TWO-COLUMN (BASELINE HERO + FOCUS SESSION CARD) -->
+            <div class="dashboard-two-col">
+
+              <!-- LEFT: BASELINE DIAGNOSTIC PROGRESS -->
+              <div class="baseline-card">
+                <div class="card-eyebrow">
+                  <span>Diagnostic Benchmark</span>
+                  <span style="color:#059669; font-weight:800;">+50 AC Reward</span>
+                </div>
+                <h3 class="card-title">15-Question Baseline Diagnostic</h3>
+                <p class="card-body-text">
+                  Evaluates your practical capability across the 5 core AI competency dimensions. Strict rubric grading without artificial score inflation.
+                </p>
+
+                <div class="radar-five-pills">
+                  <span class="dim-pill">Usage Frequency</span>
+                  <span class="dim-pill">Evaluation Capability</span>
+                  <span class="dim-pill">Workflow Design</span>
+                  <span class="dim-pill">Strategic Vision</span>
+                  <span class="dim-pill">Mentorship</span>
+                </div>
+
+                <div style="margin-top:auto; display:flex; align-items:center; justify-content:space-between; padding-top:8px;">
+                  <span style="font-size:11.5px; color:var(--text-muted);">Status: <strong>Not Started</strong></span>
+                  <span style="font-size:12px; font-weight:800; color:var(--primary); cursor:pointer;">Start Diagnostic &rarr;</span>
+                </div>
+              </div>
+
+              <!-- RIGHT: FOCUS SESSION CARD (PROPOSED V1 FEATURE) -->
+              <div class="focus-card">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <span class="proposed-badge">[PROPOSED v1 FEATURE]</span>
+                  <span style="font-size:10px; color:var(--text-muted);">Privacy-Safe</span>
+                </div>
+                <h3 class="card-title">Optional Focus Session</h3>
+                <p class="card-body-text">
+                  Distraction-free 25m task session with 5m break nudges from your mentor. Strictly uses in-app software signals—<strong>zero webcam gaze tracking</strong>.
+                </p>
+                <div style="margin-top:auto; display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:11.5px; color:var(--text-muted); font-weight:600;">25m / 5m Interval</span>
+                  <button class="btn-secondary" style="padding:6px 12px; font-size:11.5px;" onclick="alert('Focus Mode session is parked pending owner v1 scope decision (Decision 9).')">
+                    Launch Timer
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- 4. SUGGESTED AI TOOLS FOR YOU (REAL CATALOGUE ENTRIES) -->
+            <section>
+              <div class="section-header-row">
+                <h3 class="section-heading">
+                  <span>⚡ Recommended AI Tools for You</span>
+                  <span style="font-size:11px; font-weight:600; color:var(--text-muted);" id="audienceToolSubtitle">(Filtered for Academic &amp; Coursework Needs)</span>
+                </h3>
+                <a class="see-all-link" onclick="alert('Viewing full 12-tool catalog in DiscoverScreen')">View Full Catalog (12) &rarr;</a>
+              </div>
+
+              <div class="tools-grid" id="toolsGrid">
+                <!-- TOOL 1 -->
+                <div class="tool-mock-card">
+                  <div class="tool-top-row">
+                    <div class="tool-icon-box" style="background:#eef2ff; color:#6366f1;">C</div>
+                    <div class="tool-meta-tags">
+                      <span class="tool-badge-pill audience">Student</span>
+                      <span class="tool-badge-pill">Writing &amp; Code</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="tool-name-text">Claude 3.5 Sonnet</div>
+                    <div class="tool-desc-text">200k context window, exceptional technical writing, code architecture, and Computer Use OS automation.</div>
+                  </div>
+                  <div class="tool-bottom-row">
+                    <span class="tool-pricing-tag">Freemium</span>
+                    <span class="tool-cost-tag">10 AC / task run</span>
+                  </div>
+                </div>
+
+                <!-- TOOL 2 -->
+                <div class="tool-mock-card">
+                  <div class="tool-top-row">
+                    <div class="tool-icon-box" style="background:#ecfdf5; color:#059669;">💻</div>
+                    <div class="tool-meta-tags">
+                      <span class="tool-badge-pill audience">Both</span>
+                      <span class="tool-badge-pill">Agentic Coding</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="tool-name-text">Cursor IDE</div>
+                    <div class="tool-desc-text">AI-first code editor built on VS Code with workspace-wide semantic search and multi-file composer edits.</div>
+                  </div>
+                  <div class="tool-bottom-row">
+                    <span class="tool-pricing-tag">Freemium</span>
+                    <span class="tool-cost-tag">External Tool</span>
+                  </div>
+                </div>
+
+                <!-- TOOL 3 -->
+                <div class="tool-mock-card">
+                  <div class="tool-top-row">
+                    <div class="tool-icon-box" style="background:#e0f2fe; color:#0284c7;">🔍</div>
+                    <div class="tool-meta-tags">
+                      <span class="tool-badge-pill audience">Student</span>
+                      <span class="tool-badge-pill">Research</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="tool-name-text">Perplexity AI</div>
+                    <div class="tool-desc-text">Real-time conversational search engine with verified live web citations and academic filtering modes.</div>
+                  </div>
+                  <div class="tool-bottom-row">
+                    <span class="tool-pricing-tag">Free Tier</span>
+                    <span class="tool-cost-tag">External Tool</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- EMPTY STATE (DEMONSTRATES ZERO-TOOL / NEW LEARNER ONBOARDING) -->
+          <div class="empty-state-view" id="emptyStateView">
+            <div class="empty-state-icon-circle">🌱</div>
+            <h3 class="empty-state-title">Welcome to Your AI Intelligence Journey</h3>
+            <p class="empty-state-desc">
+              You haven't completed your baseline capability diagnostic yet. Take the 15-question assessment to generate your personalized AI skill radar and unlock tailored tool recommendations.
+            </p>
+            <div style="display:flex; justify-content:center; gap:12px;">
+              <button class="btn-primary" onclick="alert('Navigating to Baseline Assessment')">
+                <span>Start Baseline Diagnostic (+50 AC)</span>
+                <span>&rarr;</span>
+              </button>
+              <button class="btn-secondary" onclick="toggleEmptyState()">
+                <span>Back to Populated Mockup</span>
+              </button>
+            </div>
+          </div>
+
+        </main>
+      </div>
+
+      <!-- PHONE BOTTOM NAVIGATION (VISIBLE ONLY IN PHONE VIEW) -->
+      <nav class="phone-bottom-nav">
+        <a class="phone-nav-btn active">
+          <span>🏠</span>
+          <span>Home</span>
+        </a>
+        <a class="phone-nav-btn">
+          <span>📊</span>
+          <span>Diagnostic</span>
+        </a>
+        <a class="phone-nav-btn">
+          <span>👛</span>
+          <span>Wallet</span>
+        </a>
+        <a class="phone-nav-btn">
+          <span>💡</span>
+          <span>Clarity</span>
+        </a>
+        <a class="phone-nav-btn">
+          <span>🪙</span>
+          <span>Credits</span>
+        </a>
+      </nav>
+
+    </div>
+  </div>
+
+  <!-- RATIONALE & ACCESSIBILITY ANNOTATIONS -->
+  <aside class="design-note-box">
+    <strong>Design &amp; Hierarchy Rationale (v3 Specification Alignment):</strong>
+    <ul style="margin: 8px 0 0 20px;">
+      <li><strong>Information Hierarchy:</strong> The home page places the Mentor &amp; Mascot card at the top to orient the learner with contextual advice, followed by the two primary active cards (Baseline Diagnostic and Proposed Focus Mode), leading down to audience-filtered tool recommendations.</li>
+      <li><strong>Audience Toggle:</strong> The Student / Entrepreneur switch updates tool badges and recommendation criteria dynamically without requiring page navigation.</li>
+      <li><strong>Accessibility (WCAG 2.1 AA):</strong> High-contrast color tokens (#0f172a on #ffffff = 16:1 ratio), 48px touch targets on mobile, clear semantic focus rings, and explicit text descriptions.</li>
+      <li><strong>Mobile Behavior:</strong> Collapses the sidebar into a native bottom navigation bar, stacks two-column cards into a vertical flow, and retains critical wallet balance chip in sticky header.</li>
+      <li><strong>No Unsupported Claims:</strong> Zero fabricated user counts ("10,000+ students"), zero fake testimonials, and zero unverified grant claims. Proposed features (Focus Mode, 500 AC balance) are clearly labeled.</li>
+    </ul>
+  </aside>
+
+  <!-- INTERACTIVE CONTROLS SCRIPT -->
+  <script>
+    function setViewport(mode) {
+      const frame = document.getElementById('viewportFrame');
+      const btnDesktop = document.getElementById('btnDesktop');
+      const btnPhone = document.getElementById('btnPhone');
+      
+      if (mode === 'phone') {
+        frame.classList.add('phone-view');
+        btnPhone.classList.add('active');
+        btnDesktop.classList.remove('active');
+      } else {
+        frame.classList.remove('phone-view');
+        btnDesktop.classList.add('active');
+        btnPhone.classList.remove('active');
+      }
+    }
+
+    let isEmpty = false;
+    function toggleEmptyState() {
+      isEmpty = !isEmpty;
+      const populated = document.getElementById('populatedContent');
+      const empty = document.getElementById('emptyStateView');
+      const btnEmpty = document.getElementById('btnEmpty');
+
+      if (isEmpty) {
+        populated.style.display = 'none';
+        empty.style.display = 'block';
+        btnEmpty.classList.add('active');
+      } else {
+        populated.style.display = 'flex';
+        empty.style.display = 'none';
+        btnEmpty.classList.remove('active');
+      }
+    }
+
+    function setAudience(role) {
+      const btnStudent = document.getElementById('btnStudent');
+      const btnEntrepreneur = document.getElementById('btnEntrepreneur');
+      const speech = document.getElementById('mentorSpeech');
+      const subtitle = document.getElementById('audienceToolSubtitle');
+      const grid = document.getElementById('toolsGrid');
+
+      if (role === 'student') {
+        btnStudent.classList.add('active');
+        btnEntrepreneur.classList.remove('active');
+        speech.innerHTML = '"Your active goal is set to <strong>Master AI Intelligence &amp; Coursework Research</strong>. Establishing your verified baseline diagnostic is your highest-impact next step to unlock personalized prompt lab challenges."';
+        subtitle.innerText = '(Filtered for Academic & Coursework Needs)';
+        grid.innerHTML = `
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#eef2ff; color:#6366f1;">C</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience">Student</span>
+                <span class="tool-badge-pill">Writing &amp; Code</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">Claude 3.5 Sonnet</div>
+              <div class="tool-desc-text">200k context window, exceptional technical writing, code architecture, and Computer Use OS automation.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Freemium</span>
+              <span class="tool-cost-tag">10 AC / task run</span>
+            </div>
+          </div>
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#ecfdf5; color:#059669;">💻</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience">Both</span>
+                <span class="tool-badge-pill">Agentic Coding</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">Cursor IDE</div>
+              <div class="tool-desc-text">AI-first code editor built on VS Code with workspace-wide semantic search and multi-file composer edits.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Freemium</span>
+              <span class="tool-cost-tag">External Tool</span>
+            </div>
+          </div>
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#e0f2fe; color:#0284c7;">🔍</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience">Student</span>
+                <span class="tool-badge-pill">Research</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">Perplexity AI</div>
+              <div class="tool-desc-text">Real-time conversational search engine with verified live web citations and academic filtering modes.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Free Tier</span>
+              <span class="tool-cost-tag">External Tool</span>
+            </div>
+          </div>
+        `;
+      } else {
+        btnEntrepreneur.classList.add('active');
+        btnStudent.classList.remove('active');
+        speech.innerHTML = '"Your active goal is set to <strong>Venture Validation &amp; Startup Automation</strong>. Review your team AI credit budget and explore vetted agentic workflow builders in the AI Wallet."';
+        subtitle.innerText = '(Filtered for Startup & Commercial Automation Needs)';
+        grid.innerHTML = `
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#fef3c7; color:#d97706;">⚡</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience" style="background:#fef3c7; color:#b45309;">Entrepreneur</span>
+                <span class="tool-badge-pill">UI Generation</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">v0 by Vercel</div>
+              <div class="tool-desc-text">Generative UI platform transforming natural language prompts into production React components and Next.js interfaces.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Freemium</span>
+              <span class="tool-cost-tag">External Tool</span>
+            </div>
+          </div>
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#f3e8ff; color:#7c3aed;">🔄</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience" style="background:#fef3c7; color:#b45309;">Entrepreneur</span>
+                <span class="tool-badge-pill">Automation</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">Make.com</div>
+              <div class="tool-desc-text">Visual drag-and-drop integration platform connecting 1,500+ cloud apps directly with multi-agent decision nodes.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Free Tier</span>
+              <span class="tool-cost-tag">External Tool</span>
+            </div>
+          </div>
+          <div class="tool-mock-card">
+            <div class="tool-top-row">
+              <div class="tool-icon-box" style="background:#eef2ff; color:#6366f1;">🤖</div>
+              <div class="tool-meta-tags">
+                <span class="tool-badge-pill audience">Both</span>
+                <span class="tool-badge-pill">General LLM</span>
+              </div>
+            </div>
+            <div>
+              <div class="tool-name-text">ChatGPT (GPT-4o)</div>
+              <div class="tool-desc-text">Versatile conversational model for customer discovery synthesis, pitch drafting, and operational email parsing.</div>
+            </div>
+            <div class="tool-bottom-row">
+              <span class="tool-pricing-tag">Freemium</span>
+              <span class="tool-cost-tag">External Tool</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

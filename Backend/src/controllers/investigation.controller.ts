@@ -11,6 +11,8 @@ import {
 } from '../models/aiims.models';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { CREDIT_RULES } from '../config/credits.config';
+import { creditsLedgerService } from '../services/creditsLedger.service';
+import { registeredUsers } from '../models/userStore';
 
 const claudeService = new ClaudeService();
 
@@ -103,6 +105,18 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
 
       if (updatedUser) {
         req.user = updatedUser;
+        const userId = String(req.user._id || req.user.id);
+        await creditsLedgerService.executeTransaction({
+          userId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: reward,
+          reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
+          source: 'RADAR',
+          sourceId: signalId,
+          idempotencyKey: `investigation::${userId}::${signalId}`
+        }).catch((e) => console.warn('[Investigation] Ledger dual-write warning:', e.message));
+
         return res.json({
           message: `Investigation recorded. ${reward} AIIMS Credits earned!`,
           personalInterpretation,
@@ -137,31 +151,63 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
     let creditsEarned = 0;
 
     if (!alreadyInvestigated) {
-      const previousBalance = req.user.aiimsCredits || 0;
-      req.user.aiimsCredits = previousBalance + reward;
-      req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
-      creditsEarned = reward;
+      const userId = String(req.user._id || req.user.id);
+      const actionKey = `investigation::${userId}::${signalId}`;
 
-      if (!req.user.radar.investigatedSignalIds) {
-        req.user.radar.investigatedSignalIds = [];
-      }
-      req.user.radar.investigatedSignalIds.push(signalId);
-
-      const tx = {
-        id: `tx-inv-${Date.now()}`,
-        transactionType: 'SIGNAL_INVESTIGATION',
-        type: 'EARN' as const,
+      const ledgerResult = await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'EARN',
+        category: 'REWARD',
+        amount: reward,
+        reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
         source: 'RADAR',
         sourceId: signalId,
-        amount: reward,
-        description: `Investigated Signal: ${signalId} (+${reward} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance,
-        newBalance: req.user.aiimsCredits
-      };
+        idempotencyKey: actionKey
+      }).catch((e) => {
+        console.warn('[Investigation] Ledger offline write notice:', e.message);
+        return null;
+      });
 
-      req.user.transactions = req.user.transactions || [];
-      req.user.transactions.unshift(tx);
+      if (ledgerResult && ledgerResult.duplicate) {
+        creditsEarned = 0;
+      } else {
+        const previousBalance = req.user.aiimsCredits || 0;
+        req.user.aiimsCredits = ledgerResult?.newBalance ?? (previousBalance + reward);
+        req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
+        creditsEarned = reward;
+
+        if (!req.user.radar.investigatedSignalIds) {
+          req.user.radar.investigatedSignalIds = [];
+        }
+        req.user.radar.investigatedSignalIds.push(signalId);
+
+        const tx = {
+          id: ledgerResult?.transaction?.id || `tx-inv-${Date.now()}`,
+          transactionType: 'SIGNAL_INVESTIGATION',
+          type: 'EARN' as const,
+          source: 'RADAR',
+          sourceId: signalId,
+          amount: reward,
+          description: `Investigated Signal: ${signalId} (+${reward} AC)`,
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          previousBalance,
+          newBalance: req.user.aiimsCredits
+        };
+
+        req.user.transactions = req.user.transactions || [];
+        req.user.transactions.unshift(tx);
+
+        if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
+          const reg = registeredUsers[req.user.email.toLowerCase()];
+          reg.aiimsCredits = req.user.aiimsCredits;
+          reg.xpPoints = req.user.xpPoints;
+          if (!reg.radar) reg.radar = { status: 'unlocked', investigatedSignalIds: [] };
+          if (!reg.radar.investigatedSignalIds) reg.radar.investigatedSignalIds = [];
+          if (!reg.radar.investigatedSignalIds.includes(signalId)) {
+            reg.radar.investigatedSignalIds.push(signalId);
+          }
+        }
+      }
     }
 
     if (!req.user.investigation) {

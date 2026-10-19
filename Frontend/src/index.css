@@ -1,0 +1,434 @@
+/* ==========================================================================
+   AIIMS Design System Tokens & Responsive Styles
+   Phase 4: Unified Card Component and Responsive Layout
+   ========================================================================== */
+
+:root {
+  /* Exact Baseline Standard Values from AIIMS Completion Checklist */
+  --aiims-card-min-width-desktop: 260px;
+  --aiims-card-width-phone: 100%;
+  --aiims-journey-tile-min-size: 120px;
+  --aiims-grid-gap-desktop: 20px;
+  --aiims-grid-gap-phone: 16px;
+  --aiims-grid-gap: var(--aiims-grid-gap-desktop);
+  --aiims-card-padding-desktop: 20px;
+  --aiims-card-padding-phone: 16px;
+  --aiims-card-padding: var(--aiims-card-padding-desktop);
+  --aiims-card-radius: 12px;
+
+  /* Icon Standards */
+  --aiims-icon-inline: 16px;
+  --aiims-icon-button: 20px;
+  --aiims-icon-card-header: 24px;
+  --aiims-icon-level-card: 32px;
+
+  /* Typography Standards */
+  --aiims-card-title-size: 16px;
+  --aiims-card-title-weight: 600;
+  --aiims-card-body-size: 14px;
+  --aiims-card-body-weight: 400;
+  --aiims-card-body-max-lines: 2;
+  --aiims-status-badge-size: 12px;
+
+  /* Image & Badge Standards */
+  --aiims-card-image-ratio: 16 / 9;
+  --aiims-badge-radius: 9999px;
+
+  /* Layout Standards */
+  --aiims-sidebar-width: 240px;
+  --aiims-header-height: 64px;
+
+  /* Theme Colors (Light Theme Default) */
+  --aiims-bg-page: #f8f7fd;
+  --aiims-bg-card: #ffffff;
+  --aiims-bg-card-subtle: #f9f8ff;
+  --aiims-bg-card-hover: #faf9ff;
+  --aiims-border-card: #ede9fe;
+  --aiims-border-card-hover: #c7d2fe;
+  --aiims-border-subtle: #f1f5f9;
+  --aiims-text-heading: #0f172a;
+  --aiims-text-body: #334155;
+  --aiims-text-muted: #64748b;
+  --aiims-text-subtle: #94a3b8;
+  --aiims-primary: #6366f1;
+  --aiims-primary-hover: #4f46e5;
+  --aiims-primary-light: #eef2ff;
+  --aiims-modal-bg: #ffffff;
+  --aiims-modal-border: #e2e8f0;
+  --aiims-input-bg: #ffffff;
+  --aiims-input-border: #cbd5e1;
+  --aiims-input-text: #0f172a;
+  --aiims-shadow-card: 0 4px 16px rgba(99, 102, 241, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --aiims-shadow-hover: 0 10px 24px rgba(99, 102, 241, 0.1);
+  --aiims-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --aiims-table-row-bg: #f8fafc;
+  --aiims-table-row-border: #e2e8f0;
+  --aiims-table-row-hover: #f1f5f9;
+
+  /* Semantic Tint Tokens (Light) */
+  --aiims-tint-emerald-bg: #ecfdf5;
+  --aiims-tint-emerald-border: #a7f3d0;
+  --aiims-tint-emerald-text: #065f46;
+  --aiims-tint-sky-bg: #f0f9ff;
+  --aiims-tint-sky-border: #bae6fd;
+  --aiims-tint-sky-text: #0369a1;
+  --aiims-tint-amber-bg: #fffbeb;
+  --aiims-tint-amber-border: #fde68a;
+  --aiims-tint-amber-text: #92400e;
+  --aiims-tint-purple-bg: #f5f3ff;
+  --aiims-tint-purple-border: #ddd6fe;
+  --aiims-tint-purple-text: #5b21b6;
+  --aiims-tint-rose-bg: #fff1f2;
+  --aiims-tint-rose-border: #fecdd3;
+  --aiims-tint-rose-text: #9f1239;
+}
+
+/* Dark Theme Compatibility */
+[data-theme='dark'],
+.dark-theme {
+  --aiims-bg-page: #0b0f19;
+  --aiims-bg-card: #131b2e;
+  --aiims-bg-card-subtle: #1a233a;
+  --aiims-bg-card-hover: #1e2942;
+  --aiims-border-card: #24304f;
+  --aiims-border-card-hover: #6366f1;
+  --aiims-border-subtle: #1e293b;
+  --aiims-text-heading: #f8fafc;
+  --aiims-text-body: #cbd5e1;
+  --aiims-text-muted: #94a3b8;
+  --aiims-text-subtle: #64748b;
+  --aiims-primary: #818cf8;
+  --aiims-primary-hover: #6366f1;
+  --aiims-primary-light: rgba(99, 102, 241, 0.18);
+  --aiims-modal-bg: #131b2e;
+  --aiims-modal-border: #24304f;
+  --aiims-input-bg: #1a233a;
+  --aiims-input-border: #334155;
+  --aiims-input-text: #f8fafc;
+  --aiims-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --aiims-shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.6);
+  --aiims-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --aiims-table-row-bg: #1a233a;
+  --aiims-table-row-border: #24304f;
+  --aiims-table-row-hover: #222d48;
+
+  /* Semantic Tint Tokens (Dark) */
+  --aiims-tint-emerald-bg: rgba(16, 185, 129, 0.14);
+  --aiims-tint-emerald-border: rgba(16, 185, 129, 0.32);
+  --aiims-tint-emerald-text: #6ee7b7;
+  --aiims-tint-sky-bg: rgba(14, 165, 233, 0.14);
+  --aiims-tint-sky-border: rgba(14, 165, 233, 0.32);
+  --aiims-tint-sky-text: #7dd3fc;
+  --aiims-tint-amber-bg: rgba(245, 158, 11, 0.14);
+  --aiims-tint-amber-border: rgba(245, 158, 11, 0.32);
+  --aiims-tint-amber-text: #fcd34d;
+  --aiims-tint-purple-bg: rgba(139, 92, 246, 0.14);
+  --aiims-tint-purple-border: rgba(139, 92, 246, 0.32);
+  --aiims-tint-purple-text: #c4b5fd;
+  --aiims-tint-rose-bg: rgba(244, 63, 94, 0.14);
+  --aiims-tint-rose-border: rgba(244, 63, 94, 0.32);
+  --aiims-tint-rose-text: #fda4af;
+}
+
+/* Base Reset & Box Sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--aiims-bg-page);
+  color: var(--aiims-text-body);
+  font-family: 'Plus Jakarta Sans', 'Inter', 'Nunito', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   Shared Card Classes
+   ========================================================================== */
+
+.aiims-card {
+  background-color: var(--aiims-bg-card);
+  border: 1px solid var(--aiims-border-card);
+  border-radius: var(--aiims-card-radius);
+  padding: var(--aiims-card-padding);
+  box-sizing: border-box;
+  box-shadow: var(--aiims-shadow-card);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
+  position: relative;
+}
+
+.aiims-card.interactive,
+.aiims-card.hoverable {
+  cursor: pointer;
+}
+
+.aiims-card.interactive:hover,
+.aiims-card.hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--aiims-shadow-hover);
+  border-color: var(--aiims-border-card-hover);
+}
+
+.aiims-card.interactive:focus-visible {
+  outline: 2px solid var(--aiims-primary);
+  outline-offset: 2px;
+}
+
+.aiims-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.aiims-card-title {
+  font-size: var(--aiims-card-title-size);
+  font-weight: var(--aiims-card-title-weight);
+  color: var(--aiims-text-heading);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.aiims-card-body {
+  font-size: var(--aiims-card-body-size);
+  font-weight: var(--aiims-card-body-weight);
+  color: var(--aiims-text-muted);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: var(--aiims-card-body-max-lines);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.aiims-card-image {
+  aspect-ratio: var(--aiims-card-image-ratio);
+  width: 100%;
+  overflow: hidden;
+  border-top-left-radius: var(--aiims-card-radius);
+  border-top-right-radius: var(--aiims-card-radius);
+  margin-top: calc(-1 * var(--aiims-card-padding));
+  margin-left: calc(-1 * var(--aiims-card-padding));
+  margin-right: calc(-1 * var(--aiims-card-padding));
+  margin-bottom: var(--aiims-card-padding);
+}
+
+.aiims-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ==========================================================================
+   Home Journey 1:1 Square Tiles
+   ========================================================================== */
+
+.aiims-journey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: var(--aiims-grid-gap);
+  width: 100%;
+}
+
+.aiims-journey-tile {
+  aspect-ratio: 1 / 1;
+  min-width: var(--aiims-journey-tile-min-size);
+  border-radius: var(--aiims-card-radius);
+  padding: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+}
+
+.aiims-journey-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.12);
+}
+
+.aiims-journey-tile:focus-visible {
+  outline: 2px solid var(--aiims-primary);
+  outline-offset: 2px;
+}
+
+.aiims-journey-tile-title {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.aiims-journey-tile-subtitle {
+  font-size: 10.5px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.aiims-journey-tile-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: inline-block;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Grid Layouts
+   ========================================================================== */
+
+.aiims-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop), 1fr));
+  gap: var(--aiims-grid-gap);
+  width: 100%;
+}
+
+.aiims-card-grid-2col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop), 1fr));
+  gap: var(--aiims-grid-gap);
+  width: 100%;
+}
+
+/* Text Utility Truncators */
+.truncate-1-line {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.truncate-2-lines {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints:
+   Desktop: > 1024px
+   Tablet: 769px - 1024px
+   Phone: <= 768px (including 375px)
+   ========================================================================== */
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --aiims-sidebar-width: 220px;
+  }
+}
+
+/* Phone / Mobile (<= 768px) */
+@media (max-width: 768px) {
+  :root {
+    --aiims-grid-gap: var(--aiims-grid-gap-phone);
+    --aiims-card-padding: var(--aiims-card-padding-phone);
+  }
+
+  /* Single Column Phone Card Grids */
+  .aiims-card-grid,
+  .aiims-card-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: var(--aiims-grid-gap-phone) !important;
+  }
+
+  /* Journey Tiles Phone Grid (2 columns maintaining 1:1 ratio, min 120px) */
+  .aiims-journey-grid {
+    grid-template-columns: repeat(2, minmax(var(--aiims-journey-tile-min-size), 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  /* Canvas Padding Phone */
+  .aiims-main-canvas {
+    padding: 16px 14px 40px 14px !important;
+  }
+
+  /* Header adjustments on Phone */
+  .aiims-header-nav {
+    display: none !important;
+  }
+
+  .aiims-header-search {
+    max-width: 160px !important;
+  }
+
+  .aiims-header-container {
+    padding: 0 12px !important;
+  }
+
+  /* Off-canvas mobile sidebar */
+  .aiims-sidebar-desktop {
+    display: none !important;
+  }
+
+  .aiims-sidebar-drawer {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    width: 280px !important;
+    max-width: 85vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    background-color: var(--aiims-bg-card) !important;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15) !important;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .aiims-sidebar-drawer.open {
+    transform: translateX(0) !important;
+  }
+
+  .aiims-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 9998;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .aiims-drawer-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (min-width: 769px) {
+  .aiims-mobile-toggle-btn {
+    display: none !important;
+  }
+
+  .aiims-sidebar-drawer {
+    display: none !important;
+  }
+
+  .aiims-drawer-backdrop {
+    display: none !important;
+  }
+}

@@ -66,6 +66,59 @@ export interface FocusArea {
   status: 'Pending' | 'In Progress' | 'Completed';
 }
 
+// ==========================================
+// FOCUS SESSION, BREAK & HISTORY TYPES (Phase 6C)
+// ==========================================
+
+export type FocusSessionLifecycleState =
+  | 'idle'
+  | 'focusing'
+  | 'paused'
+  | 'break'
+  | 'completed'
+  | 'abandoned';
+
+export type FocusPeriodType = 'focus' | 'short_break' | 'long_break';
+
+export interface FocusSessionConfig {
+  focusDurationMinutes: number;
+  breakDurationMinutes: number;
+  enableLongBreak: boolean;
+  longBreakDurationMinutes: number;
+  longBreakInterval: number;
+  soundEnabled: boolean;
+}
+
+export interface ActiveFocusSessionState {
+  id: string;
+  trackTitle: string;
+  intention?: string;
+  sessionState: FocusSessionLifecycleState;
+  periodType: FocusPeriodType;
+  targetEndTime: number | null;
+  totalPeriodSeconds: number;
+  remainingSeconds: number;
+  pausedAt: number | null;
+  accumulatedFocusSeconds: number;
+  sessionStartEpoch: number;
+  completedCycles: number;
+  config: FocusSessionConfig;
+}
+
+export interface FocusSessionRecord {
+  id: string;
+  trackTitle: string;
+  intention?: string;
+  focusDurationMinutes: number;
+  actualFocusSeconds: number;
+  breakDurationMinutes: number;
+  startedAt: string;
+  completedAt: string;
+  status: 'completed' | 'abandoned';
+  cyclesCompleted: number;
+}
+
+
 export type RadarCategory =
   | 'New Models'
   | 'Agentic AI'
@@ -434,5 +487,8 @@ export interface UserProject {
   createdAt: string;
   status: 'active' | 'archived';
 }
+
+export type AudienceMode = 'student' | 'entrepreneur';
+
 
 

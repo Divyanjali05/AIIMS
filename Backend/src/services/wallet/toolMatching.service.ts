@@ -109,7 +109,7 @@ export class ToolMatchingService {
    */
   private static safeDebugLog(rawQuery: string, intent: SearchIntent, profile: RequirementProfile, topMatches: ToolMatchResult[]): void {
     if (process.env.NODE_ENV !== 'production') {
-      console.log('=== [AINOVA SEARCH INTENT & MATCHING PIPELINE LOG] ===');
+      console.log('=== [AIIMS SEARCH INTENT & MATCHING PIPELINE LOG] ===');
       console.log('Original Query:', rawQuery);
       console.log('Normalized Intent:', intent.intent);
       console.log('Primary Goal:', profile.goal);

@@ -27,9 +27,11 @@ import {
   Globe,
   Check,
   Clock,
-  BookOpen
+  BookOpen,
+  GraduationCap,
+  Rocket
 } from 'lucide-react';
-import { useLearner } from '../../context/LearnerContext';
+import { useLearner, resolveAudienceMode } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -37,6 +39,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { MentorMessage } from '../../components/common/MentorMessage';
 import {
   AITool,
+  AudienceMode,
   TaskCategory,
   ToolFamiliarity,
   ToolRecommendation,
@@ -50,6 +53,49 @@ import { trackLearningLoopEvent } from '../../services/learningLoop';
 import { getAssessmentToolInsights } from '../../services/assessmentToolMatcher';
 import { AssessmentPromptSuggestions } from './AssessmentPromptSuggestions';
 
+/**
+ * Startup Toolkit Gaps — capability categories identified as essential
+ * for entrepreneur/venture building, clearly labeled as unintegrated capability gaps.
+ * Note: Never fabricate product entries for missing catalogue items.
+ */
+const STARTUP_CAPABILITY_GAPS = [
+  {
+    title: 'Product Prototyping Tools',
+    subheading: 'UI Scaffolding & Rapid Mockups',
+    badge: 'CAPABILITY GAP — UNINTEGRATED',
+    description: 'Rapid interactive frontend generation, code scaffolding, and wireframe prototypes for minimum viable products.',
+    statusNote: 'Capability recognized for startup workflows; no native vendor tool is currently verified or integrated into the active AIIMS catalogue.'
+  },
+  {
+    title: 'Customer Discovery & Outreach',
+    subheading: 'Prospecting, Enrichment & Interviews',
+    badge: 'CAPABILITY GAP — UNINTEGRATED',
+    description: 'B2B prospect discovery, customer interview recording/synthesis, automated outbound sequencing, and pain-point clustering.',
+    statusNote: 'Capability recognized for startup workflows; no native vendor tool is currently verified or integrated into the active AIIMS catalogue.'
+  },
+  {
+    title: 'Payments & Company Formation',
+    subheading: 'Legal Incorporation & Global Billing',
+    badge: 'CAPABILITY GAP — UNINTEGRATED',
+    description: 'Entity registration, international payment gateways, recurring SaaS billing infrastructure, and compliance filings.',
+    statusNote: 'Capability recognized for startup workflows; no native vendor tool is currently verified or integrated into the active AIIMS catalogue.'
+  },
+  {
+    title: 'Project Management & Issue Tracking',
+    subheading: 'Agile Backlog & Sprint Execution',
+    badge: 'CAPABILITY GAP — UNINTEGRATED',
+    description: 'Sprint roadmaps, issue prioritization, pull-request linking, and cross-functional task coordination for founding teams.',
+    statusNote: 'Capability recognized for startup workflows; no native vendor tool is currently verified or integrated into the active AIIMS catalogue.'
+  },
+  {
+    title: 'AI Application Observability',
+    subheading: 'Prompt Tracing, LLM Latency & Cost APM',
+    badge: 'CAPABILITY GAP — UNINTEGRATED',
+    description: 'Production LLM tracing, prompt regression evaluations, token budget tracking, and real-time inference latency monitoring.',
+    statusNote: 'Capability recognized for startup workflows; no native vendor tool is currently verified or integrated into the active AIIMS catalogue.'
+  }
+];
+
 interface AIWalletScreenProps {
   setActiveTab: (tab: string) => void;
 }
@@ -61,8 +107,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
     addMultipleToolsToWallet,
     removeToolFromWallet,
     updateToolFamiliarity,
-    dismissRecommendation
+    dismissRecommendation,
+    setAudienceMode
   } = useLearner();
+
+  const currentAudienceMode: AudienceMode = resolveAudienceMode(
+    state.aiWallet?.audienceMode,
+    state.academicProfile?.primaryGoal || state.profile?.targetGoal
+  );
 
   const [activeSection, setActiveSection] = useState<'wallet' | 'discover' | 'compare' | 'gaps' | 'admin'>('discover');
   const [catalog, setCatalog] = useState<AITool[]>([]);
@@ -340,7 +392,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         title="AI Wallet & Tool Intelligence"
         description="Dynamic AI tool discovery, natural language requirement matching, verified pricing, 5-level learning tracks, task comparison, and personal toolkit layer."
         action={
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Badge variant="primary" icon={<Briefcase size={12} />}>
               {userTools.length} Tools in Wallet
             </Badge>
@@ -351,10 +403,128 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         }
       />
 
+      {/* Accessible Audience Mode Switcher Bar */}
+      <div
+        role="region"
+        aria-label="Audience Lens Switcher"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          backgroundColor: 'var(--aiims-bg-card)',
+          padding: '12px 18px',
+          borderRadius: '16px',
+          border: '1px solid var(--aiims-border-card)',
+          boxShadow: 'var(--aiims-shadow-card)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              backgroundColor: currentAudienceMode === 'entrepreneur' ? 'var(--aiims-tint-emerald-bg)' : 'var(--aiims-primary-light)',
+              color: currentAudienceMode === 'entrepreneur' ? 'var(--aiims-tint-emerald-text)' : 'var(--aiims-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: currentAudienceMode === 'entrepreneur' ? '0 2px 6px rgba(16, 185, 129, 0.2)' : '0 2px 6px rgba(99, 102, 241, 0.2)'
+            }}
+          >
+            {currentAudienceMode === 'entrepreneur' ? <Rocket size={20} /> : <GraduationCap size={20} />}
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+              AUDIENCE LENS
+            </div>
+            <div style={{ fontSize: '13.5px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
+              {currentAudienceMode === 'entrepreneur' ? 'Entrepreneur / Startup Track' : 'Student / Academic Track'}
+              <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', fontWeight: 500, marginLeft: '8px' }}>
+                {currentAudienceMode === 'entrepreneur'
+                  ? '— Prioritizing market validation, MVPs, client acquisition & venture ops'
+                  : '— Prioritizing coursework, academic projects, study efficiency & exam prep'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          role="radiogroup"
+          aria-label="Target audience lens"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--aiims-bg-card-subtle)',
+            padding: '4px',
+            borderRadius: '12px',
+            gap: '4px'
+          }}
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={currentAudienceMode === 'student'}
+            onClick={() => setAudienceMode('student')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: currentAudienceMode === 'student' ? 'var(--aiims-bg-card)' : 'transparent',
+              color: currentAudienceMode === 'student' ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)',
+              fontWeight: currentAudienceMode === 'student' ? 800 : 600,
+              fontSize: '12.5px',
+              fontFamily: "'Nunito', sans-serif",
+              cursor: 'pointer',
+              boxShadow: currentAudienceMode === 'student' ? 'var(--aiims-shadow-card)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <GraduationCap size={15} />
+            <span>Student</span>
+          </button>
+
+          <button
+            type="button"
+            role="radio"
+            aria-checked={currentAudienceMode === 'entrepreneur'}
+            onClick={() => setAudienceMode('entrepreneur')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: currentAudienceMode === 'entrepreneur' ? 'var(--aiims-bg-card)' : 'transparent',
+              color: currentAudienceMode === 'entrepreneur' ? 'var(--aiims-tint-emerald-text)' : 'var(--aiims-text-muted)',
+              fontWeight: currentAudienceMode === 'entrepreneur' ? 800 : 600,
+              fontSize: '12.5px',
+              fontFamily: "'Nunito', sans-serif",
+              cursor: 'pointer',
+              boxShadow: currentAudienceMode === 'entrepreneur' ? 'var(--aiims-shadow-card)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <Rocket size={15} />
+            <span>Entrepreneur</span>
+          </button>
+        </div>
+      </div>
+
       {/* AI Mentor Advice Banner */}
       <MentorMessage
-        title="AINOVA TOOL INTELLIGENCE"
-        message={`"Describe what you want to accomplish in natural language below. AINOVA continuously discovers and verifies new tools across the AI ecosystem to match your exact requirement."`}
+        title={currentAudienceMode === 'entrepreneur' ? 'AIIMS VENTURE INTELLIGENCE' : 'AIIMS TOOL INTELLIGENCE'}
+        message={
+          currentAudienceMode === 'entrepreneur'
+            ? `"Describe your startup requirement in natural language below. AIIMS matches verified AI tools optimized for rapid market validation, MVP prototyping, customer discovery, and venture execution."`
+            : `"Describe what you want to accomplish in natural language below. AIIMS continuously discovers and verifies new tools across the AI ecosystem to match your coursework, projects, and research."`
+        }
       />
 
       {/* Primary 4 Section Navigation Tabs */}
@@ -362,11 +532,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--aiims-bg-card)',
         padding: '6px',
         borderRadius: '16px',
-        border: '1px solid #ede9fe',
-        boxShadow: '0 2px 8px rgba(99, 102, 241, 0.04)'
+        border: '1px solid var(--aiims-border-card)',
+        boxShadow: 'var(--aiims-shadow-card)'
       }}>
         {[
           { id: 'discover', label: '1. Requirement Search & Discover', icon: Compass, badge: `${catalog.length}` },
@@ -390,8 +560,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 padding: '10px 16px',
                 borderRadius: '12px',
                 border: 'none',
-                backgroundColor: isActive ? '#6366f1' : 'transparent',
-                color: isActive ? '#ffffff' : '#64748b',
+                backgroundColor: isActive ? 'var(--aiims-primary)' : 'transparent',
+                color: isActive ? '#ffffff' : 'var(--aiims-text-muted)',
                 fontWeight: isActive ? 800 : 600,
                 fontSize: '13px',
                 fontFamily: "'Nunito', sans-serif",
@@ -428,13 +598,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           <Surface variant="gradient-hero" radius="lg" padding="lg">
             <div style={{ marginBottom: '16px' }}>
               <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
-                NATURAL-LANGUAGE AI TOOL MATCHING
+                {currentAudienceMode === 'entrepreneur' ? 'STARTUP & VENTURE AI TOOL MATCHING' : 'ACADEMIC & LEARNING AI TOOL MATCHING'}
               </div>
               <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                What are you trying to accomplish?
+                {currentAudienceMode === 'entrepreneur' ? 'What startup milestone or task are you executing?' : 'What are you trying to accomplish?'}
               </h2>
               <p style={{ fontSize: '13.5px', color: '#4338ca', margin: 0, fontWeight: 500 }}>
-                Describe your task in plain English. AINOVA extracts intent, domains, constraints, and ranks verified AI tools.
+                {currentAudienceMode === 'entrepreneur'
+                  ? 'Describe your venture, product, or go-to-market task in plain English. AIIMS matches verified AI tools.'
+                  : 'Describe your study, coursework, or research task in plain English. AIIMS extracts intent, domains, constraints, and ranks verified AI tools.'}
               </p>
             </div>
 
@@ -444,19 +616,21 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   rows={3}
                   value={requirementQuery}
                   onChange={(e) => setRequirementQuery(e.target.value)}
-                  placeholder="e.g. I need a free AI tool that can analyze a 100-page PDF and generate interactive charts..."
+                  placeholder={currentAudienceMode === 'entrepreneur'
+                    ? "e.g. I need an AI tool to draft customer interview questions and extract pain points from transcripts..."
+                    : "e.g. I need a free AI tool that can analyze a 100-page academic paper and generate review notes..."}
                   style={{
                     width: '100%',
                     boxSizing: 'border-box',
                     borderRadius: '12px',
-                    border: '2px solid #c7d2fe',
+                    border: '1px solid var(--aiims-border-card-hover)',
                     padding: '14px 16px',
                     fontSize: '14px',
                     fontFamily: "'Nunito', sans-serif",
-                    color: '#0f172a',
+                    color: 'var(--aiims-input-text)',
                     outline: 'none',
-                    backgroundColor: '#ffffff',
-                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)'
+                    backgroundColor: 'var(--aiims-input-bg)',
+                    boxShadow: 'var(--aiims-shadow-card)'
                   }}
                 />
               </div>
@@ -464,23 +638,29 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 {/* Example Query Quick Chips */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Try:</span>
-                  {[
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>Try:</span>
+                  {(currentAudienceMode === 'entrepreneur' ? [
+                    'Rapid MVP prototyping',
+                    'Competitor & market research',
+                    'Investor pitch deck generator',
+                    'AI customer support automation',
+                    'Cold outreach & lead generation'
+                  ] : [
                     'Analyze a 100-page PDF',
-                    'Free AI for Excel charts',
-                    'Telugu voice generation',
                     'Free AI for college presentation',
-                    'Coding assistant like Cursor'
-                  ].map((chip, idx) => (
+                    'Study notes & exam summarizer',
+                    'Python debugging assistant',
+                    'Telugu voice generation'
+                  ]).map((chip, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleExecuteRequirementSearch(chip)}
                       style={{
                         padding: '4px 10px',
                         borderRadius: '9999px',
-                        border: '1px solid #c7d2fe',
-                        backgroundColor: '#ffffff',
-                        color: '#4338ca',
+                        border: '1px solid var(--aiims-border-card-hover)',
+                        backgroundColor: 'var(--aiims-bg-card)',
+                        color: 'var(--aiims-primary)',
                         fontSize: '11px',
                         fontWeight: 700,
                         cursor: 'pointer'
@@ -558,7 +738,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   )}
 
                   {/* Search Result Matches Cards Grid */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                  <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
                     {searchResult.matches.map((resItem) => {
                       const tool = resItem.tool;
                       const isAlreadyInWallet = userTools.some((t) => t.toolId === tool.id);
@@ -680,21 +860,21 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 </Button>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              <div className="aiims-card-grid" style={{ gap: '12px' }}>
                 {newAndUpdatedTools.map((tool) => (
-                  <div key={tool.id} style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                  <div key={tool.id} style={{ padding: '12px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-border-card)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxShadow: 'var(--aiims-shadow-card)' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{tool.name}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>{tool.name}</span>
                         {getStatusBadge(tool.status)}
                       </div>
-                      <p style={{ margin: '0 0 10px', fontSize: '12px', color: '#334155', lineHeight: 1.4 }}>
+                      <p style={{ margin: '0 0 10px', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4 }}>
                         {tool.shortDescription || tool.description}
                       </p>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid #f0f9ff' }}>
-                      <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--aiims-border-subtle)' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-primary)', fontWeight: 700 }}>
                         {tool.pricingDetails?.summary || tool.pricing || 'Free tier available'}
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => handleOpenDetailModal(tool)}>
@@ -767,7 +947,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             </div>
 
             {/* Catalog Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+            <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
               {catalog
                 .filter((t) => selectedCategory === 'All' || t.category === selectedCategory || (t.categories && t.categories.includes(selectedCategory as any)))
                 .filter((t) => {
@@ -851,10 +1031,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <div>
                 <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>🧰 Your AI Toolkit</span>
+                  <span>{currentAudienceMode === 'entrepreneur' ? '🚀 Your Startup Tech Stack' : '🎒 Your Academic Toolkit'}</span>
                 </h2>
                 <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                  Tools you currently use and are learning to master. Update familiarity levels to evolve your profile.
+                  {currentAudienceMode === 'entrepreneur'
+                    ? 'Tools in your startup tech stack for customer discovery, validation, and operations. Track adoption and mastery.'
+                    : 'Tools you currently use for academic studies, technical projects, and coursework. Track familiarity levels to grow your capability.'}
                 </p>
               </div>
 
@@ -881,17 +1063,19 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
               <Wallet style={{ width: '40px', height: '40px', color: '#6366f1', margin: '0 auto 12px' }} />
               <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                Your AI Wallet is empty
+                {currentAudienceMode === 'entrepreneur' ? 'Your Startup AI Stack is empty' : 'Your Student AI Wallet is empty'}
               </h3>
               <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#64748b' }}>
-                Use Requirement Search in Discover to find and add AI tools relevant to your work.
+                {currentAudienceMode === 'entrepreneur'
+                  ? 'Use Requirement Search in Discover to find and add AI tools for market research, MVP prototyping, and customer validation.'
+                  : 'Use Requirement Search in Discover to find and add AI tools relevant to your courses, research, or coding projects.'}
               </p>
               <Button variant="primary" size="sm" onClick={() => setActiveSection('discover')}>
                 Explore Discover →
               </Button>
             </Surface>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+            <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
               {userToolsWithDetails.map((tool) => (
                 <Surface key={tool.toolId} variant="bordered" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '16px' }}>
                   <div>
@@ -1035,10 +1219,16 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <div>
               <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ArrowRightLeft size={20} style={{ color: '#6366f1' }} />
-                <span>Requirement-First Dynamic Tool Comparison</span>
+                <span>
+                  {currentAudienceMode === 'entrepreneur'
+                    ? 'Requirement-First Dynamic Tool Comparison (Startup & Commercial)'
+                    : 'Requirement-First Dynamic Tool Comparison (Academic & Learning)'}
+                </span>
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Compare 2 to 4 AI tools side-by-side for your specific task. Comparison criteria dynamically adapt to your domain requirements.
+                {currentAudienceMode === 'entrepreneur'
+                  ? 'Compare 2 to 4 AI tools side-by-side for your venture workflows, MVP builds, or customer validation.'
+                  : 'Compare 2 to 4 AI tools side-by-side for your specific coursework, coding assignments, or research tasks.'}
               </p>
             </div>
           </Surface>
@@ -1054,9 +1244,42 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   type="text"
                   value={comparisonRequirement}
                   onChange={(e) => setComparisonRequirement(e.target.value)}
-                  placeholder="e.g. Analyzing 100-page research PDFs and drafting summaries..."
+                  placeholder={currentAudienceMode === 'entrepreneur'
+                    ? "e.g. Analyzing market trends & competitor pricing vs. automated customer outreach..."
+                    : "e.g. Analyzing 100-page research PDFs and drafting summaries..."}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #c7d2fe', fontSize: '13px', outline: 'none' }}
                 />
+                {/* Comparison Preset Chips */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Quick Tasks:</span>
+                  {(currentAudienceMode === 'entrepreneur' ? [
+                    'Competitor Market Analysis',
+                    'MVP Code Scaffolding',
+                    'Pitch Deck Narrative'
+                  ] : [
+                    'Research Paper Synthesis',
+                    'Code Generation & Debugging',
+                    'Slide Presentation Creation'
+                  ]).map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setComparisonRequirement(preset)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid var(--aiims-border-card-hover)',
+                        backgroundColor: 'var(--aiims-bg-card)',
+                        color: 'var(--aiims-primary)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -1180,13 +1403,102 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <div>
               <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <BarChart2 size={20} style={{ color: '#6366f1' }} />
-                <span>Toolkit Coverage & Capability Gaps</span>
+                <span>
+                  {currentAudienceMode === 'entrepreneur'
+                    ? 'Startup Toolkit Coverage & Ecosystem Capability Gaps'
+                    : 'Academic Toolkit Coverage & Capability Gaps'}
+                </span>
               </h2>
               <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
-                Automated coverage analysis across 35+ major AI domains based on your current AI Wallet tools.
+                {currentAudienceMode === 'entrepreneur'
+                  ? 'Capability audit across startup workflows, unintegrated ecosystem tools, and domain coverage.'
+                  : 'Automated coverage analysis across 35+ major AI domains based on your current AI Wallet tools.'}
               </p>
             </div>
           </Surface>
+
+          {/* STARTUP CAPABILITY GAPS PANEL (Audience-specific for entrepreneur mode) */}
+          {currentAudienceMode === 'entrepreneur' && (
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ borderLeft: '4px solid #f59e0b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <Badge variant="warning" icon={<AlertCircle size={12} />}>
+                      STARTUP CAPABILITY GAPS
+                    </Badge>
+                    <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 700 }}>
+                      Ecosystem Capability Audit
+                    </span>
+                  </div>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>
+                    Identified Missing Startup Capabilities
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>
+                    The following capability categories represent critical startup workflow gaps currently unrepresented or unintegrated in the active tool catalogue.
+                  </p>
+                </div>
+              </div>
+
+              <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))', gap: '14px' }}>
+                {STARTUP_CAPABILITY_GAPS.map((gap, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '16px',
+                      borderRadius: 'var(--aiims-card-radius, 12px)',
+                      backgroundColor: 'var(--aiims-tint-amber-bg)',
+                      border: '1px solid var(--aiims-tint-amber-border)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '12px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                        <div>
+                          <h4 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
+                            {gap.title}
+                          </h4>
+                          <span style={{ fontSize: '11px', color: 'var(--aiims-tint-amber-text)', fontWeight: 700 }}>
+                            {gap.subheading}
+                          </span>
+                        </div>
+                        <span style={{
+                          fontSize: '9.5px',
+                          fontWeight: 800,
+                          padding: '3px 7px',
+                          borderRadius: '6px',
+                          backgroundColor: 'var(--aiims-bg-card)',
+                          color: 'var(--aiims-tint-amber-text)',
+                          border: '1px solid var(--aiims-tint-amber-border)',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {gap.badge}
+                        </span>
+                      </div>
+
+                      <p style={{ margin: '0 0 8px', fontSize: '12.5px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
+                        {gap.description}
+                      </p>
+                    </div>
+
+                    <div style={{
+                      padding: '8px 10px',
+                      backgroundColor: 'var(--aiims-bg-card)',
+                      borderRadius: '8px',
+                      border: '1px dashed var(--aiims-tint-amber-border)',
+                      fontSize: '11px',
+                      color: 'var(--aiims-tint-amber-text)',
+                      lineHeight: 1.4
+                    }}>
+                      ⚠️ <em>{gap.statusNote}</em>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Surface>
+          )}
 
           {gapData && (
             <Surface variant="bordered" radius="lg" padding="lg">
@@ -1202,9 +1514,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               </div>
 
               {/* Gaps List */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '14px' }}>
+              <div className="aiims-card-grid" style={{ gap: '14px' }}>
                 {gapData.gaps.map((gap: any, idx: number) => (
-                  <div key={idx} style={{ padding: '14px', borderRadius: '10px', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
+                  <div key={idx} style={{ padding: '14px', borderRadius: 'var(--aiims-card-radius, 12px)', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
                     <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', marginBottom: '4px' }}>
                       UNREPRESENTED DOMAIN
                     </div>
@@ -1260,53 +1572,84 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             </div>
           </Surface>
 
+          {/* Active Ingestion Lens Banner */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            backgroundColor: 'var(--aiims-bg-card)',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--aiims-border-card)',
+            boxShadow: 'var(--aiims-shadow-card)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>
+                ACTIVE INGESTION LENS:
+              </span>
+              <Badge variant={currentAudienceMode === 'entrepreneur' ? 'warning' : 'primary'} size="sm" icon={currentAudienceMode === 'entrepreneur' ? <Rocket size={12} /> : <GraduationCap size={12} />}>
+                {currentAudienceMode === 'entrepreneur' ? 'Entrepreneur & Startup Tooling' : 'Student & Academic Learning'}
+              </Badge>
+              <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+                {currentAudienceMode === 'entrepreneur'
+                  ? 'Candidate intake prioritizes API reliability, business pricing, prototyping, and venture analytics.'
+                  : 'Candidate intake prioritizes free/student tiers, education verification, and research/learning workflows.'}
+              </span>
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--aiims-text-subtle)', fontWeight: 600 }}>
+              Telemetry synced with active audience mode
+            </span>
+          </div>
+
           {/* Pipeline Dashboard Metrics Row */}
           {adminDashboard && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '12px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                   Pipeline Status
                 </div>
                 <div style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <CheckCircle2 size={18} /> {adminDashboard.pipelineStatus || 'OPERATIONAL'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-subtle)', marginTop: '4px' }}>
                   Mode: {adminDashboard.mode}
                 </div>
               </div>
 
-              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '12px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                   Verified Active Tools
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: '#4338ca' }}>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-primary)' }}>
                   {adminDashboard.activeVerifiedTools || catalog.length}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-subtle)', marginTop: '4px' }}>
                   out of {adminDashboard.totalToolsInCatalog || catalog.length} total tools
                 </div>
               </div>
 
-              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '12px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                   Pending Candidates
                 </div>
-                <div style={{ fontSize: '22px', fontWeight: 800, color: adminCandidates.length > 0 ? '#d97706' : '#10b981' }}>
+                <div style={{ fontSize: '22px', fontWeight: 800, color: adminCandidates.length > 0 ? '#f59e0b' : '#10b981' }}>
                   {adminCandidates.length}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-subtle)', marginTop: '4px' }}>
                   Awaiting evidence verification
                 </div>
               </div>
 
-              <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '12px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                   Evidence Corpus
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 800, color: '#0284c7' }}>
                   {adminDashboard.totalEvidenceDocs || 12}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-subtle)', marginTop: '4px' }}>
                   Verifiable claims stored
                 </div>
               </div>
@@ -1319,14 +1662,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               Configured Intelligence Tool Sources
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+            <div className="aiims-card-grid" style={{ gap: '12px' }}>
               {(adminSources.length > 0 ? adminSources : [
                 { id: 'src-official', name: 'Official AI Product Releases & Pricing Pages', type: 'WEB/JSON', priority: 1, enabled: true },
                 { id: 'src-github', name: 'GitHub Open Source AI Model Repositories', type: 'API', priority: 2, enabled: true },
                 { id: 'src-huggingface', name: 'Hugging Face Trending AI Models', type: 'API', priority: 3, enabled: true },
                 { id: 'src-news', name: 'AI Product Announcements & RSS Changelogs', type: 'RSS', priority: 4, enabled: true }
               ]).map((src) => (
-                <div key={src.id} style={{ padding: '12px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div key={src.id} style={{ padding: '12px 14px', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{src.name}</div>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>Type: {src.type} • Trust Rank: #{src.priority}</div>
@@ -1401,19 +1744,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           padding: '20px'
         }}>
           <div style={{
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--aiims-modal-bg)',
             borderRadius: '20px',
+            border: '1px solid var(--aiims-modal-border)',
             maxWidth: '720px',
             width: '100%',
             maxHeight: '85vh',
             overflowY: 'auto',
             padding: '24px',
             position: 'relative',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+            boxShadow: 'var(--aiims-shadow-modal)'
           }}>
             <button
               onClick={() => setSelectedDetailTool(null)}
-              style={{ position: 'absolute', top: '20px', right: '20px', border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}
+              style={{ position: 'absolute', top: '20px', right: '20px', border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--aiims-text-muted)' }}
             >
               <X size={20} />
             </button>
@@ -1425,29 +1769,29 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 <Badge variant="cyan" size="sm" icon={<ShieldCheck size={10} />}>Verified Source</Badge>
                 {getStatusBadge(selectedDetailTool.status)}
               </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 4px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 {selectedDetailTool.name}
               </h2>
-              <div style={{ fontSize: '13px', color: '#64748b' }}>
+              <div style={{ fontSize: '13px', color: 'var(--aiims-text-muted)' }}>
                 by <strong>{selectedDetailTool.provider}</strong> • Verified at {new Date(selectedDetailTool.lastVerifiedAt).toLocaleDateString()}
               </div>
             </div>
 
             {/* Description */}
-            <p style={{ fontSize: '14px', color: '#334155', lineHeight: 1.6, marginBottom: '20px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--aiims-text-body)', lineHeight: 1.6, marginBottom: '20px' }}>
               {selectedDetailTool.description}
             </p>
 
             {/* Pricing Breakdown Box */}
-            <div style={{ backgroundColor: '#f8f7fd', border: '1px solid #ede9fe', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '8px', textTransform: 'uppercase' }}>
+            <div style={{ backgroundColor: 'var(--aiims-bg-card-subtle)', border: '1px solid var(--aiims-border-card)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-primary)', marginBottom: '8px', textTransform: 'uppercase' }}>
                 VERIFIED PRICING SUMMARY
               </div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                 {selectedDetailTool.pricingDetails.summary}
               </div>
               {selectedDetailTool.pricingDetails.freeTierLimitations && (
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
                   Note: {selectedDetailTool.pricingDetails.freeTierLimitations}
                 </div>
               )}
@@ -1455,17 +1799,17 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
             {/* VERIFIED SOURCE EVIDENCE CLAIMS */}
             {detailEvidence.length > 0 && (
-              <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#15803d', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ backgroundColor: 'var(--aiims-tint-emerald-bg)', border: '1px solid var(--aiims-tint-emerald-border)', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <ShieldCheck size={14} color="#16a34a" />
                   VERIFIED SOURCE EVIDENCE
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {detailEvidence.map((ev, i) => (
-                    <div key={i} style={{ fontSize: '12px', color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div key={i} style={{ fontSize: '12px', color: 'var(--aiims-text-body)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span><strong>• {ev.claim}:</strong> {ev.value}</span>
                       {ev.sourceUrl && (
-                        <a href={ev.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>
+                        <a href={ev.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '11px', color: 'var(--aiims-primary)', fontWeight: 700 }}>
                           {ev.sourceTitle || 'View Source'}
                         </a>
                       )}
@@ -1477,15 +1821,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
             {/* WHAT CHANGED? (VERSION HISTORY) */}
             {detailHistory.length > 0 && (
-              <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ backgroundColor: 'var(--aiims-bg-card-subtle)', border: '1px solid var(--aiims-border-subtle)', borderRadius: '12px', padding: '14px', marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sparkles size={14} color="#6366f1" />
                   WHAT CHANGED? (VERSION & CHANGE LOG)
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {detailHistory.map((hist, i) => (
-                    <div key={i} style={{ fontSize: '12px', color: '#334155' }}>
-                      <span style={{ fontWeight: 700, color: '#4338ca' }}>[{hist.version}]</span> {hist.summary}
+                    <div key={i} style={{ fontSize: '12px', color: 'var(--aiims-text-body)' }}>
+                      <span style={{ fontWeight: 700, color: 'var(--aiims-primary)' }}>[{hist.version}]</span> {hist.summary}
                     </div>
                   ))}
                 </div>
@@ -1495,20 +1839,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             {/* 5-LEVEL LEARNING TRACK */}
             {selectedDetailTool.learningTrack && Array.isArray(selectedDetailTool.learningTrack) && selectedDetailTool.learningTrack.length > 0 && (
               <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <BookOpen size={16} color="#6366f1" />
                   BEGINNER → ADVANCED LEARNING TRACK
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {selectedDetailTool.learningTrack.map((lvl) => (
-                    <div key={lvl.level} style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#4f46e5', marginBottom: '2px' }}>
+                    <div key={lvl.level} style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--aiims-border-subtle)', backgroundColor: 'var(--aiims-bg-card-subtle)' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-primary)', marginBottom: '2px' }}>
                         {lvl.title}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#334155', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--aiims-text-body)', marginBottom: '4px' }}>
                         {lvl.description}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
                         <strong>Suggested Workflow:</strong> {lvl.suggestedWorkflow}
                       </div>
                     </div>
@@ -1518,19 +1862,19 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             )}
 
             {/* Strengths & Limitations */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ padding: '12px', backgroundColor: '#ecfdf5', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#047857', marginBottom: '6px' }}>STRENGTHS</div>
-                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#064e3b', lineHeight: 1.5 }}>
+            <div className="aiims-card-grid-2col" style={{ gap: '16px', marginBottom: '24px' }}>
+              <div style={{ padding: '12px', backgroundColor: 'var(--aiims-tint-emerald-bg)', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-tint-emerald-border)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', marginBottom: '6px' }}>STRENGTHS</div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--aiims-tint-emerald-text)', lineHeight: 1.5 }}>
                   {(selectedDetailTool.strengths || []).map((s, i) => (
                     <li key={i}>{s}</li>
                   ))}
                 </ul>
               </div>
 
-              <div style={{ padding: '12px', backgroundColor: '#fffbe6', borderRadius: '10px', border: '1px solid #fde68a' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', marginBottom: '6px' }}>LIMITATIONS</div>
-                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#92400e', lineHeight: 1.5 }}>
+              <div style={{ padding: '12px', backgroundColor: 'var(--aiims-tint-amber-bg)', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-tint-amber-border)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-amber-text)', marginBottom: '6px' }}>LIMITATIONS</div>
+                <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--aiims-tint-amber-text)', lineHeight: 1.5 }}>
                   {(selectedDetailTool.limitations || []).map((l, i) => (
                     <li key={i}>{l}</li>
                   ))}
@@ -1539,7 +1883,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             </div>
 
             {/* Modal Footer Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '16px', borderTop: '1px solid var(--aiims-border-subtle)' }}>
               {(selectedDetailTool.officialWebsite || selectedDetailTool.websiteUrl) ? (
                 <a
                   href={selectedDetailTool.officialWebsite || selectedDetailTool.websiteUrl}

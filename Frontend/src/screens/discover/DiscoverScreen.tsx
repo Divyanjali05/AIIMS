@@ -147,7 +147,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
           What Deserves Your Attention
         </h2>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+        <div className="aiims-card-grid">
 
           <Surface variant="violet" radius="lg" padding="md" hoverable onClick={() => setActiveTab(isAssessmentCompleted ? 'analysis' : 'assessment')}>
             <div style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase', marginBottom: '4px' }}>
@@ -210,7 +210,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        <div className="aiims-card-grid">
           {CAPABILITY_TILES.map((tile, idx) => (
             <Surface
               key={idx}
@@ -277,20 +277,20 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
           </Button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+        <div className="aiims-card-grid">
           {signals.slice(0, 3).map((sig) => (
             <Surface key={sig.id} variant="cyan" radius="lg" padding="md" hoverable onClick={() => setActiveTab('radar')}>
               <Badge variant="purple" style={{ marginBottom: '8px' }}>{sig.category}</Badge>
 
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 6px', color: '#0f172a' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 6px', color: 'var(--aiims-text-heading)' }}>
                 {sig.title}
               </h3>
 
-              <p style={{ fontSize: '12px', color: '#334155', margin: '0 0 12px', lineHeight: 1.45 }}>
+              <p style={{ fontSize: '12px', color: 'var(--aiims-text-body)', margin: '0 0 12px', lineHeight: 1.45 }}>
                 {sig.summary}
               </p>
 
-              <div style={{ padding: '10px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #bae6fd', fontSize: '11px', color: '#0369a1' }}>
+              <div style={{ padding: '10px', backgroundColor: 'var(--aiims-bg-card-subtle)', borderRadius: '8px', border: '1px solid var(--aiims-border-subtle)', fontSize: '11px', color: 'var(--aiims-primary)' }}>
                 <strong>Today: </strong> {sig.scaffold.today}
               </div>
             </Surface>

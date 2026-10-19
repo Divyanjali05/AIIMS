@@ -6,6 +6,7 @@ import { Institute } from '../models/Institute.model';
 import { StudentProfile } from '../models/StudentProfile.model';
 import { Cohort } from '../models/Cohort.model';
 import { formatUserState } from '../config/credits.config';
+import { registeredUsers } from '../models/userStore';
 import {
   STREAMS,
   TECH_SUB_CATEGORIES,
@@ -61,14 +62,22 @@ export const updateLearnerState = async (req: AuthenticatedRequest, res: Respons
     if (state.solver) updateDoc.solver = state.solver;
     if (state.build) updateDoc.build = state.build;
 
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      { $set: updateDoc, $unset: { __v: 1 } },
-      { returnDocument: 'after' }
-    );
+    if (mongoose.connection.readyState === 1 && user._id) {
+      const updatedUser = await User.findByIdAndUpdate(
+        user._id,
+        { $set: updateDoc, $unset: { __v: 1 } },
+        { returnDocument: 'after' }
+      );
 
-    if (updatedUser) {
-      return res.json({ success: true, state: formatUserState(updatedUser) });
+      if (updatedUser) {
+        return res.json({ success: true, state: formatUserState(updatedUser) });
+      }
+    } else {
+      Object.assign(user, updateDoc);
+      if (registeredUsers && user.email && registeredUsers[user.email.toLowerCase()]) {
+        Object.assign(registeredUsers[user.email.toLowerCase()], updateDoc);
+      }
+      return res.json({ success: true, state: formatUserState(user) });
     }
     return res.json({ success: true, state: formatUserState(user) });
   } catch (err: any) {

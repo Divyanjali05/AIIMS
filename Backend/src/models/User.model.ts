@@ -53,12 +53,16 @@ export interface IUser extends Document {
     completedTopics: string[];
     reflections: Record<string, string>;
     taskScores?: Record<string, any>;
+    trialRunsUsed?: number;
   };
   focus: {
     status: string;
     selectedTrack: string | null;
     history: string[];
     activatedAt?: string | null;
+    sessionHistory?: any[];
+    activeSession?: any;
+    sessionConfig?: any;
   };
   radar: {
     status: string;
@@ -160,13 +164,17 @@ const UserSchema: Schema = new Schema({
     selectedTopic: { type: String, default: null },
     completedTopics: { type: [String], default: [] },
     reflections: { type: Schema.Types.Mixed, default: {} },
-    taskScores: { type: Schema.Types.Mixed, default: {} }
+    taskScores: { type: Schema.Types.Mixed, default: {} },
+    trialRunsUsed: { type: Number, default: 0 }
   },
   focus: {
     status: { type: String, default: 'locked' },
     selectedTrack: { type: String, default: null },
     history: { type: [String], default: [] },
-    activatedAt: { type: String, default: null }
+    activatedAt: { type: String, default: null },
+    sessionHistory: { type: Schema.Types.Mixed, default: [] },
+    activeSession: { type: Schema.Types.Mixed, default: null },
+    sessionConfig: { type: Schema.Types.Mixed, default: null }
   },
   radar: {
     status: { type: String, default: 'locked' },

@@ -93,7 +93,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           </h2>
 
           <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
-            Complete your baseline assessment first. Your diagnostic responses will give AINOVA the evidence needed to construct your personal capability profile.
+            Complete your baseline assessment first. Your diagnostic responses will give AIIMS the evidence needed to construct your personal capability profile.
           </p>
 
           <Button
@@ -283,7 +283,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               <Badge variant="primary">Overall Score: {overallScore}/100</Badge>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
 
               {/* 1. USING AI */}
               <Surface variant="bordered" radius="md" padding="md" style={{ borderTop: '4px solid #4f46e5' }}>
@@ -414,7 +414,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           </Surface>
 
           {/* SECTION 2: STRENGTHS & ROOM TO GROW GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="aiims-card-grid-2col">
             {/* STRENGTHS */}
             <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: '#f0fdf4', borderLeft: '6px solid #059669' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
@@ -432,25 +432,25 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 Your highest actual capability score supported by verified diagnostic evidence.
               </p>
 
-              <div style={{ padding: '10px 12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #a7f3d0', fontSize: '12px', color: '#064e3b' }}>
-                <strong>Verified Evidence: </strong> Strong accuracy and reasoning across contributing questions.
+              <div style={{ padding: '10px 12px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '8px', border: '1px solid var(--aiims-border-card)', fontSize: '12px', color: 'var(--aiims-text-body)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <strong style={{ color: 'var(--aiims-primary)' }}>Verified Evidence: </strong> Strong accuracy and reasoning across contributing questions.
               </div>
             </Surface>
 
             {/* ROOM TO GROW */}
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: '#fffbeb', borderLeft: '6px solid #d97706' }}>
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: 'var(--aiims-tint-amber-bg)', border: '1px solid var(--aiims-tint-amber-border)', borderLeft: '6px solid #d97706' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <AlertTriangle style={{ width: '20px', height: '20px', color: '#d97706' }} />
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#78350f', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                   ROOM TO GROW
                 </h2>
               </div>
 
-              <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#92400e' }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-tint-amber-text)' }}>
                 {roomToGrow.name} (Score: {roomToGrow.score}/100)
               </h3>
 
-              <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#b45309', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--aiims-text-muted)', lineHeight: 1.5 }}>
                 Your lowest actual capability score, identifying your primary growth opportunity.
               </p>
 
@@ -466,7 +466,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           </div>
 
           {/* SECTION 3: CURRENT FOCUS & TOOLKIT COVERAGE */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div className="aiims-card-grid-2col">
             <Surface variant="bordered" radius="lg" padding="lg">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <Target size={20} color="#4f46e5" />
@@ -572,7 +572,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               </Surface>
 
               {/* VISUAL RADAR & DETAILED DIMENSION SCORE COMPARISON */}
-              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px' }}>
+              <div className="aiims-card-grid-2col" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
                 <Surface variant="bordered" radius="lg" padding="lg" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                   <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', textAlign: 'center', fontFamily: "'Fredoka', sans-serif" }}>
                     Score Overlay vs Peers
@@ -654,7 +654,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 </Badge>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+              <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
                 <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
                   <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
                     Cohort Average Score

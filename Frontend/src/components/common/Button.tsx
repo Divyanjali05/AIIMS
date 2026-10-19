@@ -25,22 +25,22 @@ export const Button: React.FC<ButtonProps> = ({
     switch (variant) {
       case 'secondary':
         return {
-          backgroundColor: '#eef2ff',
-          color: '#4338ca',
-          border: '1px solid #c7d2fe',
-          boxShadow: '0 2px 0 #c7d2fe'
+          backgroundColor: 'var(--aiims-card-banner-bg, #eef2ff)',
+          color: 'var(--aiims-primary, #4338ca)',
+          border: '1px solid var(--aiims-border-card, #c7d2fe)',
+          boxShadow: '0 2px 0 var(--aiims-border-card, #c7d2fe)'
         };
       case 'outline':
         return {
-          backgroundColor: '#ffffff',
-          color: '#334155',
-          border: '1px solid #cbd5e1',
-          boxShadow: '0 2px 0 #e2e8f0'
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          color: 'var(--aiims-text-primary, #334155)',
+          border: '1px solid var(--aiims-border-card, #cbd5e1)',
+          boxShadow: '0 2px 0 var(--aiims-border-card, #e2e8f0)'
         };
       case 'ghost':
         return {
           backgroundColor: 'transparent',
-          color: '#475569',
+          color: 'var(--aiims-text-secondary, #475569)',
           border: '1px solid transparent'
         };
       case 'danger':
@@ -87,9 +87,9 @@ export const Button: React.FC<ButtonProps> = ({
         };
       case 'icon':
         return {
-          backgroundColor: '#f8f7fd',
-          color: '#64748b',
-          border: '1px solid #e2e8f0',
+          backgroundColor: 'var(--aiims-bg-card-hover, #f8f7fd)',
+          color: 'var(--aiims-text-secondary, #64748b)',
+          border: '1px solid var(--aiims-border-card, #e2e8f0)',
           padding: '8px',
           borderRadius: '50%'
         };

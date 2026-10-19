@@ -48,7 +48,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({ scores, size = 320 }) =>
             cy={center}
             r={radius * level}
             fill="none"
-            stroke="#cbd5e1"
+            stroke="var(--aiims-border-card, #cbd5e1)"
             strokeWidth="1"
             strokeDasharray={idx < 3 ? '4,4' : 'none'}
           />
@@ -66,15 +66,15 @@ export const RadarChart: React.FC<RadarChartProps> = ({ scores, size = 320 }) =>
                 y1={center}
                 x2={x}
                 y2={y}
-                stroke="#cbd5e1"
+                stroke="var(--aiims-border-card, #cbd5e1)"
                 strokeWidth="1.5"
               />
               <text
                 x={labelCoords.x}
                 y={labelCoords.y}
-                fill="#475569"
+                fill="var(--aiims-text-heading, #475569)"
                 fontSize="11"
-                fontWeight="600"
+                fontWeight="700"
                 textAnchor="middle"
                 dominantBaseline="central"
               >
@@ -111,7 +111,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({ scores, size = 320 }) =>
               cy={y}
               r="4.5"
               fill="#4f46e5"
-              stroke="#ffffff"
+              stroke="var(--aiims-bg-card, #ffffff)"
               strokeWidth="2"
             />
           );
@@ -121,11 +121,11 @@ export const RadarChart: React.FC<RadarChartProps> = ({ scores, size = 320 }) =>
       <div style={{ display: 'flex', gap: '20px', marginTop: '16px', fontSize: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: '#4f46e5' }}></span>
-          <span style={{ color: '#0f172a', fontWeight: 600 }}>Learner Score</span>
+          <span style={{ color: 'var(--aiims-text-heading)', fontWeight: 600 }}>Learner Score</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ width: '12px', height: '12px', borderRadius: '3px', border: '1.5px dashed #7c3aed', backgroundColor: 'rgba(124, 58, 237, 0.15)' }}></span>
-          <span style={{ color: '#475569', fontWeight: 600 }}>Peer Benchmark</span>
+          <span style={{ color: 'var(--aiims-text-muted)', fontWeight: 600 }}>Peer Benchmark</span>
         </div>
       </div>
     </div>

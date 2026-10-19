@@ -1,7 +1,7 @@
 import { evaluateAssessment, scoreQuestion } from '../services/assessmentScoring';
 
 console.log('====================================================');
-console.log('RUNNING AINOVA EVIDENCE-BASED SCORING ENGINE TESTS (17 SCENARIOS)');
+console.log('RUNNING AIIMS EVIDENCE-BASED SCORING ENGINE TESTS (17 SCENARIOS)');
 console.log('====================================================\n');
 
 let passedCount = 0;

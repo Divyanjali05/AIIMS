@@ -135,19 +135,19 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Badge variant="purple" icon={<ShieldCheck size={12} />}>1. WHAT CHANGED?</Badge>
             </div>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#1e1b4b', margin: '0 0 10px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 10px' }}>
               {activeSignal.scaffold.whatChanged}
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>YESTERDAY</span>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{activeSignal.scaffold.yesterday}</p>
+            <div className="aiims-card-grid-2col" style={{ gap: '12px' }}>
+              <div style={{ padding: '12px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-tint-amber-text)', textTransform: 'uppercase' }}>YESTERDAY</span>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4 }}>{activeSignal.scaffold.yesterday}</p>
               </div>
 
-              <div style={{ padding: '12px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #ddd6fe' }}>
-                <span style={{ fontSize: '10px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>TODAY</span>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{activeSignal.scaffold.today}</p>
+              <div style={{ padding: '12px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', textTransform: 'uppercase' }}>TODAY</span>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4 }}>{activeSignal.scaffold.today}</p>
               </div>
             </div>
           </Surface>
@@ -277,11 +277,11 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
               style={{
                 width: '100%',
                 boxSizing: 'border-box',
-                backgroundColor: '#ffffff',
-                border: '1px solid #a7f3d0',
+                backgroundColor: 'var(--aiims-input-bg)',
+                border: '1px solid var(--aiims-input-border)',
                 borderRadius: '10px',
                 padding: '12px',
-                color: '#0f172a',
+                color: 'var(--aiims-input-text)',
                 fontSize: '13px',
                 fontFamily: 'inherit',
                 lineHeight: 1.5,

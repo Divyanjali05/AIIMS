@@ -18,7 +18,8 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
-import { Surface, SurfaceProps } from '../../components/common/Surface';
+import { Card } from '../../components/common/Card';
+import { SurfaceProps } from '../../components/common/Surface';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -227,8 +228,8 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
       />
 
       {/* METRICS TOP SUMMARY */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-        <Surface variant="violet" radius="lg" padding="md">
+      <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
+        <Card variant="violet" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase' }}>
@@ -240,9 +241,9 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
             </div>
             <TrendingUp style={{ width: '22px', height: '22px', color: '#6b21a8' }} />
           </div>
-        </Surface>
+        </Card>
 
-        <Surface variant="cyan" radius="lg" padding="md">
+        <Card variant="cyan" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
@@ -254,9 +255,9 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
             </div>
             <Sparkles style={{ width: '22px', height: '22px', color: '#0284c7' }} />
           </div>
-        </Surface>
+        </Card>
 
-        <Surface variant="amber" radius="lg" padding="md">
+        <Card variant="amber" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', textTransform: 'uppercase' }}>
@@ -268,11 +269,11 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
             </div>
             <Coins style={{ width: '22px', height: '22px', color: '#d97706' }} />
           </div>
-        </Surface>
+        </Card>
       </div>
 
       {/* CENTRAL ROADMAP */}
-      <Surface variant="bordered" radius="lg" padding="lg">
+      <Card variant="bordered" radius="default" padding="default">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
             Semantic Color Progression Roadmap
@@ -309,7 +310,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                   left: '-28px',
                   top: '16px',
                   transform: 'translateX(-50%)',
-                  backgroundColor: '#ffffff',
+                  backgroundColor: 'var(--aiims-bg-page)',
                   borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
@@ -327,10 +328,10 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                 </div>
 
                 {/* Stage Card with Semantic Variant */}
-                <Surface
+                <Card
                   variant={isLocked ? 'subtle' : stage.variant}
-                  radius="md"
-                  padding="md"
+                  radius="default"
+                  padding="default"
                   style={{ opacity: isLocked ? 0.75 : 1 }}
                 >
                   <div
@@ -382,15 +383,15 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                       flexDirection: 'column',
                       gap: '10px'
                     }}>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#334155', lineHeight: 1.5, fontWeight: 500 }}>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-body)', lineHeight: 1.5, fontWeight: 500 }}>
                         {stage.explanation}
                       </p>
 
-                      <div style={{ padding: '10px 14px', backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)' }}>
-                        <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      <div style={{ padding: '10px 14px', backgroundColor: 'var(--aiims-bg-card-subtle)', borderRadius: '8px', border: '1px solid var(--aiims-border-subtle)' }}>
+                        <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
                           LEARNER STAGE HISTORY & HIGHLIGHTS
                         </div>
-                        <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: '#475569', lineHeight: 1.5 }}>
+                        <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.5 }}>
                           {stage.history.map((h, idx) => (
                             <li key={idx}>{h}</li>
                           ))}
@@ -412,13 +413,13 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                       </div>
                     </div>
                   )}
-                </Surface>
+                </Card>
 
               </div>
             );
           })}
         </div>
-      </Surface>
+      </Card>
 
     </div>
   );

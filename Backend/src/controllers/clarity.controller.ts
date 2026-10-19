@@ -2,9 +2,10 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { User } from '../models/User.model';
-import { mockCapabilityGaps, mockTransactions, mockLearnerFullState } from '../models/aiims.models';
+import { mockCapabilityGaps, mockTransactions, mockLearnerFullState, mockUser } from '../models/aiims.models';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { CREDIT_RULES, clarityTaskRewardKey } from '../config/credits.config';
+import { creditsLedgerService } from '../services/creditsLedger.service';
 
 const claudeService = new ClaudeService();
 
@@ -49,17 +50,81 @@ export const generatePrompt = async (req: Request, res: Response) => {
 
 /**
  * POST /clarity/run-task
+ * Requires authentication and meters credit balance:
+ * - First run: complimentary trial (0 AC)
+ * - Subsequent runs: deducts 10 AC atomically BEFORE provider call
+ * - Provider failure: automatically refunds 10 AC atomically
  */
-export const runTask = async (req: Request, res: Response) => {
+export const runTask = async (req: AuthenticatedRequest, res: Response) => {
+  const { topic, difficulty, taskTitle, taskObjective, userPrompt, contextData } = req.body;
+  const user = req.user;
+  const userId = user ? String(user._id || user.id) : null;
+  const operationId = `op-clarity-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  const idempotencyKey = (req.body.idempotencyKey || req.headers['x-idempotency-key'] || operationId) as string;
+
+  // 1. Input sanitization & boundary checks
+  if (!userPrompt || typeof userPrompt !== 'string' || userPrompt.trim().length === 0) {
+    return res.status(400).json({ error: 'userPrompt is required and must not be empty' });
+  }
+  if (userPrompt.length > 3000) {
+    return res.status(400).json({ error: 'userPrompt exceeds maximum permitted length (3,000 characters)' });
+  }
+
+  const CLARITY_TASK_COST = 10;
+  let costDeducted = 0;
+  let isFreeTrial = false;
+
+  // 2. Server-side credit authorization & atomic pre-deduction
+  if (user && userId) {
+    const trialRunsUsed = user.clarity?.trialRunsUsed || 0;
+    isFreeTrial = trialRunsUsed === 0;
+    costDeducted = isFreeTrial ? 0 : CLARITY_TASK_COST;
+
+    if (costDeducted > 0) {
+      const spendResult = await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'SPEND',
+        category: 'TASK_USAGE',
+        amount: costDeducted,
+        reason: `Ran Clarity AI Task: ${taskTitle || topic || 'AI Task'} (-${costDeducted} AC)`,
+        source: 'CLARITY',
+        sourceId: operationId,
+        idempotencyKey,
+        relatedTaskId: operationId
+      });
+
+      if (spendResult.conflict) {
+        return res.status(409).json({ error: 'Idempotency key reuse conflict' });
+      }
+
+      if (!spendResult.success) {
+        return res.status(402).json({
+          error: `Insufficient AIIMS Credits balance. Running this task requires ${costDeducted} AC. Current balance: ${spendResult.balance ?? 0} AC.`,
+          code: 'INSUFFICIENT_CREDITS',
+          requiredCredits: costDeducted,
+          currentBalance: spendResult.balance ?? 0
+        });
+      }
+
+      // Update in-memory user reference
+      if (mongoose.connection.readyState === 1 && user._id) {
+        const refreshed = await User.findById(user._id);
+        if (refreshed) req.user = refreshed;
+      } else {
+        user.aiimsCredits = spendResult.balance ?? user.aiimsCredits;
+      }
+    }
+  }
+
+  // 3. Provider execution with safe refund handling
   try {
-    const { topic, difficulty, taskTitle, taskObjective, userPrompt, contextData } = req.body;
     const startTime = Date.now();
     
-    // 1. Execute prompt with AI
+    // Execute prompt with AI provider
     const execResult = await claudeService.executePromptWithAI(userPrompt, contextData);
     const executionTimeMs = Date.now() - startTime;
 
-    // 2. Evaluate prompt & output individually
+    // Evaluate prompt & output
     const evalResult = await claudeService.evaluateClarityTask({
       topic: topic || 'Checking AI',
       difficulty: difficulty || 'easy',
@@ -68,13 +133,63 @@ export const runTask = async (req: Request, res: Response) => {
       output: execResult.output
     });
 
+    // Update trial runs used
+    if (user && userId) {
+      if (mongoose.connection.readyState === 1 && user._id) {
+        await User.findByIdAndUpdate(user._id, {
+          $inc: { 'clarity.trialRunsUsed': 1 }
+        });
+      } else {
+        user.clarity = user.clarity || ({} as any);
+        user.clarity.trialRunsUsed = (user.clarity.trialRunsUsed || 0) + 1;
+      }
+    }
+
+    const currentBalance = userId
+      ? await creditsLedgerService.getBalance(userId)
+      : mockUser.aiimsCredits;
+
     res.json({
       output: execResult.output,
       modelUsed: execResult.model,
       executionTimeMs,
+      creditsDeducted: costDeducted,
+      isFreeTrial,
+      currentBalance,
+      operationId,
       ...evalResult
     });
   } catch (err: any) {
+    console.error(`[ClarityController] AI Provider failed for operation ${operationId}:`, err.message);
+
+    // If credits were deducted beforehand, atomically refund
+    let currentBalance = 0;
+    if (costDeducted > 0 && userId) {
+      const refundResult = await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'REFUND',
+        category: 'REFUND',
+        amount: costDeducted,
+        reason: `Automatic Refund: Clarity AI Provider Failure (${taskTitle || topic || 'AI Task'})`,
+        source: 'CLARITY',
+        sourceId: operationId,
+        idempotencyKey: `refund::${operationId}`,
+        relatedTaskId: operationId,
+        metadata: { originalError: err.message || String(err) }
+      });
+
+      currentBalance = refundResult.balance ?? (await creditsLedgerService.getBalance(userId));
+
+      return res.status(500).json({
+        error: `AI provider execution failed. Your ${costDeducted} AIIMS Credits have been safely refunded.`,
+        refunded: true,
+        refundAmount: costDeducted,
+        currentBalance,
+        operationId,
+        details: err.message
+      });
+    }
+
     res.status(500).json({ error: err.message || 'Failed to execute clarity task' });
   }
 };
@@ -93,8 +208,9 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
     const rewardCredits = CREDIT_RULES.CLARITY_TASK_EASY.credits;
 
     if (req.user) {
+      const userId = String(req.user._id || req.user.id);
       const actionKey = clarityTaskRewardKey(
-        String(req.user._id || req.user.id),
+        userId,
         topic,
         difficulty,
         taskId
@@ -132,8 +248,8 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
         );
 
         if (!updatedUser) {
+          const currentBal = await creditsLedgerService.getBalance(userId);
           const latestUser = await User.findById(req.user._id);
-          const currentBal = latestUser?.aiimsCredits ?? req.user.aiimsCredits;
           const currentXP = latestUser?.xpPoints ?? req.user.xpPoints;
           return res.json({
             success: true,
@@ -146,6 +262,18 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
             actionKey
           });
         }
+
+        // Dual-write to CreditLedger
+        await creditsLedgerService.executeTransaction({
+          userId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: rewardCredits,
+          reason: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
+          source: 'CLARITY_TASK',
+          sourceId: actionKey,
+          idempotencyKey: actionKey
+        }).catch((e) => console.warn('[Clarity] Ledger dual-write warning:', e.message));
 
         req.user = updatedUser;
         return res.json({
@@ -194,6 +322,18 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
 
       req.user.transactions = req.user.transactions || [];
       req.user.transactions.unshift(tx);
+
+      // Dual-write to CreditLedger in offline mode
+      await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'EARN',
+        category: 'REWARD',
+        amount: rewardCredits,
+        reason: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
+        source: 'CLARITY_TASK',
+        sourceId: actionKey,
+        idempotencyKey: actionKey
+      }).catch((e) => console.warn('[Clarity] Ledger offline dual-write warning:', e.message));
 
       return res.json({
         success: true,

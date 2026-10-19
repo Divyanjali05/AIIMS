@@ -269,7 +269,7 @@ async function runDbTests(
 
 async function main(): Promise<void> {
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('  AINOVA Phase 2A — Test Suite');
+  console.log('  AIIMS Phase 2A — Test Suite');
   console.log('═══════════════════════════════════════════════════════════');
 
   const discoveryService = new ToolDiscoveryService();

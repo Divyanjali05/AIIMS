@@ -37,7 +37,7 @@ router.get('/wallet/tools/:id', getToolById);
 router.get('/wallet/taxonomy', getTaxonomy);
 router.post('/wallet/compare', compareTools);
 router.get('/wallet/gaps', getGaps);
-router.post('/wallet/discover/trigger', triggerDiscovery);
+router.post('/wallet/discover/trigger', requireAuth, triggerDiscovery);
 router.get('/wallet/tools/new', getNewTools);
 router.get('/wallet/tools/recently-updated', getRecentlyUpdatedTools);
 router.get('/wallet/tools/:id/evidence', getToolEvidence);
@@ -55,10 +55,10 @@ router.get('/tools/evidence/:toolId', requireAuth, getToolEvidenceAdmin);
 router.get('/tools/history/:toolId', requireAuth, getToolHistoryAdmin);
 
 // Admin sources and verification
-router.get('/admin/sources', getAdminSources);
-router.post('/admin/sources', registerAdminSource);
-router.get('/admin/candidates', getAdminCandidates);
-router.post('/admin/verify/:toolId', verifyCandidate);
-router.get('/admin/intelligence/dashboard', getAdminDashboard);
+router.get('/admin/sources', requireAuth, getAdminSources);
+router.post('/admin/sources', requireAuth, registerAdminSource);
+router.get('/admin/candidates', requireAuth, getAdminCandidates);
+router.post('/admin/verify/:toolId', requireAuth, verifyCandidate);
+router.get('/admin/intelligence/dashboard', requireAuth, getAdminDashboard);
 
 export default router;

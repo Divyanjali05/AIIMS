@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
-import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle, LogOut, Lock } from 'lucide-react';
+import { Search, Sun, Moon, Bell, ChevronDown, Coins, X, ArrowRight, Settings, Wallet, Sparkles, MessageCircle, LogOut, Lock, Menu } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
+import { useTheme } from '../../context/ThemeContext';
 import { Badge } from './Badge';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
 import { MentorService } from '../../services/mentorProvider';
-import { AinovaLogo } from './AinovaLogo';
+import { AiimsLogo } from './AiimsLogo';
 
 interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onToggleMobileMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onToggleMobileMenu }) => {
   const { state, markNotificationRead, clearNotifications, logout } = useLearner();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   const unreadCount = state.notifications.filter((n) => !n.read).length;
@@ -56,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       default:
         return [
           { text: 'What should I focus on right now?', desc: 'Contextual mentor guidance' },
-          { text: 'How do Ainova Credits work?', desc: 'Ledger & rewards guide' }
+          { text: 'How do AIIMS Credits work?', desc: 'Ledger & rewards guide' }
         ];
     }
   };
@@ -79,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
     { title: 'Take Baseline Assessment', desc: '25-question multidimensional diagnostic', tab: 'assessment' },
     { title: 'View AI Profile Analysis', desc: 'Individual, comparison, & cohort insights', tab: 'analysis' },
     { title: 'Explore AI Radar (Locked)', desc: 'Emerging tech shifts & model releases', tab: 'radar' },
-    { title: 'Ainova Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
+    { title: 'AIIMS Credits Wallet', desc: 'View transactions & earned balance', tab: 'credits' },
     { title: 'Select Focus Track', desc: 'Prioritize skill development tracks', tab: 'focus' },
     { title: 'My AI Journey', desc: 'Development timeline & milestone history', tab: 'journey' },
     { title: 'Problem Solver (Locked)', desc: 'Derive workflows for real tasks', tab: 'solver' },
@@ -102,26 +104,52 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
   };
 
   return (
-    <header style={{
-      height: '64px',
-      backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
-      borderBottom: isDarkMode ? '1px solid #1e293b' : '1px solid #e2e8f0',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 24px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      boxSizing: 'border-box',
-      transition: 'all 0.2s ease'
-    }}>
+    <header
+      className="aiims-header-container"
+      style={{
+        height: '64px',
+        backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+        borderBottom: '1px solid var(--aiims-border-card, #e2e8f0)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 24px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxSizing: 'border-box',
+        transition: 'all 0.2s ease'
+      }}
+    >
       {/* Brand Logo & Top Primary Navigation */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        <AinovaLogo size="md" onClick={() => setActiveTab('home')} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {onToggleMobileMenu && (
+          <button
+            className="aiims-mobile-toggle-btn"
+            onClick={onToggleMobileMenu}
+            aria-label="Open Navigation Menu"
+            style={{
+              border: 'none',
+              background: 'var(--aiims-bg-card-hover, #f1f5f9)',
+              borderRadius: '8px',
+              width: '36px',
+              height: '36px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--aiims-text-primary, #334155)',
+              flexShrink: 0
+            }}
+          >
+            <Menu size={20} />
+          </button>
+        )}
+
+        <AiimsLogo size="md" onClick={() => setActiveTab('home')} />
 
         {/* Top Primary Navigation Links with Semantic Active Colors */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <nav className="aiims-header-nav" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {[
             { id: 'home', label: 'Home', activeBg: '#eef2ff', activeColor: '#4338ca', locked: false },
             { id: 'journey', label: 'My Journey', activeBg: '#f3e8ff', activeColor: '#6b21a8', locked: false },
@@ -160,21 +188,21 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
       </div>
 
       {/* Search Input */}
-      <div style={{ position: 'relative', width: '380px', maxWidth: '35%' }}>
+      <div className="aiims-header-search" style={{ position: 'relative', width: '380px', maxWidth: '35%' }}>
         <div style={{
           display: 'flex',
           alignItems: 'center',
           gap: '8px',
-          backgroundColor: isDarkMode ? '#1e293b' : '#f4f3ff',
+          backgroundColor: 'var(--aiims-input-bg, #f4f3ff)',
           padding: '8px 14px',
           borderRadius: '9999px',
-          border: '1px solid #ede9fe',
+          border: '1px solid var(--aiims-input-border, #ede9fe)',
           transition: 'all 0.2s ease',
         }}>
           <Search style={{ width: '15px', height: '15px', color: '#6366f1' }} />
           <input
             type="text"
-            placeholder="Search / Ask Ainova..."
+            placeholder="Search / Ask AIIMS..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -186,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               backgroundColor: 'transparent',
               outline: 'none',
               fontSize: '13px',
-              color: isDarkMode ? '#f8fafc' : '#0f172a',
+              color: 'var(--aiims-input-text, #0f172a)',
               width: '100%',
               fontFamily: "'Nunito', sans-serif",
               fontWeight: 600
@@ -211,18 +239,18 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
             top: '44px',
             left: 0,
             right: 0,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
             borderRadius: '12px',
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
-            border: '1px solid #e2e8f0',
+            boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
+            border: '1px solid var(--aiims-modal-border, #e2e8f0)',
             padding: '8px',
             zIndex: 200,
             maxHeight: '320px',
             overflowY: 'auto'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 8px 8px', borderBottom: '1px solid #f1f5f9' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Quick Search</span>
-              <X style={{ width: '14px', height: '14px', color: '#94a3b8', cursor: 'pointer' }} onClick={() => setShowSearchModal(false)} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px 8px 8px', borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted, #94a3b8)', textTransform: 'uppercase' }}>Quick Search</span>
+              <X style={{ width: '14px', height: '14px', color: 'var(--aiims-text-muted, #94a3b8)', cursor: 'pointer' }} onClick={() => setShowSearchModal(false)} />
             </div>
 
             <div style={{ marginTop: '4px' }}>
@@ -243,12 +271,12 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                     justifyContent: 'space-between',
                     transition: 'backgroundColor 0.15s ease'
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{item.title}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>{item.desc}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--aiims-text-primary, #0f172a)' }}>{item.title}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-secondary, #64748b)' }}>{item.desc}</div>
                   </div>
                   <ArrowRight style={{ width: '14px', height: '14px', color: '#4f46e5' }} />
                 </div>
@@ -270,6 +298,29 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           <span onClick={() => setActiveTab('credits')}>{state.credits.balance} Credits</span>
         </Badge>
 
+        {/* Theme Toggle Button */}
+        <button
+          id="header-theme-toggle-btn"
+          onClick={toggleTheme}
+          aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+          title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+          style={{
+            width: '34px',
+            height: '34px',
+            borderRadius: '50%',
+            backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+            border: '1px solid var(--aiims-border-card, #cbd5e1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: isDarkMode ? '#fbbf24' : '#4f46e5',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+
         {/* Notifications Bell */}
         <div style={{ position: 'relative' }}>
           <button
@@ -279,13 +330,13 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               width: '34px',
               height: '34px',
               borderRadius: '50%',
-              backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc',
-              border: '1px solid #cbd5e1',
+              backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+              border: '1px solid var(--aiims-border-card, #cbd5e1)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: unreadCount > 0 ? '#4f46e5' : '#64748b'
+              color: unreadCount > 0 ? '#4f46e5' : 'var(--aiims-text-secondary, #64748b)'
             }}
           >
             <Bell style={{ width: '16px', height: '16px' }} />
@@ -317,15 +368,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               top: '42px',
               right: 0,
               width: '300px',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
               borderRadius: '12px',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-              border: '1px solid #e2e8f0',
+              boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
+              border: '1px solid var(--aiims-modal-border, #e2e8f0)',
               padding: '12px',
               zIndex: 200
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Notifications</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)' }}>Notifications</span>
                 <span
                   onClick={clearNotifications}
                   style={{ fontSize: '11px', color: '#4f46e5', fontWeight: 600, cursor: 'pointer' }}
@@ -342,16 +393,16 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
                     style={{
                       padding: '8px 10px',
                       borderRadius: '8px',
-                      backgroundColor: notif.read ? '#f8fafc' : '#e0e7ff',
-                      border: notif.read ? '1px solid #f1f5f9' : '1px solid #c7d2fe',
+                      backgroundColor: notif.read ? 'var(--aiims-bg-card-hover, #f8fafc)' : (isDarkMode ? 'rgba(99, 102, 241, 0.18)' : '#e0e7ff'),
+                      border: notif.read ? '1px solid var(--aiims-border-card, #f1f5f9)' : '1px solid #c7d2fe',
                       cursor: 'pointer'
                     }}
                   >
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-primary, #0f172a)', display: 'flex', justifyContent: 'space-between' }}>
                       <span>{notif.title}</span>
-                      <span style={{ fontSize: '10px', color: '#94a3b8' }}>{notif.timestamp}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--aiims-text-muted, #94a3b8)' }}>{notif.timestamp}</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-secondary, #475569)', marginTop: '2px' }}>
                       {notif.message}
                     </div>
                   </div>
@@ -389,10 +440,10 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
           }}>
             {userName.charAt(0)}
           </div>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: isDarkMode ? '#f8fafc' : '#0f172a' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--aiims-text-primary, #0f172a)' }}>
             {userName}
           </span>
-          <ChevronDown style={{ width: '14px', height: '14px', color: '#64748b' }} />
+          <ChevronDown style={{ width: '14px', height: '14px', color: 'var(--aiims-text-secondary, #64748b)' }} />
 
           {showProfileMenu && (
             <div style={{
@@ -400,32 +451,38 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab }) => {
               top: '42px',
               right: 0,
               width: '180px',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
               borderRadius: '12px',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-              border: '1px solid #e2e8f0',
+              boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
+              border: '1px solid var(--aiims-modal-border, #e2e8f0)',
               padding: '6px',
               zIndex: 200
             }}>
               <div
                 onClick={() => setActiveTab('settings')}
-                style={{ padding: '8px 10px', fontSize: '12px', color: '#0f172a', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--aiims-text-primary, #0f172a)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Settings size={14} /> Account Settings
               </div>
               <div
                 onClick={() => setActiveTab('credits')}
-                style={{ padding: '8px 10px', fontSize: '12px', color: '#0f172a', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                style={{ padding: '8px 10px', fontSize: '12px', color: 'var(--aiims-text-primary, #0f172a)', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <Wallet size={14} /> Wallet ({state.credits.balance} Credits)
               </div>
-              <div style={{ height: '1px', backgroundColor: '#f1f5f9', margin: '4px 0' }} />
+              <div style={{ height: '1px', backgroundColor: 'var(--aiims-border-card, #f1f5f9)', margin: '4px 0' }} />
               <div
                 onClick={() => {
                   setShowProfileMenu(false);
                   logout();
                 }}
                 style={{ padding: '8px 10px', fontSize: '12px', color: '#ef4444', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <LogOut size={14} color="#ef4444" /> Sign Out
               </div>

@@ -143,7 +143,7 @@ export class ToolSourceService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AINOVA-ToolDiscovery/1.0' } });
+      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AIIMS-ToolDiscovery/1.0' } });
       clearTimeout(timeoutId);
 
       if (res.ok) {
@@ -196,7 +196,7 @@ export class ToolSourceService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AINOVA-ToolDiscovery/1.0' } });
+      const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'AIIMS-ToolDiscovery/1.0' } });
       clearTimeout(timeoutId);
 
       if (res.ok) {

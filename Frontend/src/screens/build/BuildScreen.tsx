@@ -12,7 +12,7 @@ import {
   ExternalLink,
   Code
 } from 'lucide-react';
-import { Surface } from '../../components/common/Surface';
+import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Badge } from '../../components/common/Badge';
@@ -82,11 +82,12 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
       </div>
 
       {/* Quick Convert from Solver */}
+      {/* Quick Convert from Solver */}
       {latestWorkflow && (
-        <Surface
+        <Card
           variant="gradient-relevance"
-          radius="lg"
-          padding="lg"
+          radius="default"
+          padding="default"
           style={{
             border: '1px solid #fed7aa',
             display: 'flex',
@@ -125,12 +126,12 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
           >
             Save as Project Blueprint
           </Button>
-        </Surface>
+        </Card>
       )}
 
       {/* Projects List */}
       {projects.length === 0 ? (
-        <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', padding: '48px 24px' }}>
+        <Card variant="bordered" radius="default" padding="lg" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <FolderPlus size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
           <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
             No Projects in Workspace Yet
@@ -146,21 +147,21 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               Launch Problem Solver
             </Button>
           </div>
-        </Surface>
+        </Card>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+        <div className="aiims-card-grid">
           {projects.map((project) => (
-            <Surface key={project.id} variant="bordered" radius="md" padding="md" hoverable>
+            <Card key={project.id} variant="bordered" radius="default" padding="default" hoverable>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <Badge variant="cyan">{project.category}</Badge>
                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                   {new Date(project.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+              <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', margin: '0 0 6px' }}>
                 {project.title}
               </h4>
-              <p style={{ fontSize: '12.5px', color: '#64748b', lineHeight: 1.4, margin: '0 0 14px' }}>
+              <p className="aiims-card-body" style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.4, margin: '0 0 14px' }}>
                 {project.description}
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
@@ -183,7 +184,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               <Button variant="outline" size="sm" icon={<ExternalLink size={13} />} fullWidth>
                 View Blueprint
               </Button>
-            </Surface>
+            </Card>
           ))}
         </div>
       )}
@@ -204,24 +205,25 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
         >
           <div
             style={{
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--aiims-modal-bg)',
               borderRadius: '16px',
+              border: '1px solid var(--aiims-modal-border)',
               padding: '28px',
               width: '100%',
               maxWidth: '520px',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.16)'
+              boxShadow: 'var(--aiims-shadow-modal)'
             }}
           >
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 6px' }}>
               Create AI Project Blueprint
             </h3>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 18px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: '0 0 18px' }}>
               Define a reusable workflow template connected to your evaluated AI tools.
             </p>
 
             <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                   Project Title
                 </label>
                 <input
@@ -234,7 +236,9 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    border: '1.5px solid #e2e8f0',
+                    border: '1px solid var(--aiims-input-border)',
+                    backgroundColor: 'var(--aiims-input-bg)',
+                    color: 'var(--aiims-input-text)',
                     fontSize: '13.5px',
                     outline: 'none',
                     boxSizing: 'border-box'
@@ -243,7 +247,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                   Category
                 </label>
                 <select
@@ -253,10 +257,11 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    border: '1.5px solid #e2e8f0',
+                    border: '1px solid var(--aiims-input-border)',
                     fontSize: '13.5px',
                     outline: 'none',
-                    backgroundColor: '#ffffff',
+                    backgroundColor: 'var(--aiims-input-bg)',
+                    color: 'var(--aiims-input-text)',
                     boxSizing: 'border-box'
                   }}
                 >
@@ -268,7 +273,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                   Description & Execution Notes
                 </label>
                 <textarea
@@ -280,7 +285,9 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    border: '1.5px solid #e2e8f0',
+                    border: '1px solid var(--aiims-input-border)',
+                    backgroundColor: 'var(--aiims-input-bg)',
+                    color: 'var(--aiims-input-text)',
                     fontSize: '13px',
                     outline: 'none',
                     boxSizing: 'border-box',

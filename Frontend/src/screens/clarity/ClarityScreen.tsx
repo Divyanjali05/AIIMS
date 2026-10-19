@@ -639,15 +639,15 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           </h2>
         </div>
 
-        <p style={{ fontSize: '14px', color: '#0f172a', lineHeight: 1.6, margin: '0 0 16px' }}>
+        <p style={{ fontSize: '14px', color: 'var(--aiims-text-heading)', lineHeight: 1.6, margin: '0 0 16px' }}>
           {topicData.concept.whatIsIt}
         </p>
 
-        <div style={{ padding: '14px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>
+        <div style={{ padding: '14px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '10px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>
             In simple terms
           </span>
-          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#064e3b', lineHeight: 1.45, fontWeight: 500 }}>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--aiims-text-body)', lineHeight: 1.45, fontWeight: 500 }}>
             {topicData.concept.inSimpleTerms}
           </p>
         </div>
@@ -657,26 +657,26 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
       <Surface variant="mint" radius="lg" padding="lg">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
           <Lightbulb style={{ width: '18px', height: '18px', color: '#d97706' }} />
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
             2. Real Example
           </h2>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <div style={{ padding: '14px', backgroundColor: '#fff1f2', borderRadius: '12px', border: '1px solid #fecdd3' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#be123c', textTransform: 'uppercase' }}>
+        <div className="aiims-card-grid-2col">
+          <div style={{ padding: '14px', backgroundColor: 'var(--aiims-tint-rose-bg)', borderRadius: '12px', border: '1px solid var(--aiims-tint-rose-border)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-rose-text)', textTransform: 'uppercase' }}>
               Isolated Task Usage
             </span>
-            <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#881337', lineHeight: 1.45 }}>
+            <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--aiims-tint-rose-text)', lineHeight: 1.45 }}>
               {topicData.example.isolated}
             </p>
           </div>
 
-          <div style={{ padding: '14px', backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #a7f3d0' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>
+          <div style={{ padding: '14px', backgroundColor: 'var(--aiims-bg-card)', borderRadius: '12px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>
               Repeatable Workflow
             </span>
-            <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#064e3b', lineHeight: 1.45 }}>
+            <p style={{ margin: '6px 0 0', fontSize: '13px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
               {topicData.example.repeatable}
             </p>
           </div>
@@ -738,8 +738,9 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           <div style={{
             padding: '16px 18px',
             borderRadius: '12px',
-            backgroundColor: '#ffffff',
-            border: '1px solid #e2e8f0',
+            backgroundColor: 'var(--aiims-bg-card)',
+            border: '1px solid var(--aiims-border-card)',
+            boxShadow: 'var(--aiims-shadow-card)',
             marginBottom: '16px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -748,10 +749,10 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             flexWrap: 'wrap'
           }}>
             <div style={{ flex: 1, minWidth: '260px' }}>
-              <p style={{ margin: '0 0 6px', fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+              <p style={{ margin: '0 0 6px', fontSize: '14px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                 Practical experience required before reflection
               </p>
-              <p style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-muted)', lineHeight: 1.5 }}>
                 Run at least one AI prompt task in <strong>Step 3 (Try It)</strong> above to unlock this reflection. Observing AI task outputs and reviewing rubric scores gives you the tangible insight required to anchor this topic in your actual work.
               </p>
             </div>
@@ -826,15 +827,15 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           </div>
 
           <div style={{
-            backgroundColor: '#ffffff',
+            backgroundColor: 'var(--aiims-bg-card)',
             borderRadius: '12px',
-            border: '1.5px solid #a7f3d0',
+            border: '1px solid var(--aiims-border-card)',
             padding: '16px 18px',
             fontSize: '14px',
-            color: '#064e3b',
+            color: 'var(--aiims-text-body)',
             lineHeight: 1.6,
             fontWeight: 500,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            boxShadow: 'var(--aiims-shadow-card)'
           }}>
             "{reflectionInput}"
           </div>
@@ -885,18 +886,18 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
                   type="button"
                   onClick={() => handleChipClick(chip.text)}
                   style={{
-                    background: '#ffffff',
-                    border: '1px solid #a7f3d0',
+                    background: 'var(--aiims-bg-card)',
+                    border: '1px solid var(--aiims-border-card)',
                     borderRadius: '20px',
                     padding: '6px 12px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#064e3b',
+                    color: 'var(--aiims-primary)',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                    boxShadow: 'var(--aiims-shadow-card)'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#ecfdf5';
@@ -945,19 +946,19 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
               width: '100%',
               boxSizing: 'border-box',
               borderRadius: '12px',
-              border: '1.5px solid #a7f3d0',
+              border: '1px solid var(--aiims-input-border)',
               padding: '12px 14px',
               fontSize: '13.5px',
-              color: '#0f172a',
+              color: 'var(--aiims-input-text)',
               fontFamily: 'inherit',
               outline: 'none',
               marginBottom: '8px',
-              backgroundColor: '#ffffff',
+              backgroundColor: 'var(--aiims-input-bg)',
               lineHeight: 1.5,
               transition: 'border-color 0.15s ease'
             }}
-            onFocus={(e) => (e.target.style.borderColor = '#059669')}
-            onBlur={(e) => (e.target.style.borderColor = '#a7f3d0')}
+            onFocus={(e) => (e.target.style.borderColor = 'var(--aiims-primary)')}
+            onBlur={(e) => (e.target.style.borderColor = 'var(--aiims-input-border)')}
           />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', fontSize: '11.5px', color: '#047857', flexWrap: 'wrap', gap: '8px' }}>
