@@ -104,10 +104,10 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                 Ready to Turn Into Project
               </span>
             </div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
               {latestWorkflow.problemSummary}
             </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.4 }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
               Turn your {latestWorkflow.workflowSteps.length}-step solved execution sequence into a reusable workflow project template.
             </p>
           </div>
@@ -132,11 +132,11 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
       {/* Projects List */}
       {projects.length === 0 ? (
         <Card variant="bordered" radius="default" padding="lg" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <FolderPlus size={40} style={{ color: '#cbd5e1', margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>
+          <FolderPlus size={40} style={{ color: 'var(--aiims-text-subtle, #cbd5e1)', margin: '0 auto 12px' }} />
+          <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px' }}>
             No Projects in Workspace Yet
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
             Solve real-world tasks with the <strong>Problem Solver</strong> or define custom multi-tool templates to turn your AI capabilities into verifiable assets.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
@@ -154,14 +154,14 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
             <Card key={project.id} variant="bordered" radius="default" padding="default" hoverable>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <Badge variant="cyan">{project.category}</Badge>
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
                   {new Date(project.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <h4 style={{ fontSize: '16px', fontWeight: 600, color: '#0f172a', margin: '0 0 6px' }}>
+              <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px' }}>
                 {project.title}
               </h4>
-              <p className="aiims-card-body" style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.4, margin: '0 0 14px' }}>
+              <p className="aiims-card-body" style={{ fontSize: '13.5px', color: 'var(--aiims-text-secondary, #64748b)', lineHeight: 1.4, margin: '0 0 14px' }}>
                 {project.description}
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
@@ -171,9 +171,10 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     style={{
                       fontSize: '11px',
                       padding: '2px 8px',
-                      backgroundColor: '#f1f5f9',
+                      backgroundColor: 'var(--aiims-bg-card-hover, #f1f5f9)',
+                      border: '1px solid var(--aiims-border-card, #e2e8f0)',
                       borderRadius: '4px',
-                      color: '#475569',
+                      color: 'var(--aiims-text-secondary, #475569)',
                       fontWeight: 600
                     }}
                   >

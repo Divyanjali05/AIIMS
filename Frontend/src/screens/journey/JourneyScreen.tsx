@@ -15,7 +15,10 @@ import {
   Radar,
   Search,
   BarChart3,
-  ClipboardCheck
+  ClipboardCheck,
+  Wrench,
+  Layers,
+  MessageCircle
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Card } from '../../components/common/Card';
@@ -38,20 +41,26 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
   const isFocusActive = state.focus.status === 'active';
   const isInvestigationDone = state.investigation.status === 'completed';
   const isRelevanceUnlocked = state.relevance.status !== 'locked';
+  const isSolverUnlocked = isInvestigationDone || isAssessmentDone;
+  const isBuildUnlocked = (state.solver?.history?.length || 0) > 0 || isSolverUnlocked;
+  const isMentorUnlocked = isAssessmentDone;
 
   const [expandedStage, setExpandedStage] = useState<string | null>('assessment');
 
   const completedCount = [
     isAssessmentDone,
     isAnalysisDone,
-    state.clarity.status === 'completed',
+    state.clarity.status === 'completed' || (state.clarity.completedTopics && state.clarity.completedTopics.length > 0),
     isFocusActive,
     state.radar.investigatedSignalIds.length > 0,
     isInvestigationDone,
-    isRelevanceUnlocked
+    isRelevanceUnlocked,
+    (state.solver?.history?.length || 0) > 0,
+    (state.build?.projects?.length || 0) > 0,
+    isMentorUnlocked
   ].filter(Boolean).length;
 
-  const completionPercentage = Math.round((completedCount / 7) * 100);
+  const completionPercentage = Math.round((completedCount / 10) * 100);
 
   const stages: {
     id: string;
@@ -214,17 +223,71 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
       reward: '+25 AIIMS Credits',
       actionLabel: 'Locked (Activity Gated)',
       tabTarget: 'relevance'
+    },
+    {
+      id: 'solver',
+      title: '8. Problem Solver Architecture',
+      icon: <Wrench size={18} style={{ color: isSolverUnlocked ? '#0284c7' : '#94a3b8' }} />,
+      status: (state.solver?.history?.length || 0) > 0 ? 'completed' : isSolverUnlocked ? 'available' : 'locked',
+      date: isSolverUnlocked ? 'Available' : 'Locked',
+      summary: 'Synthesize end-to-end AI workflows & component architectures',
+      explanation: 'Derive actionable AI workflows with prompt engineering, tool routing, and evaluation criteria.',
+      variant: 'cyan',
+      btnVariant: 'cyan',
+      badgeVariant: isSolverUnlocked ? 'cyan' : 'neutral',
+      history: (state.solver?.history?.length || 0) > 0
+        ? [`${state.solver?.history?.length} Workflows Synthesized`]
+        : ['Derive custom system architectures for concrete real-world tasks'],
+      reward: '+40 AIIMS Credits',
+      actionLabel: isSolverUnlocked ? 'Open Problem Solver' : 'Locked (Requires Prerequisite Tasks)',
+      tabTarget: 'solver'
+    },
+    {
+      id: 'build',
+      title: '9. Projects & Production Workspace',
+      icon: <Layers size={18} style={{ color: isBuildUnlocked ? '#7c3aed' : '#94a3b8' }} />,
+      status: (state.build?.projects?.length || 0) > 0 ? 'completed' : isBuildUnlocked ? 'available' : 'locked',
+      date: isBuildUnlocked ? 'Available' : 'Locked',
+      summary: 'Build real scaffolded AI systems & production-ready workflows',
+      explanation: 'Turn architecture designs into executable codebase templates and monitored deployments.',
+      variant: 'violet',
+      btnVariant: 'violet',
+      badgeVariant: isBuildUnlocked ? 'purple' : 'neutral',
+      history: (state.build?.projects?.length || 0) > 0
+        ? [`${state.build?.projects?.length} Production Templates Generated`]
+        : ['Production workspace for full-stack AI project scaffolds'],
+      reward: '+50 AIIMS Credits',
+      actionLabel: isBuildUnlocked ? 'Open Projects Workspace' : 'Locked (Requires Solver Workflows)',
+      tabTarget: 'build'
+    },
+    {
+      id: 'mentor',
+      title: '10. AI Mentor & Continuous Calibration',
+      icon: <MessageCircle size={18} style={{ color: isMentorUnlocked ? '#059669' : '#94a3b8' }} />,
+      status: isMentorUnlocked ? 'available' : 'locked',
+      date: isMentorUnlocked ? 'Active' : 'Locked',
+      summary: 'Adaptive mentorship, growth tracking, and ongoing calibration',
+      explanation: 'Real-time coaching from the AIIMS mentor tailored to your progress across all 5 dimensions.',
+      variant: 'mint',
+      btnVariant: 'green',
+      badgeVariant: isMentorUnlocked ? 'success' : 'neutral',
+      history: [
+        'Continuous developmental calibration across all 5 dimensions'
+      ],
+      reward: '+20 Credits per Milestone',
+      actionLabel: isMentorUnlocked ? 'Open Mentor Workspace' : 'Locked (Continuous Growth)',
+      tabTarget: 'mentor'
     }
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '1040px', margin: '0 auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%', maxWidth: '1120px', margin: '0 auto', boxSizing: 'border-box' }}>
 
       {/* PAGE HEADER */}
       <PageHeader
         icon={<Route size={24} />}
-        title="My AI Journey — Semantic Color Timeline"
-        description="Assessment (Indigo) → Profile (Violet) → Clarity (Mint) → Focus (Amber) → Radar (Cyan) → Investigation (Blue) → Relevance (Gradient Synthesis)."
+        title="My AI Journey — 10-Stage Canonical Progression"
+        description="Assessment (Indigo) → Profile (Violet) → Clarity (Mint) → Focus (Amber) → Radar (Cyan) → Investigation (Sky) → Relevance (Synthesis) → Solver (Cyan) → Projects (Violet) → Mentor (Mint)."
       />
 
       {/* METRICS TOP SUMMARY */}
@@ -232,42 +295,42 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
         <Card variant="violet" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-card-violet-text)', textTransform: 'uppercase' }}>
                 Progression Completion
               </span>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
                 {completionPercentage}%
               </div>
             </div>
-            <TrendingUp style={{ width: '22px', height: '22px', color: '#6b21a8' }} />
+            <TrendingUp style={{ width: '22px', height: '22px', color: 'var(--aiims-card-violet-text)' }} />
           </div>
         </Card>
 
         <Card variant="cyan" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-card-cyan-text)', textTransform: 'uppercase' }}>
                 Discoveries & Signals
               </span>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
                 {state.radar.investigatedSignalIds.length + (isAssessmentDone ? 2 : 0)}
               </div>
             </div>
-            <Sparkles style={{ width: '22px', height: '22px', color: '#0284c7' }} />
+            <Sparkles style={{ width: '22px', height: '22px', color: 'var(--aiims-card-cyan-text)' }} />
           </div>
         </Card>
 
         <Card variant="amber" radius="default" padding="default">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-card-amber-text)', textTransform: 'uppercase' }}>
                 Earned Credits
               </span>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
+              <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginTop: '2px', fontFamily: "'Fredoka', sans-serif" }}>
                 {credits} AC
               </div>
             </div>
-            <Coins style={{ width: '22px', height: '22px', color: '#d97706' }} />
+            <Coins style={{ width: '22px', height: '22px', color: 'var(--aiims-card-amber-text)' }} />
           </div>
         </Card>
       </div>
@@ -275,10 +338,10 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
       {/* CENTRAL ROADMAP */}
       <Card variant="bordered" radius="default" padding="default">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
             Semantic Color Progression Roadmap
           </h2>
-          <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+          <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
             COLOURFUL PROGRESSION STORY
           </span>
         </div>
@@ -291,7 +354,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
             bottom: '20px',
             left: '11px',
             width: '2px',
-            backgroundColor: '#cbd5e1',
+            backgroundColor: 'var(--aiims-border-card)',
             zIndex: 1
           }} />
 
@@ -319,11 +382,11 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                   {isCompleted ? (
                     <CheckCircle2 style={{ width: '22px', height: '22px', color: '#059669' }} />
                   ) : isCurrent ? (
-                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: '#e0e7ff', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #4f46e5' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4f46e5' }} />
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', backgroundColor: 'var(--aiims-primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid var(--aiims-primary)' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--aiims-primary)' }} />
                     </div>
                   ) : (
-                    <Lock style={{ width: '18px', height: '18px', color: '#cbd5e1' }} />
+                    <Lock style={{ width: '18px', height: '18px', color: 'var(--aiims-text-muted)' }} />
                   )}
                 </div>
 
@@ -342,7 +405,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                       {stage.icon}
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                             {stage.title}
                           </h3>
                           {isCurrent && (
@@ -355,20 +418,20 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                             <Badge variant="neutral" style={{ fontSize: '9px' }}>Locked</Badge>
                           )}
                         </div>
-                        <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#334155' }}>
+                        <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--aiims-text-body)' }}>
                           {stage.summary}
                         </p>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 500 }}>
                         {stage.date}
                       </span>
                       {isExpanded ? (
-                        <ChevronUp style={{ width: '16px', height: '16px', color: '#64748b' }} />
+                        <ChevronUp style={{ width: '16px', height: '16px', color: 'var(--aiims-text-muted)' }} />
                       ) : (
-                        <ChevronDown style={{ width: '16px', height: '16px', color: '#64748b' }} />
+                        <ChevronDown style={{ width: '16px', height: '16px', color: 'var(--aiims-text-muted)' }} />
                       )}
                     </div>
                   </div>
@@ -378,7 +441,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                     <div style={{
                       marginTop: '14px',
                       paddingTop: '14px',
-                      borderTop: '1px solid rgba(0,0,0,0.08)',
+                      borderTop: '1px solid var(--aiims-border-subtle)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '10px'

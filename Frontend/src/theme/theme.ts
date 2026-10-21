@@ -1,3 +1,5 @@
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 export const theme = {
   colors: {
     // Warm Lavender-White Base Palette

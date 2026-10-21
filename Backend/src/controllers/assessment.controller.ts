@@ -111,13 +111,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           'assessment.rewardClaimed': { $ne: true }
         },
         {
-          $inc: { aiimsCredits: creditReward, xpPoints: xpReward },
-          $push: {
-            transactions: {
-              $each: [tx],
-              $position: 0
-            }
-          },
+          $inc: { xpPoints: xpReward },
           $set: {
             stage: 'Understanding',
             'assessment.status': 'completed',
@@ -139,7 +133,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       if (updatedUser) {
         req.user = updatedUser;
         const userId = String(req.user._id || req.user.id);
-        await creditsLedgerService.executeTransaction({
+        const txResult = await creditsLedgerService.executeTransaction({
           userId,
           type: 'EARN',
           category: 'REWARD',
@@ -148,7 +142,10 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           source: 'ASSESSMENT',
           sourceId: 'DIAGNOSTIC_ASSESSMENT',
           idempotencyKey: `assessment::${userId}::completed`
-        }).catch((e) => console.warn('[Assessment] Ledger dual-write warning:', e.message));
+        });
+
+        const latestUser = await User.findById(req.user._id);
+        if (latestUser) req.user = latestUser;
 
         return res.json({
           message: 'Assessment completed and saved to MongoDB Atlas!',
@@ -157,8 +154,8 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           scores: evaluationResult.legacyScores,
           topCapability: evaluationResult.strongestSkill.name,
           growthArea: evaluationResult.roomToGrow.name,
-          updatedBalance: updatedUser.aiimsCredits,
-          updatedScores: updatedUser.assessment.scores
+          updatedBalance: txResult.balance ?? req.user.aiimsCredits,
+          updatedScores: req.user.assessment.scores
         });
       } else {
         // Already claimed: update answers & scores atomically without re-awarding credits

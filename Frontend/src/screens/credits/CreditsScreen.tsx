@@ -406,17 +406,17 @@ export const CreditsScreen: React.FC = () => {
         </div>
 
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '32px 16px', color: '#64748b' }}>
-            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: '#94a3b8' }} />
+          <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--aiims-text-muted)' }}>
+            <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', color: 'var(--aiims-text-subtle)' }} />
             <div style={{ fontSize: '13px', fontWeight: 600 }}>Loading verified transactions...</div>
           </div>
         ) : filteredTransactions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '32px 16px' }}>
-            <FileText size={28} style={{ color: '#94a3b8', marginBottom: '8px' }} />
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#334155', margin: '0 0 4px 0' }}>
+            <FileText size={28} style={{ color: 'var(--aiims-text-subtle)', marginBottom: '8px' }} />
+            <h3 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--aiims-text-heading)', margin: '0 0 4px 0' }}>
               No {activeFilter === 'ALL' ? 'transactions' : activeFilter.toLowerCase()} found
             </h3>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
+            <p style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', margin: 0 }}>
               {activeFilter === 'REFUND'
                 ? 'No refunds recorded. Automated refunds trigger only upon provider execution failures.'
                 : 'Complete baseline assessments, clarity tasks, or signal investigations to log transactions.'}
@@ -593,10 +593,10 @@ export const CreditsScreen: React.FC = () => {
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
                   Status: <strong style={{ color: '#059669' }}>{selectedTx.status || 'COMPLETED'}</strong>
                 </div>
-                <div style={{ fontSize: '11px', color: '#64748b' }}>
+                <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
                   Source: <strong>{selectedTx.source}</strong>
                 </div>
               </div>

@@ -88,11 +88,11 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             <Lock size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Your AI Profile Report is Waiting
           </h2>
 
-          <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-text-secondary, #64748b)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Complete your baseline assessment first. Your diagnostic responses will give AIIMS the evidence needed to construct your personal capability profile.
           </p>
 
@@ -273,10 +273,10 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           <Surface variant="bordered" radius="lg" padding="lg">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 4px', fontFamily: "'Fredoka', sans-serif" }}>
                   Five AI Capability Dimensions
                 </h2>
-                <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0 }}>
                   Evaluated strictly against demonstrated diagnostic evidence:
                 </p>
               </div>
@@ -291,13 +291,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>USING AI</span>
                   <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.usingAI.evidenceCoverage || 1) * 100)}%</Badge>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                  {capabilities.usingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {capabilities.usingAI.score} <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.usingAI.score}%`, height: '100%', backgroundColor: '#4f46e5', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.usingAI}
                 </p>
                 {capabilities.usingAI.demonstratedStrengths && capabilities.usingAI.demonstratedStrengths.length > 0 && (
@@ -316,13 +316,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#059669', textTransform: 'uppercase' }}>UNDERSTANDING AI</span>
                   <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.understandingAI.evidenceCoverage || 1) * 100)}%</Badge>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                  {capabilities.understandingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {capabilities.understandingAI.score} <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.understandingAI.score}%`, height: '100%', backgroundColor: '#059669', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.understandingAI}
                 </p>
                 {capabilities.understandingAI.demonstratedStrengths && capabilities.understandingAI.demonstratedStrengths.length > 0 && (
@@ -341,13 +341,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>SOLVING WITH AI</span>
                   <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.solvingWithAI.evidenceCoverage || 1) * 100)}%</Badge>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                  {capabilities.solvingWithAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {capabilities.solvingWithAI.score} <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.solvingWithAI.score}%`, height: '100%', backgroundColor: '#d97706', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.solvingWithAI}
                 </p>
                 {capabilities.solvingWithAI.identifiedGaps && capabilities.solvingWithAI.identifiedGaps.length > 0 && (
@@ -366,13 +366,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#9333ea', textTransform: 'uppercase' }}>CHECKING AI</span>
                   <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.checkingAI.evidenceCoverage || 1) * 100)}%</Badge>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                  {capabilities.checkingAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {capabilities.checkingAI.score} <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.checkingAI.score}%`, height: '100%', backgroundColor: '#9333ea', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.checkingAI}
                 </p>
                 {capabilities.checkingAI.demonstratedStrengths && capabilities.checkingAI.demonstratedStrengths.length > 0 && (
@@ -391,13 +391,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   <span style={{ fontSize: '11px', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>ADAPTING TO AI</span>
                   <Badge variant="outline" size="sm">Coverage: {Math.round((capabilities.adaptingToAI.evidenceCoverage || 1) * 100)}%</Badge>
                 </div>
-                <div style={{ fontSize: '28px', fontWeight: 800, color: '#0284c7', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
-                  {capabilities.adaptingToAI.score} <span style={{ fontSize: '13px', color: '#94a3b8' }}>/ 100</span>
+                <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0', fontFamily: "'Fredoka', sans-serif" }}>
+                  {capabilities.adaptingToAI.score} <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                 </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '6px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '3px', margin: '6px 0 8px', overflow: 'hidden' }}>
                   <div style={{ width: `${capabilities.adaptingToAI.score}%`, height: '100%', backgroundColor: '#0284c7', borderRadius: '3px' }}></div>
                 </div>
-                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <p style={{ margin: '0 0 8px 0', fontSize: '12px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
                   {CAPABILITY_DESCRIPTIONS.adaptingToAI}
                 </p>
                 {capabilities.adaptingToAI.demonstratedStrengths && capabilities.adaptingToAI.demonstratedStrengths.length > 0 && (
@@ -416,19 +416,19 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           {/* SECTION 2: STRENGTHS & ROOM TO GROW GRID */}
           <div className="aiims-card-grid-2col">
             {/* STRENGTHS */}
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: '#f0fdf4', borderLeft: '6px solid #059669' }}>
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)', border: '1px solid var(--aiims-card-mint-border, #bbf7d0)', borderLeft: '6px solid #059669' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <TrendingUp style={{ width: '20px', height: '20px', color: '#059669' }} />
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#064e3b', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-card-mint-text, #064e3b)', fontFamily: "'Fredoka', sans-serif" }}>
                   STRONGEST SKILL
                 </h2>
               </div>
 
-              <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#047857' }}>
+              <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#059669' }}>
                 {strongestSkill.name} (Score: {strongestSkill.score}/100)
               </h3>
 
-              <p style={{ margin: '0 0 14px', fontSize: '13px', color: '#166534', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 14px', fontSize: '13px', color: 'var(--aiims-text-secondary, #166534)', lineHeight: 1.5 }}>
                 Your highest actual capability score supported by verified diagnostic evidence.
               </p>
 
@@ -470,12 +470,12 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             <Surface variant="bordered" radius="lg" padding="lg">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <Target size={20} color="#4f46e5" />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>YOUR CURRENT FOCUS</h3>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>YOUR CURRENT FOCUS</h3>
               </div>
               <p style={{ fontSize: '14px', fontWeight: 700, color: '#4338ca', margin: '0 0 8px' }}>
                 {activeFocus}
               </p>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+              <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0, lineHeight: 1.4 }}>
                 This focus track guides your AI Radar signals and tool recommendations in AI Wallet.
               </p>
             </Surface>
@@ -483,12 +483,12 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             <Surface variant="bordered" radius="lg" padding="lg">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <Wallet size={20} color="#059669" />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>YOUR TOOLKIT COVERAGE</h3>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>YOUR TOOLKIT COVERAGE</h3>
               </div>
               <p style={{ fontSize: '14px', fontWeight: 700, color: '#047857', margin: '0 0 8px' }}>
                 {userToolsCount} Tools in Wallet
               </p>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.4 }}>
+              <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0, lineHeight: 1.4 }}>
                 Explore AI Wallet to discover workflow automation tools mapped to your growth areas.
               </p>
             </Surface>
@@ -501,10 +501,10 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 <span style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '1px' }}>
                   YOUR RECOMMENDED ACTION
                 </span>
-                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '4px 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '4px 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
                   Connect {growthArea} to your AI Toolkit
                 </h2>
-                <p style={{ fontSize: '13px', color: '#475569', margin: 0, maxWidth: '650px', lineHeight: 1.5 }}>
+                <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #475569)', margin: 0, maxWidth: '650px', lineHeight: 1.5 }}>
                   Your assessment indicates a key opportunity in {growthArea}. Discover and evaluate tools in AI Wallet specifically suited for workflow automation.
                 </p>
               </div>
@@ -531,12 +531,12 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
       {activeSubTab === 'compare' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {!peerData.available ? (
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: '#f8fafc' }}>
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)' }}>
               <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
                 Peer Benchmarks Not Available Yet
               </h3>
-              <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
                 {peerData.message || 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
               </p>
               <Badge variant="warning">
@@ -549,21 +549,21 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               <Surface variant="bordered" radius="lg" padding="lg">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                   <div>
-                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
                       Peer Benchmark Comparison
                     </h2>
-                    <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                    <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0 }}>
                       Comparing your profile dimension scores with actual completed peer assessments ({peerData.totalComparableRecords} records).
                     </p>
                   </div>
 
                   <div style={{ display: 'flex', gap: '16px' }}>
-                    <div style={{ padding: '10px 16px', backgroundColor: '#e0e7ff', borderRadius: '12px', textAlign: 'center' }}>
+                    <div style={{ padding: '10px 16px', backgroundColor: 'var(--aiims-card-sky-bg, #e0e7ff)', borderRadius: '12px', textAlign: 'center' }}>
                       <div style={{ fontSize: '10px', fontWeight: 800, color: '#3730a3', textTransform: 'uppercase' }}>Your Score</div>
                       <div style={{ fontSize: '24px', fontWeight: 900, color: '#4f46e5', fontFamily: "'Fredoka', sans-serif" }}>{overallScore} / 100</div>
                     </div>
 
-                    <div style={{ padding: '10px 16px', backgroundColor: '#f3e8ff', borderRadius: '12px', textAlign: 'center' }}>
+                    <div style={{ padding: '10px 16px', backgroundColor: 'var(--aiims-card-violet-bg, #f3e8ff)', borderRadius: '12px', textAlign: 'center' }}>
                       <div style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase' }}>Peer Average</div>
                       <div style={{ fontSize: '24px', fontWeight: 900, color: '#7c3aed', fontFamily: "'Fredoka', sans-serif" }}>{peerData.peerOverallAverage} / 100</div>
                     </div>
@@ -574,7 +574,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               {/* VISUAL RADAR & DETAILED DIMENSION SCORE COMPARISON */}
               <div className="aiims-card-grid-2col" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
                 <Surface variant="bordered" radius="lg" padding="lg" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px', textAlign: 'center', fontFamily: "'Fredoka', sans-serif" }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 12px', textAlign: 'center', fontFamily: "'Fredoka', sans-serif" }}>
                     Score Overlay vs Peers
                   </h3>
                   <RadarChart scores={radarScores} size={280} />
@@ -588,13 +588,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                     return (
                       <Surface key={key} variant="bordered" radius="md" padding="md">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <div style={{ fontWeight: 800, fontSize: '14px', color: '#0f172a' }}>
+                          <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--aiims-text-heading, #0f172a)' }}>
                             {capabilities[key].capabilityName}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>You: {uScore}/100</span>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Peer Avg: {pScore}/100</span>
-                            <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: diff >= 0 ? '#dcfce7' : '#fef3c7', color: diff >= 0 ? '#15803d' : '#b45309', fontSize: '11px', fontWeight: 800 }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--aiims-text-secondary, #64748b)' }}>Peer Avg: {pScore}/100</span>
+                            <span style={{ padding: '2px 8px', borderRadius: '6px', backgroundColor: diff >= 0 ? 'var(--aiims-card-mint-bg, #dcfce7)' : 'var(--aiims-card-amber-bg, #fef3c7)', color: diff >= 0 ? '#15803d' : '#b45309', fontSize: '11px', fontWeight: 800 }}>
                               {diff >= 0 ? `+${diff}` : diff} pts
                             </span>
                           </div>
@@ -602,13 +602,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 700, color: '#4f46e5', width: '70px' }}>Your Score</span>
-                            <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, height: '8px', backgroundColor: 'var(--aiims-border-card, #e2e8f0)', borderRadius: '4px', overflow: 'hidden' }}>
                               <div style={{ width: `${uScore}%`, height: '100%', backgroundColor: '#4f46e5', borderRadius: '4px' }}></div>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', width: '70px' }}>Peer Avg</span>
-                            <div style={{ flex: 1, height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, height: '8px', backgroundColor: 'var(--aiims-bg-card-hover, #f1f5f9)', borderRadius: '4px', overflow: 'hidden' }}>
                               <div style={{ width: `${pScore}%`, height: '100%', backgroundColor: '#a855f7', borderRadius: '4px' }}></div>
                             </div>
                           </div>
@@ -626,12 +626,12 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
       {activeSubTab === 'overall' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {!peerData.available ? (
-            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: '#f8fafc' }}>
+            <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center', backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)' }}>
               <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
                 Cohort Overview Not Available Yet
               </h3>
-              <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)', maxWidth: '540px', margin: '0 auto 16px', lineHeight: 1.5 }}>
                 {peerData.message || 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
               </p>
               <Badge variant="warning">
@@ -642,10 +642,10 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
             <Surface variant="bordered" radius="lg" padding="lg">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
-                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+                  <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
                     Cohort Capability Overview
                   </h2>
-                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: 0 }}>
                     Aggregated statistics across {peerData.totalComparableRecords} completed assessments.
                   </p>
                 </div>
@@ -655,24 +655,24 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               </div>
 
               <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))' }}>
-                <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>
+                <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)', borderRadius: '12px', border: '1px solid var(--aiims-border-card, #e2e8f0)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)', textTransform: 'uppercase', marginBottom: '4px' }}>
                     Cohort Average Score
                   </div>
-                  <div style={{ fontSize: '28px', fontWeight: 900, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
-                    {peerData.peerOverallAverage} <span style={{ fontSize: '14px', color: '#94a3b8' }}>/ 100</span>
+                  <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--aiims-text-heading, #0f172a)', fontFamily: "'Fredoka', sans-serif" }}>
+                    {peerData.peerOverallAverage} <span style={{ fontSize: '14px', color: 'var(--aiims-text-muted, #94a3b8)' }}>/ 100</span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#4f46e5', fontWeight: 700, marginTop: '4px' }}>
                     Your Score: {overallScore} / 100 ({overallScore - (peerData.peerOverallAverage || 0) >= 0 ? `+${overallScore - (peerData.peerOverallAverage || 0)}` : overallScore - (peerData.peerOverallAverage || 0)})
                   </div>
                 </div>
 
-                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#166534', textTransform: 'uppercase', marginBottom: '4px' }}>
+                <div style={{ padding: '16px', backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)', borderRadius: '12px', border: '1px solid var(--aiims-card-mint-border, #bbf7d0)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-card-mint-text, #166534)', textTransform: 'uppercase', marginBottom: '4px' }}>
                     Your Cohort Percentile
                   </div>
                   <div style={{ fontSize: '28px', fontWeight: 900, color: '#15803d', fontFamily: "'Fredoka', sans-serif" }}>
-                    {peerData.userPercentile}th <span style={{ fontSize: '14px', color: '#166534' }}>Percentile</span>
+                    {peerData.userPercentile}th <span style={{ fontSize: '14px', color: 'var(--aiims-card-mint-text, #166534)' }}>Percentile</span>
                   </div>
                   <div style={{ fontSize: '12px', color: '#15803d', fontWeight: 700, marginTop: '4px' }}>
                     Calculated from actual comparison distribution

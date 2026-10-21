@@ -11,7 +11,7 @@ export interface AiimsLogoProps {
 export const AiimsLogo: React.FC<AiimsLogoProps> = ({
   size = 'md',
   showWordmark = true,
-  textColor = '#111827',
+  textColor = 'var(--aiims-text-heading, #111827)',
   onClick,
   style
 }) => {

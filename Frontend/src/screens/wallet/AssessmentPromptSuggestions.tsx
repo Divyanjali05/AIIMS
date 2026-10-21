@@ -92,14 +92,14 @@ export const AssessmentPromptSuggestions: React.FC<AssessmentPromptSuggestionsPr
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1e1b4b', fontFamily: "'Fredoka', sans-serif" }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                 AI Tools Suggested from Your Assessment Prompts
               </h3>
               <Badge variant="purple" size="sm">
                 Assessment Prompt Intelligence
               </Badge>
             </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#4338ca', lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-primary)', lineHeight: 1.5 }}>
               AIIMS analyzed your prompts from <strong>Challenge 11 (Software Architecture)</strong> and <strong>Challenge 12 (MVP Prototype)</strong> to identify and auto-provision the optimal AI toolkit for your workflow.
             </p>
           </div>

@@ -25,7 +25,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <div style={{
             fontSize: '11px',
             fontWeight: 900,
-            color: '#6366f1',
+            color: 'var(--aiims-primary, #6366f1)',
             letterSpacing: '1.2px',
             textTransform: 'uppercase',
             marginBottom: '6px',
@@ -36,12 +36,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {icon && <span style={{ display: 'inline-flex', color: '#6366f1' }}>{icon}</span>}
+          {icon && <span style={{ display: 'inline-flex', color: 'var(--aiims-primary, #6366f1)' }}>{icon}</span>}
           <h1 style={{
             margin: 0,
             fontSize: '30px',
             fontWeight: 700,
-            color: '#1e1b4b',
+            color: 'var(--aiims-text-heading, #0f172a)',
             fontFamily: "'Fredoka', 'Outfit', sans-serif",
             letterSpacing: '-0.3px',
             lineHeight: 1.2
@@ -52,7 +52,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         </div>
 
         {description && (
-          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#64748b', fontWeight: 600, fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
+          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)', fontWeight: 600, fontFamily: "'Nunito', sans-serif", lineHeight: 1.5 }}>
             {description}
           </p>
         )}

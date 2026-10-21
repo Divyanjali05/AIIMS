@@ -211,10 +211,10 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
 
       {/* INPUT WORKSPACE SURFACE */}
       <Surface variant="gradient-hero" radius="lg" padding="lg">
-        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
           What problem do you need to solve with AI today?
         </h2>
-        <p style={{ fontSize: '13px', color: '#4338ca', margin: '0 0 16px', fontWeight: 600 }}>
+        <p style={{ fontSize: '13px', color: 'var(--aiims-primary)', margin: '0 0 16px', fontWeight: 600 }}>
           Enter any real task or select a preset template below to derive capability requirements, tool workflows, and step sequence.
         </p>
 
@@ -230,11 +230,13 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
               flex: 1,
               padding: '14px 18px',
               borderRadius: '12px',
-              border: '2px solid #c7d2fe',
+              border: '2px solid var(--aiims-input-border)',
+              backgroundColor: 'var(--aiims-input-bg)',
+              color: 'var(--aiims-input-text)',
               fontSize: '14px',
               outline: 'none',
               fontFamily: 'inherit',
-              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.08)'
+              boxShadow: 'var(--aiims-shadow-card)'
             }}
           />
           <Button
@@ -295,7 +297,7 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
               AI SOLUTION WORKFLOW
             </h2>
             <Badge variant="purple">Persisted in LearnerState</Badge>
@@ -305,11 +307,11 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
 
             {/* 1. PROBLEM */}
-            <Surface variant="bordered" radius="lg" padding="md" style={{ borderLeft: '5px solid #4f46e5' }}>
-              <div style={{ fontSize: '10px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <Surface variant="bordered" radius="lg" padding="md" style={{ borderLeft: '5px solid var(--aiims-primary)' }}>
+              <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase', marginBottom: '4px' }}>
                 1. PROBLEM STATEMENT
               </div>
-              <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                 "{activeSolution.problemSummary}"
               </p>
             </Surface>
@@ -319,10 +321,10 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
               <div style={{ fontSize: '10px', fontWeight: 800, color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
                 2. REQUIRED AI CAPABILITY
               </div>
-              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: '#064e3b' }}>
+              <h3 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-card-mint-text)' }}>
                 {activeSolution.requiredCapability}
               </h3>
-              <p style={{ margin: 0, fontSize: '13px', color: '#166534', lineHeight: 1.45 }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-mint-text)', lineHeight: 1.45 }}>
                 {activeSolution.capabilityDescription}
               </p>
             </Surface>
@@ -341,10 +343,10 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
                       display: 'flex',
                       alignItems: 'flex-start',
                       gap: '14px',
-                      backgroundColor: '#f8fafc',
+                      backgroundColor: 'var(--aiims-bg-subtle)',
                       padding: '14px',
                       borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
+                      border: '1px solid var(--aiims-border-subtle)'
                     }}
                   >
                     <div style={{
@@ -365,12 +367,12 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
 
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                           {step.title}
                         </h4>
                         <Badge variant="cyan">{step.toolCategory}</Badge>
                       </div>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                      <p style={{ margin: 0, fontSize: '12px', color: 'var(--aiims-text-muted)', lineHeight: 1.4 }}>
                         {step.description}
                       </p>
                     </div>
@@ -429,14 +431,14 @@ export const ProblemSolverScreen: React.FC<ProblemSolverScreenProps> = ({ setAct
             </Surface>
 
             {/* 5. ACTIONS: NEXT STEPS (BRIDGE TO STAGE 9 BUILD) */}
-            <Surface variant="highlight" radius="lg" padding="lg" style={{ border: '2px solid #6366f1' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
+            <Surface variant="highlight" radius="lg" padding="lg" style={{ border: '2px solid var(--aiims-primary)' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>
                 STAGE 9 • BUILD WORKSPACE
               </div>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
                 Ready to turn this solution into a project?
               </h3>
-              <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 20px', lineHeight: 1.5 }}>
+              <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary)', margin: '0 0 20px', lineHeight: 1.5 }}>
                 {activeSolution.suggestedApproach}
               </p>
 

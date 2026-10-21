@@ -474,8 +474,9 @@ async function run() {
   let ledgerDetails = '';
   if (isDbConnected && dbUser) {
     const txs = dbUser.transactions;
-    // Calculate net from transactions: initial 100 + earns - spends
-    let calculated = 100;
+    // Calculate net from transactions: if welcome grant transaction is present in ledger, accumulate from 0
+    const hasWelcomeTx = txs.some(t => t.sourceId === 'WELCOME_BONUS');
+    let calculated = hasWelcomeTx ? 0 : 100;
     for (let i = txs.length - 1; i >= 0; i--) {
       const tx = txs[i];
       if (tx.type === 'EARN') calculated += tx.amount;

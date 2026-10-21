@@ -86,13 +86,9 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           'radar.investigatedSignalIds': { $ne: signalId }
         },
         {
-          $inc: { aiimsCredits: reward, xpPoints: xpReward },
+          $inc: { xpPoints: xpReward },
           $push: {
-            'radar.investigatedSignalIds': signalId,
-            transactions: {
-              $each: [tx],
-              $position: 0
-            }
+            'radar.investigatedSignalIds': signalId
           },
           $set: {
             [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
@@ -106,7 +102,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
       if (updatedUser) {
         req.user = updatedUser;
         const userId = String(req.user._id || req.user.id);
-        await creditsLedgerService.executeTransaction({
+        const txResult = await creditsLedgerService.executeTransaction({
           userId,
           type: 'EARN',
           category: 'REWARD',
@@ -115,14 +111,17 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           source: 'RADAR',
           sourceId: signalId,
           idempotencyKey: `investigation::${userId}::${signalId}`
-        }).catch((e) => console.warn('[Investigation] Ledger dual-write warning:', e.message));
+        });
+
+        const latestUser = await User.findById(req.user._id);
+        if (latestUser) req.user = latestUser;
 
         return res.json({
           message: `Investigation recorded. ${reward} AIIMS Credits earned!`,
           personalInterpretation,
           creditsEarned: reward,
           awarded: true,
-          newBalance: updatedUser.aiimsCredits
+          newBalance: txResult.balance ?? req.user.aiimsCredits
         });
       } else {
         await User.updateOne(

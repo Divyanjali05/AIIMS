@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowRight,
   Target,
@@ -10,16 +10,27 @@ import {
   Compass,
   Wallet,
   Activity,
-  Lock
+  Lock,
+  Zap,
+  Award,
+  Route,
+  ChevronRight,
+  Wrench,
+  Layers,
+  BookOpen,
+  ShieldCheck,
+  TrendingUp,
+  Flame,
+  Check
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
-import { SignalDataProvider } from '../../services/signalDataProvider';
 import { resolveLearnerNextAction } from '../../services/journeyResolver';
 import { getFeatureAccess } from '../../services/featureAccessService';
+import { SignalDataProvider } from '../../services/signalDataProvider';
+import { apiClient } from '../../api/client';
 import { RadarSignal } from '../../types';
 
 interface HomeScreenProps {
@@ -30,10 +41,79 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
   const { state } = useLearner();
   const userName = state.profile?.name ? state.profile.name.split(' ')[0] : 'Learner';
 
-  const learnerContext = buildLearnerProfileContext(state);
   const nextAction = resolveLearnerNextAction(state);
 
+  // Authoritative Balances & XP
+  const acBalance = state.credits?.balance ?? state.profile?.aiimsCredits ?? 0;
+  const xpBalance = state.profile?.xpPoints ?? 0;
+  const activeFocus = state.focus?.selectedTrack;
+
+  // Genuine stage completion evidence
+  const isAssessmentDone = state.assessment?.status === 'completed';
+  const clarityCount =
+    state.clarity?.completedTopics?.length ||
+    Object.keys(state.clarity?.taskScores || {}).length ||
+    0;
+  const radarCount = state.radar?.investigatedSignalIds?.length || 0;
+  const solverCount = state.solver?.history?.length || (state.solver?.latestWorkflow ? 1 : 0);
+
+  // Calculate actual completed count across the 10 stages
+  const completedCount = useMemo(() => {
+    return nextAction.journeyStages.filter((s) => s.status === 'completed').length;
+  }, [nextAction.journeyStages]);
+
+  const completionPercentage = Math.round((completedCount / 10) * 100);
+
+  // Genuine Learning Milestones derived strictly from state evidence
+  const genuineMilestones = [
+    {
+      id: 'diagnostic',
+      title: 'Diagnostic Baseline',
+      subtitle: '5-dimension AI competence test',
+      achieved: isAssessmentDone,
+      reward: '50 AC · 100 XP',
+      progressPercent: isAssessmentDone ? 100 : 20,
+      progressText: isAssessmentDone ? 'Verified Complete' : 'Pending completion',
+      tab: 'assessment',
+      icon: ShieldCheck
+    },
+    {
+      id: 'clarity',
+      title: 'Prompt Reasoning Lab',
+      subtitle: 'Systematic prompt derivation & task engineering',
+      achieved: clarityCount > 0,
+      reward: '25 AC · 50 XP',
+      progressPercent: clarityCount > 0 ? 100 : 0,
+      progressText: clarityCount > 0 ? `${clarityCount} Tasks Mastered` : '0/1 Task Completed',
+      tab: 'clarity',
+      icon: Compass
+    },
+    {
+      id: 'radar',
+      title: 'Signal Investigation',
+      subtitle: 'Emerging AI technology & market shifts research',
+      achieved: radarCount > 0,
+      reward: '30 AC · 60 XP',
+      progressPercent: radarCount > 0 ? 100 : 0,
+      progressText: radarCount > 0 ? `${radarCount} Signals Analyzed` : '0/1 Signal Investigated',
+      tab: 'radar',
+      icon: Radar
+    },
+    {
+      id: 'solver',
+      title: 'AI System Architecture',
+      subtitle: 'End-to-end real-task solution derivation',
+      achieved: solverCount > 0,
+      reward: '40 AC · 80 XP',
+      progressPercent: solverCount > 0 ? 100 : 0,
+      progressText: solverCount > 0 ? `${solverCount} Solutions Designed` : '0/1 Problem Solved',
+      tab: 'solver',
+      icon: Wrench
+    }
+  ];
+
   const [topOpportunity, setTopOpportunity] = useState<RadarSignal | null>(null);
+  const [catalogTools, setCatalogTools] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -42,128 +122,426 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
         setTopOpportunity(signals[0]);
       }
     });
+
+    apiClient
+      .getWalletCatalog()
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          const valid = data.filter((t: any) => t && t.name).slice(0, 3);
+          setCatalogTools(valid);
+        }
+      })
+      .catch((err) => {
+        console.warn('Failed to fetch wallet catalog preview:', err);
+      });
+
     return () => {
       isMounted = false;
     };
   }, []);
 
-  const activeFocus = state.focus?.selectedTrack;
   const recentTransactions = (state.credits?.transactions || []).slice(0, 3);
 
+  // Time-aware personalized greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
+
+  // 2D SVG Circular Progress Constants
+  const circleRadius = 46;
+  const circleCircumference = 2 * Math.PI * circleRadius; // ~289.02px
+  const circleOffset = circleCircumference - (circleCircumference * completionPercentage) / 100;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--aiims-grid-gap, 20px)', maxWidth: '980px', margin: '0 auto' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '24px',
+      width: '100%',
+      maxWidth: '1120px',
+      margin: '0 auto',
+      boxSizing: 'border-box'
+    }}>
 
-      {/* 1. SHORT WELCOME & NEXT ACTION HERO CARD */}
-      <Card variant="gradient-hero" radius="default" padding="default">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-          <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '4px' }}>
-              AIIMS LEARNER HUB
-            </div>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: '26px', fontWeight: 800, color: '#0f172a', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Welcome back, {userName}
-            </h1>
-            <p style={{ margin: 0, fontSize: '13.5px', color: '#4338ca', fontWeight: 600 }}>
-              Current Stage: <span style={{ fontWeight: 800 }}>{nextAction.currentStageTitle}</span>
-            </p>
-          </div>
-
-          <Badge variant="purple" icon={<Sparkles size={13} />}>
-            {nextAction.progressPercent}% Completed
-          </Badge>
-        </div>
-
-        {/* ONE PRIMARY NEXT ACTION CARD */}
-        <div style={{
+      {/* ======================================================== */}
+      {/* 1. HERO SECTION: EDITORIAL STUDENT DASHBOARD HERO (2D)   */}
+      {/* ======================================================== */}
+      <section
+        style={{
           backgroundColor: 'var(--aiims-bg-card, #ffffff)',
-          borderRadius: 'var(--aiims-card-radius, 12px)',
-          padding: 'var(--aiims-card-padding, 20px)',
-          border: '2px solid var(--aiims-primary, #5B4BFF)',
-          boxShadow: '0 8px 24px rgba(91, 75, 255, 0.1)',
-          position: 'relative'
-        }}>
+          border: '1px solid var(--aiims-border-card, #ede9fe)',
+          borderRadius: '16px',
+          padding: '28px 32px',
+          boxShadow: 'var(--aiims-shadow-card, 0 4px 20px -2px rgba(99, 102, 241, 0.06))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '24px',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Subtle decorative soft gradient accent line at top */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background: 'linear-gradient(90deg, var(--aiims-primary, #6366f1) 0%, #a855f7 50%, #38bdf8 100%)'
+        }} />
+
+        {/* LEFT SIDE: GREETING & CALL TO ACTIONS */}
+        <div style={{ flex: '1 1 480px', minWidth: '280px' }}>
           <div style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            backgroundColor: 'var(--aiims-primary, #5B4BFF)',
-            color: '#ffffff',
-            fontSize: '10px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            backgroundColor: 'var(--aiims-accent-glow, rgba(99, 102, 241, 0.1))',
+            color: 'var(--aiims-primary, #6366f1)',
+            fontSize: '11px',
             fontWeight: 800,
-            padding: '4px 12px',
-            borderBottomLeftRadius: '8px',
-            letterSpacing: '0.6px'
+            letterSpacing: '0.6px',
+            textTransform: 'uppercase',
+            marginBottom: '12px'
           }}>
-            YOUR NEXT STEP
+            <Sparkles size={13} />
+            <span>YOUR AI JOURNEY · {state.profile?.stage || 'EXPLORER'} STAGE</span>
           </div>
 
-          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary, #4f46e5)', textTransform: 'uppercase', marginBottom: '6px' }}>
-            RECOMMENDED ACTION
-          </div>
+          <h1 style={{
+            margin: '0 0 10px 0',
+            fontSize: '28px',
+            fontWeight: 800,
+            color: 'var(--aiims-text-heading, #0f172a)',
+            letterSpacing: '-0.5px',
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            lineHeight: 1.2
+          }}>
+            {greeting}, {userName}.<br />
+            <span style={{ color: 'var(--aiims-primary, #6366f1)' }}>Build your AI advantage.</span>
+          </h1>
 
-          <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--aiims-text-heading, #111827)', margin: '0 0 8px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            {nextAction.nextActionTitle}
-          </h2>
-
-          <p style={{ fontSize: '14px', color: 'var(--aiims-text-muted, #4B5563)', lineHeight: 1.55, margin: '0 0 18px', maxWidth: '720px' }}>
-            {nextAction.nextActionReason}
+          <p style={{
+            margin: '0 0 20px 0',
+            fontSize: '14px',
+            color: 'var(--aiims-text-secondary, #475569)',
+            lineHeight: 1.55,
+            maxWidth: '560px'
+          }}>
+            You are advancing through <strong>{nextAction.currentStageTitle}</strong>. Follow your personalized milestone path to master authentic prompt reasoning, tool stacking, and real-task workflows.
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <Button
               variant="violet"
               size="md"
-              icon={<ArrowRight size={17} />}
+              icon={<ArrowRight size={16} />}
               onClick={() => setActiveTab(nextAction.targetTab)}
             >
-              {nextAction.actionButtonLabel}
+              Continue Learning: {nextAction.actionButtonLabel}
             </Button>
 
-            {activeFocus && (
-              <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
-                Active Focus Track: <strong style={{ color: '#4338CA' }}>{activeFocus}</strong>
-              </span>
-            )}
+            <Button
+              variant="outline"
+              size="md"
+              icon={<Route size={16} />}
+              onClick={() => setActiveTab('journey')}
+            >
+              Explore Your Journey
+            </Button>
           </div>
         </div>
-      </Card>
 
-      {/* 2. STANDARDIZED 10-STAGE JOURNEY TILES CONTAINER CARD */}
+        {/* RIGHT SIDE: 2D PROGRESS ILLUSTRATION & SUMMARY GAUGE */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          padding: '16px 20px',
+          borderRadius: '14px',
+          backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+          border: '1px solid var(--aiims-border-card, #ede9fe)',
+          flexShrink: 0
+        }}>
+          {/* Circular SVG Progress Ring */}
+          <div style={{ position: 'relative', width: '108px', height: '108px', flexShrink: 0 }}>
+            <svg
+              width="108"
+              height="108"
+              viewBox="0 0 108 108"
+              style={{ transform: 'rotate(-90deg)' }}
+            >
+              {/* Background Track Circle */}
+              <circle
+                cx="54"
+                cy="54"
+                r={circleRadius}
+                stroke="var(--aiims-border-subtle, #ede9fe)"
+                strokeWidth="8"
+                fill="none"
+              />
+              {/* Dynamic Active Progress Arc */}
+              <circle
+                cx="54"
+                cy="54"
+                r={circleRadius}
+                stroke="url(#aiimsProgressGradient)"
+                strokeWidth="8"
+                strokeDasharray={circleCircumference}
+                strokeDashoffset={circleOffset}
+                strokeLinecap="round"
+                fill="none"
+                style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+              />
+              <defs>
+                <linearGradient id="aiimsProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#6366f1" />
+                  <stop offset="100%" stopColor="#8b5cf6" />
+                </linearGradient>
+              </defs>
+            </svg>
+
+            {/* Centered Percentage Label */}
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center'
+            }}>
+              <span style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0f172a)',
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                lineHeight: 1
+              }}>
+                {completionPercentage}%
+              </span>
+              <span style={{
+                fontSize: '8.5px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-muted, #94a3b8)',
+                letterSpacing: '0.8px',
+                textTransform: 'uppercase',
+                marginTop: '3px'
+              }}>
+                PROGRESS
+              </span>
+            </div>
+          </div>
+
+          {/* Compact Metric Summary Pills */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)',
+              border: '1px solid var(--aiims-card-mint-border, #bbf7d0)',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: 'var(--aiims-card-mint-text, #15803d)'
+            }}>
+              <CheckCircle2 size={14} />
+              <span>{completedCount} / 10 Stages Done</span>
+            </div>
+
+            <div
+              onClick={() => setActiveTab('credits')}
+              title="View credits ledger"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--aiims-tint-amber-bg, #fffbeb)',
+                border: '1px solid var(--aiims-card-amber-border, #fde68a)',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                color: 'var(--aiims-card-amber-text, #b45309)',
+                cursor: 'pointer'
+              }}
+            >
+              <Zap size={14} />
+              <span>{acBalance.toLocaleString()} Credits</span>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--aiims-accent-glow, #f5f3ff)',
+              border: '1px solid var(--aiims-border-card-hover, #ddd6fe)',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              color: 'var(--aiims-primary, #6366f1)'
+            }}>
+              <Award size={14} />
+              <span>{xpBalance.toLocaleString()} XP Points</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ======================================================== */}
+      {/* 2. PERSONALIZED "YOUR NEXT STEP" BANNER                  */}
+      {/* ======================================================== */}
+      <section
+        style={{
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          borderRadius: '14px',
+          border: '1.5px solid var(--aiims-primary, #6366f1)',
+          padding: '20px 24px',
+          boxShadow: 'var(--aiims-shadow-card, 0 6px 20px -4px rgba(99, 102, 241, 0.1))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '16px'
+        }}
+      >
+        <div style={{ flex: '1 1 500px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#10b981',
+              boxShadow: '0 0 8px #10b981'
+            }} />
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              color: 'var(--aiims-primary, #6366f1)',
+              letterSpacing: '0.8px',
+              textTransform: 'uppercase'
+            }}>
+              YOUR NEXT ACTIONABLE STEP
+            </span>
+          </div>
+
+          <h2 style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            color: 'var(--aiims-text-heading, #0f172a)',
+            margin: '0 0 6px 0',
+            fontFamily: "'Plus Jakarta Sans', sans-serif"
+          }}>
+            {nextAction.nextActionTitle}
+          </h2>
+
+          <p style={{
+            fontSize: '13.5px',
+            color: 'var(--aiims-text-secondary, #475569)',
+            margin: 0,
+            lineHeight: 1.5
+          }}>
+            {nextAction.nextActionReason}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+          {activeFocus && (
+            <span style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--aiims-text-secondary, #64748b)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+              border: '1px solid var(--aiims-border-card, #e2e8f0)'
+            }}>
+              Track: <strong style={{ color: 'var(--aiims-primary, #6366f1)' }}>{activeFocus}</strong>
+            </span>
+          )}
+
+          <Button
+            variant="violet"
+            size="md"
+            icon={<ArrowRight size={16} />}
+            onClick={() => setActiveTab(nextAction.targetTab)}
+          >
+            {nextAction.actionButtonLabel}
+          </Button>
+        </div>
+      </section>
+
+      {/* ======================================================== */}
+      {/* 3. VISUALLY STRONG 10-STAGE LEARNING JOURNEY PROGRESSION */}
+      {/* ======================================================== */}
       <Card variant="bordered" radius="default" padding="default">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
           <div>
-            <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#111827', margin: '0 0 2px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              YOUR AI JOURNEY
-            </h2>
-            <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
-              The 10-stage progression path. Click any stage to explore.
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0f172a)',
+                margin: 0,
+                fontFamily: "'Plus Jakarta Sans', sans-serif"
+              }}>
+                THE 10-STAGE LEARNING JOURNEY
+              </h2>
+              <Badge variant="purple" size="sm">
+                Stage {completedCount < 10 ? completedCount + 1 : 10} of 10
+              </Badge>
+            </div>
+            <p style={{
+              fontSize: '13px',
+              color: 'var(--aiims-text-secondary, #64748b)',
+              margin: '4px 0 0 0'
+            }}>
+              Your systematic progression path from baseline competency diagnostic to capstone project builds.
             </p>
           </div>
-          <Badge variant="cyan" icon={<Compass size={12} />}>
-            Non-Linear Exploration Enabled
-          </Badge>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ArrowRight size={14} />}
+            onClick={() => setActiveTab('journey')}
+          >
+            Full Roadmap
+          </Button>
         </div>
 
-        {/* Standardized 10-Stage 1:1 Square Grid */}
-        <div className="aiims-journey-grid">
+        {/* CONNECTED 10-STAGE GRID (2 ROWS OF 5 STAGES ON DESKTOP) */}
+        <div className="aiims-10stage-grid">
           {nextAction.journeyStages.map((stage) => {
             const isCompleted = stage.status === 'completed';
             const isCurrent = stage.status === 'current';
             const isLocked = stage.status === 'locked';
 
-            // Retrieve accurate locked state and reason from Phase 3 single source of truth
             const access = getFeatureAccess(stage.targetTab, state);
             const lockReason = !access.unlocked ? access.reason : undefined;
-            const tooltip = isLocked
-              ? `${stage.name} (Locked: ${lockReason || 'Activity-gated'})`
-              : `${stage.name} — ${stage.subtitle}`;
 
             return (
               <div
                 key={stage.id}
                 role="button"
                 tabIndex={0}
-                aria-label={`${stage.name}: ${isCompleted ? 'Completed' : isCurrent ? 'Recommended next step' : isLocked ? 'Locked' : 'Available'}`}
                 onClick={() => setActiveTab(stage.targetTab)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -171,66 +549,132 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                     setActiveTab(stage.targetTab);
                   }
                 }}
-                title={tooltip}
-                className="aiims-journey-tile"
+                title={isLocked ? `${stage.name} (Locked: ${lockReason || 'Activity-gated'})` : `${stage.name}: ${stage.subtitle}`}
                 style={{
-                  backgroundColor: isCurrent ? 'var(--aiims-card-banner-bg, #EEF2FF)' : isCompleted ? 'var(--aiims-bg-card, #F8FAFC)' : isLocked ? 'var(--aiims-bg-card-hover, #FAFAFC)' : 'var(--aiims-bg-card, #FFFFFF)',
-                  border: isCurrent ? '2px solid var(--aiims-primary, #5B4BFF)' : isCompleted ? '1px solid var(--aiims-border-card, #CBD5E1)' : isLocked ? '1px solid var(--aiims-border-card, #E2E8F0)' : '1px dashed var(--aiims-border-card, #CBD5E1)',
-                  opacity: isLocked ? 0.78 : 1
+                  padding: '14px',
+                  borderRadius: '12px',
+                  backgroundColor: isCurrent
+                    ? 'var(--aiims-accent-glow, #eef2ff)'
+                    : isCompleted
+                    ? 'var(--aiims-bg-card, #ffffff)'
+                    : isLocked
+                    ? 'var(--aiims-bg-card-hover, #f8fafc)'
+                    : 'var(--aiims-bg-card, #ffffff)',
+                  border: isCurrent
+                    ? '2px solid var(--aiims-primary, #6366f1)'
+                    : isCompleted
+                    ? '1.5px solid var(--aiims-card-mint-border, #86efac)'
+                    : '1px solid var(--aiims-border-card, #ede9fe)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: '136px',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px -4px rgba(99, 102, 241, 0.14)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'none';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                {/* Top Row: Stage Number + Status Icon (16px standard) */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                {/* Stage Header: Step number & Status icon */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 800,
-                    color: isCurrent ? 'var(--aiims-primary, #4338CA)' : isCompleted ? 'var(--aiims-text-secondary, #475569)' : 'var(--aiims-text-muted, #94A3B8)'
+                    color: isCurrent
+                      ? 'var(--aiims-primary, #6366f1)'
+                      : isCompleted
+                      ? '#16a34a'
+                      : 'var(--aiims-text-muted, #94a3b8)',
+                    letterSpacing: '0.5px'
                   }}>
-                    {stage.number < 10 ? `0${stage.number}` : stage.number}
+                    STAGE {stage.number < 10 ? `0${stage.number}` : stage.number}
                   </span>
 
-                  <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: isCompleted
+                      ? '#dcfce7'
+                      : isCurrent
+                      ? '#e0e7ff'
+                      : 'transparent'
+                  }}>
                     {isCompleted ? (
-                      <CheckCircle2 size={16} color="#16A34A" />
+                      <CheckCircle2 size={16} color="#16a34a" />
                     ) : isCurrent ? (
-                      <Clock size={16} color="#5B4BFF" />
+                      <Flame size={14} color="#6366f1" />
                     ) : isLocked ? (
-                      <Lock size={14} color="#94A3B8" />
+                      <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />
                     ) : (
-                      <Circle size={15} color="#94A3B8" />
+                      <Circle size={14} color="var(--aiims-text-muted, #94a3b8)" />
                     )}
                   </div>
                 </div>
 
-                {/* Middle Row: Title (truncated with ellipsis) + Subtitle */}
-                <div style={{ minWidth: 0 }}>
-                  <div
-                    className="aiims-journey-tile-title"
-                    style={{
-                      color: isCurrent ? 'var(--aiims-primary, #312E81)' : isCompleted ? 'var(--aiims-text-heading, #111827)' : 'var(--aiims-text-secondary, #4B5563)'
-                    }}
-                  >
+                {/* Stage Title & Short Subtitle */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: isCurrent
+                      ? 'var(--aiims-primary, #4338ca)'
+                      : 'var(--aiims-text-heading, #0f172a)',
+                    marginBottom: '3px',
+                    lineHeight: 1.3
+                  }}>
                     {stage.name}
                   </div>
-                  <div
-                    className="aiims-journey-tile-subtitle"
-                    style={{ color: 'var(--aiims-text-muted, #64748B)' }}
-                  >
+                  <div style={{
+                    fontSize: '11px',
+                    color: 'var(--aiims-text-secondary, #64748b)',
+                    lineHeight: 1.35,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
                     {stage.subtitle}
                   </div>
                 </div>
 
-                {/* Bottom Row: Status Badge Pill (10px text, single status) */}
-                <div style={{ minWidth: 0 }}>
-                  <span
-                    className="aiims-journey-tile-badge"
-                    style={{
-                      backgroundColor: isCompleted ? 'var(--aiims-card-mint-bg, #DCFCE7)' : isCurrent ? 'var(--aiims-card-banner-bg, #E0E7FF)' : 'var(--aiims-bg-card-hover, #F1F5F9)',
-                      color: isCompleted ? 'var(--aiims-card-mint-text, #15803D)' : isCurrent ? 'var(--aiims-primary, #4338CA)' : 'var(--aiims-text-muted, #64748B)',
-                      border: isCompleted ? '1px solid var(--aiims-card-mint-border, #BBF7D0)' : isCurrent ? '1px solid var(--aiims-border-card, #C7D2FE)' : '1px solid var(--aiims-border-card, #E2E8F0)'
-                    }}
-                  >
-                    {isCompleted ? '✓ Done' : isCurrent ? '● Recommended' : isLocked ? '🔒 Locked' : '○ Available'}
+                {/* Stage Status Badge */}
+                <div>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    backgroundColor: isCompleted
+                      ? 'var(--aiims-card-mint-bg, #f0fdf4)'
+                      : isCurrent
+                      ? 'var(--aiims-primary, #6366f1)'
+                      : isLocked
+                      ? 'var(--aiims-bg-card-hover, #f1f5f9)'
+                      : 'var(--aiims-border-subtle, #ede9fe)',
+                    color: isCompleted
+                      ? '#15803d'
+                      : isCurrent
+                      ? '#ffffff'
+                      : isLocked
+                      ? 'var(--aiims-text-muted, #64748b)'
+                      : 'var(--aiims-primary, #4338ca)'
+                  }}>
+                    {isCompleted ? '✓ Completed' : isCurrent ? '● Active Step' : isLocked ? 'Locked' : '○ Available'}
                   </span>
                 </div>
               </div>
@@ -239,17 +683,175 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
         </div>
       </Card>
 
-      {/* 3. RECENT ACTIVITY & TOP OPPORTUNITY (STANDARDIZED 2-COLUMN GRID) */}
-      <div className="aiims-card-grid-2col">
-        
-        {/* RECENT ACTIVITY CARD */}
+      {/* ======================================================== */}
+      {/* 4. GENUINE LEARNING MILESTONES & REWARDS STRIP           */}
+      {/* ======================================================== */}
+      <Card variant="bordered" radius="default" padding="default">
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          gap: '8px'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h2 style={{
+                fontSize: '18px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0f172a)',
+                margin: 0,
+                fontFamily: "'Plus Jakarta Sans', sans-serif"
+              }}>
+                GENUINE LEARNING MILESTONES
+              </h2>
+              <Badge variant="purple" size="sm" icon={<Award size={12} />}>
+                Verifiable Competency Rewards
+              </Badge>
+            </div>
+            <p style={{
+              fontSize: '13px',
+              color: 'var(--aiims-text-secondary, #64748b)',
+              margin: '4px 0 0 0'
+            }}>
+              Authentic milestones unlocked by diagnostic performance and hands-on laboratory derivation.
+            </p>
+          </div>
+        </div>
+
+        <div className="aiims-milestones-grid">
+          {genuineMilestones.map((m) => {
+            const Icon = m.icon;
+            return (
+              <div
+                key={m.id}
+                onClick={() => setActiveTab(m.tab)}
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  backgroundColor: m.achieved
+                    ? 'var(--aiims-card-mint-bg, #f0fdf4)'
+                    : 'var(--aiims-bg-card-hover, #f8fafc)',
+                  border: m.achieved
+                    ? '1.5px solid var(--aiims-card-mint-border, #86efac)'
+                    : '1px solid var(--aiims-border-card, #e2e8f0)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
+              >
+                <div>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '10px'
+                  }}>
+                    <span style={{
+                      fontSize: '10.5px',
+                      fontWeight: 800,
+                      color: m.achieved ? '#15803d' : 'var(--aiims-primary, #6366f1)',
+                      backgroundColor: m.achieved ? '#dcfce7' : 'var(--aiims-accent-glow, #eef2ff)',
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      letterSpacing: '0.4px'
+                    }}>
+                      +{m.reward}
+                    </span>
+
+                    {m.achieved ? (
+                      <CheckCircle2 size={18} color="#16a34a" />
+                    ) : (
+                      <Circle size={17} color="var(--aiims-text-muted, #94a3b8)" />
+                    )}
+                  </div>
+
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading, #0f172a)',
+                    marginBottom: '4px'
+                  }}>
+                    {m.title}
+                  </div>
+
+                  <div style={{
+                    fontSize: '12px',
+                    color: 'var(--aiims-text-secondary, #64748b)',
+                    lineHeight: 1.4,
+                    marginBottom: '12px'
+                  }}>
+                    {m.subtitle}
+                  </div>
+                </div>
+
+                <div>
+                  {/* Progress Bar */}
+                  <div style={{
+                    width: '100%',
+                    height: '5px',
+                    borderRadius: '3px',
+                    backgroundColor: 'var(--aiims-border-card, #e2e8f0)',
+                    overflow: 'hidden',
+                    marginBottom: '8px'
+                  }}>
+                    <div style={{
+                      width: `${m.progressPercent}%`,
+                      height: '100%',
+                      borderRadius: '3px',
+                      backgroundColor: m.achieved ? '#16a34a' : 'var(--aiims-primary, #6366f1)',
+                      transition: 'width 0.4s ease'
+                    }} />
+                  </div>
+
+                  <div style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: m.achieved ? '#15803d' : 'var(--aiims-text-muted, #94a3b8)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <span>{m.progressText}</span>
+                    <ArrowRight size={12} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ======================================================== */}
+      {/* 5. STUDENT ACTIVITY & PROGRESS AREA (2-COLUMN GRID)      */}
+      {/* ======================================================== */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '20px'
+      }}>
+        {/* RECENT ACTIVITY & CREDIT LEDGER CARD */}
         <Card
           variant="bordered"
           radius="default"
           padding="default"
-          title="Recent Activity"
-          icon={<Activity size={20} color="#5B4BFF" />}
-          iconSize="button"
+          title="Recent Learning Ledger"
+          icon={<Activity size={18} color="var(--aiims-primary, #6366f1)" />}
+          footer={
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<ArrowRight size={14} />}
+              onClick={() => setActiveTab('credits')}
+            >
+              View Full Credits Ledger
+            </Button>
+          }
         >
           {recentTransactions.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -260,43 +862,63 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '8px 10px',
-                    backgroundColor: 'var(--aiims-table-row-bg, var(--aiims-bg-card-hover))',
+                    padding: '10px 12px',
+                    backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
                     borderRadius: '8px',
-                    border: '1px solid var(--aiims-border-card, #F3F4F6)'
+                    border: '1px solid var(--aiims-border-card, #f1f5f9)'
                   }}
                 >
                   <div style={{ minWidth: 0, flex: 1, paddingRight: '8px' }}>
-                    <div className="truncate-1-line" style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-primary, #111827)' }}>
+                    <div style={{
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      color: 'var(--aiims-text-heading, #0f172a)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
                       {tx.description}
                     </div>
-                    <div style={{ fontSize: '10px', color: 'var(--aiims-text-muted, #64748B)' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94a3b8)', marginTop: '2px' }}>
                       {tx.timestamp}
                     </div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#16A34A', flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: '11.5px',
+                    fontWeight: 800,
+                    color: '#16a34a',
+                    flexShrink: 0
+                  }}>
                     +{tx.amount} Credits
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ fontSize: '12.5px', color: '#64748B', fontStyle: 'italic' }}>
-              No recent activity recorded yet.
+            <div style={{ padding: '24px 12px', textAlign: 'center' }}>
+              <Clock size={28} color="var(--aiims-text-muted, #94a3b8)" style={{ margin: '0 auto 8px' }} />
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                No Activity Recorded Yet
+              </div>
+              <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', margin: '4px 0 12px' }}>
+                Complete your Baseline Assessment to earn your first 50 AIIMS Credits.
+              </p>
+              <Button variant="violet" size="sm" onClick={() => setActiveTab('assessment')}>
+                Start Assessment
+              </Button>
             </div>
           )}
         </Card>
 
         {/* TOP RELEVANT RADAR OPPORTUNITY CARD */}
-        {topOpportunity && (
+        {topOpportunity ? (
           <Card
             variant="bordered"
             radius="default"
             padding="default"
-            title="AI Opportunity"
-            icon={<Radar size={20} color="#7C3AED" />}
-            iconSize="button"
-            badge={<Badge variant="purple" size="sm">Radar</Badge>}
+            title="Trending AI Opportunity"
+            icon={<Radar size={18} color="#7c3aed" />}
+            badge={<Badge variant="purple" size="sm">Signal Radar</Badge>}
             footer={
               <Button
                 variant="outline"
@@ -304,27 +926,206 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ setActiveTab }) => {
                 icon={<Lock size={14} />}
                 onClick={() => setActiveTab('radar')}
               >
-                Locked (Explore Activities)
+                Explore Signals
               </Button>
             }
           >
-            <div className="truncate-1-line" style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', marginBottom: '6px' }}>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: 700,
+              color: 'var(--aiims-text-heading, #0f172a)',
+              marginBottom: '6px'
+            }}>
               {topOpportunity.title}
             </div>
-            <p
-              className="aiims-card-body"
-              style={{
-                fontSize: '12.5px',
-                color: '#64748B',
-                lineHeight: 1.45,
-                margin: 0
-              }}
-            >
+            <p style={{
+              fontSize: '12.5px',
+              color: 'var(--aiims-text-secondary, #475569)',
+              lineHeight: 1.5,
+              margin: '0 0 10px 0'
+            }}>
               {topOpportunity.summary}
+            </p>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11px',
+              color: 'var(--aiims-primary, #6366f1)',
+              fontWeight: 700
+            }}>
+              <span>Category: {topOpportunity.category}</span>
+              {topOpportunity.affectedDomains && topOpportunity.affectedDomains.length > 0 && (
+                <span>· {topOpportunity.affectedDomains[0]}</span>
+              )}
+            </div>
+          </Card>
+        ) : (
+          /* Fallback Quick Navigation Help Card */
+          <Card
+            variant="bordered"
+            radius="default"
+            padding="default"
+            title="Your Learning Focus"
+            icon={<Target size={18} color="var(--aiims-primary, #6366f1)" />}
+            footer={
+              <Button
+                variant="violet"
+                size="sm"
+                onClick={() => setActiveTab('focus')}
+              >
+                Choose Focus Track
+              </Button>
+            }
+          >
+            <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)', marginBottom: '4px' }}>
+              Select a Core AI Competency Track
+            </div>
+            <p style={{ fontSize: '12.5px', color: 'var(--aiims-text-secondary, #64748b)', lineHeight: 1.5, margin: 0 }}>
+              Tailor your AIIMS experience by focusing on AI Prompt Engineering, Task Automation, or System Architecture.
             </p>
           </Card>
         )}
       </div>
+
+      {/* ======================================================== */}
+      {/* 6. VERIFIED AI TOOL CATALOG PREVIEW (WALLET CONNECTOR)    */}
+      {/* ======================================================== */}
+      {catalogTools.length > 0 && (
+        <Card variant="bordered" radius="default" padding="default">
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading, #0f172a)',
+                  margin: 0,
+                  fontFamily: "'Plus Jakarta Sans', sans-serif"
+                }}>
+                  VERIFIED AI TOOL INTELLIGENCE
+                </h2>
+                <Badge variant="cyan" size="sm" icon={<Wallet size={12} />}>
+                  Live Toolkit
+                </Badge>
+              </div>
+              <p style={{
+                fontSize: '13px',
+                color: 'var(--aiims-text-secondary, #64748b)',
+                margin: '2px 0 0 0'
+              }}>
+                Curated AI platforms matched to your discipline and focus track.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<ArrowRight size={14} />}
+              onClick={() => setActiveTab('wallet')}
+            >
+              Open AI Wallet
+            </Button>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '12px'
+          }}>
+            {catalogTools.map((tool, idx) => (
+              <div
+                key={tool._id || tool.id || idx}
+                onClick={() => setActiveTab('wallet')}
+                style={{
+                  padding: '14px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                  border: '1px solid var(--aiims-border-card, #ede9fe)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      color: 'var(--aiims-primary, #6366f1)',
+                      textTransform: 'uppercase'
+                    }}>
+                      {tool.category || 'AI Platform'}
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: '#059669',
+                      backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)',
+                      padding: '2px 6px',
+                      borderRadius: '6px'
+                    }}>
+                      {tool.pricing || 'Verified'}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading, #0f172a)',
+                    marginBottom: '4px'
+                  }}>
+                    {tool.name}
+                  </div>
+
+                  <div style={{
+                    fontSize: '12px',
+                    color: 'var(--aiims-text-secondary, #64748b)',
+                    lineHeight: 1.45,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden'
+                  }}>
+                    {tool.summary || tool.description || 'Verified AI capability ready for workspace workflows.'}
+                  </div>
+                </div>
+
+                <div style={{
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94a3b8)', fontWeight: 600 }}>
+                    {tool.domain || 'Multi-domain'}
+                  </span>
+                  <span style={{
+                    fontSize: '11.5px',
+                    color: 'var(--aiims-primary, #6366f1)',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    View Details <ArrowRight size={12} />
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
     </div>
   );

@@ -356,11 +356,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             <Lock size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Clarity is waiting for your profile
           </h2>
 
-          <p style={{ color: '#064e3b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-card-mint-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Complete your AI Assessment first. AIIMS will use your responses to identify areas that may be useful to explore.
           </p>
 
@@ -395,11 +395,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             <Brain size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Your profile is ready
           </h2>
 
-          <p style={{ color: '#78350f', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-tint-amber-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Open your Analysis to see what AIIMS discovered about how you work with AI.
           </p>
 
@@ -450,7 +450,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
               >
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                       {data.title}
                     </h3>
                     {isExplored && (
@@ -460,11 +460,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
                     )}
                   </div>
 
-                  <p style={{ margin: '0 0 8px', fontSize: '13px', color: '#064e3b', lineHeight: 1.45 }}>
+                  <p style={{ margin: '0 0 8px', fontSize: '13px', color: 'var(--aiims-card-mint-text)', lineHeight: 1.45 }}>
                     {data.subtitle}
                   </p>
 
-                  <div style={{ fontSize: '12px', color: '#047857' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--aiims-card-mint-text)' }}>
                     <strong>Why it appeared: </strong> {data.whyItAppeared}
                   </div>
                 </div>
@@ -585,11 +585,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           </span>
         </div>
 
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
           {topicData.title}
         </h1>
 
-        <p style={{ fontSize: '15px', color: '#064e3b', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+        <p style={{ fontSize: '15px', color: 'var(--aiims-card-mint-text)', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
           "{topicData.subtitle}"
         </p>
       </Surface>
@@ -634,7 +634,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
       <Surface variant="mint" radius="lg" padding="lg">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
           <BookOpen style={{ width: '18px', height: '18px', color: '#059669' }} />
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
             1. What is it?
           </h2>
         </div>
@@ -722,10 +722,10 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
                 <Lock size={20} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#334155', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                   4. Personal Connection
                 </h2>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
                   Locked • Complete at least one task in Step 3 to unlock
                 </span>
               </div>
@@ -802,7 +802,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
                 <CheckCircle2 size={18} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                   4. Personal Connection
                 </h2>
                 <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
@@ -845,7 +845,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <MessageCircle style={{ width: '20px', height: '20px', color: '#059669' }} />
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                 4. Personal Connection
               </h2>
             </div>
@@ -866,11 +866,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             </div>
           </div>
 
-          <p style={{ fontSize: '14px', fontWeight: 700, color: '#064e3b', lineHeight: 1.45, margin: '0 0 6px' }}>
+          <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--aiims-card-mint-text)', lineHeight: 1.45, margin: '0 0 6px' }}>
             {reflectionTemplate.question}
           </p>
 
-          <p style={{ fontSize: '12.5px', color: '#047857', lineHeight: 1.5, margin: '0 0 14px' }}>
+          <p style={{ fontSize: '12.5px', color: 'var(--aiims-card-mint-text)', lineHeight: 1.5, margin: '0 0 14px' }}>
             {reflectionTemplate.guidance}
           </p>
 
@@ -900,12 +900,12 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
                     boxShadow: 'var(--aiims-shadow-card)'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ecfdf5';
+                    e.currentTarget.style.backgroundColor = 'var(--aiims-card-mint-bg)';
                     e.currentTarget.style.borderColor = '#059669';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ffffff';
-                    e.currentTarget.style.borderColor = '#a7f3d0';
+                    e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card)';
+                    e.currentTarget.style.borderColor = 'var(--aiims-border-card)';
                   }}
                 >
                   {chip.label}
@@ -918,9 +918,9 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             <div style={{
               padding: '8px 12px',
               borderRadius: '8px',
-              backgroundColor: '#ecfdf5',
-              border: '1px solid #6ee7b7',
-              color: '#047857',
+              backgroundColor: 'var(--aiims-card-mint-bg)',
+              border: '1px solid var(--aiims-card-mint-border)',
+              color: 'var(--aiims-card-mint-text)',
               fontSize: '12px',
               fontWeight: 600,
               marginBottom: '12px',
@@ -961,7 +961,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
             onBlur={(e) => (e.target.style.borderColor = 'var(--aiims-input-border)')}
           />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', fontSize: '11.5px', color: '#047857', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', fontSize: '11.5px', color: 'var(--aiims-card-mint-text)', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <span>🎯 <strong>Target Use Case</strong></span>
               <span>•</span>
@@ -1006,11 +1006,11 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
       {/* FOCUS HANDOFF */}
       {(isTopicCompleted || reflectionSaved) && (
         <Surface variant="mint" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#064e3b', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-card-mint-text)', margin: '0 0 6px', fontFamily: "'Fredoka', sans-serif" }}>
             You have more clarity on this.
           </h2>
 
-          <p style={{ fontSize: '14px', color: '#047857', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '14px', color: 'var(--aiims-card-mint-text)', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
             You understand what <strong>{topicData.title}</strong> means for your work. Now decide whether this area deserves your focus right now.
           </p>
 

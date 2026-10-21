@@ -472,6 +472,60 @@ async function run() {
     `Wallet balance (${walletData.balance} AC) perfectly synchronized with state profile (${stateData.state.profile.aiimsCredits} AC) and ledger history (${walletData.transactions.length} txs)`
   );
 
+  // ── TEST 13: Signal Investigation & Non-ObjectId Edge Case Resilience ──
+  // Test Signal Investigation single-grant
+  const balBeforeInv = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+  const invRes1 = await fetch(`${API_BASE}/investigations/submit`, {
+    method: 'POST',
+    headers: authHeadersA,
+    body: JSON.stringify({
+      signalId: 'sig-ledger-test-01',
+      personalInterpretation: 'Testing single-grant ledger accounting.'
+    })
+  });
+  const invData1 = await invRes1.json();
+  const balAfterInv1 = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+
+  const invRes2 = await fetch(`${API_BASE}/investigations/submit`, {
+    method: 'POST',
+    headers: authHeadersA,
+    body: JSON.stringify({
+      signalId: 'sig-ledger-test-01',
+      personalInterpretation: 'Testing duplicate single-grant ledger accounting.'
+    })
+  });
+  const invData2 = await invRes2.json();
+  const balAfterInv2 = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+
+  // Test Non-ObjectId and empty user resilience
+  const emptyUserRes = await creditsLedgerService.executeTransaction({
+    userId: '',
+    type: 'SPEND',
+    amount: 10,
+    reason: 'Empty user test',
+    source: 'TEST'
+  });
+  const nonObjBal = await creditsLedgerService.getBalance('non-existent-learner-id');
+  const nonObjRecon = await creditsLedgerService.reconcileBalance('non-existent-learner-id');
+
+  const test13Pass =
+    invData1.awarded === true &&
+    invData1.creditsEarned === 30 &&
+    balAfterInv1 === balBeforeInv + 30 &&
+    invData2.awarded === false &&
+    invData2.creditsEarned === 0 &&
+    balAfterInv2 === balAfterInv1 &&
+    emptyUserRes.success === false &&
+    nonObjBal === 0 &&
+    nonObjRecon.isReconciled === true;
+
+  record(
+    13,
+    'Signal Investigation & Non-ObjectId Resilience',
+    test13Pass,
+    `Signal first: +${invData1.creditsEarned} AC (bal: ${balAfterInv1}), repeat: +${invData2.creditsEarned} AC (bal: ${balAfterInv2}). Non-ObjectId safe: bal=${nonObjBal}, reconciled=${nonObjRecon.isReconciled}`
+  );
+
   // ── SUMMARY REPORT ──
   console.log('\n===============================================================');
   console.log('                   PHASE 6D TEST SUMMARY                       ');
@@ -481,7 +535,7 @@ async function run() {
   console.log(`Results: ${passedCount} / ${reports.length} Tests Passed`);
 
   if (allPassed) {
-    console.log('🎉 ALL 12 PHASE 6D REQUIREMENTS SUCCESSFULLY VERIFIED!\n');
+    console.log(`🎉 ALL ${reports.length} PHASE 6D REQUIREMENTS SUCCESSFULLY VERIFIED!\n`);
     process.exit(0);
   } else {
     console.error('❌ SOME TESTS FAILED. See log details above.\n');

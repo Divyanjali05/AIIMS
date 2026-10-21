@@ -81,46 +81,46 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
 
         {/* STEP 1: YOUR PROFILE (VIOLET) */}
         <Surface variant="violet" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase' }}>1. YOUR PROFILE</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Top Strength: {topCapability}</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#4c1d95' }}>Primary growth opportunity: {growthArea}.</p>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-violet-text)', textTransform: 'uppercase' }}>1. YOUR PROFILE</span>
+          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Top Strength: {topCapability}</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-violet-text)' }}>Primary growth opportunity: {growthArea}.</p>
         </Surface>
 
-        <ArrowDown size={22} style={{ color: '#6b21a8' }} />
+        <ArrowDown size={22} style={{ color: 'var(--aiims-card-violet-text)' }} />
 
         {/* STEP 2: YOUR FOCUS (AMBER) */}
         <Surface variant="amber" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase' }}>2. YOUR FOCUS</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Active Focus Track: {activeFocus}</h3>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-amber-text)', textTransform: 'uppercase' }}>2. YOUR FOCUS</span>
+          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Active Focus Track: {activeFocus}</h3>
           {clarityReflection && (
-            <p style={{ margin: 0, fontSize: '13px', color: '#78350f', fontStyle: 'italic' }}>"{clarityReflection}"</p>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-amber-text)', fontStyle: 'italic' }}>"{clarityReflection}"</p>
           )}
         </Surface>
 
-        <ArrowDown size={22} style={{ color: '#b45309' }} />
+        <ArrowDown size={22} style={{ color: 'var(--aiims-card-amber-text)' }} />
 
         {/* STEP 3: AI CHANGE (CYAN) */}
         <Surface variant="cyan" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase' }}>3. AI CHANGE (AI RADAR)</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>{activeSignal.title}</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#155e75' }}>{activeSignal.scaffold.whatChanged}</p>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-cyan-text)', textTransform: 'uppercase' }}>3. AI CHANGE (AI RADAR)</span>
+          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>{activeSignal.title}</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-cyan-text)' }}>{activeSignal.scaffold.whatChanged}</p>
         </Surface>
 
-        <ArrowDown size={22} style={{ color: '#0369a1' }} />
+        <ArrowDown size={22} style={{ color: 'var(--aiims-card-cyan-text)' }} />
 
         {/* STEP 4: YOUR INVESTIGATION (BLUE/SKY) */}
         <Surface variant="sky" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#075985', textTransform: 'uppercase' }}>4. YOUR INVESTIGATION</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>Personal Reflection Recorded</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: '#0369a1', fontStyle: 'italic' }}>"{userInvestigationNote || 'Evaluating impact on daily workflow.'}"</p>
+          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-sky-text)', textTransform: 'uppercase' }}>4. YOUR INVESTIGATION</span>
+          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Personal Reflection Recorded</h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-sky-text)', fontStyle: 'italic' }}>"{userInvestigationNote || 'Evaluating impact on daily workflow.'}"</p>
         </Surface>
 
-        <ArrowDown size={22} style={{ color: '#075985' }} />
+        <ArrowDown size={22} style={{ color: 'var(--aiims-card-sky-text)' }} />
 
         {/* STEP 5: SYNTHESIS PAYOFF (GRADIENT RELEVANCE) */}
         <Surface variant="gradient-relevance" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: '#4338ca', textTransform: 'uppercase' }}>5. WHAT THIS MEANS FOR YOU (YOUR SYNTHESIS PAYOFF)</span>
-          <p style={{ margin: '8px 0 0', fontSize: '15px', color: '#1e1b4b', lineHeight: 1.6, fontWeight: 600 }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>5. WHAT THIS MEANS FOR YOU (YOUR SYNTHESIS PAYOFF)</span>
+          <p style={{ margin: '8px 0 0', fontSize: '15px', color: 'var(--aiims-text-heading)', lineHeight: 1.6, fontWeight: 600 }}>
             Because you possess high evaluation rigor ({topCapability}), you can safely adopt autonomous agent tools in {activeFocus} without taking on hallucination risks. Documenting a 3-step prompt verification template allows you to elevate your workflow design efficiency immediately.
           </p>
         </Surface>
@@ -129,13 +129,13 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
 
       {/* RECOMMENDED ACTION: BRIDGE TO STAGE 8 PROBLEM SOLVER */}
       <Surface variant="mint" radius="lg" padding="lg" style={{ border: '2px solid #10b981' }}>
-        <span style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-card-mint-text)', textTransform: 'uppercase', letterSpacing: '1px' }}>
           STAGE 8 • REAL PROBLEM SOLVING
         </span>
-        <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '4px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '4px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
           Apply this opportunity to a real problem
         </h3>
-        <p style={{ fontSize: '13px', color: '#064e3b', margin: '0 0 18px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '13px', color: 'var(--aiims-card-mint-text)', margin: '0 0 18px', lineHeight: 1.5 }}>
           Pre-populate Problem Solver with this AI Radar signal context ({activeSignal.title}) to derive required capabilities and tool execution sequences.
         </p>
 

@@ -66,11 +66,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle size={28} />
             </div>
 
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px' }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 8px' }}>
               {this.props.fallbackTitle || 'Something went wrong rendering this view'}
             </h2>
 
-            <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)', margin: '0 0 20px', lineHeight: 1.5 }}>
               {this.state.error?.message || 'An unexpected rendering error occurred. You can safely reload or return to Home.'}
             </p>
 

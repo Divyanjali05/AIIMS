@@ -143,20 +143,20 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
 
       {/* SECTION 1: WHAT DESERVES YOUR ATTENTION (COLOURFUL DISCOVERY TILES) */}
       <div>
-        <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
           What Deserves Your Attention
         </h2>
 
         <div className="aiims-card-grid">
 
           <Surface variant="violet" radius="lg" padding="md" hoverable onClick={() => setActiveTab(isAssessmentCompleted ? 'analysis' : 'assessment')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#6b21a8', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-violet-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
               PROFILE REPORT
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
               {isAssessmentCompleted ? `Growth Area: ${growthArea}` : 'Discover Your Baseline Profile'}
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: '#475569', lineHeight: 1.45 }}>
+            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-text-secondary)', lineHeight: 1.45 }}>
               {isAssessmentCompleted ? 'Surfaced because your diagnostic indicated this dimension as your primary growth area.' : 'Complete your 25-question baseline assessment.'}
             </p>
             <Button variant="violet" size="sm" icon={<ArrowRight size={13} />}>
@@ -165,13 +165,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
           </Surface>
 
           <Surface variant="cyan" radius="lg" padding="md" hoverable onClick={() => setActiveTab('radar')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-cyan-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
               EMERGING SIGNAL
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
               Autonomous Tool Agents
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: '#155e75', lineHeight: 1.45 }}>
+            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-card-cyan-text)', lineHeight: 1.45 }}>
               LLM providers are shipping native agent loop capabilities with dynamic tool execution.
             </p>
             <Button variant="cyan" size="sm" icon={<ArrowRight size={13} />}>
@@ -180,13 +180,13 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
           </Surface>
 
           <Surface variant="amber" radius="lg" padding="md" hoverable onClick={() => setActiveTab('focus')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-amber-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
               ACTIVE FOCUS TRACK
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
               {activeFocus}
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: '#78350f', lineHeight: 1.45 }}>
+            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-card-amber-text)', lineHeight: 1.45 }}>
               You are currently prioritizing attention on this learning direction.
             </p>
             <Button variant="amber" size="sm" icon={<ArrowRight size={13} />}>
@@ -201,10 +201,10 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
               Explore AI Capabilities
             </h2>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
               Select a capability area to build understanding and practical habits.
             </p>
           </div>
@@ -230,7 +230,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
                   width: '36px',
                   height: '36px',
                   borderRadius: '10px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'var(--aiims-bg-card-subtle)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -243,11 +243,11 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
                   {tile.category}
                 </Badge>
 
-                <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+                <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                   {tile.title}
                 </h3>
 
-                <p style={{ margin: '0 0 16px', fontSize: '12px', color: '#334155', lineHeight: 1.45 }}>
+                <p style={{ margin: '0 0 16px', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
                   {tile.description}
                 </p>
               </div>
@@ -264,10 +264,10 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
               AI Radar — Technical Shifts
             </h2>
-            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
               Real-time model releases, workflow evolutions, and technical paradigm shifts.
             </p>
           </div>

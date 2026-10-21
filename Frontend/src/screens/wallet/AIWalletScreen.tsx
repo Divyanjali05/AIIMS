@@ -600,10 +600,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               <div style={{ fontSize: '11px', fontWeight: 800, color: '#4f46e5', letterSpacing: '1px', textTransform: 'uppercase', marginBottom: '4px' }}>
                 {currentAudienceMode === 'entrepreneur' ? 'STARTUP & VENTURE AI TOOL MATCHING' : 'ACADEMIC & LEARNING AI TOOL MATCHING'}
               </div>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 6px', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 {currentAudienceMode === 'entrepreneur' ? 'What startup milestone or task are you executing?' : 'What are you trying to accomplish?'}
               </h2>
-              <p style={{ fontSize: '13.5px', color: '#4338ca', margin: 0, fontWeight: 500 }}>
+              <p style={{ fontSize: '13.5px', color: 'var(--aiims-primary)', margin: 0, fontWeight: 500 }}>
                 {currentAudienceMode === 'entrepreneur'
                   ? 'Describe your venture, product, or go-to-market task in plain English. AIIMS matches verified AI tools.'
                   : 'Describe your study, coursework, or research task in plain English. AIIMS extracts intent, domains, constraints, and ranks verified AI tools.'}
@@ -692,7 +692,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       <div style={{ fontSize: '11px', fontWeight: 800, color: '#4338ca', letterSpacing: '0.8px', textTransform: 'uppercase', marginBottom: '2px' }}>
                         TOOLS FOR YOUR REQUIREMENT
                       </div>
-                      <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                      <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0 }}>
                         {searchResult.intent.primaryGoal || searchResult.intent.task || 'Requirement Matching'}
                       </h3>
                     </div>
@@ -703,8 +703,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   </div>
 
                   {/* Extracted Intent Badges */}
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', padding: '10px 14px', backgroundColor: '#f8f7fd', borderRadius: '10px', border: '1px solid #ede9fe' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Primary Domain:</span>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '20px', padding: '10px 14px', backgroundColor: 'var(--aiims-bg-subtle)', borderRadius: '10px', border: '1px solid var(--aiims-border-subtle)' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>Primary Domain:</span>
                     {(searchResult.intent.domain || []).map((d: string, i: number) => (
                       <Badge key={i} variant="cyan" size="sm">{d}</Badge>
                     ))}
@@ -724,14 +724,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
                   {/* Tool Combinations Workflow (if present for multi-intent queries) */}
                   {searchResult.toolCombinations && searchResult.toolCombinations.length > 0 && (
-                    <div style={{ marginBottom: '20px', padding: '14px 16px', backgroundColor: '#eef2ff', borderRadius: '12px', border: '1px solid #c7d2fe' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#4338ca', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ marginBottom: '20px', padding: '14px 16px', backgroundColor: 'var(--aiims-card-banner-bg)', borderRadius: '12px', border: '1px solid var(--aiims-card-banner-border)' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <Layers size={14} /> SUGGESTED MULTI-TOOL WORKFLOW
                       </div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e1b4b', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
                         {searchResult.toolCombinations[0].workflowTitle}
                       </div>
-                      <p style={{ fontSize: '12px', color: '#3730a3', margin: 0, lineHeight: 1.5 }}>
+                      <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary)', margin: 0, lineHeight: 1.5 }}>
                         {searchResult.toolCombinations[0].explanation}
                       </p>
                     </div>
@@ -751,12 +751,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '8px' }}>
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                                     {tool.name}
                                   </h4>
                                   {getStatusBadge(tool.status)}
                                 </div>
-                                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
                                   by {tool.provider}
                                 </span>
                               </div>
@@ -767,7 +767,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             </div>
 
                             {/* Why Matched Box */}
-                            <div style={{ backgroundColor: '#f0eeff', border: '1px solid #c7d2fe', padding: '8px 12px', borderRadius: '8px', fontSize: '11.5px', color: '#312e81', marginBottom: '10px', fontWeight: 600 }}>
+                            <div style={{ backgroundColor: 'var(--aiims-card-banner-bg)', border: '1px solid var(--aiims-card-banner-border)', padding: '8px 12px', borderRadius: '8px', fontSize: '11.5px', color: 'var(--aiims-primary)', marginBottom: '10px', fontWeight: 600 }}>
                               💡 <strong>Why it matches:</strong>
                               {resItem.whyMatches && resItem.whyMatches.length > 0 ? (
                                 <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
@@ -780,7 +780,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                               )}
                             </div>
 
-                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--aiims-text-secondary)', lineHeight: 1.45 }}>
                           {tool.shortDescription || tool.description}
                         </p>
 
@@ -796,7 +796,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       </div>
 
                       {/* Card Action Buttons */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid #f1f5f9', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', borderTop: '1px solid var(--aiims-border-subtle)', gap: '8px' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -811,9 +811,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                           style={{
                             padding: '4px 10px',
                             borderRadius: '6px',
-                            border: isSelectedForCompare ? '1px solid #6366f1' : '1px solid #cbd5e1',
-                            backgroundColor: isSelectedForCompare ? '#eef2ff' : '#ffffff',
-                            color: isSelectedForCompare ? '#4338ca' : '#64748b',
+                            border: isSelectedForCompare ? '1px solid var(--aiims-primary)' : '1px solid var(--aiims-border-subtle)',
+                            backgroundColor: isSelectedForCompare ? 'var(--aiims-bg-card-subtle)' : 'var(--aiims-bg-card)',
+                            color: isSelectedForCompare ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)',
                             fontSize: '11px',
                             fontWeight: 700,
                             cursor: 'pointer'
@@ -844,8 +844,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <Surface variant="sky" radius="lg" padding="md">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Zap size={18} color="#0284c7" />
-                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  <Zap size={18} color="var(--aiims-primary)" />
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0 }}>
                     NEW & RECENTLY UPDATED AI TOOLS
                   </h3>
                 </div>
@@ -904,7 +904,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           {/* MULTI-DOMAIN CATEGORY EXPLORER */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0 }}>
                 Explore Verified Tools by Category & Domain
               </h3>
 
@@ -913,7 +913,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 <select
                   value={selectedPricing}
                   onChange={(e) => setSelectedPricing(e.target.value)}
-                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 700, outline: 'none' }}
+                  style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--aiims-input-border)', backgroundColor: 'var(--aiims-input-bg)', color: 'var(--aiims-input-text)', fontSize: '12px', fontWeight: 700, outline: 'none' }}
                 >
                   <option value="All">All Pricing</option>
                   <option value="Free">Free / Free Tier</option>
@@ -932,9 +932,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   style={{
                     padding: '6px 14px',
                     borderRadius: '9999px',
-                    border: selectedCategory === cat ? '1px solid #6366f1' : '1px solid #e2e8f0',
-                    backgroundColor: selectedCategory === cat ? '#eef2ff' : '#ffffff',
-                    color: selectedCategory === cat ? '#4338ca' : '#64748b',
+                    border: selectedCategory === cat ? '1px solid var(--aiims-primary)' : '1px solid var(--aiims-border-subtle)',
+                    backgroundColor: selectedCategory === cat ? 'var(--aiims-card-banner-bg)' : 'var(--aiims-bg-card)',
+                    color: selectedCategory === cat ? 'var(--aiims-primary)' : 'var(--aiims-text-secondary)',
                     fontSize: '12px',
                     fontWeight: selectedCategory === cat ? 800 : 600,
                     cursor: 'pointer',
@@ -963,17 +963,17 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       <div>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '6px' }}>
                           <div>
-                            <h4 style={{ margin: '0 0 2px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                            <h4 style={{ margin: '0 0 2px', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                               {tool.name}
                             </h4>
-                            <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                            <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
                               {tool.provider} • {tool.category}
                             </span>
                           </div>
                           {getStatusBadge(tool.status)}
                         </div>
 
-                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: '#475569', lineHeight: 1.45 }}>
+                        <p style={{ margin: '0 0 12px', fontSize: '12.5px', color: 'var(--aiims-text-secondary)', lineHeight: 1.45 }}>
                           {tool.shortDescription || tool.description}
                         </p>
 
@@ -1030,10 +1030,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           <Surface variant="gradient-hero" radius="lg" padding="md">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
               <div>
-                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span>{currentAudienceMode === 'entrepreneur' ? '🚀 Your Startup Tech Stack' : '🎒 Your Academic Toolkit'}</span>
                 </h2>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)' }}>
                   {currentAudienceMode === 'entrepreneur'
                     ? 'Tools in your startup tech stack for customer discovery, validation, and operations. Track adoption and mastery.'
                     : 'Tools you currently use for academic studies, technical projects, and coursework. Track familiarity levels to grow your capability.'}
@@ -1061,11 +1061,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           {/* User Tools List */}
           {userToolsWithDetails.length === 0 ? (
             <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-              <Wallet style={{ width: '40px', height: '40px', color: '#6366f1', margin: '0 auto 12px' }} />
-              <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+              <Wallet style={{ width: '40px', height: '40px', color: 'var(--aiims-primary)', margin: '0 auto 12px' }} />
+              <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                 {currentAudienceMode === 'entrepreneur' ? 'Your Startup AI Stack is empty' : 'Your Student AI Wallet is empty'}
               </h3>
-              <p style={{ margin: '0 0 16px', fontSize: '13px', color: '#64748b' }}>
+              <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--aiims-text-muted)' }}>
                 {currentAudienceMode === 'entrepreneur'
                   ? 'Use Requirement Search in Discover to find and add AI tools for market research, MVP prototyping, and customer validation.'
                   : 'Use Requirement Search in Discover to find and add AI tools relevant to your courses, research, or coding projects.'}
@@ -1082,7 +1082,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                             {tool.name}
                           </h3>
                           {(tool.userNotes?.toLowerCase().includes('assessment') || tool.customTags?.some(t => t.includes('assessment'))) && (
@@ -1109,7 +1109,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       </Badge>
                     </div>
 
-                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--aiims-text-secondary)', lineHeight: 1.5 }}>
                       {tool.description}
                     </p>
 
@@ -1120,7 +1120,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                           value={notesInput}
                           onChange={(e) => setNotesInput(e.target.value)}
                           placeholder="Add personal notes..."
-                          style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #6366f1', fontSize: '12px', outline: 'none' }}
+                          style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid var(--aiims-primary)', backgroundColor: 'var(--aiims-input-bg)', color: 'var(--aiims-input-text)', fontSize: '12px', outline: 'none' }}
                         />
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                           <Button variant="ghost" size="sm" onClick={() => setEditingNotesToolId(null)}>Cancel</Button>
@@ -1128,7 +1128,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', backgroundColor: '#f8f7fd', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', color: '#475569', marginBottom: '12px', borderLeft: '3px solid #6366f1' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', backgroundColor: 'var(--aiims-bg-subtle)', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', color: 'var(--aiims-text-secondary)', marginBottom: '12px', borderLeft: '3px solid var(--aiims-primary)' }}>
                         <span style={{ fontStyle: 'italic', flex: 1 }}>
                           {tool.userNotes ? `"${tool.userNotes}"` : 'No personal notes added yet.'}
                         </span>
@@ -1137,7 +1137,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             setEditingNotesToolId(tool.toolId);
                             setNotesInput(tool.userNotes || '');
                           }}
-                          style={{ border: 'none', background: 'transparent', color: '#6366f1', cursor: 'pointer', padding: '0 0 0 8px' }}
+                          style={{ border: 'none', background: 'transparent', color: 'var(--aiims-primary)', cursor: 'pointer', padding: '0 0 0 8px' }}
                         >
                           <Edit3 size={12} />
                         </button>
@@ -1145,8 +1145,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                     )}
 
                     {/* Familiarity Selector */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: '#fafafa', padding: '6px 10px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Familiarity:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', backgroundColor: 'var(--aiims-bg-subtle)', padding: '6px 10px', borderRadius: '10px', border: '1px solid var(--aiims-border-subtle)' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>Familiarity:</span>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {(['exploring', 'practicing', 'proficient', 'mastered'] as ToolFamiliarity[]).map((fam) => (
                           <button
@@ -1155,9 +1155,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                             style={{
                               padding: '2px 8px',
                               borderRadius: '6px',
-                              border: tool.familiarity === fam ? '1px solid #6366f1' : '1px solid transparent',
-                              backgroundColor: tool.familiarity === fam ? '#eef2ff' : 'transparent',
-                              color: tool.familiarity === fam ? '#4338ca' : '#94a3b8',
+                              border: tool.familiarity === fam ? '1px solid var(--aiims-primary)' : '1px solid transparent',
+                              backgroundColor: tool.familiarity === fam ? 'var(--aiims-card-banner-bg)' : 'transparent',
+                              color: tool.familiarity === fam ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)',
                               fontSize: '10px',
                               fontWeight: tool.familiarity === fam ? 800 : 600,
                               cursor: 'pointer'
@@ -1217,15 +1217,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <Surface variant="gradient-hero" radius="lg" padding="md">
             <div>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ArrowRightLeft size={20} style={{ color: '#6366f1' }} />
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ArrowRightLeft size={20} style={{ color: 'var(--aiims-primary)' }} />
                 <span>
                   {currentAudienceMode === 'entrepreneur'
                     ? 'Requirement-First Dynamic Tool Comparison (Startup & Commercial)'
                     : 'Requirement-First Dynamic Tool Comparison (Academic & Learning)'}
                 </span>
               </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)' }}>
                 {currentAudienceMode === 'entrepreneur'
                   ? 'Compare 2 to 4 AI tools side-by-side for your venture workflows, MVP builds, or customer validation.'
                   : 'Compare 2 to 4 AI tools side-by-side for your specific coursework, coding assignments, or research tasks.'}
@@ -1237,7 +1237,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           <Surface variant="bordered" radius="lg" padding="md">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--aiims-text-secondary)', marginBottom: '6px' }}>
                   What task are you comparing tools for? (Optional):
                 </label>
                 <input
@@ -1247,11 +1247,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   placeholder={currentAudienceMode === 'entrepreneur'
                     ? "e.g. Analyzing market trends & competitor pricing vs. automated customer outreach..."
                     : "e.g. Analyzing 100-page research PDFs and drafting summaries..."}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #c7d2fe', fontSize: '13px', outline: 'none' }}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--aiims-input-border)', backgroundColor: 'var(--aiims-input-bg)', color: 'var(--aiims-input-text)', fontSize: '13px', outline: 'none' }}
                 />
                 {/* Comparison Preset Chips */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>Quick Tasks:</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>Quick Tasks:</span>
                   {(currentAudienceMode === 'entrepreneur' ? [
                     'Competitor Market Analysis',
                     'MVP Code Scaffolding',
@@ -1283,7 +1283,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: '#475569', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--aiims-text-secondary)', marginBottom: '6px' }}>
                   Select 2 to 4 tools to compare:
                 </label>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -1296,9 +1296,9 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                         style={{
                           padding: '6px 12px',
                           borderRadius: '8px',
-                          border: isSelected ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                          backgroundColor: isSelected ? '#eef2ff' : '#ffffff',
-                          color: isSelected ? '#4338ca' : '#475569',
+                          border: isSelected ? '2px solid var(--aiims-primary)' : '1px solid var(--aiims-border-subtle)',
+                          backgroundColor: isSelected ? 'var(--aiims-card-banner-bg)' : 'var(--aiims-bg-card)',
+                          color: isSelected ? 'var(--aiims-primary)' : 'var(--aiims-text-body)',
                           fontSize: '12px',
                           fontWeight: isSelected ? 800 : 600,
                           cursor: 'pointer'
@@ -1332,10 +1332,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 <Badge variant="purple" icon={<Sparkles size={12} />}>
                   Domain: {reqComparisonData.taskDomain}
                 </Badge>
-                <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '8px 0 4px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '8px 0 4px' }}>
                   How These Tools Fit Your Task
                 </h3>
-                <p style={{ fontSize: '13px', color: '#475569', margin: 0, lineHeight: 1.5 }}>
+                <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary)', margin: 0, lineHeight: 1.5 }}>
                   "{reqComparisonData.overallSynthesis}"
                 </p>
               </div>
@@ -1344,10 +1344,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#f8f7fd', borderBottom: '2px solid #ede9fe' }}>
-                      <th style={{ textAlign: 'left', padding: '12px', color: '#475569', fontWeight: 800 }}>Comparison Criterion</th>
+                    <tr style={{ backgroundColor: 'var(--aiims-bg-subtle)', borderBottom: '2px solid var(--aiims-border-subtle)' }}>
+                      <th style={{ textAlign: 'left', padding: '12px', color: 'var(--aiims-text-secondary)', fontWeight: 800 }}>Comparison Criterion</th>
                       {reqComparisonData.tools.map(t => (
-                        <th key={t.id} style={{ textAlign: 'left', padding: '12px', color: '#1e1b4b', fontWeight: 800, minWidth: '180px' }}>
+                        <th key={t.id} style={{ textAlign: 'left', padding: '12px', color: 'var(--aiims-text-heading)', fontWeight: 800, minWidth: '180px' }}>
                           {t.name}
                         </th>
                       ))}
@@ -1355,33 +1355,33 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                   </thead>
                   <tbody>
                     {reqComparisonData.comparisonCriteria.map((crit, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--aiims-border-subtle)' }}>
+                        <td style={{ padding: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', backgroundColor: 'var(--aiims-bg-subtle)' }}>
                           {crit.criterion}
                         </td>
                         {reqComparisonData.tools.map(t => (
-                          <td key={t.id} style={{ padding: '12px', color: '#334155', lineHeight: 1.45 }}>
+                          <td key={t.id} style={{ padding: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
                             {crit.evaluations[t.id] || 'N/A'}
                           </td>
                         ))}
                       </tr>
                     ))}
-                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                    <tr style={{ borderBottom: '1px solid var(--aiims-border-subtle)' }}>
+                      <td style={{ padding: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', backgroundColor: 'var(--aiims-bg-subtle)' }}>
                         Why It Fits
                       </td>
                       {reqComparisonData.tools.map(t => (
-                        <td key={t.id} style={{ padding: '12px', color: '#047857', fontWeight: 600 }}>
+                        <td key={t.id} style={{ padding: '12px', color: '#059669', fontWeight: 600 }}>
                           {reqComparisonData.fitAnalysis[t.id]?.whyItFits}
                         </td>
                       ))}
                     </tr>
                     <tr>
-                      <td style={{ padding: '12px', fontWeight: 700, color: '#0f172a', backgroundColor: '#fafafa' }}>
+                      <td style={{ padding: '12px', fontWeight: 700, color: 'var(--aiims-text-heading)', backgroundColor: 'var(--aiims-bg-subtle)' }}>
                         Key Trade-off
                       </td>
                       {reqComparisonData.tools.map(t => (
-                        <td key={t.id} style={{ padding: '12px', color: '#b45309', fontWeight: 600 }}>
+                        <td key={t.id} style={{ padding: '12px', color: '#d97706', fontWeight: 600 }}>
                           {reqComparisonData.fitAnalysis[t.id]?.keyTradeoff}
                         </td>
                       ))}
@@ -1401,15 +1401,15 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <Surface variant="gradient-hero" radius="lg" padding="md">
             <div>
-              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <BarChart2 size={20} style={{ color: '#6366f1' }} />
+              <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <BarChart2 size={20} style={{ color: 'var(--aiims-primary)' }} />
                 <span>
                   {currentAudienceMode === 'entrepreneur'
                     ? 'Startup Toolkit Coverage & Ecosystem Capability Gaps'
                     : 'Academic Toolkit Coverage & Capability Gaps'}
                 </span>
               </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)' }}>
                 {currentAudienceMode === 'entrepreneur'
                   ? 'Capability audit across startup workflows, unintegrated ecosystem tools, and domain coverage.'
                   : 'Automated coverage analysis across 35+ major AI domains based on your current AI Wallet tools.'}
@@ -1430,10 +1430,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                       Ecosystem Capability Audit
                     </span>
                   </div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 4px' }}>
                     Identified Missing Startup Capabilities
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#475569', margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary)', margin: 0 }}>
                     The following capability categories represent critical startup workflow gaps currently unrepresented or unintegrated in the active tool catalogue.
                   </p>
                 </div>
@@ -1504,10 +1504,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
             <Surface variant="bordered" radius="lg" padding="lg">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 2px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 2px' }}>
                     Toolkit Domain Coverage: {gapData.coveredCount} of {gapData.totalDomains} Domains Covered
                   </h3>
-                  <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                  <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
                     Adding tools across missing domains rounds out your capabilities for real-world tasks.
                   </p>
                 </div>
@@ -1516,14 +1516,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
               {/* Gaps List */}
               <div className="aiims-card-grid" style={{ gap: '14px' }}>
                 {gapData.gaps.map((gap: any, idx: number) => (
-                  <div key={idx} style={{ padding: '14px', borderRadius: 'var(--aiims-card-radius, 12px)', backgroundColor: '#fef3c7', border: '1px solid #fde68a' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  <div key={idx} style={{ padding: '14px', borderRadius: 'var(--aiims-card-radius, 12px)', backgroundColor: 'var(--aiims-tint-amber-bg)', border: '1px solid var(--aiims-tint-amber-border)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-tint-amber-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
                       UNREPRESENTED DOMAIN
                     </div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#78350f', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '6px' }}>
                       {gap.domain}
                     </div>
-                    <p style={{ fontSize: '12px', color: '#92400e', margin: '0 0 12px', lineHeight: 1.4 }}>
+                    <p style={{ fontSize: '12px', color: 'var(--aiims-tint-amber-text)', margin: '0 0 12px', lineHeight: 1.4 }}>
                       Subdomains: {gap.subdomains.slice(0, 3).join(', ')}
                     </p>
                     <Button
@@ -1552,11 +1552,11 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
           <Surface variant="gradient-hero" radius="lg" padding="md">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#1e1b4b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <ShieldCheck size={20} style={{ color: '#6366f1' }} />
+                <h2 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ShieldCheck size={20} style={{ color: 'var(--aiims-primary)' }} />
                   <span>AI Ecosystem Intelligence & Pipeline Observability</span>
                 </h2>
-                <p style={{ margin: 0, fontSize: '13px', color: '#475569' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)' }}>
                   Real-time pipeline dashboard monitoring discovery runs, evidence verification, source registry health, and unverified candidate queues.
                 </p>
               </div>
@@ -1658,7 +1658,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
           {/* Configured Source Registry */}
           <Surface variant="bordered" radius="lg" padding="md">
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 12px' }}>
               Configured Intelligence Tool Sources
             </h3>
 
@@ -1669,10 +1669,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
                 { id: 'src-huggingface', name: 'Hugging Face Trending AI Models', type: 'API', priority: 3, enabled: true },
                 { id: 'src-news', name: 'AI Product Announcements & RSS Changelogs', type: 'RSS', priority: 4, enabled: true }
               ]).map((src) => (
-                <div key={src.id} style={{ padding: '12px 14px', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid #e2e8f0', backgroundColor: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div key={src.id} style={{ padding: '12px 14px', borderRadius: 'var(--aiims-card-radius, 12px)', border: '1px solid var(--aiims-border-subtle)', backgroundColor: 'var(--aiims-bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{src.name}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>Type: {src.type} • Trust Rank: #{src.priority}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>{src.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>Type: {src.type} • Trust Rank: #{src.priority}</div>
                   </div>
                   <Badge variant={src.enabled ? 'success' : 'neutral'} size="sm">
                     {src.enabled ? 'Active Source' : 'Disabled'}
@@ -1684,12 +1684,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab }) 
 
           {/* Pending Candidates Queue */}
           <Surface variant="bordered" radius="lg" padding="md">
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 12px' }}>
               Discovered Tool Candidates Queue
             </h3>
 
             {adminCandidates.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--aiims-text-muted)', fontSize: '13px' }}>
                 ✓ All discovered tools are verified and integrated. No pending unverified candidates in queue.
               </div>
             ) : (

@@ -325,6 +325,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       minHeight: '100vh',
       width: '100%',
       backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
+      backgroundImage: isDarkMode
+        ? 'radial-gradient(circle at 50% 15%, rgba(139, 92, 246, 0.14) 0%, transparent 60%)'
+        : 'radial-gradient(circle at 50% 15%, rgba(109, 93, 251, 0.08) 0%, transparent 60%)',
       fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
       color: 'var(--aiims-text-primary, #0F172A)',
       display: 'flex',
@@ -633,10 +636,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 2 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
                 Your Academic Identity
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
                 This powers accurate peer benchmarks and ensures your learning context is correct.
               </p>
             </div>
@@ -679,7 +682,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                           setInstituteDropdownOpen(false);
                         }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#0F172A' }}>{inst.name}</div>
+                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--aiims-text-primary, #0F172A)' }}>{inst.name}</div>
                         {inst.city && <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>{inst.city}</div>}
                       </div>
                     ))}
@@ -698,8 +701,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 )}
 
                 {showRequestInstitute && (
-                  <div style={{ marginTop: '8px', padding: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px' }}>
-                    <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 8px' }}>Type your institution name and we'll add it:</p>
+                  <div style={{ marginTop: '8px', padding: '12px', background: 'var(--aiims-bg-subtle, #F8FAFC)', border: '1px solid var(--aiims-border-subtle, #E2E8F0)', borderRadius: '10px' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748B)', margin: '0 0 8px' }}>Type your institution name and we'll add it:</p>
                     <input
                       className="reg-input"
                       type="text"
@@ -741,8 +744,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       className={`reg-stream-card ${stream === s.value ? 'selected' : ''}`}
                       onClick={() => setStream(s.value)}
                     >
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: stream === s.value ? '#4338CA' : '#0F172A', marginBottom: '2px' }}>{s.label}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B', lineHeight: 1.4 }}>{s.description}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: stream === s.value ? 'var(--aiims-accent-primary, #4338CA)' : 'var(--aiims-text-primary, #0F172A)', marginBottom: '2px' }}>{s.label}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #64748B)', lineHeight: 1.4 }}>{s.description}</div>
                     </button>
                   ))}
                 </div>
@@ -856,10 +859,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 3 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
                 Your AI Profile
               </h2>
-              <p style={{ fontSize: '14px', color: '#64748B', margin: 0 }}>
+              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
                 This personalizes your learning journey. It does <strong>not</strong> affect your capability score.
               </p>
             </div>
@@ -878,8 +881,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         borderRadius: '10px',
-                        border: `1.5px solid ${aiFamiliarity === opt.value ? '#5B4BFF' : '#E2E8F0'}`,
-                        background: aiFamiliarity === opt.value ? 'rgba(91,75,255,0.07)' : '#fff',
+                        border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'var(--aiims-border-card, #E2E8F0)'}`,
+                        background: aiFamiliarity === opt.value ? 'var(--aiims-accent-glow, rgba(91,75,255,0.07))' : 'var(--aiims-bg-card, #fff)',
                         cursor: 'pointer',
                         textAlign: 'left',
                         fontFamily: 'inherit',
@@ -891,15 +894,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     >
                       <div style={{
                         width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                        border: `2px solid ${aiFamiliarity === opt.value ? '#5B4BFF' : '#CBD5E1'}`,
-                        background: aiFamiliarity === opt.value ? '#5B4BFF' : 'transparent',
+                        border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'var(--aiims-border-card, #CBD5E1)'}`,
+                        background: aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'transparent',
                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                       }}>
                         {aiFamiliarity === opt.value && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
                       </div>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: aiFamiliarity === opt.value ? '#4338CA' : '#0F172A' }}>{opt.label}</div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>{opt.description}</div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #4338CA)' : 'var(--aiims-text-primary, #0F172A)' }}>{opt.label}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94A3B8)', marginTop: '1px' }}>{opt.description}</div>
                       </div>
                     </button>
                   ))}
@@ -981,7 +984,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         </div>
 
         {/* Sign in link */}
-        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: '#64748B' }}>
+        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)' }}>
           Already have an account?{' '}
           <button type="button" onClick={onNavigateToLogin}
             style={{ background: 'none', border: 'none', color: '#5B4BFF', fontWeight: 700, cursor: 'pointer', padding: 0, fontSize: 'inherit', fontFamily: 'inherit' }}>

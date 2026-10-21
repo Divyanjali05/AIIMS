@@ -156,7 +156,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
             </button>
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px', color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px', color: 'var(--aiims-text-heading, #0f172a)', fontFamily: "'Fredoka', sans-serif" }}>
             {forYouItem.signal.title}
           </h2>
 
@@ -249,7 +249,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* ========================================================================= */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
             🔥 Trending AI Domains
           </h2>
           {activeDomainFilter && (
@@ -275,19 +275,19 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                 style={{
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  border: isSelected ? '2px solid #0284c7' : '1px solid #e2e8f0'
+                  border: isSelected ? '2px solid var(--aiims-primary, #0284c7)' : '1px solid var(--aiims-border-card, #e2e8f0)'
                 }}
                 onClick={() => setActiveDomainFilter(isSelected ? null : dom.filterKey)}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: isSelected ? '#0284c7' : '#e0f2fe', color: isSelected ? '#ffffff' : '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: isSelected ? 'var(--aiims-primary, #0284c7)' : 'var(--aiims-card-sky-bg, #e0f2fe)', color: isSelected ? '#ffffff' : 'var(--aiims-card-sky-text, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={14} />
                   </div>
-                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
                     {dom.name}
                   </h3>
                 </div>
-                <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                <p style={{ margin: 0, fontSize: '11px', color: 'var(--aiims-text-secondary, #64748b)', lineHeight: 1.4 }}>
                   {dom.desc}
                 </p>
               </Surface>
@@ -300,13 +300,13 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* SECTION 1: WHAT'S NEW */}
       {/* ========================================================================= */}
       <div>
-        <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
           📡 What's New in AI {activeDomainFilter ? `(${activeDomainFilter})` : ''}
         </h2>
 
         {whatsNewItems.length === 0 ? (
           <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)' }}>
               No active developments matching this filter.
             </p>
           </Surface>
@@ -396,7 +396,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* ========================================================================= */}
       {savedSignals.length > 0 && (
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif", display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif", display: 'flex', alignItems: 'center', gap: '8px' }}>
             <BookmarkCheck size={18} style={{ color: '#059669' }} />
             <span>Saved Signals ({savedSignals.length})</span>
           </h2>
@@ -415,11 +415,11 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                     </button>
                   </div>
 
-                  <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
                     {sig.title}
                   </h3>
 
-                  <p style={{ margin: 0, fontSize: '12px', color: '#064e3b', lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--aiims-card-mint-text, #064e3b)', lineHeight: 1.4 }}>
                     {sig.summary}
                   </p>
                 </div>
