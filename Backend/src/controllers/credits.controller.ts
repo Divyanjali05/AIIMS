@@ -124,39 +124,21 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         });
       }
 
-      const tx = {
-        id: `tx-level-${numLevel}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        transactionType: 'LEVEL_COMPLETION',
-        type: 'EARN' as const,
+      // Record in CreditLedger via server-authoritative service
+      const ledgerResult = await creditsLedgerService.executeTransaction({
+        userId,
+        type: 'EARN',
+        category: 'REWARD',
+        amount: rewardAmount,
+        reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
         source: 'ASSESSMENT',
         sourceId,
-        amount: rewardAmount,
-        description: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance: req.user.aiimsCredits || 0,
-        newBalance: (req.user.aiimsCredits || 0) + rewardAmount
-      };
+        idempotencyKey
+      });
 
-      const updatedUser = await User.findOneAndUpdate(
-        {
-          _id: req.user._id,
-          'transactions.sourceId': { $nin: [sourceId, altSourceId] }
-        },
-        {
-          $inc: { aiimsCredits: rewardAmount, xpPoints: xpAmount },
-          $push: {
-            transactions: {
-              $each: [tx],
-              $position: 0
-            }
-          }
-        },
-        { returnDocument: 'after' }
-      );
-
-      if (!updatedUser) {
+      if (!ledgerResult.success || ledgerResult.duplicate) {
         const latestUser = await User.findById(req.user._id);
-        const currentBal = latestUser?.aiimsCredits ?? req.user.aiimsCredits;
+        const currentBal = latestUser?.aiimsCredits ?? ledgerResult.balance ?? req.user.aiimsCredits;
         return res.json({
           awarded: false,
           message: `Level 0${numLevel} credits already awarded`,
@@ -167,24 +149,36 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         });
       }
 
-      // Record in CreditLedger via service
-      await creditsLedgerService.executeTransaction({
-        userId,
-        type: 'EARN',
-        category: 'REWARD',
-        amount: rewardAmount,
-        reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        { $inc: { xpPoints: xpAmount } },
+        { returnDocument: 'after' }
+      );
+
+      if (updatedUser) {
+        req.user = updatedUser;
+      }
+
+      const finalBal = ledgerResult.balance ?? req.user.aiimsCredits;
+
+      const tx = ledgerResult.transaction || {
+        id: `tx-level-${numLevel}-${Date.now()}`,
+        transactionType: 'LEVEL_COMPLETION',
+        type: 'EARN' as const,
         source: 'ASSESSMENT',
         sourceId,
-        idempotencyKey
-      }).catch((e) => console.warn('[Credits] Ledger dual-write warning:', e.message));
+        amount: rewardAmount,
+        description: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        previousBalance: ledgerResult.previousBalance ?? (finalBal - rewardAmount),
+        newBalance: finalBal
+      };
 
-      req.user = updatedUser;
       return res.json({
         awarded: true,
         amount: rewardAmount,
-        previousBalance: tx.previousBalance,
-        newBalance: updatedUser.aiimsCredits,
+        previousBalance: ledgerResult.previousBalance ?? (finalBal - rewardAmount),
+        newBalance: finalBal,
         transaction: tx
       });
     }

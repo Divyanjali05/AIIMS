@@ -461,7 +461,7 @@ async function run() {
   const tamperBlocked =
     tamperData.state?.profile?.aiimsCredits === 210 &&
     tamperData.state?.credits?.balance === 210 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 210 && dbUser?.transactions?.length! > 0));
+    (!isDbConnected || (dbUser?.aiimsCredits === 210 && (dbUser?.transactions?.length ?? 0) > 0));
 
   record(
     'Protection Against PUT /learner/state Balance Overwrite',

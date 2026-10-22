@@ -67,32 +67,15 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
 
   if (req.user) {
     if (mongoose.connection.readyState === 1 && req.user._id) {
-      const tx = {
-        id: `tx-inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        transactionType: 'SIGNAL_INVESTIGATION',
-        type: 'EARN' as const,
-        source: 'RADAR',
-        sourceId: signalId,
-        amount: reward,
-        description: `Investigated Signal: ${signalId} (+${reward} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance: req.user.aiimsCredits || 0,
-        newBalance: (req.user.aiimsCredits || 0) + reward
-      };
-
       const updatedUser = await User.findOneAndUpdate(
         {
           _id: req.user._id,
           'radar.investigatedSignalIds': { $ne: signalId }
         },
         {
-          $inc: { aiimsCredits: reward, xpPoints: xpReward },
+          $inc: { xpPoints: xpReward },
           $push: {
-            'radar.investigatedSignalIds': signalId,
-            transactions: {
-              $each: [tx],
-              $position: 0
-            }
+            'radar.investigatedSignalIds': signalId
           },
           $set: {
             [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
@@ -106,7 +89,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
       if (updatedUser) {
         req.user = updatedUser;
         const userId = String(req.user._id || req.user.id);
-        await creditsLedgerService.executeTransaction({
+        const ledgerResult = await creditsLedgerService.executeTransaction({
           userId,
           type: 'EARN',
           category: 'REWARD',
@@ -115,14 +98,17 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           source: 'RADAR',
           sourceId: signalId,
           idempotencyKey: `investigation::${userId}::${signalId}`
-        }).catch((e) => console.warn('[Investigation] Ledger dual-write warning:', e.message));
+        });
+
+        const newBal = ledgerResult.balance ?? updatedUser.aiimsCredits;
+        req.user.aiimsCredits = newBal;
 
         return res.json({
           message: `Investigation recorded. ${reward} AIIMS Credits earned!`,
           personalInterpretation,
           creditsEarned: reward,
           awarded: true,
-          newBalance: updatedUser.aiimsCredits
+          newBalance: newBal
         });
       } else {
         await User.updateOne(

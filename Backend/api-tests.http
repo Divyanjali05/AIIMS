@@ -1,0 +1,30 @@
+### AIIMS API Testing Suite (REST Client)
+### Compatible with humao.rest-client
+
+@baseUrl = http://localhost:5001
+
+### 1. API Health Check
+GET {{baseUrl}}/health
+
+### 2. User Authentication (Login)
+# @name loginRequest
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@aiims.edu",
+  "password": "Password123!"
+}
+
+### 3. Fetch User Profile
+@authToken = {{loginRequest.response.body.token}}
+GET {{baseUrl}}/api/users/profile
+Authorization: Bearer {{authToken}}
+
+### 4. Fetch AI Wallet Recommendations
+GET {{baseUrl}}/api/wallet/recommendations
+Authorization: Bearer {{authToken}}
+
+### 5. Fetch Credits Balance & Ledger
+GET {{baseUrl}}/api/credits/balance
+Authorization: Bearer {{authToken}}

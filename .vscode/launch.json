@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Backend (Express Server)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/Backend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ts-node", "src/server.ts"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "restart": true,
+      "env": {
+        "NODE_ENV": "development",
+        "PORT": "5001"
+      }
+    },
+    {
+      "name": "Debug Security Test Suite",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/Backend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ts-node", "src/scripts/testPhase1Security.ts"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug Scoring Test Suite",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/Backend",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["ts-node", "src/scripts/runScoringTests.ts"],
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Launch Frontend (Chrome/Edge)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/Frontend/src"
+    }
+  ]
+}

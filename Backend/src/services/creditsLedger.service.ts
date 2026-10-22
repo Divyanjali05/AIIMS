@@ -262,6 +262,20 @@ export class CreditsLedgerService {
           transaction: ledgerEntry.toJSON ? ledgerEntry.toJSON() : ledgerEntry
         };
       } catch (err: any) {
+        // Rollback the speculative User balance & legacy transaction modification
+        const rollbackInc = type === 'SPEND' ? numAmount : -numAmount;
+        try {
+          await User.findOneAndUpdate(
+            { _id: userId },
+            {
+              $inc: { aiimsCredits: rollbackInc },
+              $pull: { transactions: { id: txId } }
+            }
+          );
+        } catch (rollbackErr: any) {
+          console.error('[CreditsLedgerService] Failed to rollback speculative User update:', rollbackErr);
+        }
+
         // In case of unique index violation on { userId, idempotencyKey }
         if (err.code === 11000 && idempotencyKey) {
           const existingTx = await CreditLedger.findOne({ userId, idempotencyKey });
@@ -270,28 +284,18 @@ export class CreditsLedgerService {
               success: true,
               duplicate: true,
               balance: existingTx.balanceAfter,
+              previousBalance: existingTx.balanceBefore,
+              newBalance: existingTx.balanceAfter,
               transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx
             };
           }
         }
-        console.error('[CreditsLedgerService] Failed to record ledger entry:', err);
+        console.error('[CreditsLedgerService] Failed to record ledger entry; balance rolled back:', err);
         return {
-          success: true,
-          balance: balanceAfter,
-          previousBalance: balanceBefore,
-          newBalance: balanceAfter,
-          transaction: {
-            id: txId,
-            userId,
-            type,
-            category,
-            amount: numAmount,
-            balanceBefore,
-            balanceAfter,
-            reason,
-            source,
-            status: 'COMPLETED'
-          }
+          success: false,
+          code: 'LEDGER_WRITE_FAILED',
+          error: 'Failed to record ledger entry; user balance was not modified.',
+          balance: balanceBefore
         };
       }
     }

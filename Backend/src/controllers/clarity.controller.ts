@@ -216,115 +216,8 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
         taskId
       );
 
-      if (mongoose.connection.readyState === 1 && req.user._id) {
-        const tx = {
-          id: `tx-clarity-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          transactionType: 'TASK_COMPLETION',
-          type: 'EARN' as const,
-          source: 'CLARITY_TASK',
-          sourceId: actionKey,
-          amount: rewardCredits,
-          description: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
-          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          previousBalance: req.user.aiimsCredits || 0,
-          newBalance: (req.user.aiimsCredits || 0) + rewardCredits
-        };
-
-        const updatedUser = await User.findOneAndUpdate(
-          {
-            _id: req.user._id,
-            'transactions.sourceId': { $ne: actionKey }
-          },
-          {
-            $inc: { aiimsCredits: rewardCredits, xpPoints: rewardXP },
-            $push: {
-              transactions: {
-                $each: [tx],
-                $position: 0
-              }
-            }
-          },
-          { returnDocument: 'after' }
-        );
-
-        if (!updatedUser) {
-          const currentBal = await creditsLedgerService.getBalance(userId);
-          const latestUser = await User.findById(req.user._id);
-          const currentXP = latestUser?.xpPoints ?? req.user.xpPoints;
-          return res.json({
-            success: true,
-            awarded: false,
-            message: 'Task credits already claimed',
-            rewardXP: 0,
-            rewardCredits: 0,
-            totalCredits: currentBal,
-            totalXP: currentXP,
-            actionKey
-          });
-        }
-
-        // Dual-write to CreditLedger
-        await creditsLedgerService.executeTransaction({
-          userId,
-          type: 'EARN',
-          category: 'REWARD',
-          amount: rewardCredits,
-          reason: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
-          source: 'CLARITY_TASK',
-          sourceId: actionKey,
-          idempotencyKey: actionKey
-        }).catch((e) => console.warn('[Clarity] Ledger dual-write warning:', e.message));
-
-        req.user = updatedUser;
-        return res.json({
-          success: true,
-          awarded: true,
-          rewardXP,
-          rewardCredits,
-          totalCredits: updatedUser.aiimsCredits,
-          totalXP: updatedUser.xpPoints,
-          transaction: tx,
-          actionKey
-        });
-      }
-
-      const alreadyAwarded = req.user.transactions?.some(t => t.sourceId === actionKey);
-
-      if (alreadyAwarded) {
-        return res.json({
-          success: true,
-          awarded: false,
-          message: 'Task credits already claimed',
-          rewardXP: 0,
-          rewardCredits: 0,
-          totalCredits: req.user.aiimsCredits,
-          totalXP: req.user.xpPoints,
-          actionKey
-        });
-      }
-
-      const previousBalance = req.user.aiimsCredits || 0;
-      req.user.aiimsCredits = previousBalance + rewardCredits;
-      req.user.xpPoints = (req.user.xpPoints || 0) + rewardXP;
-
-      const tx = {
-        id: `tx-clarity-${Date.now()}`,
-        transactionType: 'TASK_COMPLETION',
-        type: 'EARN' as const,
-        source: 'CLARITY_TASK',
-        sourceId: actionKey,
-        amount: rewardCredits,
-        description: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance,
-        newBalance: req.user.aiimsCredits
-      };
-
-      req.user.transactions = req.user.transactions || [];
-      req.user.transactions.unshift(tx);
-
-      // Dual-write to CreditLedger in offline mode
-      await creditsLedgerService.executeTransaction({
+      // Server-authoritative single credit mutation through creditsLedgerService
+      const ledgerResult = await creditsLedgerService.executeTransaction({
         userId,
         type: 'EARN',
         category: 'REWARD',
@@ -333,15 +226,66 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
         source: 'CLARITY_TASK',
         sourceId: actionKey,
         idempotencyKey: actionKey
-      }).catch((e) => console.warn('[Clarity] Ledger offline dual-write warning:', e.message));
+      });
+
+      if (!ledgerResult.success || ledgerResult.duplicate) {
+        const currentBal = ledgerResult.balance ?? (await creditsLedgerService.getBalance(userId));
+        let currentXP = req.user.xpPoints || 0;
+        if (mongoose.connection.readyState === 1 && req.user._id) {
+          const latestUser = await User.findById(req.user._id);
+          currentXP = latestUser?.xpPoints ?? currentXP;
+        }
+        return res.json({
+          success: true,
+          awarded: false,
+          message: 'Task credits already claimed',
+          rewardXP: 0,
+          rewardCredits: 0,
+          totalCredits: currentBal,
+          totalXP: currentXP,
+          actionKey
+        });
+      }
+
+      // Successful first-time award: increment XP
+      let totalXP = (req.user.xpPoints || 0) + rewardXP;
+      const finalBal = ledgerResult.balance ?? (await creditsLedgerService.getBalance(userId));
+
+      if (mongoose.connection.readyState === 1 && req.user._id) {
+        const updatedUser = await User.findByIdAndUpdate(
+          req.user._id,
+          { $inc: { xpPoints: rewardXP } },
+          { returnDocument: 'after' }
+        );
+        if (updatedUser) {
+          req.user = updatedUser;
+          totalXP = updatedUser.xpPoints;
+        }
+      } else {
+        req.user.xpPoints = totalXP;
+        req.user.aiimsCredits = finalBal;
+      }
+
+      const tx = ledgerResult.transaction || {
+        id: `tx-clarity-${Date.now()}`,
+        transactionType: 'TASK_COMPLETION',
+        type: 'EARN' as const,
+        source: 'CLARITY_TASK',
+        sourceId: actionKey,
+        amount: rewardCredits,
+        description: `Completed Clarity AI Task: ${topic} (${difficulty.toUpperCase()}) (+${rewardCredits} AC)`,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        previousBalance: ledgerResult.previousBalance ?? (finalBal - rewardCredits),
+        newBalance: finalBal
+      };
 
       return res.json({
         success: true,
         awarded: true,
         rewardXP,
         rewardCredits,
-        totalCredits: req.user.aiimsCredits,
-        totalXP: req.user.xpPoints,
+        totalCredits: finalBal,
+        totalXP,
         transaction: tx,
         actionKey
       });

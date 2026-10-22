@@ -7,6 +7,11 @@
     "start": "ts-node src/server.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "migrate:passwords": "ts-node src/scripts/migratePasswords.ts",
     "seed:tools": "ts-node src/scripts/seedToolCatalog.ts",
     "test:phase2a": "ts-node src/scripts/testPhase2A.ts",
@@ -31,8 +36,11 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.12.12",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.71.2"
   }
 }

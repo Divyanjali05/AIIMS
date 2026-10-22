@@ -91,19 +91,6 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
 
   if (req.user) {
     if (mongoose.connection.readyState === 1 && req.user._id) {
-      const tx = {
-        id: `tx-assess-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        transactionType: 'LEVEL_COMPLETION',
-        type: 'EARN' as const,
-        source: 'ASSESSMENT',
-        sourceId: 'DIAGNOSTIC_ASSESSMENT',
-        amount: creditReward,
-        description: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance: req.user.aiimsCredits || 0,
-        newBalance: (req.user.aiimsCredits || 0) + creditReward
-      };
-
       // Atomic reward claim: only matches if assessment.rewardClaimed is NOT true
       const updatedUser = await User.findOneAndUpdate(
         {
@@ -111,13 +98,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           'assessment.rewardClaimed': { $ne: true }
         },
         {
-          $inc: { aiimsCredits: creditReward, xpPoints: xpReward },
-          $push: {
-            transactions: {
-              $each: [tx],
-              $position: 0
-            }
-          },
+          $inc: { xpPoints: xpReward },
           $set: {
             stage: 'Understanding',
             'assessment.status': 'completed',
@@ -139,7 +120,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       if (updatedUser) {
         req.user = updatedUser;
         const userId = String(req.user._id || req.user.id);
-        await creditsLedgerService.executeTransaction({
+        const ledgerResult = await creditsLedgerService.executeTransaction({
           userId,
           type: 'EARN',
           category: 'REWARD',
@@ -148,7 +129,10 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           source: 'ASSESSMENT',
           sourceId: 'DIAGNOSTIC_ASSESSMENT',
           idempotencyKey: `assessment::${userId}::completed`
-        }).catch((e) => console.warn('[Assessment] Ledger dual-write warning:', e.message));
+        });
+
+        const newBal = ledgerResult.balance ?? updatedUser.aiimsCredits;
+        req.user.aiimsCredits = newBal;
 
         return res.json({
           message: 'Assessment completed and saved to MongoDB Atlas!',
@@ -157,7 +141,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           scores: evaluationResult.legacyScores,
           topCapability: evaluationResult.strongestSkill.name,
           growthArea: evaluationResult.roomToGrow.name,
-          updatedBalance: updatedUser.aiimsCredits,
+          updatedBalance: newBal,
           updatedScores: updatedUser.assessment.scores
         });
       } else {
