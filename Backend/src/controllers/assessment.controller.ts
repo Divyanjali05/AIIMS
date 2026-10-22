@@ -131,7 +131,9 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           idempotencyKey: `assessment::${userId}::completed`
         });
 
-        const newBal = ledgerResult.balance ?? updatedUser.aiimsCredits;
+        const latestUser = await User.findById(req.user._id);
+        if (latestUser) req.user = latestUser;
+        const newBal = ledgerResult.balance ?? req.user.aiimsCredits ?? updatedUser.aiimsCredits;
         req.user.aiimsCredits = newBal;
 
         return res.json({
@@ -142,7 +144,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           topCapability: evaluationResult.strongestSkill.name,
           growthArea: evaluationResult.roomToGrow.name,
           updatedBalance: newBal,
-          updatedScores: updatedUser.assessment.scores
+          updatedScores: req.user.assessment?.scores || updatedUser.assessment.scores
         });
       } else {
         // Already claimed: update answers & scores atomically without re-awarding credits

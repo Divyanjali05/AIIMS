@@ -124,8 +124,8 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         });
       }
 
-      // Record in CreditLedger via server-authoritative service
-      const ledgerResult = await creditsLedgerService.executeTransaction({
+      // Server-authoritative credit grant via CreditLedger
+      const txResult = await creditsLedgerService.executeTransaction({
         userId,
         type: 'EARN',
         category: 'REWARD',
@@ -136,9 +136,9 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         idempotencyKey
       });
 
-      if (!ledgerResult.success || ledgerResult.duplicate) {
+      if (!txResult.success || txResult.duplicate) {
         const latestUser = await User.findById(req.user._id);
-        const currentBal = latestUser?.aiimsCredits ?? ledgerResult.balance ?? req.user.aiimsCredits;
+        const currentBal = latestUser?.aiimsCredits ?? txResult.balance ?? req.user.aiimsCredits;
         return res.json({
           awarded: false,
           message: `Level 0${numLevel} credits already awarded`,
@@ -149,37 +149,22 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         });
       }
 
+      // Update XP points on user document
       const updatedUser = await User.findByIdAndUpdate(
         req.user._id,
         { $inc: { xpPoints: xpAmount } },
         { returnDocument: 'after' }
       );
+      if (updatedUser) req.user = updatedUser;
 
-      if (updatedUser) {
-        req.user = updatedUser;
-      }
-
-      const finalBal = ledgerResult.balance ?? req.user.aiimsCredits;
-
-      const tx = ledgerResult.transaction || {
-        id: `tx-level-${numLevel}-${Date.now()}`,
-        transactionType: 'LEVEL_COMPLETION',
-        type: 'EARN' as const,
-        source: 'ASSESSMENT',
-        sourceId,
-        amount: rewardAmount,
-        description: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance: ledgerResult.previousBalance ?? (finalBal - rewardAmount),
-        newBalance: finalBal
-      };
+      const finalBal = txResult.balance ?? req.user.aiimsCredits;
 
       return res.json({
         awarded: true,
         amount: rewardAmount,
-        previousBalance: ledgerResult.previousBalance ?? (finalBal - rewardAmount),
+        previousBalance: txResult.previousBalance ?? (finalBal - rewardAmount),
         newBalance: finalBal,
-        transaction: tx
+        transaction: txResult.transaction
       });
     }
 

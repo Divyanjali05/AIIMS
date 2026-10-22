@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-export type ThemeMode = 'light' | 'dark';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 interface ThemeContextType {
-  theme: ThemeMode;
+  theme: 'light' | 'dark';
+  mode: ThemeMode;
   isDarkMode: boolean;
+  isDark?: boolean;
+  activeTheme?: 'light' | 'dark';
+  themeMode?: ThemeMode;
   toggleTheme: () => void;
-  setTheme: (theme: ThemeMode) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const THEME_STORAGE_KEY = 'aiims_theme';
@@ -14,29 +19,38 @@ const THEME_STORAGE_KEY = 'aiims_theme';
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
+  const getSystemTheme = (): 'light' | 'dark' => {
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  };
+
+  const [mode, setModeState] = useState<ThemeMode>(() => {
     try {
-      const saved = localStorage.getItem(THEME_STORAGE_KEY);
-      if (saved === 'dark' || saved === 'light') {
+      const saved = localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode;
+      if (saved === 'dark' || saved === 'light' || saved === 'system') {
         return saved;
-      }
-      // Check system preference fallback if not explicitly stored
-      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        return 'dark';
       }
     } catch (e) {
       // Fallback
     }
-    return 'light';
+    return 'system';
+  });
+
+  const [theme, setThemeState] = useState<'light' | 'dark'>(() => {
+    if (mode === 'system') return getSystemTheme();
+    return mode;
   });
 
   const isDarkMode = theme === 'dark';
 
-  const applyThemeToDOM = (mode: ThemeMode) => {
+  const applyThemeToDOM = (activeTheme: 'light' | 'dark') => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    root.setAttribute('data-theme', mode);
-    if (mode === 'dark') {
+    root.setAttribute('data-theme', activeTheme);
+    root.style.colorScheme = activeTheme;
+    if (activeTheme === 'dark') {
       root.classList.add('dark-theme');
       root.classList.remove('light-theme');
     } else {
@@ -44,25 +58,41 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       root.classList.add('light-theme');
     }
 
-    // Ensure document.body inherits the page background token
-    document.body.style.backgroundColor = mode === 'dark' ? '#0f172a' : '#f8f7fd';
-    document.body.style.color = mode === 'dark' ? '#cbd5e1' : '#334155';
+    // Ensure document.body inherits the page background and text tokens
+    document.body.style.backgroundColor = 'var(--aiims-bg-page)';
+    document.body.style.color = 'var(--aiims-text-body)';
   };
 
+  // Recompute theme when mode changes
   useEffect(() => {
-    applyThemeToDOM(theme);
+    const activeTheme = mode === 'system' ? getSystemTheme() : mode;
+    setThemeState(activeTheme);
+    applyThemeToDOM(activeTheme);
     try {
-      localStorage.setItem(THEME_STORAGE_KEY, theme);
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
     } catch (e) {
       console.warn('Failed to persist theme preference:', e);
     }
-  }, [theme]);
+  }, [mode]);
+
+  // Listen for system theme changes when mode is 'system'
+  useEffect(() => {
+    if (mode !== 'system' || typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      const newTheme = e.matches ? 'dark' : 'light';
+      setThemeState(newTheme);
+      applyThemeToDOM(newTheme);
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [mode]);
 
   // Listen for storage events across tabs
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === THEME_STORAGE_KEY && (e.newValue === 'light' || e.newValue === 'dark')) {
-        setThemeState(e.newValue);
+      if (e.key === THEME_STORAGE_KEY && (e.newValue === 'light' || e.newValue === 'dark' || e.newValue === 'system')) {
+        setModeState(e.newValue as ThemeMode);
       }
     };
     window.addEventListener('storage', handleStorageChange);
@@ -70,17 +100,31 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setModeState((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  const setTheme = (newTheme: ThemeMode) => {
-    if (newTheme === 'light' || newTheme === 'dark') {
-      setThemeState(newTheme);
-    }
+  const setTheme = (newTheme: 'light' | 'dark') => {
+    setModeState(newTheme);
+  };
+
+  const setThemeMode = (newMode: ThemeMode) => {
+    setModeState(newMode);
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        mode,
+        isDarkMode,
+        isDark: isDarkMode,
+        activeTheme: theme,
+        themeMode: mode,
+        toggleTheme,
+        setTheme,
+        setThemeMode
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

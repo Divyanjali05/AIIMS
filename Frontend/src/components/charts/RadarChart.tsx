@@ -40,6 +40,21 @@ export const RadarChart: React.FC<RadarChartProps> = ({ scores, size = 320 }) =>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <svg width={size} height={size} style={{ overflow: 'visible' }}>
+        <defs>
+          <radialGradient id="radarRadialGlow" cx="50%" cy="50%" r="50%">
+            <stop
+              offset="0%"
+              stopColor="var(--aiims-primary-glow, rgba(99, 102, 241, 0.18))"
+            />
+            <stop
+              offset="100%"
+              stopColor="transparent"
+            />
+          </radialGradient>
+        </defs>
+
+        <circle cx={center} cy={center} r={radius} fill="url(#radarRadialGlow)" />
+
         {/* Background Grid Circles */}
         {levels.map((level, idx) => (
           <circle

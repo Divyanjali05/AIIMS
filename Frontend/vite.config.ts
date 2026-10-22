@@ -14,11 +14,13 @@ export default defineConfig({
     }
   },
   build: {
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom'],
-          'vendor-icons': ['lucide-react']
+          'vendor-icons': ['lucide-react'],
+          'vendor-three': ['three', '@react-three/fiber', '@react-three/drei']
         }
       }
     }

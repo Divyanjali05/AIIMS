@@ -552,11 +552,11 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
               }}>
                 <Zap size={18} />
               </div>
-              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                 3. Try This — Level 2 Interactive AI Tasks
               </h2>
             </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#0369a1', lineHeight: 1.45 }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)', lineHeight: 1.45 }}>
               Hands-on practical execution for <strong>{topicName}</strong>. Engineer prompts, run live with AI, inspect outputs, and earn individual task evaluation scores.
             </p>
           </div>
@@ -598,10 +598,10 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                   borderRadius: '12px',
                   cursor: 'pointer',
                   border: isCurrent
-                    ? '2px solid #0284c7'
-                    : '1px solid #bae6fd',
-                  backgroundColor: isCurrent ? '#ffffff' : 'rgba(255,255,255,0.7)',
-                  boxShadow: isCurrent ? '0 4px 12px rgba(2, 132, 199, 0.15)' : 'none',
+                    ? '2px solid var(--aiims-primary)'
+                    : '1px solid var(--aiims-border-subtle)',
+                  backgroundColor: isCurrent ? 'var(--aiims-bg-card)' : 'var(--aiims-bg-subtle)',
+                  boxShadow: isCurrent ? 'var(--aiims-shadow-card)' : 'none',
                   transition: 'all 0.18s ease',
                   display: 'flex',
                   flexDirection: 'column',
@@ -614,7 +614,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     color: task.badgeColor,
-                    backgroundColor: task.difficulty === 'easy' ? '#ecfdf5' : task.difficulty === 'medium' ? '#fef3c7' : '#f3e8ff',
+                    backgroundColor: task.difficulty === 'easy' ? 'var(--aiims-tint-emerald-bg)' : task.difficulty === 'medium' ? 'var(--aiims-tint-amber-bg)' : 'var(--aiims-tint-indigo-bg)',
                     padding: '3px 8px',
                     borderRadius: '6px'
                   }}>
@@ -633,17 +633,17 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                       <CheckCircle2 size={14} /> {saved.score}/100
                     </span>
                   ) : (
-                    <span style={{ fontSize: '11px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Clock size={12} /> Ready
                     </span>
                   )}
                 </div>
 
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', lineHeight: 1.3 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--aiims-text-heading)', lineHeight: 1.3 }}>
                   {task.title}
                 </div>
 
-                <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '12px', color: 'var(--aiims-text-secondary)', lineHeight: 1.4 }}>
                   {task.tagline}
                 </div>
               </div>
@@ -656,8 +656,8 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
       {showLegacyQuiz && legacyTryThis && (
         <Surface variant="bordered" radius="lg" padding="lg">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <HelpCircle style={{ width: '18px', height: '18px', color: '#0284c7' }} />
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+            <HelpCircle style={{ width: '18px', height: '18px', color: 'var(--aiims-primary)' }} />
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
               Concept Check: {legacyTryThis.question}
             </h3>
           </div>
@@ -672,8 +672,8 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                   style={{
                     padding: '12px 16px',
                     borderRadius: '10px',
-                    border: isSelected ? '2px solid #059669' : '1px solid #e2e8f0',
-                    backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
+                    border: isSelected ? '2px solid #059669' : '1px solid var(--aiims-border-subtle)',
+                    backgroundColor: isSelected ? 'var(--aiims-card-mint-bg)' : 'var(--aiims-bg-card)',
                     cursor: 'pointer'
                   }}
                 >
@@ -682,8 +682,8 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                       width: '24px',
                       height: '24px',
                       borderRadius: '6px',
-                      backgroundColor: isSelected ? '#059669' : '#f1f5f9',
-                      color: isSelected ? '#ffffff' : '#334155',
+                      backgroundColor: isSelected ? '#059669' : 'var(--aiims-bg-subtle)',
+                      color: isSelected ? '#ffffff' : 'var(--aiims-text-body)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -693,9 +693,9 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                       {option.id}
                     </div>
                     <div>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{option.text}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--aiims-text-heading)' }}>{option.text}</div>
                       {isSelected && (
-                        <div style={{ marginTop: '6px', fontSize: '12px', color: option.isRecommended ? '#047857' : '#475569' }}>
+                        <div style={{ marginTop: '6px', fontSize: '12px', color: option.isRecommended ? '#059669' : 'var(--aiims-text-secondary)' }}>
                           <strong>{option.isRecommended ? 'Correct: ' : 'Analysis: '}</strong> {option.explanation}
                         </div>
                       )}
@@ -722,55 +722,55 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                     fontWeight: 800,
                     textTransform: 'uppercase',
                     color: currentTask.badgeColor,
-                    backgroundColor: '#f1f5f9',
+                    backgroundColor: 'var(--aiims-bg-subtle)',
                     padding: '2px 6px',
                     borderRadius: '4px'
                   }}>
                     {currentTask.difficultyLabel}
                   </span>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>• Real-World Challenge</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>• Real-World Challenge</span>
                 </div>
 
-                <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                   {currentTask.title}
                 </h3>
 
-                <p style={{ margin: '0 0 10px', fontSize: '13px', color: '#334155', lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 10px', fontSize: '13px', color: 'var(--aiims-text-body)', lineHeight: 1.5 }}>
                   {currentTask.scenario}
                 </p>
 
                 <div style={{
                   padding: '10px 12px',
-                  backgroundColor: '#f8fafc',
+                  backgroundColor: 'var(--aiims-bg-subtle)',
                   borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid var(--aiims-border-subtle)',
                   fontSize: '12px',
-                  color: '#0f172a'
+                  color: 'var(--aiims-text-heading)'
                 }}>
-                  <strong style={{ color: '#0369a1' }}>Target Goal: </strong>
+                  <strong style={{ color: 'var(--aiims-primary)' }}>Target Goal: </strong>
                   {currentTask.objective}
                 </div>
               </div>
 
               {/* RUBRIC TARGETS */}
-              <div style={{ backgroundColor: '#f0fdf4', padding: '14px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+              <div style={{ backgroundColor: 'var(--aiims-card-mint-bg)', padding: '14px', borderRadius: '10px', border: '1px solid var(--aiims-card-mint-border)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
                   <ShieldCheck size={16} color="#059669" />
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: '#065f46', textTransform: 'uppercase' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-card-mint-text)', textTransform: 'uppercase' }}>
                     AI Evaluator Rubric Focus
                   </span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {currentTask.rubricFocus.map((focus, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#064e3b' }}>
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--aiims-card-mint-text)' }}>
                       <Check size={13} color="#059669" style={{ flexShrink: 0 }} />
                       <span>{focus}</span>
                     </div>
                   ))}
                 </div>
 
-                <div style={{ marginTop: '12px', fontSize: '11px', color: '#047857', borderTop: '1px dashed #a7f3d0', paddingTop: '8px' }}>
+                <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--aiims-card-mint-text)', borderTop: '1px dashed var(--aiims-card-mint-border)', paddingTop: '8px' }}>
                   💡 <em>Scored on Clarity (25), Constraints (25), Output Structure (25), and Reliability (25).</em>
                 </div>
               </div>
@@ -781,11 +781,11 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
           <Surface variant="bordered" radius="lg" padding="md">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileCode size={18} color="#0284c7" />
-                <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                <FileCode size={18} color="var(--aiims-primary)" />
+                <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                   Your Level 2 AI Prompt
                 </span>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
                   ({promptText.length} chars)
                 </span>
               </div>
@@ -822,25 +822,25 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                 width: '100%',
                 boxSizing: 'border-box',
                 borderRadius: '8px',
-                border: '1px solid #cbd5e1',
+                border: '1px solid var(--aiims-input-border)',
                 padding: '12px 14px',
                 fontSize: '13px',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                color: '#0f172a',
+                color: 'var(--aiims-input-text)',
                 lineHeight: 1.5,
-                backgroundColor: '#f8fafc',
+                backgroundColor: 'var(--aiims-input-bg)',
                 outline: 'none',
                 resize: 'vertical'
               }}
             />
 
             {/* TEST INPUT DATA DRAWER */}
-            <div style={{ marginTop: '12px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+            <div style={{ marginTop: '12px', borderTop: '1px solid var(--aiims-border-subtle)', paddingTop: '10px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-secondary)' }}>
                   Execution Context Data (Passed into AI):
                 </span>
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>Editable Test Snippet</span>
+                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>Editable Test Snippet</span>
               </div>
               <textarea
                 rows={2}
@@ -867,7 +867,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                   Model: {modelUsed}
                 </Badge>
                 {executionTime !== null && (
-                  <span style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <Clock size={12} /> {executionTime}ms
                   </span>
                 )}

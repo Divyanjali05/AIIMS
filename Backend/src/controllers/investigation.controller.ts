@@ -100,7 +100,9 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           idempotencyKey: `investigation::${userId}::${signalId}`
         });
 
-        const newBal = ledgerResult.balance ?? updatedUser.aiimsCredits;
+        const latestUser = await User.findById(req.user._id);
+        if (latestUser) req.user = latestUser;
+        const newBal = ledgerResult.balance ?? req.user.aiimsCredits ?? updatedUser.aiimsCredits;
         req.user.aiimsCredits = newBal;
 
         return res.json({

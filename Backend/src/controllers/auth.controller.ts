@@ -212,7 +212,7 @@ export const register = async (req: Request, res: Response) => {
       transactions: []
     };
     registeredUsers[normalizedEmail] = newUser;
-    await creditsLedgerService.executeTransaction({
+    const welcomeResult = await creditsLedgerService.executeTransaction({
       userId: stableId,
       type: 'EARN',
       category: 'REWARD',
@@ -221,13 +221,14 @@ export const register = async (req: Request, res: Response) => {
       source: 'SYSTEM',
       sourceId: 'WELCOME_BONUS',
       idempotencyKey: `welcome::${stableId}`
-    }).catch(() => {});
+    }).catch(() => null);
 
+    newUser.aiimsCredits = welcomeResult?.balance ?? 100;
     const token = generateAuthToken(newUser.id, newUser.email);
     const baseState = formatUserState(new User(newUser) as IUser);
     return res.status(201).json({
       token,
-      user: { ...newUser, id: newUser.id },
+      user: { ...newUser, id: newUser.id, aiimsCredits: newUser.aiimsCredits },
       state: {
         ...baseState,
         academicProfile: {
@@ -255,8 +256,8 @@ export const register = async (req: Request, res: Response) => {
       aiimsCredits: 0
     });
 
-    // Record welcome bonus in CreditLedger
-    await creditsLedgerService.executeTransaction({
+    // Record welcome bonus authoritatively in CreditLedger and User document
+    const welcomeResult = await creditsLedgerService.executeTransaction({
       userId: String(dbUser._id),
       type: 'EARN',
       category: 'REWARD',
@@ -265,7 +266,17 @@ export const register = async (req: Request, res: Response) => {
       source: 'SYSTEM',
       sourceId: 'WELCOME_BONUS',
       idempotencyKey: `welcome::${String(dbUser._id)}`
-    }).catch((e) => console.warn('[Auth] Welcome ledger entry warning:', e.message));
+    }).catch((e) => {
+      console.warn('[Auth] Welcome ledger entry warning:', e.message);
+      return null;
+    });
+
+    // Refresh user document to ensure persisted balance is reflected in registration response
+    const refreshedUser = await User.findById(dbUser._id);
+    const finalDbUser = refreshedUser || dbUser;
+    if (welcomeResult?.balance !== undefined) {
+      finalDbUser.aiimsCredits = welcomeResult.balance;
+    }
 
     let cohortDoc: typeof Cohort.prototype | null = null;
     try {
@@ -325,8 +336,8 @@ export const register = async (req: Request, res: Response) => {
 
     const studentProfile = await StudentProfile.create(profileData);
 
-    const token = generateAuthToken(String(dbUser._id), dbUser.email);
-    const userState = formatUserState(dbUser);
+    const token = generateAuthToken(String(finalDbUser._id), finalDbUser.email);
+    const userState = formatUserState(finalDbUser);
 
     return res.status(201).json({
       token,

@@ -4,6 +4,7 @@ import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
 import { RegisterScreen } from './RegisterScreen';
+import { PublicHeroScreen } from '../home/PublicHeroScreen';
 
 interface LoginScreenProps {
   onSuccess?: () => void;
@@ -19,7 +20,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     const path = window.location.pathname.toLowerCase();
     if (path === '/register') return 'register';
     if (path === '/login') return 'login';
-    if (path === '/' || path === '/index.html') return 'home';
+    if (path === '/' || path === '/index.html' || path === '/hero' || path === '/preview-hero') return 'home';
     return initialMode || 'home';
   };
 
@@ -30,7 +31,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     setMode(newMode);
     setErrorMessage('');
     setSuccessMessage('');
-    const targetPath = newMode === 'home' ? '/' : `/${newMode}`;
+    const currentPath = window.location.pathname.toLowerCase();
+    const targetPath = newMode === 'home' ? (currentPath === '/hero' || currentPath === '/preview-hero' ? currentPath : '/') : `/${newMode}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
@@ -98,12 +100,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     );
   }
 
+  // Delegate home mode to the 3D PublicHeroScreen
+  if (mode === 'home') {
+    return (
+      <PublicHeroScreen
+        onStartJourney={() => navigateTo('register')}
+        onSignIn={() => navigateTo('login')}
+      />
+    );
+  }
+
   return (
     <div
       style={{
         minHeight: '100vh',
         width: '100%',
         backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
+        backgroundImage: isDarkMode
+          ? 'radial-gradient(circle at 50% 20%, rgba(139, 92, 246, 0.14) 0%, transparent 60%)'
+          : 'radial-gradient(circle at 50% 20%, rgba(109, 93, 251, 0.08) 0%, transparent 60%)',
         fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
         color: 'var(--aiims-text-primary, #0F172A)',
         display: 'flex',
@@ -224,118 +239,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       `}</style>
 
       {/* ==================================================== */}
-      {/* MODE 1: PUBLIC HOMEPAGE                              */}
+      {/* LOGIN PAGE                                           */}
       {/* ==================================================== */}
-      {mode === 'home' && (
-        <div
-          className="aiims-fade-in"
-          style={{
-            maxWidth: '680px',
-            width: '100%',
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '40px 24px'
-          }}
-        >
-          {/* Brand Visual Logo */}
-          <div style={{ marginBottom: '32px' }}>
-            <AiimsLogo size="xl" showWordmark={true} onClick={() => navigateTo('home')} />
-          </div>
-
-          {/* Main Title */}
-          <h1
-            style={{
-              fontSize: 'clamp(32px, 5vw, 44px)',
-              fontWeight: 800,
-              lineHeight: 1.15,
-              color: 'var(--aiims-text-heading, #0F172A)',
-              letterSpacing: '-1.2px',
-              margin: '0 0 16px 0'
-            }}
-          >
-            Unlock Your AI Potential
-          </h1>
-
-          {/* Short Description (ONE sentence) */}
-          <p
-            style={{
-              fontSize: 'clamp(15px, 2.5vw, 18px)',
-              lineHeight: 1.6,
-              color: 'var(--aiims-text-secondary, #475569)',
-              fontWeight: 450,
-              margin: '0 0 40px 0',
-              maxWidth: '540px'
-            }}
-          >
-            Learn, discover, and build with AI through a journey designed for you.
-          </p>
-
-          {/* Action Buttons */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '16px',
-              width: '100%',
-              maxWidth: '360px',
-              flexWrap: 'wrap'
-            }}
-          >
-            <button
-              id="register-button"
-              className="aiims-btn-primary"
-              onClick={() => navigateTo('register')}
-              style={{
-                flex: '1 1 150px',
-                padding: '14px 28px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: 700
-              }}
-            >
-              Register
-            </button>
-
-            <button
-              id="signin-button"
-              className="aiims-btn-secondary"
-              onClick={() => navigateTo('login')}
-              style={{
-                flex: '1 1 150px',
-                padding: '14px 28px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: 700
-              }}
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      )}
-
-
-      {/* ==================================================== */}
-      {/* MODE 2: LOGIN PAGE                                   */}
-      {/* ==================================================== */}
-      {mode === 'login' && (
-        <div
-          className="aiims-fade-in"
-          style={{
-            maxWidth: '440px',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}
-        >
-          {/* Top Brand Logo */}
-          <div style={{ marginBottom: '24px' }}>
+      <div
+        className="aiims-fade-in"
+        style={{
+          maxWidth: '440px',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+          {/* Top Brand Logo & Back to Home */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', gap: '8px' }}>
             <AiimsLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
+            <button
+              type="button"
+              onClick={() => navigateTo('home')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--aiims-text-secondary, #64748B)',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: '8px',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--aiims-text-secondary, #64748B)')}
+            >
+              <ArrowLeft size={13} /> Back to 3D Space
+            </button>
           </div>
 
           {/* Card Container */}
@@ -431,7 +371,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
-                      color: '#64748B',
+                      color: 'var(--aiims-text-muted, #64748B)',
                       cursor: 'pointer',
                       padding: 0
                     }}
@@ -465,7 +405,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
                 marginTop: '24px',
                 textAlign: 'center',
                 fontSize: '14px',
-                color: '#64748B'
+                color: 'var(--aiims-text-secondary, #64748B)'
               }}
             >
               Don't have an account?{' '}
@@ -488,9 +428,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-};
+      </div>
+    );
+  };
 
 export default LoginScreen;

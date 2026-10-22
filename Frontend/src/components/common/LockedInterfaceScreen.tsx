@@ -42,90 +42,90 @@ const INTERFACE_CONFIGS: Record<string, InterfaceConfig> = {
     tagline: 'AI Capability Diagnostic & Radar',
     description: 'Your personalized 5-dimension AI capability breakdown, top skill strengths, and growth recommendations.',
     icon: BarChart3,
-    primaryColor: '#4f46e5',
-    secondaryBg: '#eef2ff',
-    borderColor: '#c7d2fe'
+    primaryColor: 'var(--aiims-primary, #6366f1)',
+    secondaryBg: 'var(--aiims-card-banner-bg, #eef2ff)',
+    borderColor: 'var(--aiims-border-card, #c7d2fe)'
   },
   clarity: {
     name: 'Clarity',
     tagline: 'AI Goal Clarification & Prompt Lab',
     description: 'Interactive prompt engineering tasks and AI model evaluations to build hands-on capability.',
     icon: Compass,
-    primaryColor: '#0ea5e9',
-    secondaryBg: '#f0f9ff',
-    borderColor: '#bae6fd'
+    primaryColor: 'var(--aiims-card-sky-text, #0ea5e9)',
+    secondaryBg: 'var(--aiims-card-sky-bg, #f0f9ff)',
+    borderColor: 'var(--aiims-card-sky-border, #bae6fd)'
   },
   focus: {
     name: 'Focus Track',
     tagline: 'Targeted AI Learning Concentration',
     description: 'Select a concentrated discipline track to personalize your technical discovery stream and practice tasks.',
     icon: Target,
-    primaryColor: '#10b981',
-    secondaryBg: '#ecfdf5',
-    borderColor: '#a7f3d0'
+    primaryColor: 'var(--aiims-card-mint-text, #10b981)',
+    secondaryBg: 'var(--aiims-card-mint-bg, #ecfdf5)',
+    borderColor: 'var(--aiims-card-mint-border, #a7f3d0)'
   },
   radar: {
     name: 'AI Radar',
     tagline: 'Technical AI Market Shifts',
     description: 'A continuous stream of real model releases, tool-calling breakthroughs, and workflow evolutions tailored to your profile.',
     icon: Radar,
-    primaryColor: '#0284c7',
-    secondaryBg: '#f0f9ff',
-    borderColor: '#bae6fd'
+    primaryColor: 'var(--aiims-card-cyan-text, #0284c7)',
+    secondaryBg: 'var(--aiims-card-cyan-bg, #f0f9ff)',
+    borderColor: 'var(--aiims-card-cyan-border, #bae6fd)'
   },
   investigation: {
     name: 'Signal Investigation',
     tagline: 'Structured Technical Research',
     description: 'Deep dive scaffold analyzing yesterday vs. today vs. what changed to formulate actionable implementation hypotheses.',
     icon: Search,
-    primaryColor: '#0369a1',
-    secondaryBg: '#f0f9ff',
-    borderColor: '#bae6fd'
+    primaryColor: 'var(--aiims-card-sky-text, #0369a1)',
+    secondaryBg: 'var(--aiims-card-sky-bg, #f0f9ff)',
+    borderColor: 'var(--aiims-card-sky-border, #bae6fd)'
   },
   relevance: {
     name: 'AI Relevance',
     tagline: 'Personalized Impact Synthesis',
     description: 'Connects your Profile, active Focus track, and evaluated tools into a concrete payoff map explaining why shifts matter to your work.',
     icon: Sparkles,
-    primaryColor: '#4f46e5',
-    secondaryBg: '#eef2ff',
-    borderColor: '#c7d2fe'
+    primaryColor: 'var(--aiims-primary, #6366f1)',
+    secondaryBg: 'var(--aiims-card-banner-bg, #eef2ff)',
+    borderColor: 'var(--aiims-border-card, #c7d2fe)'
   },
   solver: {
     name: 'Problem Solver',
     tagline: 'Workflow & Solution Generator',
     description: 'Input real tasks and business friction to derive tool capabilities, step-by-step architectures, and executable workflows.',
     icon: Wrench,
-    primaryColor: '#059669',
-    secondaryBg: '#ecfdf5',
-    borderColor: '#a7f3d0'
+    primaryColor: 'var(--aiims-card-mint-text, #059669)',
+    secondaryBg: 'var(--aiims-card-mint-bg, #ecfdf5)',
+    borderColor: 'var(--aiims-card-mint-border, #a7f3d0)'
   },
   build: {
     name: 'Projects Workspace',
     tagline: 'Production Project Development',
     description: 'Turn your solved workflows into reusable projects, templates, and automated AI agents ready for deployment.',
     icon: Layers,
-    primaryColor: '#d97706',
-    secondaryBg: '#fffbeb',
-    borderColor: '#fde68a'
+    primaryColor: 'var(--aiims-card-amber-text, #d97706)',
+    secondaryBg: 'var(--aiims-card-amber-bg, #fffbeb)',
+    borderColor: 'var(--aiims-card-amber-border, #fde68a)'
   },
   mentor: {
     name: 'Mentor Workspace',
     tagline: 'Contextual AI Coaching & Guidance',
     description: 'Adaptive mentor delivering reflective questions, personalized roadmaps, and strategic observations based on your learning actions.',
     icon: MessageCircle,
-    primaryColor: '#7c3aed',
-    secondaryBg: '#f5f3ff',
-    borderColor: '#ddd6fe'
+    primaryColor: 'var(--aiims-card-violet-text, #7c3aed)',
+    secondaryBg: 'var(--aiims-card-violet-bg, #f5f3ff)',
+    borderColor: 'var(--aiims-card-violet-border, #ddd6fe)'
   },
   insights: {
     name: 'Growth Insights',
     tagline: 'Personalized Progression Trends',
     description: 'Historical capability evolution tracking and benchmark comparison across AI dimensions.',
     icon: BarChart3,
-    primaryColor: '#8b5cf6',
-    secondaryBg: '#f5f3ff',
-    borderColor: '#ddd6fe'
+    primaryColor: 'var(--aiims-card-violet-text, #8b5cf6)',
+    secondaryBg: 'var(--aiims-card-violet-bg, #f5f3ff)',
+    borderColor: 'var(--aiims-card-violet-border, #ddd6fe)'
   }
 };
 
@@ -211,8 +211,9 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: '#fee2e2',
-              color: '#dc2626',
+              backgroundColor: 'var(--aiims-card-rose-bg, #fee2e2)',
+              color: 'var(--aiims-card-rose-text, #dc2626)',
+              border: '1px solid var(--aiims-card-rose-border, #fecdd3)',
               fontSize: '11px',
               fontWeight: 800,
               padding: '4px 10px',
@@ -325,7 +326,7 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#64748b',
+                color: 'var(--aiims-text-secondary, #64748b)',
                 fontSize: '13px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -342,11 +343,11 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
       {/* 2. ACTIVITY UNLOCKING TIMELINE EXPLANATION */}
       <Surface variant="bordered" radius="lg" padding="lg">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <ShieldAlert size={20} color="#6366f1" />
+          <ShieldAlert size={20} color="var(--aiims-primary, #6366f1)" />
           <h2 style={{
             fontSize: '17px',
             fontWeight: 800,
-            color: '#0f172a',
+            color: 'var(--aiims-text-heading, #0f172a)',
             margin: 0,
             fontFamily: "'Plus Jakarta Sans', sans-serif"
           }}>
@@ -354,7 +355,7 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
           </h2>
         </div>
 
-        <p style={{ fontSize: '13.5px', color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+        <p style={{ fontSize: '13.5px', color: 'var(--aiims-text-secondary, #64748b)', margin: '0 0 20px', lineHeight: 1.5 }}>
           This interface is currently locked. The unlocking logic will be activated based on completed user activities and progression milestones. Complete preceding activities below to prepare your profile:
         </p>
 
@@ -452,7 +453,7 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
 
       {/* 3. LIST OF LOCKED WORKSPACES */}
       <Surface variant="bordered" radius="lg" padding="lg">
-        <div style={{ fontSize: '12px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.5px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--aiims-text-secondary, #64748b)', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.5px' }}>
           Interfaces Locked For Now
         </div>
 
@@ -503,8 +504,9 @@ export const LockedInterfaceScreen: React.FC<LockedInterfaceScreenProps> = ({
                   gap: '4px',
                   fontSize: '10.5px',
                   fontWeight: 800,
-                  backgroundColor: '#fee2e2',
-                  color: '#dc2626',
+                  backgroundColor: 'var(--aiims-card-rose-bg, #fee2e2)',
+                  color: 'var(--aiims-card-rose-text, #dc2626)',
+                  border: '1px solid var(--aiims-card-rose-border, #fecdd3)',
                   padding: '2px 8px',
                   borderRadius: '9999px'
                 }}>

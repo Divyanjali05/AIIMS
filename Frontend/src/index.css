@@ -35,8 +35,12 @@
   --aiims-badge-radius: 9999px;
 
   /* Layout Standards */
-  --aiims-sidebar-width: 240px;
-  --aiims-header-height: 64px;
+  --aiims-sidebar-width: 250px;
+  --aiims-sidebar-collapsed-width: 68px;
+  --aiims-header-height: 60px;
+  --aiims-content-max-width-expanded: 1120px;
+  --aiims-content-max-width-collapsed: 1300px;
+  --aiims-content-max-width: var(--aiims-content-max-width-expanded);
 
   /* Theme Colors (Light Theme Default) */
   --aiims-bg-page: #f8f7fd;
@@ -48,11 +52,15 @@
   --aiims-border-subtle: #f1f5f9;
   --aiims-text-heading: #0f172a;
   --aiims-text-body: #334155;
+  --aiims-text-primary: #0f172a;
+  --aiims-text-secondary: #475569;
   --aiims-text-muted: #64748b;
   --aiims-text-subtle: #94a3b8;
   --aiims-primary: #6366f1;
   --aiims-primary-hover: #4f46e5;
   --aiims-primary-light: #eef2ff;
+  --aiims-primary-text: #4338ca;
+  --aiims-primary-glow: rgba(99, 102, 241, 0.18);
   --aiims-modal-bg: #ffffff;
   --aiims-modal-border: #e2e8f0;
   --aiims-input-bg: #ffffff;
@@ -61,73 +69,127 @@
   --aiims-shadow-card: 0 4px 16px rgba(99, 102, 241, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   --aiims-shadow-hover: 0 10px 24px rgba(99, 102, 241, 0.1);
   --aiims-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --aiims-shadow-dropdown: 0 10px 30px rgba(0, 0, 0, 0.12);
   --aiims-table-row-bg: #f8fafc;
   --aiims-table-row-border: #e2e8f0;
   --aiims-table-row-hover: #f1f5f9;
 
-  /* Semantic Tint Tokens (Light) */
-  --aiims-tint-emerald-bg: #ecfdf5;
-  --aiims-tint-emerald-border: #a7f3d0;
-  --aiims-tint-emerald-text: #065f46;
-  --aiims-tint-sky-bg: #f0f9ff;
-  --aiims-tint-sky-border: #bae6fd;
-  --aiims-tint-sky-text: #0369a1;
-  --aiims-tint-amber-bg: #fffbeb;
-  --aiims-tint-amber-border: #fde68a;
-  --aiims-tint-amber-text: #92400e;
-  --aiims-tint-purple-bg: #f5f3ff;
-  --aiims-tint-purple-border: #ddd6fe;
-  --aiims-tint-purple-text: #5b21b6;
-  --aiims-tint-rose-bg: #fff1f2;
-  --aiims-tint-rose-border: #fecdd3;
-  --aiims-tint-rose-text: #9f1239;
+  /* Card and Surface Tint Tokens (Light) */
+  --aiims-card-banner-bg: #eef2ff;
+  --aiims-card-mint-bg: #ecfdf5;
+  --aiims-card-mint-border: #a7f3d0;
+  --aiims-card-mint-text: #065f46;
+  --aiims-card-sky-bg: #f0f9ff;
+  --aiims-card-sky-border: #bae6fd;
+  --aiims-card-sky-text: #0369a1;
+  --aiims-card-amber-bg: #fffbeb;
+  --aiims-card-amber-border: #fde68a;
+  --aiims-card-amber-text: #92400e;
+  --aiims-card-cyan-bg: #ecfeff;
+  --aiims-card-cyan-border: #a5f3fc;
+  --aiims-card-cyan-text: #155e75;
+  --aiims-card-violet-bg: #f5f3ff;
+  --aiims-card-violet-border: #ddd6fe;
+  --aiims-card-violet-text: #5b21b6;
+  --aiims-card-rose-bg: #fff1f2;
+  --aiims-card-rose-border: #fecdd3;
+  --aiims-card-rose-text: #9f1239;
+  --aiims-card-peach-bg: #fff7ed;
+  --aiims-card-peach-border: #ffedd5;
+  --aiims-card-peach-text: #7c2d12;
+
+  /* Backward Compatibility Aliases */
+  --aiims-tint-emerald-bg: var(--aiims-card-mint-bg);
+  --aiims-tint-emerald-border: var(--aiims-card-mint-border);
+  --aiims-tint-emerald-text: var(--aiims-card-mint-text);
+  --aiims-tint-sky-bg: var(--aiims-card-sky-bg);
+  --aiims-tint-sky-border: var(--aiims-card-sky-border);
+  --aiims-tint-sky-text: var(--aiims-card-sky-text);
+  --aiims-tint-amber-bg: var(--aiims-card-amber-bg);
+  --aiims-tint-amber-border: var(--aiims-card-amber-border);
+  --aiims-tint-amber-text: var(--aiims-card-amber-text);
+  --aiims-tint-purple-bg: var(--aiims-card-violet-bg);
+  --aiims-tint-purple-border: var(--aiims-card-violet-border);
+  --aiims-tint-purple-text: var(--aiims-card-violet-text);
+  --aiims-tint-rose-bg: var(--aiims-card-rose-bg);
+  --aiims-tint-rose-border: var(--aiims-card-rose-border);
+  --aiims-tint-rose-text: var(--aiims-card-rose-text);
 }
 
 /* Dark Theme Compatibility */
 [data-theme='dark'],
 .dark-theme {
-  --aiims-bg-page: #0b0f19;
-  --aiims-bg-card: #131b2e;
-  --aiims-bg-card-subtle: #1a233a;
-  --aiims-bg-card-hover: #1e2942;
-  --aiims-border-card: #24304f;
+  --aiims-bg-page: #080b16;
+  --aiims-bg-card: #0f1629;
+  --aiims-bg-card-subtle: #141c33;
+  --aiims-bg-card-hover: #192340;
+  --aiims-border-card: #202b4d;
   --aiims-border-card-hover: #6366f1;
-  --aiims-border-subtle: #1e293b;
+  --aiims-border-subtle: rgba(255, 255, 255, 0.08);
   --aiims-text-heading: #f8fafc;
   --aiims-text-body: #cbd5e1;
+  --aiims-text-primary: #f8fafc;
+  --aiims-text-secondary: #94a3b8;
   --aiims-text-muted: #94a3b8;
   --aiims-text-subtle: #64748b;
   --aiims-primary: #818cf8;
   --aiims-primary-hover: #6366f1;
-  --aiims-primary-light: rgba(99, 102, 241, 0.18);
-  --aiims-modal-bg: #131b2e;
-  --aiims-modal-border: #24304f;
-  --aiims-input-bg: #1a233a;
-  --aiims-input-border: #334155;
+  --aiims-primary-light: rgba(99, 102, 241, 0.2);
+  --aiims-primary-text: #c7d2fe;
+  --aiims-primary-glow: rgba(129, 140, 248, 0.3);
+  --aiims-modal-bg: #0f1629;
+  --aiims-modal-border: #202b4d;
+  --aiims-input-bg: #141c33;
+  --aiims-input-border: #2c3b63;
   --aiims-input-text: #f8fafc;
-  --aiims-shadow-card: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --aiims-shadow-hover: 0 10px 24px rgba(0, 0, 0, 0.6);
-  --aiims-shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
-  --aiims-table-row-bg: #1a233a;
-  --aiims-table-row-border: #24304f;
-  --aiims-table-row-hover: #222d48;
+  --aiims-shadow-card: 0 4px 20px rgba(0, 0, 0, 0.45);
+  --aiims-shadow-hover: 0 10px 28px rgba(0, 0, 0, 0.6);
+  --aiims-shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  --aiims-shadow-dropdown: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --aiims-table-row-bg: #141c33;
+  --aiims-table-row-border: #202b4d;
+  --aiims-table-row-hover: #192340;
 
-  /* Semantic Tint Tokens (Dark) */
-  --aiims-tint-emerald-bg: rgba(16, 185, 129, 0.14);
-  --aiims-tint-emerald-border: rgba(16, 185, 129, 0.32);
-  --aiims-tint-emerald-text: #6ee7b7;
-  --aiims-tint-sky-bg: rgba(14, 165, 233, 0.14);
-  --aiims-tint-sky-border: rgba(14, 165, 233, 0.32);
-  --aiims-tint-sky-text: #7dd3fc;
-  --aiims-tint-amber-bg: rgba(245, 158, 11, 0.14);
-  --aiims-tint-amber-border: rgba(245, 158, 11, 0.32);
-  --aiims-tint-amber-text: #fcd34d;
-  --aiims-tint-purple-bg: rgba(139, 92, 246, 0.14);
-  --aiims-tint-purple-border: rgba(139, 92, 246, 0.32);
-  --aiims-tint-purple-text: #c4b5fd;
-  --aiims-tint-rose-bg: rgba(244, 63, 94, 0.14);
-  --aiims-tint-rose-border: rgba(244, 63, 94, 0.32);
-  --aiims-tint-rose-text: #fda4af;
+  /* Card and Surface Tint Tokens (Dark) */
+  --aiims-card-banner-bg: rgba(99, 102, 241, 0.16);
+  --aiims-card-mint-bg: rgba(16, 185, 129, 0.15);
+  --aiims-card-mint-border: rgba(16, 185, 129, 0.35);
+  --aiims-card-mint-text: #6ee7b7;
+  --aiims-card-sky-bg: rgba(14, 165, 233, 0.15);
+  --aiims-card-sky-border: rgba(14, 165, 233, 0.35);
+  --aiims-card-sky-text: #7dd3fc;
+  --aiims-card-amber-bg: rgba(245, 158, 11, 0.15);
+  --aiims-card-amber-border: rgba(245, 158, 11, 0.35);
+  --aiims-card-amber-text: #fcd34d;
+  --aiims-card-cyan-bg: rgba(6, 182, 212, 0.15);
+  --aiims-card-cyan-border: rgba(6, 182, 212, 0.35);
+  --aiims-card-cyan-text: #67e8f9;
+  --aiims-card-violet-bg: rgba(139, 92, 246, 0.15);
+  --aiims-card-violet-border: rgba(139, 92, 246, 0.35);
+  --aiims-card-violet-text: #c4b5fd;
+  --aiims-card-rose-bg: rgba(244, 63, 94, 0.15);
+  --aiims-card-rose-border: rgba(244, 63, 94, 0.35);
+  --aiims-card-rose-text: #fda4af;
+  --aiims-card-peach-bg: rgba(249, 115, 22, 0.15);
+  --aiims-card-peach-border: rgba(249, 115, 22, 0.35);
+  --aiims-card-peach-text: #fdba74;
+
+  /* Backward Compatibility Aliases */
+  --aiims-tint-emerald-bg: var(--aiims-card-mint-bg);
+  --aiims-tint-emerald-border: var(--aiims-card-mint-border);
+  --aiims-tint-emerald-text: var(--aiims-card-mint-text);
+  --aiims-tint-sky-bg: var(--aiims-card-sky-bg);
+  --aiims-tint-sky-border: var(--aiims-card-sky-border);
+  --aiims-tint-sky-text: var(--aiims-card-sky-text);
+  --aiims-tint-amber-bg: var(--aiims-card-amber-bg);
+  --aiims-tint-amber-border: var(--aiims-card-amber-border);
+  --aiims-tint-amber-text: var(--aiims-card-amber-text);
+  --aiims-tint-purple-bg: var(--aiims-card-violet-bg);
+  --aiims-tint-purple-border: var(--aiims-card-violet-border);
+  --aiims-tint-purple-text: var(--aiims-card-violet-text);
+  --aiims-tint-rose-bg: var(--aiims-card-rose-bg);
+  --aiims-tint-rose-border: var(--aiims-card-rose-border);
+  --aiims-tint-rose-text: var(--aiims-card-rose-text);
 }
 
 /* Base Reset & Box Sizing */
@@ -201,6 +263,7 @@ body {
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: var(--aiims-card-body-max-lines);
+  line-clamp: var(--aiims-card-body-max-lines);
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -322,6 +385,7 @@ body {
 .truncate-2-lines {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -337,6 +401,11 @@ body {
 @media (max-width: 1024px) {
   :root {
     --aiims-sidebar-width: 220px;
+  }
+
+  /* Canvas Padding Tablet */
+  .aiims-main-canvas {
+    padding: 20px 20px 44px 20px !important;
   }
 }
 
@@ -432,3 +501,132 @@ body {
     display: none !important;
   }
 }
+
+/* ============================================================
+   PREMIUM SAAS NAVIGATION STYLES
+   ============================================================ */
+
+.aiims-sidebar-desktop {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: width, min-width;
+}
+
+/* ============================================================
+   RESPONSIVE MAIN CONTENT & SIDEBAR COLLAPSE EXPANSION
+   ============================================================ */
+
+/* Central Page Container for all screens */
+.aiims-page-container {
+  width: 100%;
+  max-width: var(--aiims-content-max-width-expanded, 1120px);
+  margin: 0 auto;
+  box-sizing: border-box;
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.aiims-main-canvas.aiims-sidebar-collapsed .aiims-page-container {
+  max-width: var(--aiims-content-max-width-collapsed, 1300px);
+}
+
+.aiims-main-canvas.aiims-sidebar-expanded .aiims-page-container {
+  max-width: var(--aiims-content-max-width-expanded, 1120px);
+}
+
+/* Ensure inner screen root containers fill the page container without clipping */
+.aiims-page-container > div {
+  width: 100%;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Home Page 10-Stage Learning Journey Responsive Grid */
+.aiims-10stage-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1024px) {
+  .aiims-10stage-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .aiims-10stage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Home Page Milestones Grid */
+.aiims-milestones-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1024px) {
+  .aiims-milestones-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .aiims-milestones-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Command Palette Overlay Animation */
+@keyframes paletteFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes paletteSlideIn {
+  from { opacity: 0; transform: scale(0.97) translateY(-8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.aiims-palette-backdrop {
+  animation: paletteFadeIn 0.15s ease-out forwards;
+}
+
+.aiims-palette-modal {
+  animation: paletteSlideIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Tooltip floating style */
+.aiims-nav-tooltip {
+  pointer-events: none;
+  animation: paletteFadeIn 0.12s ease-out forwards;
+}
+
+@media (max-width: 1024px) {
+  .aiims-quick-nav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .aiims-breadcrumb {
+    display: none !important;
+  }
+  .aiims-credits-pill span {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aiims-sidebar-desktop,
+  .aiims-sidebar-drawer,
+  .aiims-page-container,
+  .aiims-page-container > div,
+  .aiims-palette-modal,
+  .aiims-palette-backdrop {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+

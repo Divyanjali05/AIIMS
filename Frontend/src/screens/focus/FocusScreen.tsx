@@ -158,11 +158,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             <Lock size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Focus comes after understanding your profile
           </h2>
 
-          <p style={{ color: '#78350f', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-tint-amber-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Complete your AI Assessment first. AIIMS will evaluate your profile and help you decide where to focus.
           </p>
 
@@ -197,11 +197,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             <Brain size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Your profile comes first
           </h2>
 
-          <p style={{ color: '#78350f', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-tint-amber-text)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Open your Analysis to understand what AIIMS discovered about how you work with AI.
           </p>
 
@@ -236,11 +236,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             <Compass size={28} />
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
             Build some Clarity first
           </h2>
 
-          <p style={{ color: '#64748b', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
+          <p style={{ color: 'var(--aiims-text-secondary)', fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>
             Explore an area from your profile before deciding where to focus. Clarity will help you understand the concept first.
           </p>
 
@@ -369,7 +369,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginBottom: '12px' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
             {topicDetail.title}
           </h2>
 
@@ -408,11 +408,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             WHAT YOU ALREADY DISCOVERED IN CLARITY
           </div>
           {savedReflection ? (
-            <p style={{ margin: 0, fontSize: '13px', color: '#064e3b', fontStyle: 'italic', lineHeight: 1.5 }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-tint-emerald-text)', fontStyle: 'italic', lineHeight: 1.5 }}>
               "{savedReflection}"
             </p>
           ) : (
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-muted)', fontStyle: 'italic' }}>
               You explored {topicDetail.title} conceptually. Add a reflection in Clarity anytime to connect it further.
             </p>
           )}
@@ -456,7 +456,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             <div style={{ fontSize: '11px', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', marginBottom: '2px' }}>
               POMODORO & DEEP WORK TIMER
             </div>
-            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
               Focus Session Workspace
             </h3>
           </div>
@@ -471,9 +471,9 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                backgroundColor: currentConfig.soundEnabled ? '#ecfdf5' : '#f8fafc',
-                color: currentConfig.soundEnabled ? '#047857' : '#64748b',
+                border: '1px solid var(--aiims-border-subtle)',
+                backgroundColor: currentConfig.soundEnabled ? 'var(--aiims-card-mint-bg)' : 'var(--aiims-bg-subtle)',
+                color: currentConfig.soundEnabled ? 'var(--aiims-card-mint-text)' : 'var(--aiims-text-muted)',
                 cursor: 'pointer',
                 fontSize: '12px',
                 fontWeight: 700
@@ -535,7 +535,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             </div>
 
             {/* Track Title & Intention */}
-            <h4 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 800, color: '#0f172a', textAlign: 'center' }}>
+            <h4 style={{ margin: '0 0 4px', fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', textAlign: 'center' }}>
               {activeSession.trackTitle}
             </h4>
 
@@ -597,20 +597,20 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                 <span style={{
                   fontSize: '46px',
                   fontWeight: 900,
-                  color: activeSession.sessionState === 'paused' ? '#b45309' : '#1e1b4b',
+                  color: activeSession.sessionState === 'paused' ? '#b45309' : 'var(--aiims-text-heading)',
                   fontFamily: "'Courier New', Courier, monospace",
                   letterSpacing: '-1px'
                 }}>
                   {formatTime(remainingSeconds)}
                 </span>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>
                   {progressPercent}% completed
                 </span>
               </div>
             </div>
 
             {/* Cycle indicator */}
-            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: 700, color: '#64748b' }}>
+            <div style={{ marginTop: '16px', fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}>
               Focus Block #{activeSession.completedCycles + 1}
               {activeSession.config.enableLongBreak && (
                 <span> &bull; Long Break after {activeSession.config.longBreakInterval} cycles</span>
@@ -677,7 +677,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '6px' }}>
                   End this focus session early?
                 </div>
-                <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 14px', lineHeight: 1.4 }}>
+                <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', margin: '0 0 14px', lineHeight: 1.4 }}>
                   {activeSession.accumulatedFocusSeconds >= 30
                     ? `Your ${Math.round(activeSession.accumulatedFocusSeconds / 60)} minutes of active focus will be preserved in your session history.`
                     : 'Sessions with less than 30 seconds of focus are discarded.'}
@@ -713,20 +713,20 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             flexDirection: 'column',
             alignItems: 'center',
             padding: '36px 20px',
-            backgroundColor: '#f5f3ff',
+            backgroundColor: 'var(--aiims-card-banner-bg)',
             borderRadius: '16px',
-            border: '2px solid #ddd6fe',
+            border: '2px solid var(--aiims-card-banner-border)',
             textAlign: 'center'
           }}>
             <div style={{
               width: '64px',
               height: '64px',
               borderRadius: '50%',
-              backgroundColor: '#ede9fe',
+              backgroundColor: 'var(--aiims-bg-subtle)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#7c3aed',
+              color: 'var(--aiims-primary)',
               marginBottom: '16px'
             }}>
               <CheckCircle2 size={36} />
@@ -736,11 +736,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
               FOCUS PERIOD COMPLETED
             </Badge>
 
-            <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#1e1b4b', margin: '12px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h3 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '12px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
               Great Work! Focus Interval Finished.
             </h3>
 
-            <p style={{ color: '#4b5563', fontSize: '14px', maxWidth: '480px', margin: '0 0 24px', lineHeight: 1.5 }}>
+            <p style={{ color: 'var(--aiims-text-secondary)', fontSize: '14px', maxWidth: '480px', margin: '0 0 24px', lineHeight: 1.5 }}>
               You focused for <strong>{Math.round(activeSession.totalPeriodSeconds / 60)} minutes</strong> on <em>{activeSession.trackTitle}</em>.
               Taking a restorative break now boosts memory consolidation and prevents mental fatigue.
             </p>
@@ -840,7 +840,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                 size="md"
                 icon={<StopCircle size={16} />}
                 onClick={() => endFocusSession(false)}
-                style={{ color: '#64748b' }}
+                style={{ color: 'var(--aiims-text-secondary, #64748b)' }}
               >
                 End Session
               </Button>
@@ -853,7 +853,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* FOCUS DURATION SELECTOR */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '8px' }}>
                 1. Focus Duration
               </label>
 
@@ -871,17 +871,17 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                       style={{
                         padding: '14px 12px',
                         borderRadius: '12px',
-                        border: isSelected ? '2px solid #d97706' : '1px solid #e2e8f0',
-                        backgroundColor: isSelected ? '#fffbeb' : '#ffffff',
+                        border: isSelected ? '2px solid var(--aiims-primary)' : '1px solid var(--aiims-border-subtle)',
+                        backgroundColor: isSelected ? 'var(--aiims-bg-card)' : 'var(--aiims-bg-subtle)',
                         cursor: 'pointer',
                         textAlign: 'left',
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <div style={{ fontSize: '18px', fontWeight: 900, color: isSelected ? '#b45309' : '#0f172a' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 900, color: isSelected ? 'var(--aiims-primary)' : 'var(--aiims-text-heading)' }}>
                         {preset.label}
                       </div>
-                      <div style={{ fontSize: '11px', fontWeight: 600, color: isSelected ? '#92400e' : '#64748b' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: isSelected ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)' }}>
                         {preset.title}
                       </div>
                     </button>
@@ -895,16 +895,16 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                   style={{
                     padding: '14px 12px',
                     borderRadius: '12px',
-                    border: isCustomMode ? '2px solid #d97706' : '1px solid #e2e8f0',
-                    backgroundColor: isCustomMode ? '#fffbeb' : '#ffffff',
+                    border: isCustomMode ? '2px solid var(--aiims-primary)' : '1px solid var(--aiims-border-subtle)',
+                    backgroundColor: isCustomMode ? 'var(--aiims-bg-card)' : 'var(--aiims-bg-subtle)',
                     cursor: 'pointer',
                     textAlign: 'left'
                   }}
                 >
-                  <div style={{ fontSize: '18px', fontWeight: 900, color: isCustomMode ? '#b45309' : '#0f172a' }}>
+                  <div style={{ fontSize: '18px', fontWeight: 900, color: isCustomMode ? 'var(--aiims-primary)' : 'var(--aiims-text-heading)' }}>
                     Custom
                   </div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: isCustomMode ? '#92400e' : '#64748b' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: isCustomMode ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)' }}>
                     1–180 minutes
                   </div>
                 </button>
@@ -923,11 +923,13 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                       width: '180px',
                       padding: '8px 12px',
                       borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
+                      border: '1px solid var(--aiims-input-border, #cbd5e1)',
+                      backgroundColor: 'var(--aiims-input-bg, transparent)',
+                      color: 'var(--aiims-input-text, inherit)',
                       fontSize: '14px'
                     }}
                   />
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)' }}>
                     Recommended: 25 to 50 minutes for cognitive retention.
                   </span>
                 </div>
@@ -936,7 +938,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
 
             {/* BREAK DURATION SELECTOR */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '8px' }}>
                 2. Rest Rhythm (Break Interval)
               </label>
 
@@ -951,9 +953,9 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                       style={{
                         padding: '10px 16px',
                         borderRadius: '10px',
-                        border: isSelected ? '2px solid #059669' : '1px solid #e2e8f0',
-                        backgroundColor: isSelected ? '#ecfdf5' : '#ffffff',
-                        color: isSelected ? '#065f46' : '#334155',
+                        border: isSelected ? '2px solid #059669' : '1px solid var(--aiims-border-subtle)',
+                        backgroundColor: isSelected ? 'var(--aiims-card-mint-bg)' : 'var(--aiims-bg-subtle)',
+                        color: isSelected ? 'var(--aiims-card-mint-text)' : 'var(--aiims-text-body)',
                         fontWeight: 700,
                         fontSize: '13px',
                         cursor: 'pointer'
@@ -969,9 +971,9 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             {/* LONG BREAK SETTINGS */}
             <div style={{
               padding: '14px 16px',
-              backgroundColor: '#f8fafc',
+              backgroundColor: 'var(--aiims-bg-subtle)',
               borderRadius: '12px',
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--aiims-border-subtle)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -979,15 +981,15 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
               gap: '12px'
             }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
                   Extended 15-Minute Break
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>
+                <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
                   Automatically triggers after 4 completed focus blocks.
                 </div>
               </div>
 
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                 <input
                   type="checkbox"
                   checked={enableLongBreak}
@@ -1000,7 +1002,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
 
             {/* SESSION INTENTION INPUT */}
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading)', marginBottom: '6px' }}>
                 3. Focus Goal or Intention (Optional)
               </label>
               <input
@@ -1014,9 +1016,10 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                   boxSizing: 'border-box',
                   padding: '12px 14px',
                   borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
+                  border: '1px solid var(--aiims-input-border)',
                   fontSize: '14px',
-                  color: '#0f172a'
+                  color: 'var(--aiims-input-text)',
+                  backgroundColor: 'var(--aiims-input-bg)'
                 }}
               />
             </div>
@@ -1039,7 +1042,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
                 START FOCUS SESSION ({isCustomMode && customFocusInput ? customFocusInput : selectedFocusMinutes} MIN)
               </Button>
 
-              <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', marginTop: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', textAlign: 'center', marginTop: '8px' }}>
                 Zero credit deductions. Uses precision epoch timestamps that stay accurate even if this tab is closed or backgrounded.
               </div>
             </div>
@@ -1056,7 +1059,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
             <div style={{ fontSize: '11px', fontWeight: 800, color: '#6366f1', textTransform: 'uppercase', marginBottom: '2px' }}>
               ACCOUNTABILITY & HABIT TRACKING
             </div>
-            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
               Focus Session History
             </h3>
           </div>
@@ -1110,26 +1113,26 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
           gap: '12px',
           marginBottom: '20px'
         }}>
-          <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-subtle)', borderRadius: '12px', border: '1px solid var(--aiims-border-subtle)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)', textTransform: 'uppercase' }}>
               Completed Sessions
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900, color: '#0f172a', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--aiims-text-heading)', marginTop: '4px' }}>
               {completedSessions.length}
             </div>
           </div>
 
-          <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-subtle)', borderRadius: '12px', border: '1px solid var(--aiims-border-subtle)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)', textTransform: 'uppercase' }}>
               Total Focus Time
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 900, color: '#4338ca', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 900, color: 'var(--aiims-primary)', marginTop: '4px' }}>
               {totalFocusMins >= 60 ? `${totalFocusHours}h` : `${totalFocusMins}m`}
             </div>
           </div>
 
-          <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--aiims-bg-subtle)', borderRadius: '12px', border: '1px solid var(--aiims-border-subtle)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)', textTransform: 'uppercase' }}>
               Today's Sessions
             </div>
             <div style={{ fontSize: '26px', fontWeight: 900, color: '#059669', marginTop: '4px' }}>
@@ -1143,27 +1146,27 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
           <div style={{
             padding: '36px 16px',
             textAlign: 'center',
-            backgroundColor: '#f8fafc',
+            backgroundColor: 'var(--aiims-bg-subtle)',
             borderRadius: '12px',
-            border: '1px dashed #cbd5e1'
+            border: '1px dashed var(--aiims-border-card)'
           }}>
             <div style={{
               width: '44px',
               height: '44px',
               borderRadius: '50%',
-              backgroundColor: '#f1f5f9',
+              backgroundColor: 'var(--aiims-bg-card)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#64748b',
+              color: 'var(--aiims-text-muted)',
               margin: '0 auto 10px'
             }}>
               <Clock size={20} />
             </div>
-            <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#1e293b' }}>
+            <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
               No focus sessions recorded yet
             </h4>
-            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-muted)' }}>
               Start your first session above. All completed and partial blocks will be reliably tracked here.
             </p>
           </div>
@@ -1256,7 +1259,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
               <div style={{ fontSize: '11px', fontWeight: 800, color: '#0369a1', textTransform: 'uppercase', marginBottom: '2px' }}>
                 CONNECTED LANDSCAPE
               </div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', fontFamily: "'Fredoka', sans-serif" }}>
                 WHAT'S CHANGING AROUND YOUR FOCUS
               </h3>
             </div>

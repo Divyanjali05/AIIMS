@@ -93,10 +93,10 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
       {submitted ? (
         <Surface variant="mint" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
           <CheckCircle2 style={{ width: '48px', height: '48px', color: '#059669', margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px', color: '#0f172a', fontFamily: "'Fredoka', sans-serif" }}>
+          <h3 style={{ fontSize: '22px', fontWeight: 800, margin: '0 0 6px', color: 'var(--aiims-text-heading, #0f172a)', fontFamily: "'Fredoka', sans-serif" }}>
             Investigation Completed!
           </h3>
-          <p style={{ color: '#064e3b', marginBottom: '20px', fontSize: '14px' }}>
+          <p style={{ color: 'var(--aiims-card-mint-text, #064e3b)', marginBottom: '20px', fontSize: '14px' }}>
             +30 AIIMS Credits added to your balance. Your personal reflection has been recorded into LearnerState.
           </p>
 
@@ -120,10 +120,10 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
               </Badge>
               <Badge variant="purple" size="sm">{activeSignal.impactLevel} Impact</Badge>
             </div>
-            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
               {activeSignal.title}
             </h2>
-            <p style={{ margin: 0, fontSize: '14px', color: '#075985', lineHeight: 1.5, fontWeight: 500 }}>
+            <p style={{ margin: 0, fontSize: '14px', color: 'var(--aiims-card-sky-text, #075985)', lineHeight: 1.5, fontWeight: 500 }}>
               {activeSignal.summary}
             </p>
           </Surface>
@@ -203,7 +203,7 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Badge variant="primary" icon={<HelpCircle size={12} />}>4. WHAT CAN I DO NEXT?</Badge>
             </div>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 12px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 12px' }}>
               Actionable Pathways in AIIMS
             </h3>
 
@@ -265,7 +265,7 @@ export const InvestigationScreen: React.FC<InvestigationScreenProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <Badge variant="success" icon={<UserCheck size={12} />}>YOUR REFLECTION (GREEN)</Badge>
             </div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 10px', color: '#0f172a' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 10px', color: 'var(--aiims-text-heading, #0f172a)' }}>
               Record your personal investigation reflection & conclusion
             </h3>
 

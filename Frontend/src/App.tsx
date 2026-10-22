@@ -23,6 +23,7 @@ import { MessageCircle, BarChart3, Settings, Sun, Moon } from 'lucide-react';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
+import { PublicHeroScreen } from './screens/home/PublicHeroScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LockedInterfaceScreen } from './components/common/LockedInterfaceScreen';
@@ -37,6 +38,7 @@ const mapPathToTab = (path: string): string => {
   if (cleanPath === 'problem-solver' || cleanPath === 'solver') return 'solver';
   if (cleanPath === 'profile' || cleanPath === 'settings') return 'settings';
   if (cleanPath === 'wallet' || cleanPath === 'ai-wallet' || cleanPath === 'aiwallet') return 'wallet';
+  if (cleanPath === 'hero' || cleanPath === 'preview-hero') return 'hero';
   return cleanPath;
 };
 
@@ -44,6 +46,7 @@ const mapTabToPath = (tab: string): string => {
   if (tab === 'home') return '/home';
   if (tab === 'solver') return '/problem-solver';
   if (tab === 'settings') return '/profile';
+  if (tab === 'hero') return '/hero';
   return `/${tab}`;
 };
 
@@ -63,6 +66,31 @@ const AppContent: React.FC = () => {
 
   const [selectedSignal, setSelectedSignal] = useState<RadarSignal | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('aiims_sidebar_collapsed') === 'true';
+  });
+
+  const handleToggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('aiims_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  // Keyboard shortcut: Cmd+B / Ctrl+B for sidebar collapse toggle
+  useEffect(() => {
+    const handleSidebarShortcut = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        handleToggleSidebarCollapse();
+      }
+    };
+    window.addEventListener('keydown', handleSidebarShortcut);
+    return () => window.removeEventListener('keydown', handleSidebarShortcut);
+  }, []);
 
   const setActiveTab = (tab: string) => {
     setActiveTabState(tab);
@@ -81,7 +109,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handleLocationSync = () => {
       const currentPath = window.location.pathname.toLowerCase();
-      const publicPaths = ['/', '/login', '/register', '/index.html'];
+      const publicPaths = ['/', '/hero', '/preview-hero', '/login', '/register', '/index.html'];
 
       if (!isAuthenticated) {
         if (!publicPaths.includes(currentPath)) {
@@ -91,9 +119,9 @@ const AppContent: React.FC = () => {
           window.history.replaceState(null, '', '/login');
         }
       } else {
-        // Authenticated user accessing public path -> redirect to intended route or /home
-        if (publicPaths.includes(currentPath)) {
-          const targetTab = intendedRoute || activeTab || 'home';
+        // Authenticated user accessing auth routes or root -> redirect to dashboard
+        if (['/', '/login', '/register', '/index.html'].includes(currentPath)) {
+          const targetTab = intendedRoute || (activeTab === 'hero' ? 'hero' : (activeTab || 'home'));
           const targetPath = mapTabToPath(targetTab);
           window.history.replaceState(null, '', targetPath);
           setActiveTabState(targetTab);
@@ -115,12 +143,13 @@ const AppContent: React.FC = () => {
     setActiveTab('investigation');
   };
 
-  // Handle Unauthenticated State (Public Home, Register, Login)
+  // Handle Unauthenticated State (Public Home, Hero, Register, Login)
   if (!isAuthenticated) {
     const currentPath = window.location.pathname.toLowerCase();
     let initialMode: 'home' | 'login' | 'register' = 'home';
     if (currentPath === '/register') initialMode = 'register';
     else if (currentPath === '/login') initialMode = 'login';
+    else if (currentPath === '/hero' || currentPath === '/preview-hero' || currentPath === '/' || currentPath === '/index.html') initialMode = 'home';
 
     return (
       <LoginScreen
@@ -145,28 +174,34 @@ const AppContent: React.FC = () => {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebarCollapse={handleToggleSidebarCollapse}
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
 
       {/* Main Body Layout: Sidebar + Canvas */}
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - var(--aiims-header-height, 60px))' }}>
         {/* Left Navigation Sidebar (Desktop + Mobile Drawer) */}
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={handleToggleSidebarCollapse}
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
         />
 
         {/* Main Content Canvas */}
         <main
-          className="aiims-main-canvas"
+          className={`aiims-main-canvas ${isSidebarCollapsed ? 'aiims-sidebar-collapsed' : 'aiims-sidebar-expanded'}`}
           style={{
             flex: 1,
             padding: '24px 32px 48px 32px',
             overflowY: 'auto',
+            overflowX: 'hidden',
             boxSizing: 'border-box',
-            minWidth: 0
+            minWidth: 0,
+            transition: 'padding 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
         >
           <ErrorBoundary onReset={() => setActiveTab('home')}>
@@ -174,11 +209,15 @@ const AppContent: React.FC = () => {
               const access = getFeatureAccess(activeTab, state);
 
               if (!access.unlocked) {
-                return <LockedInterfaceScreen targetTab={activeTab} setActiveTab={setActiveTab} />;
+                return (
+                  <div className="aiims-page-container">
+                    <LockedInterfaceScreen targetTab={activeTab} setActiveTab={setActiveTab} />
+                  </div>
+                );
               }
 
               return (
-                <>
+                <div className="aiims-page-container">
                   {activeTab === 'home' && (
                     <HomeScreen setActiveTab={setActiveTab} />
                   )}
@@ -198,6 +237,7 @@ const AppContent: React.FC = () => {
                   {activeTab === 'assessment' && (
                     <AssessmentScreen
                       onComplete={() => { setActiveTab('analysis'); }}
+                      setActiveTab={setActiveTab}
                     />
                   )}
 
@@ -249,11 +289,18 @@ const AppContent: React.FC = () => {
                         description="Personalized progression trends and capability evaluation history."
                       />
                       <Surface variant="bordered" radius="lg" padding="lg">
-                        <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
+                        <p style={{ margin: 0, fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)' }}>
                           Insights connect directly to your baseline Assessment and completed Clarity topics.
                         </p>
                       </Surface>
                     </div>
+                  )}
+
+                  {activeTab === 'hero' && (
+                    <PublicHeroScreen
+                      onStartJourney={() => setActiveTab('assessment')}
+                      onSignIn={() => setActiveTab('home')}
+                    />
                   )}
 
                   {activeTab === 'settings' && <SettingsView />}
@@ -261,11 +308,11 @@ const AppContent: React.FC = () => {
                   {![
                     'home', 'wallet', 'discover', 'journey', 'assessment', 'analysis',
                     'credits', 'clarity', 'focus', 'radar', 'investigation', 'relevance',
-                    'solver', 'build', 'mentor', 'insights', 'settings'
+                    'solver', 'build', 'mentor', 'insights', 'settings', 'hero'
                   ].includes(activeTab) && (
                     <HomeScreen setActiveTab={setActiveTab} />
                   )}
-                </>
+                </div>
               );
             })()}
           </ErrorBoundary>
