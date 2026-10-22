@@ -1,0 +1,30 @@
+# AIIMS Gitleaks Secret Scanning Configuration
+# Extends standard detection patterns while allowlisting known safe test fixtures and templates.
+
+title = "AIIMS Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist for build artifacts, mock test fixtures, and environment templates"
+paths = [
+  '''(?i)node_modules/''',
+  '''(?i)(?:^|/)dist/''',
+  '''(?i)(?:^|/)build/''',
+  '''(?i)\.env\.example$''',
+  '''(?i)gitleaks.*\.json$''',
+  '''(?i)Backend/api-tests\.http$''',
+  '''(?i)package-lock\.json$'''
+]
+
+stopwords = [
+  "AIzaSyPlaceholderGeminiKey",
+  "sk-ant-placeholder-anthropic-key",
+  "placeholder_user:placeholder_password",
+  "your_jwt_secret_min_32_random_characters_required",
+  "aiims-dev-ephemeral-key-do-not-use-in-production-min32chars",
+  "aiims-secret-key-2026",
+  "mock-claude-key",
+  "Password123!"
+]

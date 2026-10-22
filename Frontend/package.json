@@ -12,7 +12,9 @@
     "lint:fix": "eslint src --fix",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
-    "test": "npx ts-node --transpile-only ../Backend/src/scripts/runFrontendTests.ts"
+    "test": "npx ts-node --transpile-only ../Backend/src/scripts/runFrontendTests.ts",
+    "secrets:scan": "gitleaks detect --redact --config ../.gitleaks.toml",
+    "secrets:protect": "gitleaks protect --staged --redact --config ../.gitleaks.toml"
   },
   "dependencies": {
     "lucide-react": "^0.378.0",

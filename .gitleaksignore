@@ -1,0 +1,4 @@
+# Gitleaks baseline ignore file
+# Format: <commit>:<file>:<rule-id>:<line>
+# Finding 1: Insecure default rejection test assertion in testPhase1Security.ts
+c4d193c72159b7ccabbc05e7e409e69dc1e19b13:Backend/src/scripts/testPhase1Security.ts:generic-api-key:131

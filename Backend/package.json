@@ -17,7 +17,10 @@
     "test:phase2a": "ts-node src/scripts/testPhase2A.ts",
     "test:security": "ts-node src/scripts/testPhase1Security.ts",
     "test:scoring": "ts-node src/scripts/runScoringTests.ts",
-    "test:entitlements": "ts-node --transpile-only src/scripts/testPhase3Entitlements.ts"
+    "test:entitlements": "ts-node --transpile-only src/scripts/testPhase3Entitlements.ts",
+    "secrets:scan": "gitleaks detect --redact --config ../.gitleaks.toml",
+    "secrets:protect": "gitleaks protect --staged --redact --config ../.gitleaks.toml",
+    "secrets:history": "gitleaks detect --redact --log-opts=\"--all --full-history\" --config ../.gitleaks.toml"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",

@@ -6,7 +6,27 @@ dist/
 .env.*
 .env.local
 !.env.example
+!Backend/.env.example
+!**/.env.example
+
+# Private Keys, Certificates & Credentials
+*.pem
+*.key
+*.pfx
+*.p12
+*.pkcs12
+id_rsa*
+id_ecdsa*
+id_ed25519*
+.credentials
+
+# Secret Scanning Reports & Artifacts
+gitleaks*.json
+gitleaks*.sarif
+*.report.json
+
 *.log
 .DS_Store
 Thumbs.db
+
 
