@@ -154,9 +154,9 @@ export async function initDatabase(
 export async function startServer() {
   const dbStatus = await initDatabase();
 
-  const server = app.listen(config.port, () => {
+  const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`=================================================`);
-    console.log(`🚀 AIIMS Backend API running on port ${config.port}`);
+    console.log(`🚀 AIIMS Backend API running on port ${config.port} (0.0.0.0)`);
     console.log(`📡 Database Mode: ${dbStatus.connected ? 'MongoDB Atlas (Connected)' : 'In-Memory Development Fallback'}`);
     console.log(`🛡️  Security Headers: Helmet active`);
     console.log(`🔒 CORS Origin Policy: ${allowedOrigins.join(', ')}`);

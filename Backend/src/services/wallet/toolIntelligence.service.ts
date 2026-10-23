@@ -5,6 +5,8 @@ import { ToolEvidenceService } from './toolEvidence.service';
 import { ToolChangeDetectionService } from './toolChangeDetection.service';
 import { ToolCatalogService } from './toolCatalog.service';
 
+const BLOCKED_CANDIDATE_PATTERN = /uncensored|nsfw|face[\s-]?swap|deepfake|undress/i;
+
 export interface IntelligenceRunStatus {
   lastRunTimestamp: string;
   sourcesCollected: number;
@@ -63,6 +65,13 @@ export class ToolIntelligenceService {
       let totalEvidenceRecorded = 0;
 
       for (const item of sourceItems) {
+        const contentSnippet = (item.content || '').slice(0, 500);
+        if (BLOCKED_CANDIDATE_PATTERN.test(item.title || '') || BLOCKED_CANDIDATE_PATTERN.test(contentSnippet)) {
+          console.log(`[ToolIntelligence] Blocked candidate "${item.title}" (restricted content).`);
+          skippedCount++;
+          continue;
+        }
+
         const existingTool = ToolCatalogService.getCatalog().find(
           (t) =>
             t.officialWebsite === item.url ||
@@ -113,21 +122,16 @@ export class ToolIntelligenceService {
         if (existingTool) {
           ToolChangeDetectionService.detectToolChanges(existingTool, verifiedTool, item.url);
           updatedToolsCount++;
-          console.log(
-            `[ToolIntelligence] Updated verified tool: ${verifiedTool.name} (Status: RECENTLY_UPDATED)`
-          );
         } else {
           newToolsCount++;
-          console.log(
-            `[ToolIntelligence] Discovered verified new tool: ${verifiedTool.name} (Status: NEW)`
-          );
         }
+        console.log(`[ToolIntelligence] ${existingTool ? 'Updated' : 'Discovered'} tool: ${verifiedTool.name} (${verification.verificationStatus}, active: ${verifiedTool.activeStatus})`);
 
         // 8. Update Source Content Hash Cache
         ToolChangeDetectionService.updateSourceHash(verifiedTool.id, item.hash);
 
         // 9. Persist Verified Tool to Catalog & MongoDB Atlas
-        ToolCatalogService.upsertTool(verifiedTool);
+        await ToolCatalogService.upsertTool(verifiedTool);
       }
 
       this.runStatus = {

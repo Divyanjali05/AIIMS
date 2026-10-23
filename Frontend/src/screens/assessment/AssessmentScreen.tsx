@@ -907,16 +907,8 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
             </div>
           </div>
 
-          <p
-            style={{
-              color: 'var(--aiims-text-secondary, #64748b)',
-              fontSize: '13.5px',
-              margin: '0 0 20px 0',
-              lineHeight: 1.5,
-            }}
-          >
-            Verify your responses across the five stations before generating your baseline
-            capability calibration. Click any challenge to modify your answer.
+          <p style={{ color: 'var(--aiims-text-secondary, #64748b)', fontSize: '13.5px', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+            Verify your responses across the five stations before generating your baseline capability calibration.
           </p>
 
           {/* Validation Notice if any question missing */}
@@ -1070,36 +1062,15 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                       return (
                         <div
                           key={qId}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => {
-                            updateCurrentQuestionIndex(qIdx);
-                            setReturnToReview(true);
-                            setStage('QUESTION');
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              updateCurrentQuestionIndex(qIdx);
-                              setReturnToReview(true);
-                              setStage('QUESTION');
-                            }
-                          }}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
                             padding: '10px 14px',
                             borderRadius: '10px',
-                            backgroundColor: isAnswered
-                              ? 'var(--aiims-bg-card-hover, #f8f7fd)'
-                              : 'var(--aiims-card-rose-bg, #fff1f2)',
-                            border: isAnswered
-                              ? '1px solid var(--aiims-border-card, #ede9fe)'
-                              : '1px solid var(--aiims-card-rose-border, #fecdd3)',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
+                            backgroundColor: isAnswered ? 'var(--aiims-bg-card-hover, #f8f7fd)' : 'var(--aiims-card-rose-bg, #fff1f2)',
+                            border: isAnswered ? '1px solid var(--aiims-border-card, #ede9fe)' : '1px solid var(--aiims-card-rose-border, #fecdd3)',
+                            gap: '12px'
                           }}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1149,16 +1120,9 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                             </div>
                           </div>
 
-                          <span
-                            style={{
-                              fontSize: '12px',
-                              color: station.themeColor,
-                              fontWeight: 700,
-                              flexShrink: 0,
-                            }}
-                          >
-                            Modify →
-                          </span>
+                          <Badge variant={isAnswered ? 'success' : 'warning'} size="sm" style={{ flexShrink: 0 }}>
+                            {isAnswered ? '✓ Complete' : 'Incomplete'}
+                          </Badge>
                         </div>
                       );
                     })}

@@ -300,12 +300,12 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
         style={{
           position: 'relative',
           width: '100%',
-          height: '420px',
+          height: '440px',
           borderRadius: '18px',
           backgroundColor: isLight ? '#F8FAFC' : 'rgba(16, 22, 42, 0.45)',
           border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
           zIndex: 2,
-          overflow: 'hidden',
+          overflow: 'visible',
         }}
       >
         {/* SVG Conduits connecting celestial nodes */}
@@ -540,77 +540,127 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
                 <div
                   style={{
                     position: 'absolute',
-                    bottom: '105%',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: isLight ? '#FFFFFF' : 'rgba(8, 11, 22, 0.95)',
-                    backdropFilter: 'blur(16px)',
-                    border: isLight ? '1px solid #CBD5E1' : `1px solid ${dest.color}`,
-                    borderRadius: '12px',
-                    padding: '12px 14px',
-                    width: '220px',
+                    ...(dest.y < 48
+                      ? { top: 'calc(100% + 12px)', bottom: 'auto' }
+                      : { bottom: 'calc(100% + 12px)', top: 'auto' }),
+                    ...(dest.x <= 25
+                      ? { left: '0', right: 'auto', transform: 'none' }
+                      : dest.x >= 75
+                      ? { right: '0', left: 'auto', transform: 'none' }
+                      : { left: '50%', right: 'auto', transform: 'translateX(-50%)' }),
+                    backgroundColor: isLight ? '#FFFFFF' : 'rgba(10, 15, 36, 0.98)',
+                    backdropFilter: 'blur(20px)',
+                    border: isLight ? '1.5px solid #CBD5E1' : `1.5px solid ${dest.color}`,
+                    borderRadius: '14px',
+                    padding: '14px 16px',
+                    width: '240px',
                     textAlign: 'left',
                     boxShadow: isLight
-                      ? '0 10px 25px rgba(0, 0, 0, 0.12)'
-                      : '0 10px 25px rgba(0, 0, 0, 0.6)',
+                      ? '0 12px 30px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)'
+                      : `0 12px 35px rgba(0, 0, 0, 0.8), 0 0 15px ${dest.glow}`,
                     pointerEvents: 'none',
-                    zIndex: 20,
+                    zIndex: 40,
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: dest.color,
-                      textTransform: 'uppercase',
-                      marginBottom: '2px',
-                    }}
-                  >
-                    {dest.name}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '11.5px', fontWeight: 800, color: dest.color, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                      {dest.name}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontWeight: 700,
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        backgroundColor: isCompleted ? '#10B98120' : isLocked ? '#EF444420' : `${dest.color}20`,
+                        color: isCompleted ? '#10B981' : isLocked ? '#EF4444' : dest.color
+                      }}
+                    >
+                      {isCompleted ? 'Completed' : isLocked ? 'Locked' : 'Available'}
+                    </span>
                   </div>
-                  <div
-                    style={{
-                      fontSize: '11.5px',
-                      color: isLight ? '#334155' : '#E2E8F0',
-                      lineHeight: 1.4,
-                      marginBottom: '8px',
-                    }}
-                  >
+
+                  <div style={{ fontSize: '12px', color: isLight ? '#334155' : '#E2E8F0', lineHeight: 1.45, marginBottom: '8px', fontWeight: 500 }}>
                     {dest.description}
                   </div>
 
                   {isLocked && accessInfo?.reason && (
-                    <div
-                      style={{
-                        fontSize: '10.5px',
-                        color: '#DC2626',
-                        borderTop: isLight
-                          ? '1px solid #E2E8F0'
-                          : '1px solid rgba(255,255,255,0.1)',
-                        paddingTop: '6px',
-                      }}
-                    >
-                      🔒 {accessInfo.reason}
+                    <div style={{ fontSize: '11px', color: '#EF4444', borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Lock size={11} /> {accessInfo.reason}
                     </div>
                   )}
 
-                  <div
-                    style={{
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      color: isLight ? '#0891B2' : '#38BDF8',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                    }}
-                  >
-                    {isLocked ? 'View requirements' : 'Launch destination'} <ArrowRight size={11} />
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: isLight ? '#0891B2' : '#22D3EE', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {isLocked ? 'View requirements' : 'Launch destination'} <ArrowRight size={12} />
                   </div>
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {/* DESTINATION PREVIEW BAR (Displays prominent info on hover/cursor placement) */}
+      <div
+        style={{
+          marginTop: '16px',
+          padding: '12px 18px',
+          borderRadius: '14px',
+          backgroundColor: isLight ? '#F8FAFC' : 'rgba(16, 22, 42, 0.65)',
+          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          transition: 'all 0.25s ease',
+          position: 'relative',
+          zIndex: 2,
+          boxShadow: isLight ? '0 2px 6px rgba(0, 0, 0, 0.02)' : 'none'
+        }}
+      >
+        {hoveredNode ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                backgroundColor: `${hoveredNode.color}25`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: hoveredNode.color,
+                flexShrink: 0
+              }}
+            >
+              {React.createElement(hoveredNode.icon, { size: 18 })}
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 800, color: isLight ? '#0F172A' : '#F8FAFC' }}>
+                  {hoveredNode.name}
+                </span>
+                <span style={{ fontSize: '11px', color: hoveredNode.color, fontWeight: 700, textTransform: 'uppercase' }}>
+                  · {hoveredNode.tagline}
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: isLight ? '#475569' : '#CBD5E1', marginTop: '2px' }}>
+                {hoveredNode.description}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isLight ? '#64748B' : '#94A3B8', fontSize: '12.5px' }}>
+            <Sparkles size={15} color={isLight ? '#6366F1' : '#818CF8'} />
+            <span>Hover or place cursor over any destination node above to inspect its curriculum, scoring rubric, and prerequisites.</span>
+          </div>
+        )}
+
+        <div style={{ fontSize: '12px', fontWeight: 700, color: hoveredNode ? hoveredNode.color : (isLight ? '#6366F1' : '#818CF8'), display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {hoveredNode ? (getNodeStatus(hoveredNode) === 'locked' ? 'Locked Zone' : 'Click to Enter') : '7 Active Destinations'}
+          <ArrowRight size={13} />
+        </div>
       </div>
 
       {/* MOBILE DESTINATIONS GRID (Visible below 768px) */}

@@ -80,7 +80,7 @@ export class ToolChangeDetectionService {
 
     // Persist version record to MongoDB if available
     if (mongoose.connection && mongoose.connection.readyState === 1) {
-      ToolVersionHistoryModel.findOneAndUpdate({ id: versionRecord.id }, versionRecord, { upsert: true, new: true })
+      ToolVersionHistoryModel.findOneAndUpdate({ id: versionRecord.id }, versionRecord, { upsert: true, returnDocument: 'after' })
         .catch(err => console.warn(`[ToolChangeDetection] Version record DB error:`, err.message));
     }
 

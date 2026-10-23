@@ -11,6 +11,7 @@ import {
   Moon,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 import { AinovaLogo } from '../../components/common/AinovaLogo';
 import { Hero3DVisual } from '../../components/3d/Hero3DVisual';
 import { LearningUniverseMap } from '../../components/universe/LearningUniverseMap';
@@ -20,7 +21,10 @@ interface PublicHeroScreenProps {
   onSignIn: () => void;
 }
 
-export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourney, onSignIn }) => {
+export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
+  onStartJourney,
+  onSignIn,
+}) => {
   const { isDarkMode, toggleTheme } = useTheme();
   const universeSectionRef = useRef<HTMLDivElement>(null);
 
@@ -33,12 +37,13 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
       style={{
         minHeight: '100vh',
         width: '100%',
-        backgroundColor: '#080B16',
-        color: '#F8FAFC',
+        backgroundColor: isDarkMode ? '#080B16' : 'var(--aiims-bg-page, #F8F7FD)',
+        color: isDarkMode ? '#F8FAFC' : 'var(--aiims-text-heading, #0F172A)',
         fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
         overflowX: 'hidden',
         position: 'relative',
         boxSizing: 'border-box',
+        transition: 'background-color 0.25s ease, color 0.25s ease',
       }}
     >
       {/* Background Ambient Cosmic Glows */}
@@ -51,8 +56,9 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           width: '600px',
           height: '600px',
           borderRadius: '50%',
-          background:
-            'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(8, 11, 22, 0) 70%)',
+          background: isDarkMode
+            ? 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(8, 11, 22, 0) 70%)'
+            : 'radial-gradient(circle, rgba(124, 58, 237, 0.08) 0%, rgba(248, 247, 253, 0) 70%)',
           pointerEvents: 'none',
           zIndex: 0,
         }}
@@ -66,8 +72,9 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background:
-            'radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, rgba(8, 11, 22, 0) 70%)',
+          background: isDarkMode
+            ? 'radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, rgba(8, 11, 22, 0) 70%)'
+            : 'radial-gradient(circle, rgba(6, 182, 212, 0.07) 0%, rgba(248, 247, 253, 0) 70%)',
           pointerEvents: 'none',
           zIndex: 0,
         }}
@@ -80,10 +87,10 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           align-items: center;
           gap: 8px;
           padding: 6px 14px;
-          background: rgba(139, 92, 246, 0.12);
-          border: 1px solid rgba(139, 92, 246, 0.35);
+          background: ${isDarkMode ? 'rgba(139, 92, 246, 0.12)' : 'rgba(124, 58, 237, 0.08)'};
+          border: 1px solid ${isDarkMode ? 'rgba(139, 92, 246, 0.35)' : 'rgba(124, 58, 237, 0.22)'};
           border-radius: 9999px;
-          color: #DDD6FE;
+          color: ${isDarkMode ? '#DDD6FE' : '#6D28D9'};
           font-size: 11.5px;
           font-weight: 700;
           letter-spacing: 0.8px;
@@ -123,26 +130,28 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           align-items: center;
           justify-content: center;
           gap: 8px;
-          background: rgba(255, 255, 255, 0.04);
-          color: #E2E8F0;
+          background: ${isDarkMode ? 'rgba(255, 255, 255, 0.04)' : '#FFFFFF'};
+          color: ${isDarkMode ? '#E2E8F0' : '#334155'};
           padding: 14px 26px;
           border-radius: 12px;
           font-size: 15px;
           font-weight: 600;
-          border: 1px solid rgba(255, 255, 255, 0.12);
+          border: 1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.12)' : '#CBD5E1'};
           backdrop-filter: blur(8px);
           cursor: pointer;
           transition: all 0.2s ease;
+          box-shadow: ${isDarkMode ? 'none' : '0 2px 6px rgba(0, 0, 0, 0.04)'};
         }
         .aiims-btn-secondary-hero:hover {
-          background: rgba(255, 255, 255, 0.08);
-          border-color: rgba(34, 211, 238, 0.4);
-          color: #22D3EE;
+          background: ${isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#F8FAFC'};
+          border-color: ${isDarkMode ? 'rgba(34, 211, 238, 0.4)' : '#6366F1'};
+          color: ${isDarkMode ? '#22D3EE' : '#4F46E5'};
           transform: translateY(-1px);
+          box-shadow: ${isDarkMode ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.12)'};
         }
 
         .aiims-nav-link {
-          color: #94A3B8;
+          color: ${isDarkMode ? '#94A3B8' : '#64748B'};
           font-size: 14px;
           font-weight: 600;
           cursor: pointer;
@@ -152,7 +161,18 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           padding: 6px 10px;
         }
         .aiims-nav-link:hover {
-          color: #F8FAFC;
+          color: ${isDarkMode ? '#F8FAFC' : '#0F172A'};
+        }
+
+        .aiims-hero-gradient-text {
+          background: ${isDarkMode
+            ? 'linear-gradient(135deg, #C4B5FD 0%, #38BDF8 100%)'
+            : 'linear-gradient(135deg, #7C3AED 0%, #0284C7 100%)'};
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          color: ${isDarkMode ? '#38BDF8' : '#7C3AED'};
+          display: inline;
         }
 
         @media (max-width: 900px) {
@@ -177,11 +197,12 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           top: 0,
           zIndex: 50,
           width: '100%',
-          backgroundColor: 'rgba(8, 11, 22, 0.85)',
+          backgroundColor: isDarkMode ? 'rgba(8, 11, 22, 0.85)' : 'rgba(255, 255, 255, 0.88)',
           backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+          borderBottom: isDarkMode ? '1px solid rgba(255, 255, 255, 0.07)' : '1px solid #E2E8F0',
           padding: '16px 24px',
           boxSizing: 'border-box',
+          transition: 'background-color 0.25s ease, border-color 0.25s ease',
         }}
       >
         <div
@@ -195,7 +216,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
         >
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <AinovaLogo size="md" showWordmark={true} textColor="#FFFFFF" />
+            <AinovaLogo size="md" showWordmark={true} textColor={isDarkMode ? '#FFFFFF' : '#0F172A'} />
           </div>
 
           {/* Center Navigation Links (Hidden on small mobile) */}
@@ -212,35 +233,17 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           </div>
 
           {/* Right Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              id="hero-theme-toggle-btn"
-              onClick={toggleTheme}
-              aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-              title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-              style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: isDarkMode ? '#FBBF24' : '#818CF8',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '10px',
-                width: '36px',
-                height: '36px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div id="hero-theme-toggle-btn" style={{ display: 'inline-flex' }}>
+              <ThemeToggle size="sm" />
+            </div>
             <button
               id="hero-nav-signin-btn"
               onClick={onSignIn}
               style={{
-                background: 'transparent',
-                color: '#E2E8F0',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: isDarkMode ? 'transparent' : '#FFFFFF',
+                color: isDarkMode ? '#E2E8F0' : '#1E293B',
+                border: isDarkMode ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #CBD5E1',
                 borderRadius: '10px',
                 padding: '8px 16px',
                 fontSize: '13.5px',
@@ -250,6 +253,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                boxShadow: isDarkMode ? 'none' : '0 1px 2px rgba(0, 0, 0, 0.04)',
               }}
             >
               <LogIn size={15} />
@@ -308,7 +312,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           >
             {/* Small brand/category label */}
             <div className="aiims-hero-badge">
-              <Sparkles size={13} color="#A78BFA" />
+              <Sparkles size={13} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
               AIIMS — AI INTELLIGENCE & MENTORING SYSTEM
             </div>
 
@@ -317,22 +321,14 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
               style={{
                 fontSize: 'clamp(38px, 4.6vw, 56px)',
                 fontWeight: 800,
-                lineHeight: 1.1,
+                lineHeight: 1.15,
                 letterSpacing: '-1.5px',
                 margin: '0 0 20px 0',
-                color: '#F8FAFC',
+                color: isDarkMode ? '#F8FAFC' : '#0F172A',
               }}
             >
               Don’t Just Learn AI.{' '}
-              <span
-                style={{
-                  background: 'linear-gradient(135deg, #A78BFA 0%, #22D3EE 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  display: 'inline-block',
-                }}
-              >
+              <span className="aiims-hero-gradient-text">
                 Become Future-Ready.
               </span>
             </h1>
@@ -342,7 +338,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
               style={{
                 fontSize: 'clamp(15px, 1.8vw, 17px)',
                 lineHeight: 1.6,
-                color: '#94A3B8',
+                color: isDarkMode ? '#CBD5E1' : '#334155',
                 fontWeight: 450,
                 margin: '0 0 32px 0',
                 maxWidth: '540px',
@@ -391,26 +387,26 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
                 gap: '24px',
                 flexWrap: 'wrap',
                 paddingTop: '16px',
-                borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid #E2E8F0',
                 width: '100%',
                 maxWidth: '540px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={15} color="#34D399" />
-                <span style={{ fontSize: '13px', color: '#CBD5E1', fontWeight: 600 }}>
+                <CheckCircle2 size={16} color={isDarkMode ? '#34D399' : '#059669'} />
+                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
                   Activity Unlock Engine
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={15} color="#22D3EE" />
-                <span style={{ fontSize: '13px', color: '#CBD5E1', fontWeight: 600 }}>
+                <ShieldCheck size={16} color={isDarkMode ? '#22D3EE' : '#0891B2'} />
+                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
                   Deterministic AC/XP
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Cpu size={15} color="#A78BFA" />
-                <span style={{ fontSize: '13px', color: '#CBD5E1', fontWeight: 600 }}>
+                <Cpu size={16} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
+                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
                   Claude & Gemini Scored
                 </span>
               </div>
@@ -436,11 +432,14 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
       <section
         ref={universeSectionRef}
         style={{
-          borderTop: '1px solid rgba(139, 92, 246, 0.15)',
-          background: 'linear-gradient(180deg, rgba(8, 11, 22, 0.95) 0%, #0F172A 100%)',
+          borderTop: isDarkMode ? '1px solid rgba(139, 92, 246, 0.15)' : '1px solid #E2E8F0',
+          background: isDarkMode
+            ? 'linear-gradient(180deg, rgba(8, 11, 22, 0.95) 0%, #0F172A 100%)'
+            : 'linear-gradient(180deg, #F8F9FE 0%, #EEF2F6 100%)',
           padding: '80px 24px',
           boxSizing: 'border-box',
           position: 'relative',
+          transition: 'background 0.25s ease',
         }}
       >
         <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
@@ -453,9 +452,9 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
                 gap: '8px',
                 padding: '4px 12px',
                 borderRadius: '9999px',
-                backgroundColor: 'rgba(34, 211, 238, 0.1)',
-                border: '1px solid rgba(34, 211, 238, 0.3)',
-                color: '#22D3EE',
+                backgroundColor: isDarkMode ? 'rgba(34, 211, 238, 0.1)' : 'rgba(6, 182, 212, 0.1)',
+                border: isDarkMode ? '1px solid rgba(34, 211, 238, 0.3)' : '1px solid rgba(6, 182, 212, 0.25)',
+                color: isDarkMode ? '#22D3EE' : '#0891B2',
                 fontSize: '12px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
@@ -469,7 +468,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
               style={{
                 fontSize: 'clamp(28px, 3.5vw, 42px)',
                 fontWeight: 800,
-                color: '#F8FAFC',
+                color: isDarkMode ? '#F8FAFC' : '#0F172A',
                 margin: '0 0 12px 0',
                 letterSpacing: '-1px',
               }}
@@ -479,7 +478,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
             <p
               style={{
                 fontSize: '16px',
-                color: '#94A3B8',
+                color: isDarkMode ? '#94A3B8' : '#475569',
                 maxWidth: '640px',
                 margin: '0 auto',
                 lineHeight: 1.55,
@@ -492,7 +491,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
 
           {/* Interactive Universe Map */}
           <LearningUniverseMap
-            forceDark
+            forceDark={isDarkMode}
             setActiveTab={(_tab) => {
               // Non-authenticated visitors are directed to sign in / register to access
               onStartJourney();
@@ -505,9 +504,11 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
               marginTop: '40px',
               padding: '24px 32px',
               borderRadius: '16px',
-              background:
-                'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(34, 211, 238, 0.08) 100%)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
+              background: isDarkMode
+                ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(34, 211, 238, 0.08) 100%)'
+                : 'linear-gradient(135deg, #FFFFFF 0%, #F5F3FF 100%)',
+              border: isDarkMode ? '1px solid rgba(139, 92, 246, 0.25)' : '1px solid #DDD6FE',
+              boxShadow: isDarkMode ? 'none' : '0 10px 25px -5px rgba(124, 58, 237, 0.08)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -517,11 +518,16 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           >
             <div>
               <h4
-                style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#F8FAFC' }}
+                style={{
+                  margin: '0 0 4px 0',
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: isDarkMode ? '#F8FAFC' : '#0F172A',
+                }}
               >
                 Ready to unlock your personalized AI path?
               </h4>
-              <p style={{ margin: 0, fontSize: '14px', color: '#94A3B8' }}>
+              <p style={{ margin: 0, fontSize: '14px', color: isDarkMode ? '#94A3B8' : '#475569' }}>
                 Create your learner profile in 60 seconds to take your first diagnostic assessment.
               </p>
             </div>
@@ -540,10 +546,11 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
       {/* FOOTER */}
       <footer
         style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-          backgroundColor: '#05070E',
+          borderTop: isDarkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid #E2E8F0',
+          backgroundColor: isDarkMode ? '#05070E' : '#FFFFFF',
           padding: '36px 24px',
           boxSizing: 'border-box',
+          transition: 'background-color 0.25s ease, border-color 0.25s ease',
         }}
       >
         <div
@@ -558,7 +565,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AinovaLogo size="sm" showWordmark={true} textColor="#FFFFFF" />
+            <AinovaLogo size="sm" showWordmark={true} textColor={isDarkMode ? '#FFFFFF' : '#0F172A'} />
             <span style={{ fontSize: '12px', color: '#64748B' }}>
               © {new Date().getFullYear()} AIIMS. All rights reserved.
             </span>
@@ -567,7 +574,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
             <span
               style={{
                 fontSize: '12px',
-                color: '#10B981',
+                color: isDarkMode ? '#10B981' : '#059669',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
@@ -578,8 +585,8 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
-                  backgroundColor: '#10B981',
-                  boxShadow: '0 0 8px #10B981',
+                  backgroundColor: isDarkMode ? '#10B981' : '#059669',
+                  boxShadow: isDarkMode ? '0 0 8px #10B981' : '0 0 6px rgba(5, 150, 105, 0.4)',
                 }}
               />
               Systems Live · 58 Verified Endpoints
@@ -589,7 +596,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourn
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#A78BFA',
+                color: isDarkMode ? '#A78BFA' : '#6366F1',
                 fontSize: '13px',
                 fontWeight: 600,
                 cursor: 'pointer',

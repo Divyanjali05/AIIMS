@@ -39,7 +39,7 @@ export class ToolEvidenceService {
 
       // MongoDB store
       if (mongoose.connection && mongoose.connection.readyState === 1) {
-        ToolEvidenceModel.findOneAndUpdate({ id: fullItem.id }, fullItem, { upsert: true, new: true })
+        ToolEvidenceModel.findOneAndUpdate({ id: fullItem.id }, fullItem, { upsert: true, returnDocument: 'after' })
           .catch(err => console.warn(`[ToolEvidence] MongoDB record warning:`, err.message));
       }
     }

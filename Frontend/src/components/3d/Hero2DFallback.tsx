@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Brain } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 interface Hero2DFallbackProps {
   onExploreClick?: () => void;
@@ -10,6 +11,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
   onExploreClick,
   prefersReducedMotion = false
 }) => {
+  const { isDarkMode } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -68,9 +70,9 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
         height * 0.5,
         width * 0.48
       );
-      ambientGrad.addColorStop(0, 'rgba(139, 92, 246, 0.16)');
-      ambientGrad.addColorStop(0.5, 'rgba(34, 211, 238, 0.08)');
-      ambientGrad.addColorStop(1, 'rgba(8, 11, 22, 0)');
+      ambientGrad.addColorStop(0, isDarkMode ? 'rgba(139, 92, 246, 0.16)' : 'rgba(124, 58, 237, 0.12)');
+      ambientGrad.addColorStop(0.5, isDarkMode ? 'rgba(34, 211, 238, 0.08)' : 'rgba(8, 145, 178, 0.06)');
+      ambientGrad.addColorStop(1, isDarkMode ? 'rgba(8, 11, 22, 0)' : 'rgba(248, 249, 254, 0)');
       ctx.fillStyle = ambientGrad;
       ctx.fillRect(0, 0, width, height);
 
@@ -84,7 +86,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
       // Orbit 1: Violet Ellipse
       ctx.beginPath();
       ctx.ellipse(0, 0, width * 0.36, height * 0.22, angle * 0.7, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(139, 92, 246, 0.25)';
+      ctx.strokeStyle = isDarkMode ? 'rgba(139, 92, 246, 0.25)' : 'rgba(124, 58, 237, 0.35)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([6, 8]);
       ctx.stroke();
@@ -92,7 +94,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
       // Orbit 2: Cyan Counter-Orbit
       ctx.beginPath();
       ctx.ellipse(0, 0, width * 0.42, height * 0.26, -angle * 0.5, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(34, 211, 238, 0.22)';
+      ctx.strokeStyle = isDarkMode ? 'rgba(34, 211, 238, 0.22)' : 'rgba(8, 145, 178, 0.3)';
       ctx.lineWidth = 1.2;
       ctx.setLineDash([4, 10]);
       ctx.stroke();
@@ -148,7 +150,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
       cancelAnimationFrame(animationId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, isDarkMode]);
 
   return (
     <div
@@ -209,16 +211,17 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
           style={{
             position: 'absolute',
             bottom: '-12px',
-            backgroundColor: '#080B16',
-            border: '1px solid #22D3EE',
+            backgroundColor: isDarkMode ? '#080B16' : '#FFFFFF',
+            border: isDarkMode ? '1px solid #22D3EE' : '1px solid #0891B2',
             borderRadius: '9999px',
             padding: '3px 10px',
             fontSize: '10px',
             fontWeight: 800,
-            color: '#22D3EE',
+            color: isDarkMode ? '#22D3EE' : '#0891B2',
             letterSpacing: '0.8px',
-            boxShadow: '0 4px 12px rgba(34, 211, 238, 0.3)',
-            textTransform: 'uppercase'
+            boxShadow: isDarkMode ? '0 4px 12px rgba(34, 211, 238, 0.3)' : '0 4px 12px rgba(8, 145, 178, 0.2)',
+            textTransform: 'uppercase',
+            transition: 'all 0.2s ease'
           }}
         >
           AINOVA CORE

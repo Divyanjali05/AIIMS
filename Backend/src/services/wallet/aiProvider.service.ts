@@ -251,6 +251,7 @@ export class GeminiProvider implements AIProvider {
   private client: GoogleGenerativeAI | null = null;
   private model: string;
   private configStatus: AIProviderStatus = 'CONFIG_ERROR';
+  private static cooldowns = new Map<string, number>();
 
   constructor() {
     const rawKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || config.geminiApiKey;
@@ -321,6 +322,12 @@ export class GeminiProvider implements AIProvider {
     let lastError: Error | null = null;
 
     for (const modelName of candidateModels) {
+      const cooldownUntil = GeminiProvider.cooldowns.get(modelName);
+      if (cooldownUntil && Date.now() < cooldownUntil) {
+        console.log(`[GeminiProvider] Skipping model ${modelName} due to cooldown.`);
+        continue;
+      }
+
       try {
         const genModel = this.client.getGenerativeModel({
           model: modelName,
@@ -371,9 +378,15 @@ export class GeminiProvider implements AIProvider {
         };
       } catch (err: any) {
         lastError = err;
-        console.warn(
-          `[GeminiProvider] Model ${modelName} call failed (${err.message}). Trying next candidate...`
-        );
+        const errMsg = typeof err?.message === 'string' ? err.message : String(err || '');
+        if (errMsg.includes('429')) {
+          const match = errMsg.match(/"retryDelay":"(\d+)s"/);
+          const delaySeconds = match ? parseInt(match[1], 10) : 3600;
+          GeminiProvider.cooldowns.set(modelName, Date.now() + delaySeconds * 1000);
+        } else if (errMsg.includes('503')) {
+          GeminiProvider.cooldowns.set(modelName, Date.now() + 60 * 1000);
+        }
+        console.warn(`[GeminiProvider] Model ${modelName} call failed (${err.message}). Trying next candidate...`);
       }
     }
 

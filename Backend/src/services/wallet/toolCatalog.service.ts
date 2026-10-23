@@ -1558,10 +1558,7 @@ export class ToolCatalogService {
     // Persist to MongoDB as authoritative store
     if (mongoose.connection && mongoose.connection.readyState === 1) {
       try {
-        await AIToolModel.findOneAndUpdate({ id: tool.id }, updatedTool, {
-          upsert: true,
-          new: true,
-        });
+        await AIToolModel.findOneAndUpdate({ id: tool.id }, updatedTool, { upsert: true, returnDocument: 'after' });
       } catch (err: any) {
         this.degradedMode = true;
         console.warn(`[ToolCatalog] MongoDB upsert warning (${tool.id}):`, err.message);
@@ -1677,10 +1674,7 @@ export class ToolCatalogService {
           for (const [seedId, seedTool] of this.catalog.entries()) {
             if (!freshCatalog.has(seedId)) {
               freshCatalog.set(seedId, seedTool);
-              await AIToolModel.findOneAndUpdate({ id: seedId }, seedTool, {
-                upsert: true,
-                new: true,
-              }).catch(() => {});
+              await AIToolModel.findOneAndUpdate({ id: seedId }, seedTool, { upsert: true, returnDocument: 'after' }).catch(() => {});
             }
           }
 
@@ -1694,7 +1688,7 @@ export class ToolCatalogService {
             '[ToolCatalog] MongoDB empty. Migrating initial curated seed tools to MongoDB...'
           );
           for (const tool of this.catalog.values()) {
-            await AIToolModel.findOneAndUpdate({ id: tool.id }, tool, { upsert: true, new: true });
+            await AIToolModel.findOneAndUpdate({ id: tool.id }, tool, { upsert: true, returnDocument: 'after' });
           }
           this.degradedMode = false;
           console.log('[ToolCatalog] Completed initial seed migration to MongoDB.');
@@ -1728,16 +1722,25 @@ export class ToolCatalogService {
         this.catalog.delete(id);
       }
 
+      const riskyPattern = /uncensored|nsfw|face[\s-]?swap|deepfake|undress/i;
+      const riskyRes = await AIToolModel.deleteMany({
+        name: { $regex: 'uncensored|nsfw|face[\\s-]?swap|deepfake|undress', $options: 'i' }
+      });
+      for (const [id, tool] of this.catalog.entries()) {
+        if (riskyPattern.test(tool.name)) {
+          this.catalog.delete(id);
+        }
+      }
+
       // Enforce: unverified / community-verified discovery candidates are not active by default
       await AIToolModel.updateMany(
         { verificationStatus: { $in: ['COMMUNITY_VERIFIED', 'UNVERIFIED', 'DISCOVERED'] } },
         { $set: { activeStatus: false } }
       );
 
-      console.log(
-        `[ToolCatalog] Cleaned ${res.deletedCount} invalid/polluted records from MongoDB and deactivated unverified candidates.`
-      );
-      return res.deletedCount || 0;
+      const totalDeleted = (res.deletedCount || 0) + (riskyRes.deletedCount || 0);
+      console.log(`[ToolCatalog] Cleaned ${res.deletedCount} invalid/polluted records and ${riskyRes.deletedCount || 0} risky records from MongoDB and deactivated unverified candidates.`);
+      return totalDeleted;
     }
     return 0;
   }

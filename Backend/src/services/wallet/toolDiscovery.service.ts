@@ -45,11 +45,15 @@ export class ToolDiscoveryService {
     console.log('[ToolDiscovery] Initializing daily AI tool discovery scheduler...');
 
     // Initial run after server startup (5s delay)
-    setTimeout(() => {
-      this.runDiscoveryJob().catch((err) =>
-        console.error('[ToolDiscovery] Startup job error:', err.message)
-      );
-    }, 5000);
+    if (process.env.RUN_DISCOVERY_ON_START === 'true') {
+      setTimeout(() => {
+        this.runDiscoveryJob().catch((err) =>
+          console.error('[ToolDiscovery] Startup job error:', err.message)
+        );
+      }, 5000);
+    } else {
+      console.log('[ToolDiscovery] Startup discovery skipped (RUN_DISCOVERY_ON_START !== "true").');
+    }
 
     // Schedule 24-hour periodic worker (86,400,000 ms)
     setInterval(
