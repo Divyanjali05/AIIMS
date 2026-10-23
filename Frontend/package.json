@@ -21,7 +21,7 @@
     "secrets:protect": "gitleaks protect --staged --redact --config ../.gitleaks.toml"
   },
   "dependencies": {
-    "@capacitor/android": "^6.2.2",
+    "@capacitor/android": "^8.5.3",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
     "@react-three/drei": "^9.122.0",
