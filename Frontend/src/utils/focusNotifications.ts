@@ -1,6 +1,6 @@
 /**
  * AIIMS Focus Notification Service (Phase 6C)
- * 
+ *
  * Manages optional desktop notifications for focus and break transitions.
  * Fully graceful: respects browser permissions, remains fully usable when denied,
  * and safely no-ops on environments where Notifications API is unsupported.
@@ -20,7 +20,7 @@ export async function requestFocusNotificationPermission(): Promise<boolean> {
   try {
     const result = await Notification.requestPermission();
     return result === 'granted';
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -33,16 +33,16 @@ export function sendFocusNotification(title: string, body: string): void {
     const notif = new Notification(title, {
       body,
       icon: '/favicon.ico',
-      tag: 'aiims-focus-notification'
+      tag: 'aiims-focus-notification',
     });
 
     // Auto-dismiss after 6 seconds to avoid notification clutter
     setTimeout(() => {
       try {
         notif.close();
-      } catch (e) {}
+      } catch {}
     }, 6000);
-  } catch (e) {
+  } catch {
     // Silently continue if notification fails
   }
 }

@@ -1,0 +1,32 @@
+{
+  "name": "aiims",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AIIMS - AI Intelligence & Mentoring System (Repository Root)",
+  "scripts": {
+    "prepare": "husky",
+    "lint:backend": "npm --prefix Backend run lint",
+    "lint:frontend": "npm --prefix Frontend run lint",
+    "typecheck:backend": "npm --prefix Backend run typecheck",
+    "typecheck:frontend": "npm --prefix Frontend run typecheck",
+    "build:backend": "npm --prefix Backend run build",
+    "build:frontend": "npm --prefix Frontend run build",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:frontend": "npm --prefix Frontend run test",
+    "test:frontend:unit": "vitest run Frontend",
+    "test:backend": "npm --prefix Backend run test:security",
+    "test:backend:scoring": "npm --prefix Backend run test:scoring",
+    "test:backend:unit": "vitest run Backend",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.7.1",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@playwright/test": "^1.64.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "vitest": "^1.6.1"
+  }
+}

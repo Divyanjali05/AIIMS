@@ -10,11 +10,8 @@
 
 import {
   getFeatureAccess,
-  getAllFeatureAccess,
-  isFeatureUnlocked,
-  UNRESOLVED_UNLOCK_CONDITIONS,
   normalizeFeatureId,
-  FeatureId
+  FeatureId,
 } from '../../../Frontend/src/services/featureAccessService';
 import { resolveLearnerNextAction } from '../../../Frontend/src/services/journeyResolver';
 
@@ -45,7 +42,7 @@ const createMockLearnerState = (overrides?: any): any => ({
     targetGoal: 'Master AI Intelligence',
     stage: 'Knowing',
     xpPoints: 100,
-    aiimsCredits: 100
+    aiimsCredits: 100,
   },
   assessment: {
     status: 'not_started',
@@ -58,13 +55,13 @@ const createMockLearnerState = (overrides?: any): any => ({
       evaluationCapability: 0,
       workflowDesign: 0,
       strategicVision: 0,
-      mentorshipReadiness: 0
-    }
+      mentorshipReadiness: 0,
+    },
   },
   analysis: {
     status: 'locked',
     topCapability: 'AI Evaluation & Critical Assessment',
-    growthArea: 'AI Workflow Design'
+    growthArea: 'AI Workflow Design',
   },
   clarity: {
     status: 'locked',
@@ -72,13 +69,13 @@ const createMockLearnerState = (overrides?: any): any => ({
     selectedTopic: null,
     completedTopics: [],
     reflections: {},
-    taskScores: {}
+    taskScores: {},
   },
   focus: {
     status: 'locked',
     selectedTrack: null,
     history: [],
-    activatedAt: null
+    activatedAt: null,
   },
   radar: {
     status: 'locked',
@@ -86,35 +83,35 @@ const createMockLearnerState = (overrides?: any): any => ({
     savedSignalIds: [],
     dismissedSignalIds: [],
     lastViewedRadar: null,
-    radarProgress: 0
+    radarProgress: 0,
   },
   investigation: {
     status: 'locked',
     selectedSignalId: null,
-    userNotes: {}
+    userNotes: {},
   },
   relevance: {
-    status: 'locked'
+    status: 'locked',
   },
   credits: {
     balance: 100,
     transactions: [],
-    claimedActions: []
+    claimedActions: [],
   },
   notifications: [],
   aiWallet: {
     userTools: [],
-    dismissedRecommendations: []
+    dismissedRecommendations: [],
   },
   solver: {
     latestWorkflow: null,
-    history: []
+    history: [],
   },
   build: {
     projects: [],
-    activeProjectId: null
+    activeProjectId: null,
   },
-  ...overrides
+  ...overrides,
 });
 
 // ---------------------------------------------------------------------------
@@ -133,12 +130,16 @@ assert(
   '1B: My AI Profile is strictly locked when assessment is incomplete'
 );
 assert(
-  Boolean(freshProfileAccess.reason && freshProfileAccess.reason.includes('complete your baseline assessment')),
+  Boolean(
+    freshProfileAccess.reason &&
+    freshProfileAccess.reason.includes('complete your baseline assessment')
+  ),
   '1C: Lock explanation clearly states requirement to complete baseline assessment',
   `Reason: ${freshProfileAccess.reason}`
 );
 assert(
-  freshProfileAccess.targetTab === 'assessment' && freshProfileAccess.unlockAction === 'Start Baseline Assessment',
+  freshProfileAccess.targetTab === 'assessment' &&
+    freshProfileAccess.unlockAction === 'Start Baseline Assessment',
   '1D: Next action points directly to Baseline Assessment tab'
 );
 
@@ -158,14 +159,14 @@ const assessedLearner = createMockLearnerState({
       evaluationCapability: 90,
       workflowDesign: 75,
       strategicVision: 80,
-      mentorshipReadiness: 70
-    }
+      mentorshipReadiness: 70,
+    },
   },
   analysis: {
     status: 'unlocked',
     topCapability: 'AI Evaluation & Critical Assessment',
-    growthArea: 'AI Workflow Design'
-  }
+    growthArea: 'AI Workflow Design',
+  },
 });
 const unlockedProfileAccess = getFeatureAccess('analysis', assessedLearner);
 
@@ -173,10 +174,7 @@ assert(
   unlockedProfileAccess.unlocked === true,
   '2A: My AI Profile unlocks immediately upon baseline assessment completion'
 );
-assert(
-  unlockedProfileAccess.visible === true,
-  '2B: My AI Profile remains visible after unlock'
-);
+assert(unlockedProfileAccess.visible === true, '2B: My AI Profile remains visible after unlock');
 
 // ---------------------------------------------------------------------------
 // TEST SUITE 3: Clarity & Focus Prerequisites
@@ -192,7 +190,7 @@ assert(
 // 3B: Clarity locked if assessment done but profile not reviewed
 const clarityAwaitingProfile = getFeatureAccess('clarity', {
   ...assessedLearner,
-  analysis: { status: 'locked' }
+  analysis: { status: 'locked' },
 });
 assert(
   clarityAwaitingProfile.unlocked === false && clarityAwaitingProfile.targetTab === 'analysis',
@@ -203,7 +201,7 @@ assert(
 const clarityUnlockedState = {
   ...assessedLearner,
   analysis: { status: 'viewed' },
-  clarity: { status: 'unlocked', completedTopics: [] }
+  clarity: { status: 'unlocked', completedTopics: [] },
 };
 const clarityUnlocked = getFeatureAccess('clarity', clarityUnlockedState);
 assert(
@@ -229,12 +227,12 @@ const focusUnlockedState = {
   clarity: {
     ...clarityUnlockedState.clarity,
     status: 'completed',
-    completedTopics: ['Checking AI Output']
+    completedTopics: ['Checking AI Output'],
   },
   focus: {
     status: 'unlocked',
-    selectedTrack: null
-  }
+    selectedTrack: null,
+  },
 };
 const focusUnlocked = getFeatureAccess('focus', focusUnlockedState);
 assert(
@@ -252,19 +250,13 @@ const level2To4Features: FeatureId[] = [
   'relevance',
   'solver',
   'build',
-  'mentor'
+  'mentor',
 ];
 
 level2To4Features.forEach((fid) => {
   const acc = getFeatureAccess(fid, focusUnlockedState);
-  assert(
-    acc.visible === true,
-    `4A [${fid}]: Feature remains visible in UI`
-  );
-  assert(
-    acc.unlocked === false,
-    `4B [${fid}]: Feature is safely locked`
-  );
+  assert(acc.visible === true, `4A [${fid}]: Feature remains visible in UI`);
+  assert(acc.unlocked === false, `4B [${fid}]: Feature is safely locked`);
   assert(
     Boolean(acc.reason && acc.reason.length > 15),
     `4C [${fid}]: Feature provides helpful, clear lock explanation`
@@ -282,19 +274,16 @@ console.log('\n── SUITE 5 & 6: Navigation Guard & Journey Consistency ──
 // Verify that normalizeFeatureId correctly maps alternate paths
 assert(
   normalizeFeatureId('/ai-radar') === 'radar' &&
-  normalizeFeatureId('problem-solver') === 'solver' &&
-  normalizeFeatureId('projects') === 'build' &&
-  normalizeFeatureId('/improve') === 'mentor' &&
-  normalizeFeatureId('profile-analysis') === 'analysis',
+    normalizeFeatureId('problem-solver') === 'solver' &&
+    normalizeFeatureId('projects') === 'build' &&
+    normalizeFeatureId('/improve') === 'mentor' &&
+    normalizeFeatureId('profile-analysis') === 'analysis',
   '5A: normalizeFeatureId accurately normalizes legacy/alternate tab routes'
 );
 
 // Verify that journey stages status aligns 100% with featureAccess
 const journeyFresh = resolveLearnerNextAction(freshLearner);
-assert(
-  journeyFresh.journeyStages.length === 10,
-  '5B: Home Journey maintains all 10 stages'
-);
+assert(journeyFresh.journeyStages.length === 10, '5B: Home Journey maintains all 10 stages');
 assert(
   journeyFresh.journeyStages[0].status === 'current',
   '5C: Journey Stage 1 (Understand AI) is current on fresh account'
@@ -334,13 +323,13 @@ stateDynamic = {
   assessment: {
     ...stateDynamic.assessment,
     status: 'completed',
-    completedAt: '18 Oct 2026'
+    completedAt: '18 Oct 2026',
   },
   analysis: {
     status: 'unlocked',
     topCapability: 'Critical Verification',
-    growthArea: 'Prompting'
-  }
+    growthArea: 'Prompting',
+  },
 };
 assert(
   getFeatureAccess('analysis', stateDynamic).unlocked === true,
@@ -355,12 +344,12 @@ const highCreditHackerState = createMockLearnerState({
   credits: {
     balance: 1000000,
     transactions: [],
-    claimedActions: []
+    claimedActions: [],
   },
   profile: {
     ...freshLearner.profile,
-    stage: 'Mastery' // Visual stage does not bypass gates
-  }
+    stage: 'Mastery', // Visual stage does not bypass gates
+  },
 });
 
 assert(
@@ -410,7 +399,7 @@ const coreFeatures: FeatureId[] = [
   'wallet',
   'credits',
   'settings',
-  'journey'
+  'journey',
 ];
 
 coreFeatures.forEach((fid) => {
@@ -425,7 +414,9 @@ coreFeatures.forEach((fid) => {
 // SUMMARY
 // ---------------------------------------------------------------------------
 console.log('\n===============================================================');
-console.log(`PHASE 3 TEST SUMMARY: ${totalPassed} PASSED / ${totalFailed} FAILED (Total: ${totalPassed + totalFailed})`);
+console.log(
+  `PHASE 3 TEST SUMMARY: ${totalPassed} PASSED / ${totalFailed} FAILED (Total: ${totalPassed + totalFailed})`
+);
 console.log('===============================================================');
 
 if (totalFailed > 0) {

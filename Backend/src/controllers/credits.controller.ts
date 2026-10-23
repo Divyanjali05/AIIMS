@@ -3,8 +3,10 @@ import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { User } from '../models/User.model';
 import { mockUser, mockTransactions, rewardedLevelIds } from '../models/aiims.models';
+import { CreditTransaction } from '../types';
 import { CREDIT_RULES } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
+import { CreditTransactionType } from '../models/CreditLedger.model';
 
 /**
  * GET /credits/wallet
@@ -16,22 +18,27 @@ export const getWallet = async (req: AuthenticatedRequest, res: Response) => {
     const ledger = await creditsLedgerService.getLedgerHistory(userId, { limit: 50 });
     return res.json({
       balance: ledger.balance,
-      transactions: req.user.transactions && req.user.transactions.length > 0
-        ? req.user.transactions
-        : ledger.transactions,
+      transactions:
+        req.user.transactions && req.user.transactions.length > 0
+          ? req.user.transactions
+          : ledger.transactions,
       ledger: ledger.transactions,
       totalEarned: ledger.totalEarned,
       totalSpent: ledger.totalSpent,
-      totalRefunded: ledger.totalRefunded
+      totalRefunded: ledger.totalRefunded,
     });
   }
   res.json({
     balance: mockUser.aiimsCredits,
     transactions: mockTransactions,
     ledger: mockTransactions,
-    totalEarned: mockTransactions.filter((t: any) => t.type === 'EARN').reduce((a: number, c: any) => a + c.amount, 0),
-    totalSpent: mockTransactions.filter((t: any) => t.type === 'SPEND').reduce((a: number, c: any) => a + c.amount, 0),
-    totalRefunded: 0
+    totalEarned: mockTransactions
+      .filter((t: CreditTransaction) => t.type === 'EARN')
+      .reduce((a: number, c: CreditTransaction) => a + c.amount, 0),
+    totalSpent: mockTransactions
+      .filter((t: CreditTransaction) => t.type === 'SPEND')
+      .reduce((a: number, c: CreditTransaction) => a + c.amount, 0),
+    totalRefunded: 0,
   });
 };
 
@@ -45,7 +52,7 @@ export const getLedger = async (req: AuthenticatedRequest, res: Response) => {
   }
 
   const userId = String(req.user._id || req.user.id);
-  const type = req.query.type as any;
+  const type = req.query.type as CreditTransactionType | undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
   const skip = req.query.skip ? parseInt(req.query.skip as string, 10) : 0;
 
@@ -68,7 +75,7 @@ export const getBalance = async (req: AuthenticatedRequest, res: Response) => {
   res.json({
     balance,
     isAuthoritative: true,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 };
 
@@ -120,7 +127,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
           amount: 0,
           currentBalance: currentBal,
           previousBalance: currentBal,
-          newBalance: currentBal
+          newBalance: currentBal,
         });
       }
 
@@ -133,7 +140,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
         source: 'ASSESSMENT',
         sourceId,
-        idempotencyKey
+        idempotencyKey,
       });
 
       if (!txResult.success || txResult.duplicate) {
@@ -145,7 +152,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
           amount: 0,
           currentBalance: currentBal,
           previousBalance: currentBal,
-          newBalance: currentBal
+          newBalance: currentBal,
         });
       }
 
@@ -162,9 +169,9 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
       return res.json({
         awarded: true,
         amount: rewardAmount,
-        previousBalance: txResult.previousBalance ?? (finalBal - rewardAmount),
+        previousBalance: txResult.previousBalance ?? finalBal - rewardAmount,
         newBalance: finalBal,
-        transaction: txResult.transaction
+        transaction: txResult.transaction,
       });
     }
 
@@ -177,7 +184,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
       reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
       source: 'ASSESSMENT',
       sourceId,
-      idempotencyKey
+      idempotencyKey,
     });
 
     if (result.duplicate) {
@@ -187,7 +194,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
         amount: 0,
         currentBalance: result.balance,
         previousBalance: result.previousBalance,
-        newBalance: result.newBalance
+        newBalance: result.newBalance,
       });
     }
 
@@ -199,7 +206,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
       amount: rewardAmount,
       previousBalance: result.previousBalance,
       newBalance: result.newBalance,
-      transaction: result.transaction
+      transaction: result.transaction,
     });
   }
 
@@ -209,7 +216,7 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
       awarded: false,
       message: `Level 0${numLevel} credits already awarded`,
       amount: 0,
-      currentBalance: mockUser.aiimsCredits
+      currentBalance: mockUser.aiimsCredits,
     });
   }
 
@@ -217,25 +224,23 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
   mockUser.aiimsCredits += rewardAmount;
   rewardedLevelIds.add(numLevel);
 
-  const tx = {
+  const tx: CreditTransaction = {
     id: `tx-level-${numLevel}-${Date.now()}`,
-    transactionType: 'LEVEL_COMPLETION' as const,
-    source: 'ASSESSMENT' as const,
-    sourceId: `LEVEL_0${numLevel}`,
+    type: 'EARN',
     amount: rewardAmount,
     description: `Completed AI Quest Level 0${numLevel} (+10 AC)`,
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    previousBalance,
-    newBalance: mockUser.aiimsCredits
+    newBalance: mockUser.aiimsCredits,
+    source: 'ASSESSMENT',
   };
-  mockTransactions.unshift(tx as any);
+  mockTransactions.unshift(tx);
 
   res.json({
     awarded: true,
     amount: rewardAmount,
     previousBalance,
     newBalance: mockUser.aiimsCredits,
-    transaction: tx
+    transaction: tx,
   });
 };
 
@@ -264,19 +269,19 @@ export const investCredits = async (req: AuthenticatedRequest, res: Response) =>
       reason: description || 'Invested in mentoring activity',
       source: 'MENTOR',
       sourceId: 'LAB_INVESTMENT',
-      idempotencyKey
+      idempotencyKey,
     });
 
     if (result.conflict) {
       return res.status(409).json({
-        error: result.error || 'Idempotency key reuse conflict'
+        error: result.error || 'Idempotency key reuse conflict',
       });
     }
 
     if (!result.success) {
       return res.status(400).json({
         error: 'Insufficient AIIMS Credits balance',
-        currentBalance: result.balance
+        currentBalance: result.balance,
       });
     }
 
@@ -290,26 +295,23 @@ export const investCredits = async (req: AuthenticatedRequest, res: Response) =>
     return res.json({
       balance: result.balance,
       transaction: result.transaction,
-      isDuplicate: result.duplicate || false
+      isDuplicate: result.duplicate || false,
     });
   }
 
   if (mockUser.aiimsCredits < numAmount) {
     return res.status(400).json({ error: 'Insufficient AIIMS Credits balance' });
   }
-  const previousBalance = mockUser.aiimsCredits;
   mockUser.aiimsCredits -= numAmount;
-  const tx = {
+  const tx: CreditTransaction = {
     id: `tx-${Date.now()}`,
-    transactionType: 'SPEND' as const,
-    source: 'MENTOR' as const,
-    sourceId: 'LAB_INVESTMENT',
+    type: 'SPEND',
     amount: numAmount,
     description: description || 'Invested in mentoring activity',
     timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    previousBalance,
-    newBalance: mockUser.aiimsCredits
+    newBalance: mockUser.aiimsCredits,
+    source: 'MENTOR',
   };
-  mockTransactions.unshift(tx as any);
+  mockTransactions.unshift(tx);
   res.json({ balance: mockUser.aiimsCredits, transaction: tx });
 };

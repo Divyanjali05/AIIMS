@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   UserProfile,
   AcademicProfile,
@@ -8,13 +8,11 @@ import {
   SolvedWorkflow,
   UserProject,
   AudienceMode,
-  FocusSessionLifecycleState,
-  FocusPeriodType,
   FocusSessionConfig,
   ActiveFocusSessionState,
-  FocusSessionRecord
+  FocusSessionRecord,
 } from '../types';
-import { apiClient } from '../api/client';
+import { apiClient, getApiBaseUrl } from '../api/client';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 import { playSessionCompleteSound, playBreakCompleteSound } from '../utils/focusAudio';
 import { sendFocusNotification } from '../utils/focusNotifications';
@@ -37,10 +35,7 @@ export interface AppNotification {
   read: boolean;
 }
 
-export const resolveAudienceMode = (
-  savedMode?: any,
-  primaryGoal?: string
-): AudienceMode => {
+export const resolveAudienceMode = (savedMode?: any, primaryGoal?: string): AudienceMode => {
   if (savedMode === 'student' || savedMode === 'entrepreneur') {
     return savedMode;
   }
@@ -80,17 +75,28 @@ export interface LearnerState {
     selectedTopic: string | null;
     completedTopics: string[];
     reflections: Record<string, string>;
-    taskScores?: Record<string, Record<string, {
-      score: number;
-      output: string;
-      userPrompt: string;
-      breakdown?: { clarity: number; constraints: number; structure: number; reliability: number };
-      grade?: string;
-      strengths?: string[];
-      gaps?: string[];
-      tip?: string;
-      completedAt?: string;
-    }>>;
+    taskScores?: Record<
+      string,
+      Record<
+        string,
+        {
+          score: number;
+          output: string;
+          userPrompt: string;
+          breakdown?: {
+            clarity: number;
+            constraints: number;
+            structure: number;
+            reliability: number;
+          };
+          grade?: string;
+          strengths?: string[];
+          gaps?: string[];
+          tip?: string;
+          completedAt?: string;
+        }
+      >
+    >;
   };
   focus: {
     status: 'locked' | 'unlocked' | 'active' | 'completed';
@@ -153,7 +159,7 @@ const initialLearnerState: LearnerState = {
     targetGoal: 'Explore AI Architectures & Intelligence',
     stage: 'Knowing',
     xpPoints: 0,
-    aiimsCredits: 100
+    aiimsCredits: 100,
   },
   academicProfile: undefined,
   assessment: {
@@ -167,13 +173,13 @@ const initialLearnerState: LearnerState = {
       evaluationCapability: 0,
       workflowDesign: 0,
       strategicVision: 0,
-      mentorshipReadiness: 0
-    }
+      mentorshipReadiness: 0,
+    },
   },
   analysis: {
     status: 'locked',
     topCapability: 'AI Evaluation & Critical Assessment',
-    growthArea: 'AI Workflow Design'
+    growthArea: 'AI Workflow Design',
   },
   clarity: {
     status: 'locked',
@@ -181,7 +187,7 @@ const initialLearnerState: LearnerState = {
     selectedTopic: null,
     completedTopics: [],
     reflections: {},
-    taskScores: {}
+    taskScores: {},
   },
   focus: {
     status: 'locked',
@@ -194,10 +200,10 @@ const initialLearnerState: LearnerState = {
       enableLongBreak: true,
       longBreakDurationMinutes: 15,
       longBreakInterval: 4,
-      soundEnabled: true
+      soundEnabled: true,
     },
     activeSession: null,
-    sessionHistory: []
+    sessionHistory: [],
   },
   radar: {
     status: 'locked',
@@ -205,15 +211,15 @@ const initialLearnerState: LearnerState = {
     savedSignalIds: [],
     dismissedSignalIds: [],
     lastViewedRadar: null,
-    radarProgress: 0
+    radarProgress: 0,
   },
   investigation: {
     status: 'locked',
     selectedSignalId: null,
-    userNotes: {}
+    userNotes: {},
   },
   relevance: {
-    status: 'locked'
+    status: 'locked',
   },
   credits: {
     balance: 100,
@@ -224,20 +230,21 @@ const initialLearnerState: LearnerState = {
         amount: 100,
         type: 'EARN',
         timestamp: 'Just now',
-        actionKey: 'WELCOME_BONUS'
-      }
+        actionKey: 'WELCOME_BONUS',
+      },
     ],
-    claimedActions: ['WELCOME_BONUS']
+    claimedActions: ['WELCOME_BONUS'],
   },
   notifications: [
     {
       id: 'notif-welcome-1',
       title: 'Welcome to AIIMS',
-      message: 'Your AI journey starts here. Discover your AI profile by taking your baseline assessment.',
+      message:
+        'Your AI journey starts here. Discover your AI profile by taking your baseline assessment.',
       timestamp: 'Just now',
       targetTab: 'assessment',
-      read: false
-    }
+      read: false,
+    },
   ],
   aiWallet: {
     userTools: [
@@ -247,7 +254,7 @@ const initialLearnerState: LearnerState = {
         familiarity: 'proficient',
         userNotes: 'Used daily for quick prompt queries and document drafting.',
         primaryCategory: 'Reasoning & Writing',
-        customTags: ['daily-driver']
+        customTags: ['daily-driver'],
       },
       {
         toolId: 'tool-copilot',
@@ -255,20 +262,20 @@ const initialLearnerState: LearnerState = {
         familiarity: 'practicing',
         userNotes: 'Used in VS Code for autocomplete.',
         primaryCategory: 'Agentic Coding',
-        customTags: ['coding']
-      }
+        customTags: ['coding'],
+      },
     ],
     dismissedRecommendations: [],
-    audienceMode: 'student'
+    audienceMode: 'student',
   },
   solver: {
     latestWorkflow: null,
-    history: []
+    history: [],
   },
   build: {
     projects: [],
-    activeProjectId: null
-  }
+    activeProjectId: null,
+  },
 };
 
 /**
@@ -313,12 +320,21 @@ interface LearnerContextType {
   setClarityTopic: (topicName: string | null) => void;
   saveClarityReflection: (topicName: string, text: string) => void;
   completeClarityTopic: (topicName: string) => void;
-  saveClarityTaskResult: (topicName: string, difficulty: 'easy' | 'medium' | 'advanced', result: any) => void;
+  saveClarityTaskResult: (
+    topicName: string,
+    difficulty: 'easy' | 'medium' | 'advanced',
+    result: any
+  ) => void;
   selectFocusTrack: (trackName: string) => void;
   changeFocusTrack: (newTrackName: string) => void;
   clearFocusSelection: () => void;
   updateFocusSessionConfig: (config: Partial<FocusSessionConfig>) => void;
-  startFocusSession: (params?: { trackTitle?: string; intention?: string; customFocusMinutes?: number; customBreakMinutes?: number }) => boolean;
+  startFocusSession: (params?: {
+    trackTitle?: string;
+    intention?: string;
+    customFocusMinutes?: number;
+    customBreakMinutes?: number;
+  }) => boolean;
   pauseFocusSession: () => void;
   resumeFocusSession: () => void;
   completeFocusPeriod: () => void;
@@ -332,17 +348,31 @@ interface LearnerContextType {
   dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
   setAudienceMode: (mode: AudienceMode) => void;
-  addToolToWallet: (toolId: string, primaryCategory: TaskCategory, familiarity?: ToolFamiliarity, userNotes?: string) => void;
+  addToolToWallet: (
+    toolId: string,
+    primaryCategory: TaskCategory,
+    familiarity?: ToolFamiliarity,
+    userNotes?: string
+  ) => void;
   addMultipleToolsToWallet: (tools: UserToolItem[]) => void;
   removeToolFromWallet: (toolId: string) => void;
   updateToolFamiliarity: (toolId: string, familiarity: ToolFamiliarity, userNotes?: string) => void;
   dismissRecommendation: (recommendationId: string) => void;
   saveSolvedWorkflow: (workflow: Omit<SolvedWorkflow, 'id' | 'createdAt'>) => void;
   saveUserProject: (project: Omit<UserProject, 'id' | 'createdAt'>) => void;
-  setRadarOpportunityContext: (ctx: { activeSignalId: string; opportunityTitle?: string; opportunityDesc?: string; passedContext?: any } | null) => void;
+  setRadarOpportunityContext: (
+    ctx: {
+      activeSignalId: string;
+      opportunityTitle?: string;
+      opportunityDesc?: string;
+      passedContext?: any;
+    } | null
+  ) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: RegistrationPayload) => Promise<{ success: boolean; error?: string; field?: string }>;
+  register: (
+    data: RegistrationPayload
+  ) => Promise<{ success: boolean; error?: string; field?: string }>;
   logout: () => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
@@ -365,8 +395,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (token) {
         // We decode userId from the token to scope the key
         // But since we can't safely decode here without importing jwt, use email-scoped or v3 key
-        const scopedByEmail = Object.keys(localStorage).find(k =>
-          k.startsWith('aiims_learner_state_') && !k.endsWith('_v3') && !k.endsWith('_v4')
+        const scopedByEmail = Object.keys(localStorage).find(
+          (k) => k.startsWith('aiims_learner_state_') && !k.endsWith('_v3') && !k.endsWith('_v4')
         );
         if (scopedByEmail) {
           const scoped = localStorage.getItem(scopedByEmail);
@@ -381,13 +411,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
               ...parsed,
               focus: {
                 ...initialLearnerState.focus,
-                ...(parsed.focus || {})
+                ...(parsed.focus || {}),
               },
               aiWallet: {
                 ...initialLearnerState.aiWallet,
                 ...(parsed.aiWallet || {}),
-                audienceMode: resolvedMode
-              }
+                audienceMode: resolvedMode,
+              },
             };
           }
         }
@@ -406,13 +436,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...parsed,
             focus: {
               ...initialLearnerState.focus,
-              ...(parsed.focus || {})
+              ...(parsed.focus || {}),
             },
             aiWallet: {
               ...initialLearnerState.aiWallet,
               ...(parsed.aiWallet || {}),
-              audienceMode: resolvedMode
-            }
+              audienceMode: resolvedMode,
+            },
           };
         }
       }
@@ -426,7 +456,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     const token = localStorage.getItem('aiims_auth_token');
     if (token) {
-      apiClient.getLearnerState()
+      apiClient
+        .getLearnerState()
         .then((res) => {
           if (res?.success && res?.state) {
             const loaded = res.state;
@@ -503,7 +534,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
               startedAt: new Date(active.sessionStartEpoch).toISOString(),
               completedAt: new Date().toISOString(),
               status: 'completed',
-              cyclesCompleted: newCycles
+              cyclesCompleted: newCycles,
             };
 
             playSessionCompleteSound(active.config.soundEnabled);
@@ -514,7 +545,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             const prevHistory = prev.focus.sessionHistory || [];
             // Prevent duplicate completion records
-            const alreadyLogged = prevHistory.some(r => r.id === active.id && r.cyclesCompleted === newCycles);
+            const alreadyLogged = prevHistory.some(
+              (r) => r.id === active.id && r.cyclesCompleted === newCycles
+            );
             const updatedHistory = alreadyLogged ? prevHistory : [record, ...prevHistory];
 
             return {
@@ -527,10 +560,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   remainingSeconds: 0,
                   targetEndTime: null,
                   completedCycles: newCycles,
-                  accumulatedFocusSeconds: accumulated
+                  accumulatedFocusSeconds: accumulated,
                 },
-                sessionHistory: updatedHistory
-              }
+                sessionHistory: updatedHistory,
+              },
             };
           } else {
             // Break period finished
@@ -548,9 +581,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   ...active,
                   sessionState: 'idle',
                   remainingSeconds: 0,
-                  targetEndTime: null
-                }
-              }
+                  targetEndTime: null,
+                },
+              },
             };
           }
         } else {
@@ -559,8 +592,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (remainingSec === active.remainingSeconds) {
             return prev;
           }
-          const elapsed = active.periodType === 'focus' ? Math.max(0, active.totalPeriodSeconds - remainingSec) : 0;
-          const newAccumulated = active.periodType === 'focus' ? Math.max(active.accumulatedFocusSeconds, elapsed) : active.accumulatedFocusSeconds;
+          const elapsed =
+            active.periodType === 'focus'
+              ? Math.max(0, active.totalPeriodSeconds - remainingSec)
+              : 0;
+          const newAccumulated =
+            active.periodType === 'focus'
+              ? Math.max(active.accumulatedFocusSeconds, elapsed)
+              : active.accumulatedFocusSeconds;
 
           return {
             ...prev,
@@ -569,9 +608,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
               activeSession: {
                 ...active,
                 remainingSeconds: remainingSec,
-                accumulatedFocusSeconds: newAccumulated
-              }
-            }
+                accumulatedFocusSeconds: newAccumulated,
+              },
+            },
           };
         }
       });
@@ -601,9 +640,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         status: prev.assessment.status === 'completed' ? 'completed' : 'in_progress',
         answers: {
           ...prev.assessment.answers,
-          [questionId]: value
-        }
-      }
+          [questionId]: value,
+        },
+      },
     }));
   };
 
@@ -612,13 +651,15 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       assessment: {
         ...prev.assessment,
-        currentQuestionIndex: index
-      }
+        currentQuestionIndex: index,
+      },
     }));
   };
 
   // Dynamic Score Calculation from 25 Questions via Assessment Scoring Engine
-  const calculateScoresFromAnswers = (answers: Record<number, any>): {
+  const calculateScoresFromAnswers = (
+    answers: Record<number, any>
+  ): {
     scores: {
       usageFrequency: number;
       evaluationCapability: number;
@@ -636,12 +677,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       scores: result.legacyScores,
       topCapability: result.strongestSkill.name,
       growthArea: result.roomToGrow.name,
-      evaluationResult: result
+      evaluationResult: result,
     };
   };
 
   const completeAssessment = async () => {
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nowStr = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
     const rewardAmount = 50;
     const actionKey = 'ASSESSMENT_COMPLETION';
 
@@ -660,13 +705,19 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setState((prev) => {
-      if (prev.assessment.status === 'completed' || prev.credits.claimedActions.includes(actionKey)) {
+      if (
+        prev.assessment.status === 'completed' ||
+        prev.credits.claimedActions.includes(actionKey)
+      ) {
         return prev; // Idempotent check
       }
 
       const calculated = calculateScoresFromAnswers(prev.assessment.answers || {});
       const finalEvalResult = serverEvaluationResult || calculated.evaluationResult;
-      const newBalance = typeof serverUpdatedBalance === 'number' ? serverUpdatedBalance : prev.credits.balance + rewardAmount;
+      const newBalance =
+        typeof serverUpdatedBalance === 'number'
+          ? serverUpdatedBalance
+          : prev.credits.balance + rewardAmount;
 
       const newTx: CreditTransactionItem = {
         id: `tx-assessment-${Date.now()}`,
@@ -674,7 +725,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         amount: rewardAmount,
         type: 'EARN',
         timestamp: nowStr,
-        actionKey
+        actionKey,
       };
 
       const newNotif: AppNotification = {
@@ -683,7 +734,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         message: `You completed your AI baseline assessment (+${rewardAmount} Credits)! Your analysis is now unlocked.`,
         timestamp: 'Just now',
         targetTab: 'analysis',
-        read: false
+        read: false,
       };
 
       return {
@@ -692,7 +743,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.profile,
           stage: 'Recognising',
           xpPoints: prev.profile.xpPoints + 500,
-          aiimsCredits: newBalance
+          aiimsCredits: newBalance,
         },
         assessment: {
           ...prev.assessment,
@@ -700,60 +751,66 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           completedAt: nowStr,
           rewardClaimed: true,
           scores: finalEvalResult.legacyScores,
-          evaluationResult: finalEvalResult
+          evaluationResult: finalEvalResult,
         },
         analysis: {
           status: 'unlocked',
           topCapability: finalEvalResult.strongestSkill.name,
-          growthArea: finalEvalResult.roomToGrow.name
+          growthArea: finalEvalResult.roomToGrow.name,
         },
         clarity: {
           ...prev.clarity,
           status: 'unlocked',
-          selectedAreas: [finalEvalResult.roomToGrow.name, 'AI Workflow Design', 'AI Agents & Autonomous Workflows']
+          selectedAreas: [
+            finalEvalResult.roomToGrow.name,
+            'AI Workflow Design',
+            'AI Agents & Autonomous Workflows',
+          ],
         },
         focus: {
           ...prev.focus,
           status: 'unlocked',
-          selectedTrack: null
+          selectedTrack: null,
         },
         credits: {
           balance: newBalance,
           transactions: [newTx, ...prev.credits.transactions],
-          claimedActions: [...prev.credits.claimedActions, actionKey]
+          claimedActions: [...prev.credits.claimedActions, actionKey],
         },
         aiWallet: {
           ...prev.aiWallet,
-          userTools: prev.aiWallet?.userTools && prev.aiWallet.userTools.length > 0
-            ? prev.aiWallet.userTools
-            : [
-                {
-                  toolId: 'tool-chatgpt',
-                  addedAt: nowStr,
-                  familiarity: 'proficient',
-                  primaryCategory: 'Reasoning & Writing',
-                  userNotes: 'Auto-added from Assessment: Daily reasoning & prompt engineering',
-                  customTags: ['assessment-baseline']
-                },
-                {
-                  toolId: 'tool-cursor',
-                  addedAt: nowStr,
-                  familiarity: 'practicing',
-                  primaryCategory: 'Agentic Coding',
-                  userNotes: 'Auto-added from Assessment: Matched Challenge 12 Prototype Prompt',
-                  customTags: ['assessment-prompt']
-                },
-                {
-                  toolId: 'tool-claude',
-                  addedAt: nowStr,
-                  familiarity: 'practicing',
-                  primaryCategory: 'Reasoning & Writing',
-                  userNotes: 'Auto-added from Assessment: Matched Challenge 11 Architecture Prompt',
-                  customTags: ['assessment-prompt']
-                }
-              ]
+          userTools:
+            prev.aiWallet?.userTools && prev.aiWallet.userTools.length > 0
+              ? prev.aiWallet.userTools
+              : [
+                  {
+                    toolId: 'tool-chatgpt',
+                    addedAt: nowStr,
+                    familiarity: 'proficient',
+                    primaryCategory: 'Reasoning & Writing',
+                    userNotes: 'Auto-added from Assessment: Daily reasoning & prompt engineering',
+                    customTags: ['assessment-baseline'],
+                  },
+                  {
+                    toolId: 'tool-cursor',
+                    addedAt: nowStr,
+                    familiarity: 'practicing',
+                    primaryCategory: 'Agentic Coding',
+                    userNotes: 'Auto-added from Assessment: Matched Challenge 12 Prototype Prompt',
+                    customTags: ['assessment-prompt'],
+                  },
+                  {
+                    toolId: 'tool-claude',
+                    addedAt: nowStr,
+                    familiarity: 'practicing',
+                    primaryCategory: 'Reasoning & Writing',
+                    userNotes:
+                      'Auto-added from Assessment: Matched Challenge 11 Architecture Prompt',
+                    customTags: ['assessment-prompt'],
+                  },
+                ],
         },
-        notifications: [newNotif, ...prev.notifications]
+        notifications: [newNotif, ...prev.notifications],
       };
     });
   };
@@ -761,18 +818,24 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const unlockAnalysis = () => {
     setState((prev) => ({
       ...prev,
-      analysis: { ...prev.analysis, status: 'unlocked' }
+      analysis: { ...prev.analysis, status: 'unlocked' },
     }));
   };
 
-  const viewAnalysis = () => {
+  const viewAnalysis = useCallback(() => {
     setState((prev) => ({
       ...prev,
       analysis: { ...prev.analysis, status: 'viewed' },
-      clarity: { ...prev.clarity, status: prev.clarity.status === 'locked' ? 'unlocked' : prev.clarity.status },
-      focus: { ...prev.focus, status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status }
+      clarity: {
+        ...prev.clarity,
+        status: prev.clarity.status === 'locked' ? 'unlocked' : prev.clarity.status,
+      },
+      focus: {
+        ...prev.focus,
+        status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status,
+      },
     }));
-  };
+  }, []);
 
   const selectClarityArea = (areaName: string) => {
     setState((prev) => {
@@ -785,17 +848,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.clarity,
           status: isCompleted ? 'completed' : 'in_progress',
           selectedAreas: updated,
-          selectedTopic: areaName
-        }
+          selectedTopic: areaName,
+        },
       };
     });
   };
 
   const selectFocusTrack = (trackName: string) => {
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nowStr = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
     setState((prev) => {
       const prevHistory = prev.focus.history || [];
-      const updatedHistory = prevHistory.includes(trackName) ? prevHistory : [trackName, ...prevHistory];
+      const updatedHistory = prevHistory.includes(trackName)
+        ? prevHistory
+        : [trackName, ...prevHistory];
       return {
         ...prev,
         focus: {
@@ -803,22 +872,26 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: 'active',
           selectedTrack: trackName,
           history: updatedHistory,
-          activatedAt: nowStr
+          activatedAt: nowStr,
         },
         investigation: {
           ...prev.investigation,
-          status: 'available'
-        }
+          status: 'available',
+        },
       };
     });
   };
 
   const changeFocusTrack = (newTrackName: string) => {
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nowStr = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
     setState((prev) => {
       const prevTrack = prev.focus.selectedTrack;
       const prevHistory = prev.focus.history || [];
-      let updatedHistory = [...prevHistory];
+      const updatedHistory = [...prevHistory];
       if (prevTrack && !updatedHistory.includes(prevTrack)) {
         updatedHistory.unshift(prevTrack);
       }
@@ -832,8 +905,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: 'active',
           selectedTrack: newTrackName,
           history: updatedHistory,
-          activatedAt: nowStr
-        }
+          activatedAt: nowStr,
+        },
       };
     });
   };
@@ -843,8 +916,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       focus: {
         ...prev.focus,
-        status: prev.focus.status === 'locked' ? 'locked' : 'unlocked'
-      }
+        status: prev.focus.status === 'locked' ? 'locked' : 'unlocked',
+      },
     }));
   };
 
@@ -860,36 +933,46 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         enableLongBreak: true,
         longBreakDurationMinutes: 15,
         longBreakInterval: 4,
-        soundEnabled: true
+        soundEnabled: true,
       };
 
       const updated = {
         ...currentConfig,
-        ...newConfig
+        ...newConfig,
       };
 
       const parsedFocus = Number(updated.focusDurationMinutes);
-      updated.focusDurationMinutes = isNaN(parsedFocus) ? 25 : Math.max(1, Math.min(180, parsedFocus));
+      updated.focusDurationMinutes = isNaN(parsedFocus)
+        ? 25
+        : Math.max(1, Math.min(180, parsedFocus));
 
       const parsedBreak = Number(updated.breakDurationMinutes);
-      updated.breakDurationMinutes = isNaN(parsedBreak) ? 5 : Math.max(1, Math.min(60, parsedBreak));
+      updated.breakDurationMinutes = isNaN(parsedBreak)
+        ? 5
+        : Math.max(1, Math.min(60, parsedBreak));
 
       const parsedLongBreak = Number(updated.longBreakDurationMinutes);
-      updated.longBreakDurationMinutes = isNaN(parsedLongBreak) ? 15 : Math.max(1, Math.min(60, parsedLongBreak));
+      updated.longBreakDurationMinutes = isNaN(parsedLongBreak)
+        ? 15
+        : Math.max(1, Math.min(60, parsedLongBreak));
 
       const parsedInterval = Number(updated.longBreakInterval);
-      updated.longBreakInterval = isNaN(parsedInterval) ? 4 : Math.max(1, Math.min(12, parsedInterval));
+      updated.longBreakInterval = isNaN(parsedInterval)
+        ? 4
+        : Math.max(1, Math.min(12, parsedInterval));
 
       return {
         ...prev,
         focus: {
           ...prev.focus,
           sessionConfig: updated,
-          activeSession: prev.focus.activeSession ? {
-            ...prev.focus.activeSession,
-            config: updated
-          } : prev.focus.activeSession
-        }
+          activeSession: prev.focus.activeSession
+            ? {
+                ...prev.focus.activeSession,
+                config: updated,
+              }
+            : prev.focus.activeSession,
+        },
       };
     });
   };
@@ -907,8 +990,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (
         prev.focus.activeSession &&
         (prev.focus.activeSession.sessionState === 'focusing' ||
-         prev.focus.activeSession.sessionState === 'paused' ||
-         prev.focus.activeSession.sessionState === 'break')
+          prev.focus.activeSession.sessionState === 'paused' ||
+          prev.focus.activeSession.sessionState === 'break')
       ) {
         return prev;
       }
@@ -919,15 +1002,17 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         enableLongBreak: true,
         longBreakDurationMinutes: 15,
         longBreakInterval: 4,
-        soundEnabled: true
+        soundEnabled: true,
       };
 
-      const parsedCustomFocus = params?.customFocusMinutes !== undefined ? Number(params.customFocusMinutes) : NaN;
+      const parsedCustomFocus =
+        params?.customFocusMinutes !== undefined ? Number(params.customFocusMinutes) : NaN;
       const focusMinutes = !isNaN(parsedCustomFocus)
         ? Math.max(1, Math.min(180, parsedCustomFocus))
         : config.focusDurationMinutes;
 
-      const parsedCustomBreak = params?.customBreakMinutes !== undefined ? Number(params.customBreakMinutes) : NaN;
+      const parsedCustomBreak =
+        params?.customBreakMinutes !== undefined ? Number(params.customBreakMinutes) : NaN;
       const breakMinutes = !isNaN(parsedCustomBreak)
         ? Math.max(1, Math.min(60, parsedCustomBreak))
         : config.breakDurationMinutes;
@@ -935,13 +1020,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const effectiveConfig: FocusSessionConfig = {
         ...config,
         focusDurationMinutes: focusMinutes,
-        breakDurationMinutes: breakMinutes
+        breakDurationMinutes: breakMinutes,
       };
 
       const track = params?.trackTitle?.trim() || prev.focus.selectedTrack || 'AI Workflow Design';
       const durationSeconds = focusMinutes * 60;
       const now = Date.now();
-      const targetEndTime = now + (durationSeconds * 1000);
+      const targetEndTime = now + durationSeconds * 1000;
 
       const newSession: ActiveFocusSessionState = {
         id: `foc-sess-${now}`,
@@ -956,7 +1041,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         accumulatedFocusSeconds: 0,
         sessionStartEpoch: now,
         completedCycles: 0,
-        config: effectiveConfig
+        config: effectiveConfig,
       };
 
       started = true;
@@ -967,8 +1052,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.focus,
           status: 'active',
           selectedTrack: track,
-          activeSession: newSession
-        }
+          activeSession: newSession,
+        },
       };
     });
 
@@ -987,12 +1072,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? Math.max(0, Math.ceil((active.targetEndTime - now) / 1000))
         : active.remainingSeconds;
 
-      const elapsed = active.periodType === 'focus'
-        ? Math.max(0, active.totalPeriodSeconds - remainingSeconds)
-        : 0;
-      const newAccumulated = active.periodType === 'focus'
-        ? Math.max(active.accumulatedFocusSeconds, elapsed)
-        : active.accumulatedFocusSeconds;
+      const elapsed =
+        active.periodType === 'focus'
+          ? Math.max(0, active.totalPeriodSeconds - remainingSeconds)
+          : 0;
+      const newAccumulated =
+        active.periodType === 'focus'
+          ? Math.max(active.accumulatedFocusSeconds, elapsed)
+          : active.accumulatedFocusSeconds;
 
       return {
         ...prev,
@@ -1004,9 +1091,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             remainingSeconds,
             targetEndTime: null,
             pausedAt: now,
-            accumulatedFocusSeconds: newAccumulated
-          }
-        }
+            accumulatedFocusSeconds: newAccumulated,
+          },
+        },
       };
     });
   };
@@ -1019,7 +1106,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       const now = Date.now();
-      const targetEndTime = now + (active.remainingSeconds * 1000);
+      const targetEndTime = now + active.remainingSeconds * 1000;
 
       return {
         ...prev,
@@ -1029,9 +1116,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...active,
             sessionState: active.periodType === 'focus' ? 'focusing' : 'break',
             targetEndTime,
-            pausedAt: null
-          }
-        }
+            pausedAt: null,
+          },
+        },
       };
     });
   };
@@ -1042,9 +1129,13 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!active) return prev;
 
       const newCycles = active.completedCycles + 1;
-      const actualSeconds = active.periodType === 'focus'
-        ? Math.max(active.accumulatedFocusSeconds, active.totalPeriodSeconds - active.remainingSeconds)
-        : active.accumulatedFocusSeconds;
+      const actualSeconds =
+        active.periodType === 'focus'
+          ? Math.max(
+              active.accumulatedFocusSeconds,
+              active.totalPeriodSeconds - active.remainingSeconds
+            )
+          : active.accumulatedFocusSeconds;
 
       const record: FocusSessionRecord = {
         id: active.id,
@@ -1056,7 +1147,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         startedAt: new Date(active.sessionStartEpoch).toISOString(),
         completedAt: new Date().toISOString(),
         status: 'completed',
-        cyclesCompleted: newCycles
+        cyclesCompleted: newCycles,
       };
 
       playSessionCompleteSound(active.config.soundEnabled);
@@ -1066,7 +1157,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       );
 
       const prevHistory = prev.focus.sessionHistory || [];
-      const alreadyLogged = prevHistory.some(r => r.id === active.id && r.cyclesCompleted === newCycles);
+      const alreadyLogged = prevHistory.some(
+        (r) => r.id === active.id && r.cyclesCompleted === newCycles
+      );
       const updatedHistory = alreadyLogged ? prevHistory : [record, ...prevHistory];
 
       return {
@@ -1079,10 +1172,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             remainingSeconds: 0,
             targetEndTime: null,
             completedCycles: newCycles,
-            accumulatedFocusSeconds: actualSeconds
+            accumulatedFocusSeconds: actualSeconds,
           },
-          sessionHistory: updatedHistory
-        }
+          sessionHistory: updatedHistory,
+        },
       };
     });
   };
@@ -1092,18 +1185,18 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const active = prev.focus.activeSession;
       if (!active) return prev;
 
-      const isLong = forceLongBreak || (
-        active.config.enableLongBreak &&
-        active.completedCycles > 0 &&
-        active.completedCycles % active.config.longBreakInterval === 0
-      );
+      const isLong =
+        forceLongBreak ||
+        (active.config.enableLongBreak &&
+          active.completedCycles > 0 &&
+          active.completedCycles % active.config.longBreakInterval === 0);
 
       const breakMins = isLong
         ? active.config.longBreakDurationMinutes
         : active.config.breakDurationMinutes;
       const breakSecs = breakMins * 60;
       const now = Date.now();
-      const targetEndTime = now + (breakSecs * 1000);
+      const targetEndTime = now + breakSecs * 1000;
 
       return {
         ...prev,
@@ -1116,9 +1209,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             totalPeriodSeconds: breakSecs,
             remainingSeconds: breakSecs,
             targetEndTime,
-            pausedAt: null
-          }
-        }
+            pausedAt: null,
+          },
+        },
       };
     });
   };
@@ -1131,7 +1224,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const focusMins = active.config.focusDurationMinutes;
       const focusSecs = focusMins * 60;
       const now = Date.now();
-      const targetEndTime = now + (focusSecs * 1000);
+      const targetEndTime = now + focusSecs * 1000;
 
       return {
         ...prev,
@@ -1144,9 +1237,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             totalPeriodSeconds: focusSecs,
             remainingSeconds: focusSecs,
             targetEndTime,
-            pausedAt: null
-          }
-        }
+            pausedAt: null,
+          },
+        },
       };
     });
   };
@@ -1159,7 +1252,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       let updatedHistory = prev.focus.sessionHistory || [];
 
       // Save partial session if user spent at least 30 seconds focused and it wasn't finished
-      const shouldSaveAbandoned = (saveAsAbandoned ?? true) &&
+      const shouldSaveAbandoned =
+        (saveAsAbandoned ?? true) &&
         active.sessionState !== 'completed' &&
         active.accumulatedFocusSeconds >= 30;
 
@@ -1174,9 +1268,11 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           startedAt: new Date(active.sessionStartEpoch).toISOString(),
           completedAt: new Date().toISOString(),
           status: 'abandoned',
-          cyclesCompleted: active.completedCycles
+          cyclesCompleted: active.completedCycles,
         };
-        const alreadyLogged = updatedHistory.some(r => r.id === active.id && r.status === 'abandoned');
+        const alreadyLogged = updatedHistory.some(
+          (r) => r.id === active.id && r.status === 'abandoned'
+        );
         if (!alreadyLogged) {
           updatedHistory = [record, ...updatedHistory];
         }
@@ -1187,8 +1283,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         focus: {
           ...prev.focus,
           activeSession: null,
-          sessionHistory: updatedHistory
-        }
+          sessionHistory: updatedHistory,
+        },
       };
     });
   };
@@ -1198,8 +1294,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       focus: {
         ...prev.focus,
-        sessionHistory: []
-      }
+        sessionHistory: [],
+      },
     }));
   };
 
@@ -1207,16 +1303,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const investigateSignal = (signalId: string, notes?: string, serverRes?: any) => {
     const rewardAmount = 30;
     const actionKey = `INVESTIGATE_SIGNAL_${signalId}`;
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nowStr = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
 
     setState((prev) => {
-      const alreadyClaimed = prev.credits.claimedActions.includes(actionKey) || prev.credits.claimedActions.includes(signalId);
+      const alreadyClaimed =
+        prev.credits.claimedActions.includes(actionKey) ||
+        prev.credits.claimedActions.includes(signalId);
       const newInvestigated = prev.radar.investigatedSignalIds.includes(signalId)
         ? prev.radar.investigatedSignalIds
         : [...prev.radar.investigatedSignalIds, signalId];
 
       if (alreadyClaimed || serverRes?.awarded === false) {
-        const syncBalance = typeof serverRes?.newBalance === 'number' ? serverRes.newBalance : prev.credits.balance;
+        const syncBalance =
+          typeof serverRes?.newBalance === 'number' ? serverRes.newBalance : prev.credits.balance;
         return {
           ...prev,
           profile: { ...prev.profile, aiimsCredits: syncBalance },
@@ -1226,20 +1329,23 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...prev.investigation,
             status: 'completed',
             selectedSignalId: signalId,
-            userNotes: { ...prev.investigation.userNotes, ...(notes ? { [signalId]: notes } : {}) }
+            userNotes: { ...prev.investigation.userNotes, ...(notes ? { [signalId]: notes } : {}) },
           },
-          relevance: { ...prev.relevance, status: 'unlocked' }
+          relevance: { ...prev.relevance, status: 'unlocked' },
         };
       }
 
-      const newBalance = typeof serverRes?.newBalance === 'number' ? serverRes.newBalance : prev.credits.balance + rewardAmount;
+      const newBalance =
+        typeof serverRes?.newBalance === 'number'
+          ? serverRes.newBalance
+          : prev.credits.balance + rewardAmount;
       const newTx: CreditTransactionItem = {
         id: `tx-investigate-${Date.now()}`,
         description: `Signal Investigation Completed`,
         amount: rewardAmount,
         type: 'EARN',
         timestamp: nowStr,
-        actionKey
+        actionKey,
       };
 
       const newNotif: AppNotification = {
@@ -1248,7 +1354,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         message: `You completed a signal investigation (+${rewardAmount} Credits)! AI Relevance map is now available.`,
         timestamp: 'Just now',
         targetTab: 'relevance',
-        read: false
+        read: false,
       };
 
       return {
@@ -1259,28 +1365,28 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.investigation,
           status: 'completed',
           selectedSignalId: signalId,
-          userNotes: { ...prev.investigation.userNotes, ...(notes ? { [signalId]: notes } : {}) }
+          userNotes: { ...prev.investigation.userNotes, ...(notes ? { [signalId]: notes } : {}) },
         },
         relevance: { ...prev.relevance, status: 'unlocked' },
         credits: {
           balance: newBalance,
           transactions: [newTx, ...prev.credits.transactions],
-          claimedActions: [...prev.credits.claimedActions, actionKey, signalId]
+          claimedActions: [...prev.credits.claimedActions, actionKey, signalId],
         },
-        notifications: [newNotif, ...prev.notifications]
+        notifications: [newNotif, ...prev.notifications],
       };
     });
   };
 
-  const completeRelevance = (signalId?: string) => {
+  const completeRelevance = useCallback((_signalId?: string) => {
     setState((prev) => ({
       ...prev,
       relevance: {
         ...prev.relevance,
-        status: 'completed'
-      }
+        status: 'completed',
+      },
     }));
-  };
+  }, []);
 
   const toggleSaveSignal = (signalId: string) => {
     setState((prev) => {
@@ -1292,8 +1398,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
         radar: {
           ...prev.radar,
-          savedSignalIds: updated
-        }
+          savedSignalIds: updated,
+        },
       };
     });
   };
@@ -1303,14 +1409,18 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       radar: {
         ...prev.radar,
-        dismissedSignalIds: [...(prev.radar?.dismissedSignalIds || []), signalId]
-      }
+        dismissedSignalIds: [...(prev.radar?.dismissedSignalIds || []), signalId],
+      },
     }));
   };
 
   const awardCredits = (amount: number, description: string, actionKey?: string) => {
     const key = actionKey || `CUSTOM_${Date.now()}_${amount}`;
-    const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const nowStr = new Date().toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
 
     setState((prev) => {
       if (prev.credits.claimedActions.includes(key)) {
@@ -1323,7 +1433,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         amount,
         type: 'EARN',
         timestamp: nowStr,
-        actionKey: key
+        actionKey: key,
       };
       return {
         ...prev,
@@ -1331,8 +1441,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         credits: {
           balance: newBalance,
           transactions: [newTx, ...prev.credits.transactions],
-          claimedActions: [...prev.credits.claimedActions, key]
-        }
+          claimedActions: [...prev.credits.claimedActions, key],
+        },
       };
     });
   };
@@ -1340,14 +1450,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const markNotificationRead = (id: string) => {
     setState((prev) => ({
       ...prev,
-      notifications: prev.notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+      notifications: prev.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)),
     }));
   };
 
   const clearNotifications = () => {
     setState((prev) => ({
       ...prev,
-      notifications: prev.notifications.map((n) => ({ ...n, read: true }))
+      notifications: prev.notifications.map((n) => ({ ...n, read: true })),
     }));
   };
 
@@ -1362,10 +1472,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       clarity: {
         ...prev.clarity,
         selectedTopic: topicName,
-        status: topicName 
-          ? (prev.clarity.completedTopics.includes(topicName) ? 'completed' : 'in_progress')
-          : (prev.clarity.status === 'locked' ? 'locked' : 'unlocked')
-      }
+        status: topicName
+          ? prev.clarity.completedTopics.includes(topicName)
+            ? 'completed'
+            : 'in_progress'
+          : prev.clarity.status === 'locked'
+            ? 'locked'
+            : 'unlocked',
+      },
     }));
   };
 
@@ -1376,9 +1490,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev.clarity,
         reflections: {
           ...prev.clarity.reflections,
-          [topicName]: text
-        }
-      }
+          [topicName]: text,
+        },
+      },
     }));
   };
 
@@ -1394,17 +1508,21 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.clarity,
           selectedTopic: topicName,
           completedTopics: updatedCompleted,
-          status: 'completed'
+          status: 'completed',
         },
         focus: {
           ...prev.focus,
-          status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status
-        }
+          status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status,
+        },
       };
     });
   };
 
-  const saveClarityTaskResult = (topicName: string, difficulty: 'easy' | 'medium' | 'advanced', result: any) => {
+  const saveClarityTaskResult = (
+    topicName: string,
+    difficulty: 'easy' | 'medium' | 'advanced',
+    result: any
+  ) => {
     // 1. Immediately record task execution in state
     setState((prev) => {
       const prevScores = prev.clarity.taskScores || {};
@@ -1413,8 +1531,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...topicScores,
         [difficulty]: {
           ...result,
-          completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
+          completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
       };
 
       return {
@@ -1424,121 +1542,143 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           status: 'in_progress',
           taskScores: {
             ...prevScores,
-            [topicName]: updatedTopicScores
-          }
-        }
+            [topicName]: updatedTopicScores,
+          },
+        },
       };
     });
 
     const taskId = `task-${difficulty}`;
     // 2. Sync to authoritative server endpoint
-    apiClient.saveClarityTaskScore({
-      topic: topicName,
-      difficulty,
-      taskId,
-      score: result.score,
-      userPrompt: result.userPrompt,
-      output: result.output
-    }).then((serverRes) => {
-      if (serverRes?.success) {
-        setState((prev) => {
-          const actionKey = serverRes.actionKey || `clarity::${topicName}::${difficulty}::${taskId}`;
-          const isAlreadyClaimed = prev.credits.claimedActions.includes(actionKey);
+    apiClient
+      .saveClarityTaskScore({
+        topic: topicName,
+        difficulty,
+        taskId,
+        score: result.score,
+        userPrompt: result.userPrompt,
+        output: result.output,
+      })
+      .then((serverRes) => {
+        if (serverRes?.success) {
+          setState((prev) => {
+            const actionKey =
+              serverRes.actionKey || `clarity::${topicName}::${difficulty}::${taskId}`;
+            const isAlreadyClaimed = prev.credits.claimedActions.includes(actionKey);
 
-          if (!serverRes.awarded || isAlreadyClaimed) {
-            // Already awarded previously: synchronize authoritative balance without duplicate tx
+            if (!serverRes.awarded || isAlreadyClaimed) {
+              // Already awarded previously: synchronize authoritative balance without duplicate tx
+              return {
+                ...prev,
+                profile: {
+                  ...prev.profile,
+                  xpPoints: serverRes.totalXP ?? prev.profile.xpPoints,
+                  aiimsCredits: serverRes.totalCredits ?? prev.profile.aiimsCredits,
+                },
+                credits: {
+                  ...prev.credits,
+                  balance: serverRes.totalCredits ?? prev.credits.balance,
+                  claimedActions: isAlreadyClaimed
+                    ? prev.credits.claimedActions
+                    : [...prev.credits.claimedActions, actionKey],
+                },
+              };
+            }
+
+            // First-time award from server
+            const nowStr = new Date().toLocaleDateString('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+            });
+            const newTx: CreditTransactionItem = serverRes.transaction
+              ? {
+                  id: serverRes.transaction.id,
+                  description: serverRes.transaction.description,
+                  amount: serverRes.transaction.amount,
+                  type: serverRes.transaction.type || 'EARN',
+                  timestamp: serverRes.transaction.timestamp || nowStr,
+                  actionKey,
+                }
+              : {
+                  id: `tx-task-${Date.now()}`,
+                  description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${serverRes.rewardCredits || 15} AC)`,
+                  amount: serverRes.rewardCredits || 15,
+                  type: 'EARN',
+                  timestamp: nowStr,
+                  actionKey,
+                };
+
             return {
               ...prev,
               profile: {
                 ...prev.profile,
-                xpPoints: serverRes.totalXP ?? prev.profile.xpPoints,
-                aiimsCredits: serverRes.totalCredits ?? prev.profile.aiimsCredits
+                xpPoints: serverRes.totalXP ?? prev.profile.xpPoints + 50,
+                aiimsCredits: serverRes.totalCredits ?? prev.profile.aiimsCredits + 15,
               },
               credits: {
                 ...prev.credits,
-                balance: serverRes.totalCredits ?? prev.credits.balance,
-                claimedActions: isAlreadyClaimed ? prev.credits.claimedActions : [...prev.credits.claimedActions, actionKey]
-              }
+                balance: serverRes.totalCredits ?? prev.credits.balance + 15,
+                transactions: [newTx, ...prev.credits.transactions],
+                claimedActions: [...prev.credits.claimedActions, actionKey],
+              },
             };
-          }
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn(
+          'Failed to sync task score to server, applying idempotent local fallback:',
+          err
+        );
+        setState((prev) => {
+          const actionKey = `clarity::${topicName}::${difficulty}::${taskId}`;
+          if (prev.credits.claimedActions.includes(actionKey)) return prev;
 
-          // First-time award from server
-          const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-          const newTx: CreditTransactionItem = serverRes.transaction ? {
-            id: serverRes.transaction.id,
-            description: serverRes.transaction.description,
-            amount: serverRes.transaction.amount,
-            type: serverRes.transaction.type || 'EARN',
-            timestamp: serverRes.transaction.timestamp || nowStr,
-            actionKey
-          } : {
+          const rewardCredits = 15;
+          const rewardXP = 50;
+          const nowStr = new Date().toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+          });
+          const tx: CreditTransactionItem = {
             id: `tx-task-${Date.now()}`,
-            description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${serverRes.rewardCredits || 15} AC)`,
-            amount: serverRes.rewardCredits || 15,
+            description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${rewardCredits} AC)`,
+            amount: rewardCredits,
             type: 'EARN',
             timestamp: nowStr,
-            actionKey
+            actionKey,
           };
 
+          const newBal = prev.credits.balance + rewardCredits;
           return {
             ...prev,
             profile: {
               ...prev.profile,
-              xpPoints: serverRes.totalXP ?? (prev.profile.xpPoints + 50),
-              aiimsCredits: serverRes.totalCredits ?? (prev.profile.aiimsCredits + 15)
+              xpPoints: prev.profile.xpPoints + rewardXP,
+              aiimsCredits: newBal,
             },
             credits: {
               ...prev.credits,
-              balance: serverRes.totalCredits ?? (prev.credits.balance + 15),
-              transactions: [newTx, ...prev.credits.transactions],
-              claimedActions: [...prev.credits.claimedActions, actionKey]
-            }
+              balance: newBal,
+              transactions: [tx, ...prev.credits.transactions],
+              claimedActions: [...prev.credits.claimedActions, actionKey],
+            },
           };
         });
-      }
-    }).catch((err) => {
-      console.warn('Failed to sync task score to server, applying idempotent local fallback:', err);
-      setState((prev) => {
-        const actionKey = `clarity::${topicName}::${difficulty}::${taskId}`;
-        if (prev.credits.claimedActions.includes(actionKey)) return prev;
-
-        const rewardCredits = 15;
-        const rewardXP = 50;
-        const nowStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        const tx: CreditTransactionItem = {
-          id: `tx-task-${Date.now()}`,
-          description: `Level 2 AI Task (${difficulty.toUpperCase()}): ${topicName} (+${rewardCredits} AC)`,
-          amount: rewardCredits,
-          type: 'EARN',
-          timestamp: nowStr,
-          actionKey
-        };
-
-        const newBal = prev.credits.balance + rewardCredits;
-        return {
-          ...prev,
-          profile: {
-            ...prev.profile,
-            xpPoints: prev.profile.xpPoints + rewardXP,
-            aiimsCredits: newBal
-          },
-          credits: {
-            ...prev.credits,
-            balance: newBal,
-            transactions: [tx, ...prev.credits.transactions],
-            claimedActions: [...prev.credits.claimedActions, actionKey]
-          }
-        };
       });
-    });
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(`${getApiBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1553,38 +1693,45 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev,
           profile: {
             ...prev.profile,
-            ...data.user
-          }
+            ...data.user,
+          },
         }));
       }
       return { success: true };
-    } catch (e: any) {
+    } catch {
       return { success: false, error: "We couldn't sign you in right now. Please try again." };
     }
   };
 
-  const register = async (payload: RegistrationPayload): Promise<{ success: boolean; error?: string; field?: string }> => {
+  const register = async (
+    payload: RegistrationPayload
+  ): Promise<{ success: boolean; error?: string; field?: string }> => {
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch(`${getApiBaseUrl()}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
       const resData = await res.json();
       if (!res.ok) {
-        return { success: false, error: resData.error || 'Registration failed.', field: resData.field };
+        return {
+          success: false,
+          error: resData.error || 'Registration failed.',
+          field: resData.field,
+        };
       }
       localStorage.setItem('aiims_auth_token', resData.token);
       setIsAuthenticated(true);
-      const defaultMode: AudienceMode = payload.primaryGoal === 'ENTREPRENEURSHIP' ? 'entrepreneur' : 'student';
+      const defaultMode: AudienceMode =
+        payload.primaryGoal === 'ENTREPRENEURSHIP' ? 'entrepreneur' : 'student';
       if (resData.state) {
         setState({
           ...initialLearnerState,
           ...resData.state,
           aiWallet: {
             ...(resData.state.aiWallet || initialLearnerState.aiWallet),
-            audienceMode: resData.state.aiWallet?.audienceMode || defaultMode
-          }
+            audienceMode: resData.state.aiWallet?.audienceMode || defaultMode,
+          },
         });
       } else if (resData.user) {
         setState((prev) => ({
@@ -1593,13 +1740,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           academicProfile: resData.academicProfile || prev.academicProfile,
           aiWallet: {
             ...prev.aiWallet,
-            audienceMode: prev.aiWallet?.audienceMode || defaultMode
-          }
+            audienceMode: prev.aiWallet?.audienceMode || defaultMode,
+          },
         }));
       }
       return { success: true };
-    } catch (e: any) {
-      return { success: false, error: "We couldn't create your account right now. Please try again." };
+    } catch {
+      return {
+        success: false,
+        error: "We couldn't create your account right now. Please try again.",
+      };
     }
   };
 
@@ -1617,8 +1767,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       aiWallet: {
         ...prev.aiWallet,
-        audienceMode: mode
-      }
+        audienceMode: mode,
+      },
     }));
   };
 
@@ -1639,15 +1789,15 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         familiarity,
         primaryCategory,
         userNotes: userNotes || '',
-        customTags: ['my-toolkit']
+        customTags: ['my-toolkit'],
       };
 
       return {
         ...prev,
         aiWallet: {
           ...prev.aiWallet,
-          userTools: [newItem, ...currentTools]
-        }
+          userTools: [newItem, ...currentTools],
+        },
       };
     });
   };
@@ -1655,16 +1805,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addMultipleToolsToWallet = (newTools: UserToolItem[]) => {
     setState((prev) => {
       const currentTools = prev.aiWallet?.userTools || [];
-      const currentIds = new Set(currentTools.map(t => t.toolId));
-      const toolsToAdd = newTools.filter(t => !currentIds.has(t.toolId));
+      const currentIds = new Set(currentTools.map((t) => t.toolId));
+      const toolsToAdd = newTools.filter((t) => !currentIds.has(t.toolId));
       if (toolsToAdd.length === 0) return prev;
 
       return {
         ...prev,
         aiWallet: {
           ...prev.aiWallet,
-          userTools: [...toolsToAdd, ...currentTools]
-        }
+          userTools: [...toolsToAdd, ...currentTools],
+        },
       };
     });
   };
@@ -1674,8 +1824,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       aiWallet: {
         ...prev.aiWallet,
-        userTools: (prev.aiWallet?.userTools || []).filter((t) => t.toolId !== toolId)
-      }
+        userTools: (prev.aiWallet?.userTools || []).filter((t) => t.toolId !== toolId),
+      },
     }));
   };
 
@@ -1692,8 +1842,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           t.toolId === toolId
             ? { ...t, familiarity, ...(userNotes !== undefined ? { userNotes } : {}) }
             : t
-        )
-      }
+        ),
+      },
     }));
   };
 
@@ -1704,9 +1854,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev.aiWallet,
         dismissedRecommendations: [
           ...(prev.aiWallet?.dismissedRecommendations || []),
-          recommendationId
-        ]
-      }
+          recommendationId,
+        ],
+      },
     }));
   };
 
@@ -1714,7 +1864,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const fullWorkflow: SolvedWorkflow = {
       ...workflow,
       id: `wf-${Date.now()}`,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
     setState((prev) => {
       const currentSolver = prev.solver || { latestWorkflow: null, history: [] };
@@ -1722,8 +1872,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
         solver: {
           latestWorkflow: fullWorkflow,
-          history: [fullWorkflow, ...currentSolver.history]
-        }
+          history: [fullWorkflow, ...currentSolver.history],
+        },
       };
     });
   };
@@ -1732,7 +1882,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const fullProject: UserProject = {
       ...project,
       id: `proj-${Date.now()}`,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
     };
     setState((prev) => {
       const currentBuild = prev.build || { projects: [], activeProjectId: null };
@@ -1740,21 +1890,30 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
         build: {
           projects: [fullProject, ...currentBuild.projects],
-          activeProjectId: fullProject.id
-        }
+          activeProjectId: fullProject.id,
+        },
       };
     });
   };
 
-  const setRadarOpportunityContext = (ctx: { activeSignalId: string; opportunityTitle?: string; opportunityDesc?: string; passedContext?: any } | null) => {
+  const setRadarOpportunityContext = (
+    ctx: {
+      activeSignalId: string;
+      opportunityTitle?: string;
+      opportunityDesc?: string;
+      passedContext?: any;
+    } | null
+  ) => {
     setState((prev) => ({
       ...prev,
-      radarOpportunityContext: ctx ? {
-        activeSignalId: ctx.activeSignalId,
-        opportunityTitle: ctx.opportunityTitle,
-        opportunityDesc: ctx.opportunityDesc,
-        passedContext: ctx.passedContext
-      } : undefined
+      radarOpportunityContext: ctx
+        ? {
+            activeSignalId: ctx.activeSignalId,
+            opportunityTitle: ctx.opportunityTitle,
+            opportunityDesc: ctx.opportunityDesc,
+            passedContext: ctx.passedContext,
+          }
+        : undefined,
     }));
   };
 
@@ -1804,7 +1963,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setRadarOpportunityContext,
         markNotificationRead,
         clearNotifications,
-        resetState
+        resetState,
       }}
     >
       {children}

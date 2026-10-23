@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -14,12 +14,11 @@ import {
   AlertCircle,
   Database,
   Layers,
-  Search,
   Code,
   Compass,
   Cpu,
   BookmarkCheck,
-  CheckCircle2
+  CheckCircle2,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { evaluateSignalRelevance } from '../../services/relevanceEngine';
@@ -33,34 +32,31 @@ interface RadarScreenProps {
 export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
   const { state, toggleSaveSignal, dismissSignal } = useLearner();
   const [signals, setSignals] = useState<RadarSignal[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeDomainFilter, setActiveDomainFilter] = useState<string | null>(null);
 
   const profileCtx = buildLearnerProfileContext(state);
-  const activeFocus = state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
+  const activeFocus =
+    state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
   const savedIds = new Set(state.radar.savedSignalIds || []);
   const dismissedIds = new Set(state.radar.dismissedSignalIds || []);
   const investigatedIds = new Set(state.radar.investigatedSignalIds || []);
 
-  const fetchSignals = async () => {
-    setLoading(true);
+  const fetchSignals = useCallback(async () => {
     try {
       const data = await SignalDataProvider.getSignals();
       setSignals(data);
     } catch (e) {
       console.error('Failed to load signals from SignalDataProvider', e);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSignals();
     trackLearningLoopEvent({
       eventType: 'RADAR_VIEWED',
-      metadata: { focusTrack: activeFocus }
+      metadata: { focusTrack: activeFocus },
     });
-  }, []);
+  }, [activeFocus, fetchSignals]);
 
   // Filter out dismissed signals
   const activeSignals = signals.filter((s) => !dismissedIds.has(s.id));
@@ -76,17 +72,45 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
 
   const forYouItem = evaluatedSignals.length > 0 ? evaluatedSignals[0] : null;
   const whatsNewItems = activeSignals.filter(
-    (s) => (!forYouItem || s.id !== forYouItem.signal.id) &&
-           (!activeDomainFilter || s.category.toLowerCase().includes(activeDomainFilter.toLowerCase()) || (s.tags && s.tags.some(t => t.toLowerCase().includes(activeDomainFilter.toLowerCase()))))
+    (s) =>
+      (!forYouItem || s.id !== forYouItem.signal.id) &&
+      (!activeDomainFilter ||
+        s.category.toLowerCase().includes(activeDomainFilter.toLowerCase()) ||
+        (s.tags && s.tags.some((t) => t.toLowerCase().includes(activeDomainFilter.toLowerCase()))))
   );
   const savedSignals = activeSignals.filter((s) => savedIds.has(s.id));
 
   const trendingDomains = [
-    { name: 'Agentic Coding', icon: Code, filterKey: 'Coding', desc: 'Autonomous diffs & multi-file agents' },
-    { name: 'Research AI', icon: Compass, filterKey: 'Research', desc: 'Live web citation & RAG synthesis' },
-    { name: 'Computer Use', icon: Cpu, filterKey: 'Agentic', desc: 'OS desktop GUI interaction loops' },
-    { name: 'AI Automation', icon: Layers, filterKey: 'Automation', desc: 'No-code visual agent node pipelines' },
-    { name: 'Multimodal Creation', icon: Sparkles, filterKey: 'Multimodal', desc: '2M context video & audio ingestion' }
+    {
+      name: 'Agentic Coding',
+      icon: Code,
+      filterKey: 'Coding',
+      desc: 'Autonomous diffs & multi-file agents',
+    },
+    {
+      name: 'Research AI',
+      icon: Compass,
+      filterKey: 'Research',
+      desc: 'Live web citation & RAG synthesis',
+    },
+    {
+      name: 'Computer Use',
+      icon: Cpu,
+      filterKey: 'Agentic',
+      desc: 'OS desktop GUI interaction loops',
+    },
+    {
+      name: 'AI Automation',
+      icon: Layers,
+      filterKey: 'Automation',
+      desc: 'No-code visual agent node pipelines',
+    },
+    {
+      name: 'Multimodal Creation',
+      icon: Sparkles,
+      filterKey: 'Multimodal',
+      desc: '2M context video & audio ingestion',
+    },
   ];
 
   const getImpactBadgeVariant = (impact: string) => {
@@ -102,21 +126,47 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
   };
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div
+      style={{
+        maxWidth: '1080px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '28px',
+      }}
+    >
       {/* HEADER */}
       <PageHeader
         icon={<Radar style={{ width: '24px', height: '24px', color: '#0284c7' }} />}
         title="AI Radar — Ecosystem Shifts & Intelligence Feed"
         description="Detect emerging AI capabilities, understand technical shifts, evaluate relevance for your profile, and investigate actionable tools."
-        badge={{ label: `Connected Focus: ${activeFocus}`, variant: 'cyan', icon: <Target size={12} /> }}
+        badge={{
+          label: `Connected Focus: ${activeFocus}`,
+          variant: 'cyan',
+          icon: <Target size={12} />,
+        }}
       />
 
       {/* ========================================================================= */}
       {/* SECTION 2: FOR YOU (HERO SECTION) */}
       {/* ========================================================================= */}
       {forYouItem && (
-        <Surface variant="gradient-radar" radius="lg" padding="lg" style={{ borderLeft: '6px solid #0284c7' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+        <Surface
+          variant="gradient-radar"
+          radius="lg"
+          padding="lg"
+          style={{ borderLeft: '6px solid #0284c7' }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px',
+              flexWrap: 'wrap',
+              gap: '8px',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Badge variant="warning" icon={<AlertCircle size={12} />}>
                 🚨 WORTH YOUR ATTENTION
@@ -134,7 +184,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                 toggleSaveSignal(forYouItem.signal.id);
                 trackLearningLoopEvent({
                   eventType: 'SIGNAL_SAVED',
-                  signalId: forYouItem.signal.id
+                  signalId: forYouItem.signal.id,
                 });
               }}
               style={{
@@ -148,7 +198,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                 alignItems: 'center',
                 gap: '6px',
                 fontSize: '12px',
-                fontWeight: 700
+                fontWeight: 700,
               }}
             >
               <Bookmark size={14} fill={savedIds.has(forYouItem.signal.id) ? '#047857' : 'none'} />
@@ -156,45 +206,160 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
             </button>
           </div>
 
-          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px', color: 'var(--aiims-text-heading, #0f172a)', fontFamily: "'Fredoka', sans-serif" }}>
+          <h2
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              margin: '0 0 12px',
+              color: 'var(--aiims-text-heading, #0f172a)',
+              fontFamily: "'Fredoka', sans-serif",
+            }}
+          >
             {forYouItem.signal.title}
           </h2>
 
           {/* 5-STEP STRUCTURED OPPORTUNITY CARD FOR UX 5-SECOND TEST */}
           <div className="aiims-card-grid" style={{ gap: '12px', marginBottom: '20px' }}>
-
-            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>1. WHAT CHANGED?</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4, fontWeight: 600 }}>
+            <div
+              style={{
+                backgroundColor: 'var(--aiims-bg-card)',
+                borderRadius: 'var(--aiims-card-radius, 12px)',
+                padding: '12px 14px',
+                border: '1px solid var(--aiims-border-card)',
+                boxShadow: 'var(--aiims-shadow-card)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-primary)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                1. WHAT CHANGED?
+              </span>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '12px',
+                  color: 'var(--aiims-text-body)',
+                  lineHeight: 1.4,
+                  fontWeight: 600,
+                }}
+              >
                 {forYouItem.signal.scaffold.whatChanged || forYouItem.signal.summary}
               </p>
             </div>
 
-            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>2. WHY IT MATTERS</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.4, fontWeight: 600 }}>
+            <div
+              style={{
+                backgroundColor: 'var(--aiims-bg-card)',
+                borderRadius: 'var(--aiims-card-radius, 12px)',
+                padding: '12px 14px',
+                border: '1px solid var(--aiims-border-card)',
+                boxShadow: 'var(--aiims-shadow-card)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-primary)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                2. WHY IT MATTERS
+              </span>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '12px',
+                  color: 'var(--aiims-text-body)',
+                  lineHeight: 1.4,
+                  fontWeight: 600,
+                }}
+              >
                 {forYouItem.signal.scaffold.today || 'Enables automated execution loops.'}
               </p>
             </div>
 
-            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-tint-emerald-text)', textTransform: 'uppercase' }}>3. OPPORTUNITY FOR YOU</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-heading)', lineHeight: 1.4, fontWeight: 700 }}>
+            <div
+              style={{
+                backgroundColor: 'var(--aiims-bg-card)',
+                borderRadius: 'var(--aiims-card-radius, 12px)',
+                padding: '12px 14px',
+                border: '1px solid var(--aiims-border-card)',
+                boxShadow: 'var(--aiims-shadow-card)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-tint-emerald-text)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                3. OPPORTUNITY FOR YOU
+              </span>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '12px',
+                  color: 'var(--aiims-text-heading)',
+                  lineHeight: 1.4,
+                  fontWeight: 700,
+                }}
+              >
                 {forYouItem.relevance.personalConnection}
               </p>
             </div>
 
-            <div style={{ backgroundColor: 'var(--aiims-bg-card)', borderRadius: 'var(--aiims-card-radius, 12px)', padding: '12px 14px', border: '1px solid var(--aiims-border-card)', boxShadow: 'var(--aiims-shadow-card)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>4. WHY YOU'RE SEEING THIS</span>
-              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--aiims-text-muted)', lineHeight: 1.4, fontWeight: 700, fontStyle: 'italic' }}>
+            <div
+              style={{
+                backgroundColor: 'var(--aiims-bg-card)',
+                borderRadius: 'var(--aiims-card-radius, 12px)',
+                padding: '12px 14px',
+                border: '1px solid var(--aiims-border-card)',
+                boxShadow: 'var(--aiims-shadow-card)',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-primary)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                4. WHY YOU'RE SEEING THIS
+              </span>
+              <p
+                style={{
+                  margin: '4px 0 0',
+                  fontSize: '12px',
+                  color: 'var(--aiims-text-muted)',
+                  lineHeight: 1.4,
+                  fontWeight: 700,
+                  fontStyle: 'italic',
+                }}
+              >
                 "{forYouItem.relevance.attributionReason}"
               </p>
             </div>
-
           </div>
 
           {/* 5. WHAT CAN YOU DO NEXT? (ACTION BAR) */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <Button
                 variant="cyan"
@@ -204,7 +369,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                   onInvestigate(forYouItem.signal);
                   trackLearningLoopEvent({
                     eventType: 'INVESTIGATION_OPENED',
-                    signalId: forYouItem.signal.id
+                    signalId: forYouItem.signal.id,
                   });
                 }}
               >
@@ -218,7 +383,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                   toggleSaveSignal(forYouItem.signal.id);
                   trackLearningLoopEvent({
                     eventType: 'SIGNAL_SAVED',
-                    signalId: forYouItem.signal.id
+                    signalId: forYouItem.signal.id,
                   });
                 }}
               >
@@ -233,7 +398,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                 dismissSignal(forYouItem.signal.id);
                 trackLearningLoopEvent({
                   eventType: 'RECOMMENDATION_DISMISSED',
-                  signalId: forYouItem.signal.id
+                  signalId: forYouItem.signal.id,
                 });
               }}
               style={{ color: '#94a3b8' }}
@@ -248,21 +413,50 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* SECTION 3: TRENDING DOMAINS */}
       {/* ========================================================================= */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: 0, fontFamily: "'Fredoka', sans-serif" }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '14px',
+          }}
+        >
+          <h2
+            style={{
+              fontSize: '18px',
+              fontWeight: 800,
+              color: 'var(--aiims-text-heading, #0f172a)',
+              margin: 0,
+              fontFamily: "'Fredoka', sans-serif",
+            }}
+          >
             🔥 Trending AI Domains
           </h2>
           {activeDomainFilter && (
             <button
               onClick={() => setActiveDomainFilter(null)}
-              style={{ border: 'none', background: 'transparent', color: '#0284c7', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: '#0284c7',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
             >
               Clear Filter ({activeDomainFilter}) ✕
             </button>
           )}
         </div>
 
-        <div className="aiims-card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))', gap: '12px' }}>
+        <div
+          className="aiims-card-grid"
+          style={{
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
+            gap: '12px',
+          }}
+        >
           {trendingDomains.map((dom) => {
             const Icon = dom.icon;
             const isSelected = activeDomainFilter === dom.filterKey;
@@ -275,19 +469,50 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                 style={{
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  border: isSelected ? '2px solid var(--aiims-primary, #0284c7)' : '1px solid var(--aiims-border-card, #e2e8f0)'
+                  border: isSelected
+                    ? '2px solid var(--aiims-primary, #0284c7)'
+                    : '1px solid var(--aiims-border-card, #e2e8f0)',
                 }}
                 onClick={() => setActiveDomainFilter(isSelected ? null : dom.filterKey)}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', backgroundColor: isSelected ? 'var(--aiims-primary, #0284c7)' : 'var(--aiims-card-sky-bg, #e0f2fe)', color: isSelected ? '#ffffff' : 'var(--aiims-card-sky-text, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}
+                >
+                  <div
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      borderRadius: '8px',
+                      backgroundColor: isSelected
+                        ? 'var(--aiims-primary, #0284c7)'
+                        : 'var(--aiims-card-sky-bg, #e0f2fe)',
+                      color: isSelected ? '#ffffff' : 'var(--aiims-card-sky-text, #0284c7)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <Icon size={14} />
                   </div>
-                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: '14px',
+                      fontWeight: 800,
+                      color: 'var(--aiims-text-heading, #0f172a)',
+                    }}
+                  >
                     {dom.name}
                   </h3>
                 </div>
-                <p style={{ margin: 0, fontSize: '11px', color: 'var(--aiims-text-secondary, #64748b)', lineHeight: 1.4 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '11px',
+                    color: 'var(--aiims-text-secondary, #64748b)',
+                    lineHeight: 1.4,
+                  }}
+                >
                   {dom.desc}
                 </p>
               </Surface>
@@ -300,13 +525,23 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* SECTION 1: WHAT'S NEW */}
       {/* ========================================================================= */}
       <div>
-        <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h2
+          style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            color: 'var(--aiims-text-heading, #0f172a)',
+            margin: '0 0 14px',
+            fontFamily: "'Fredoka', sans-serif",
+          }}
+        >
           📡 What's New in AI {activeDomainFilter ? `(${activeDomainFilter})` : ''}
         </h2>
 
         {whatsNewItems.length === 0 ? (
           <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)' }}>
+            <p
+              style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary, #64748b)' }}
+            >
               No active developments matching this filter.
             </p>
           </Surface>
@@ -322,13 +557,32 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                   variant="cyan"
                   radius="lg"
                   padding="md"
-                  style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '14px' }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    gap: '14px',
+                  }}
                 >
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: '8px',
+                      }}
+                    >
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <Badge variant="purple" size="sm">{sig.category}</Badge>
-                        <Badge variant={getImpactBadgeVariant(sig.impactLevel || 'Medium')} size="sm">{sig.impactLevel || 'Medium'}</Badge>
+                        <Badge variant="purple" size="sm">
+                          {sig.category}
+                        </Badge>
+                        <Badge
+                          variant={getImpactBadgeVariant(sig.impactLevel || 'Medium')}
+                          size="sm"
+                        >
+                          {sig.impactLevel || 'Medium'}
+                        </Badge>
                       </div>
 
                       <button
@@ -336,7 +590,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                           toggleSaveSignal(sig.id);
                           trackLearningLoopEvent({
                             eventType: 'SIGNAL_SAVED',
-                            signalId: sig.id
+                            signalId: sig.id,
                           });
                         }}
                         style={{
@@ -348,7 +602,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                           alignItems: 'center',
                           gap: '4px',
                           fontSize: '11px',
-                          fontWeight: 700
+                          fontWeight: 700,
                         }}
                       >
                         <Bookmark size={13} fill={isSaved ? '#059669' : 'none'} />
@@ -356,16 +610,40 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                       </button>
                     </div>
 
-                    <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 6px', color: 'var(--aiims-text-heading)' }}>
+                    <h3
+                      style={{
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        margin: '0 0 6px',
+                        color: 'var(--aiims-text-heading)',
+                      }}
+                    >
                       {sig.title}
                     </h3>
 
-                    <p style={{ fontSize: '13px', color: 'var(--aiims-text-body)', margin: '0 0 12px', lineHeight: 1.45 }}>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: 'var(--aiims-text-body)',
+                        margin: '0 0 12px',
+                        lineHeight: 1.45,
+                      }}
+                    >
                       {sig.summary}
                     </p>
 
-                    <div style={{ padding: '8px 10px', backgroundColor: 'var(--aiims-bg-card-subtle)', border: '1px solid var(--aiims-border-subtle)', borderRadius: '8px', fontSize: '11px', color: 'var(--aiims-primary)' }}>
-                      <strong>Today: </strong>{sig.scaffold.today}
+                    <div
+                      style={{
+                        padding: '8px 10px',
+                        backgroundColor: 'var(--aiims-bg-card-subtle)',
+                        border: '1px solid var(--aiims-border-subtle)',
+                        borderRadius: '8px',
+                        fontSize: '11px',
+                        color: 'var(--aiims-primary)',
+                      }}
+                    >
+                      <strong>Today: </strong>
+                      {sig.scaffold.today}
                     </div>
                   </div>
 
@@ -378,7 +656,7 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
                       onInvestigate(sig);
                       trackLearningLoopEvent({
                         eventType: 'INVESTIGATION_OPENED',
-                        signalId: sig.id
+                        signalId: sig.id,
                       });
                     }}
                   >
@@ -396,30 +674,82 @@ export const RadarScreen: React.FC<RadarScreenProps> = ({ onInvestigate }) => {
       {/* ========================================================================= */}
       {savedSignals.length > 0 && (
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif", display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2
+            style={{
+              fontSize: '18px',
+              fontWeight: 800,
+              color: 'var(--aiims-text-heading, #0f172a)',
+              margin: '0 0 14px',
+              fontFamily: "'Fredoka', sans-serif",
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
             <BookmarkCheck size={18} style={{ color: '#059669' }} />
             <span>Saved Signals ({savedSignals.length})</span>
           </h2>
 
           <div className="aiims-card-grid">
             {savedSignals.map((sig) => (
-              <Surface key={sig.id} variant="mint" radius="lg" padding="md" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '12px' }}>
+              <Surface
+                key={sig.id}
+                variant="mint"
+                radius="lg"
+                padding="md"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                }}
+              >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <Badge variant="success" size="sm">{sig.category}</Badge>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <Badge variant="success" size="sm">
+                      {sig.category}
+                    </Badge>
                     <button
                       onClick={() => toggleSaveSignal(sig.id)}
-                      style={{ border: 'none', background: 'transparent', color: '#059669', fontSize: '11px', cursor: 'pointer', fontWeight: 700 }}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        color: '#059669',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                      }}
                     >
                       Remove ✕
                     </button>
                   </div>
 
-                  <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                  <h3
+                    style={{
+                      margin: '0 0 4px',
+                      fontSize: '15px',
+                      fontWeight: 800,
+                      color: 'var(--aiims-text-heading, #0f172a)',
+                    }}
+                  >
                     {sig.title}
                   </h3>
 
-                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--aiims-card-mint-text, #064e3b)', lineHeight: 1.4 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '12px',
+                      color: 'var(--aiims-card-mint-text, #064e3b)',
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {sig.summary}
                   </p>
                 </div>

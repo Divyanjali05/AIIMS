@@ -29,4 +29,7 @@ gitleaks*.sarif
 .DS_Store
 Thumbs.db
 
-
+# Test reports & artifacts
+playwright-report/
+test-results/
+blob-report/

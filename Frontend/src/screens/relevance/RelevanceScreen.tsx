@@ -2,18 +2,17 @@ import React, { useEffect } from 'react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { PageHeader } from '../../components/common/PageHeader';
-import { Badge } from '../../components/common/Badge';
 import { RadarSignal } from '../../types';
-import { Sparkles, CheckCircle2, ArrowRight, Target, ShieldCheck, UserCheck, Database, Layers, ArrowDown } from 'lucide-react';
+import { Sparkles, ArrowRight, Target, ArrowDown } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { MentorMessage } from '../../components/common/MentorMessage';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
 import { evaluateSignalRelevance } from '../../services/relevanceEngine';
 
-export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTab?: (tab: string) => void }> = ({
-  signal,
-  setActiveTab
-}) => {
+export const RelevanceScreen: React.FC<{
+  signal: RadarSignal | null;
+  setActiveTab?: (tab: string) => void;
+}> = ({ signal, setActiveTab }) => {
   const { state, setRadarOpportunityContext, completeRelevance } = useLearner();
   const learnerContext = buildLearnerProfileContext(state);
 
@@ -23,14 +22,19 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
     category: 'Tech Shift',
     source: 'ArXiv & Tech Release Feed',
     dateTime: 'September 2026',
-    summary: 'LLM providers are shipping native agent loop capabilities, reducing the need for line-by-line user instruction in favor of high-level goal specification.',
+    summary:
+      'LLM providers are shipping native agent loop capabilities, reducing the need for line-by-line user instruction in favor of high-level goal specification.',
     scaffold: {
-      yesterday: 'Single-prompt back-and-forth chat requiring manual step-by-step instructions for every action.',
-      today: 'Goal-based agent execution with dynamic tool calling, autonomous file editing, and automated verification loops.',
-      whatChanged: 'Models execute multi-turn function calls internally before returning a final verified result.',
-      whosAffected: 'Software developers, product managers, and knowledge workers relying on repetitive multi-step workflows.'
+      yesterday:
+        'Single-prompt back-and-forth chat requiring manual step-by-step instructions for every action.',
+      today:
+        'Goal-based agent execution with dynamic tool calling, autonomous file editing, and automated verification loops.',
+      whatChanged:
+        'Models execute multi-turn function calls internally before returning a final verified result.',
+      whosAffected:
+        'Software developers, product managers, and knowledge workers relying on repetitive multi-step workflows.',
     },
-    isFollowed: true
+    isFollowed: true,
   };
 
   const activeSignal = signal || fallbackSignal;
@@ -40,7 +44,7 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
     if (completeRelevance) {
       completeRelevance(activeSignal.id);
     }
-  }, [activeSignal.id]);
+  }, [activeSignal.id, completeRelevance]);
 
   const topCapability = learnerContext.assessment.topCapability;
   const growthArea = learnerContext.assessment.growthArea;
@@ -57,8 +61,8 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
         activeFocus,
         growthArea,
         topCapability,
-        category: activeSignal.category
-      }
+        category: activeSignal.category,
+      },
     });
     if (setActiveTab) {
       setActiveTab('solver');
@@ -66,34 +70,91 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
   };
 
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-
+    <div
+      style={{
+        maxWidth: '960px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '28px',
+      }}
+    >
       {/* PAGE HEADER */}
       <PageHeader
         icon={<Sparkles size={24} />}
         title="WHY THIS MATTERS TO YOU"
         description="A visual synthesis story connecting Profile (Violet) → Focus (Amber) → AI Change (Cyan) → Investigation (Blue) → What it means for you."
-        badge={{ label: relevance.relevanceBadgeText, variant: 'purple', icon: <Target size={12} /> }}
+        badge={{
+          label: relevance.relevanceBadgeText,
+          variant: 'purple',
+          icon: <Target size={12} />,
+        }}
       />
 
       {/* VISUAL NARRATIVE CHAIN WITH SEMANTIC TILES */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-
         {/* STEP 1: YOUR PROFILE (VIOLET) */}
         <Surface variant="violet" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-violet-text)', textTransform: 'uppercase' }}>1. YOUR PROFILE</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Top Strength: {topCapability}</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-violet-text)' }}>Primary growth opportunity: {growthArea}.</p>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              color: 'var(--aiims-card-violet-text)',
+              textTransform: 'uppercase',
+            }}
+          >
+            1. YOUR PROFILE
+          </span>
+          <h3
+            style={{
+              margin: '4px 0 2px',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            Top Strength: {topCapability}
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-violet-text)' }}>
+            Primary growth opportunity: {growthArea}.
+          </p>
         </Surface>
 
         <ArrowDown size={22} style={{ color: 'var(--aiims-card-violet-text)' }} />
 
         {/* STEP 2: YOUR FOCUS (AMBER) */}
         <Surface variant="amber" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-amber-text)', textTransform: 'uppercase' }}>2. YOUR FOCUS</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Active Focus Track: {activeFocus}</h3>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              color: 'var(--aiims-card-amber-text)',
+              textTransform: 'uppercase',
+            }}
+          >
+            2. YOUR FOCUS
+          </span>
+          <h3
+            style={{
+              margin: '4px 0 2px',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            Active Focus Track: {activeFocus}
+          </h3>
           {clarityReflection && (
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-amber-text)', fontStyle: 'italic' }}>"{clarityReflection}"</p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '13px',
+                color: 'var(--aiims-card-amber-text)',
+                fontStyle: 'italic',
+              }}
+            >
+              "{clarityReflection}"
+            </p>
           )}
         </Surface>
 
@@ -101,42 +162,132 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
 
         {/* STEP 3: AI CHANGE (CYAN) */}
         <Surface variant="cyan" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-cyan-text)', textTransform: 'uppercase' }}>3. AI CHANGE (AI RADAR)</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>{activeSignal.title}</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-cyan-text)' }}>{activeSignal.scaffold.whatChanged}</p>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              color: 'var(--aiims-card-cyan-text)',
+              textTransform: 'uppercase',
+            }}
+          >
+            3. AI CHANGE (AI RADAR)
+          </span>
+          <h3
+            style={{
+              margin: '4px 0 2px',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            {activeSignal.title}
+          </h3>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-cyan-text)' }}>
+            {activeSignal.scaffold.whatChanged}
+          </p>
         </Surface>
 
         <ArrowDown size={22} style={{ color: 'var(--aiims-card-cyan-text)' }} />
 
         {/* STEP 4: YOUR INVESTIGATION (BLUE/SKY) */}
         <Surface variant="sky" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-sky-text)', textTransform: 'uppercase' }}>4. YOUR INVESTIGATION</span>
-          <h3 style={{ margin: '4px 0 2px', fontSize: '16px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>Personal Reflection Recorded</h3>
-          <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-card-sky-text)', fontStyle: 'italic' }}>"{userInvestigationNote || 'Evaluating impact on daily workflow.'}"</p>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              color: 'var(--aiims-card-sky-text)',
+              textTransform: 'uppercase',
+            }}
+          >
+            4. YOUR INVESTIGATION
+          </span>
+          <h3
+            style={{
+              margin: '4px 0 2px',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            Personal Reflection Recorded
+          </h3>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '13px',
+              color: 'var(--aiims-card-sky-text)',
+              fontStyle: 'italic',
+            }}
+          >
+            "{userInvestigationNote || 'Evaluating impact on daily workflow.'}"
+          </p>
         </Surface>
 
         <ArrowDown size={22} style={{ color: 'var(--aiims-card-sky-text)' }} />
 
         {/* STEP 5: SYNTHESIS PAYOFF (GRADIENT RELEVANCE) */}
         <Surface variant="gradient-relevance" radius="lg" padding="lg" style={{ width: '100%' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-primary)', textTransform: 'uppercase' }}>5. WHAT THIS MEANS FOR YOU (YOUR SYNTHESIS PAYOFF)</span>
-          <p style={{ margin: '8px 0 0', fontSize: '15px', color: 'var(--aiims-text-heading)', lineHeight: 1.6, fontWeight: 600 }}>
-            Because you possess high evaluation rigor ({topCapability}), you can safely adopt autonomous agent tools in {activeFocus} without taking on hallucination risks. Documenting a 3-step prompt verification template allows you to elevate your workflow design efficiency immediately.
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              color: 'var(--aiims-primary)',
+              textTransform: 'uppercase',
+            }}
+          >
+            5. WHAT THIS MEANS FOR YOU (YOUR SYNTHESIS PAYOFF)
+          </span>
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: '15px',
+              color: 'var(--aiims-text-heading)',
+              lineHeight: 1.6,
+              fontWeight: 600,
+            }}
+          >
+            Because you possess high evaluation rigor ({topCapability}), you can safely adopt
+            autonomous agent tools in {activeFocus} without taking on hallucination risks.
+            Documenting a 3-step prompt verification template allows you to elevate your workflow
+            design efficiency immediately.
           </p>
         </Surface>
-
       </div>
 
       {/* RECOMMENDED ACTION: BRIDGE TO STAGE 8 PROBLEM SOLVER */}
       <Surface variant="mint" radius="lg" padding="lg" style={{ border: '2px solid #10b981' }}>
-        <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--aiims-card-mint-text)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 800,
+            color: 'var(--aiims-card-mint-text)',
+            textTransform: 'uppercase',
+            letterSpacing: '1px',
+          }}
+        >
           STAGE 8 • REAL PROBLEM SOLVING
         </span>
-        <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '4px 0 8px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h3
+          style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            color: 'var(--aiims-text-heading)',
+            margin: '4px 0 8px',
+            fontFamily: "'Fredoka', sans-serif",
+          }}
+        >
           Apply this opportunity to a real problem
         </h3>
-        <p style={{ fontSize: '13px', color: 'var(--aiims-card-mint-text)', margin: '0 0 18px', lineHeight: 1.5 }}>
-          Pre-populate Problem Solver with this AI Radar signal context ({activeSignal.title}) to derive required capabilities and tool execution sequences.
+        <p
+          style={{
+            fontSize: '13px',
+            color: 'var(--aiims-card-mint-text)',
+            margin: '0 0 18px',
+            lineHeight: 1.5,
+          }}
+        >
+          Pre-populate Problem Solver with this AI Radar signal context ({activeSignal.title}) to
+          derive required capabilities and tool execution sequences.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -149,21 +300,14 @@ export const RelevanceScreen: React.FC<{ signal: RadarSignal | null; setActiveTa
             Explore this in Problem Solver
           </Button>
 
-          <Button
-            variant="outline"
-            size="md"
-            onClick={() => setActiveTab && setActiveTab('home')}
-          >
+          <Button variant="outline" size="md" onClick={() => setActiveTab && setActiveTab('home')}>
             Return to Journey Hub
           </Button>
         </div>
       </Surface>
 
       {/* MENTOR SUMMARY */}
-      <MentorMessage
-        message="You now clearly understand why this AI change matters to you personally. Apply this opportunity in Problem Solver to build a practical workflow."
-      />
-
+      <MentorMessage message="You now clearly understand why this AI change matters to you personally. Apply this opportunity in Problem Solver to build a practical workflow." />
     </div>
   );
 };

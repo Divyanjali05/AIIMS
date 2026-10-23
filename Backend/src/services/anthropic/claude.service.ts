@@ -29,7 +29,8 @@ export class ClaudeService {
     if (config.anthropicApiKey && config.anthropicApiKey !== 'mock-claude-key') {
       this.client = new Anthropic({ apiKey: config.anthropicApiKey });
     }
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || config.geminiApiKey;
+    const geminiKey =
+      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || config.geminiApiKey;
     if (geminiKey && !geminiKey.startsWith('mock-') && geminiKey.length > 10) {
       this.geminiClient = new GoogleGenerativeAI(geminiKey);
     }
@@ -67,14 +68,14 @@ export class ClaudeService {
           {
             criterion: 'Response Submission',
             status: 'missing',
-            explanation: 'No response text provided by learner.'
-          }
+            explanation: 'No response text provided by learner.',
+          },
         ],
         strengths: [],
         gaps: ['No response provided by learner'],
         reason: 'Empty answer submitted.',
         needsReview: false,
-        status: 'evaluated'
+        status: 'evaluated',
       };
     }
 
@@ -122,7 +123,7 @@ Return ONLY a valid JSON object adhering strictly to this schema:
         const res = await this.client.messages.create({
           model: config.claudeModel || 'claude-3-5-sonnet-20240620',
           max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: prompt }],
         });
         contentText = res.content[0].type === 'text' ? res.content[0].text : '';
       } else if (this.geminiClient) {
@@ -132,8 +133,10 @@ Return ONLY a valid JSON object adhering strictly to this schema:
       let parsed: any = {};
       try {
         let cleaned = contentText.trim();
-        if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        if (cleaned.startsWith('```json'))
+          cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        else if (cleaned.startsWith('```'))
+          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
         const match = cleaned.match(/\{[\s\S]*\}/);
         parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
       } catch (e) {
@@ -145,15 +148,19 @@ Return ONLY a valid JSON object adhering strictly to this schema:
       }
 
       const rawScore = Math.min(100, Math.max(0, Math.round(parsed.score)));
-      const rawConfidence = typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.85;
+      const rawConfidence =
+        typeof parsed.confidence === 'number' ? Math.min(1, Math.max(0, parsed.confidence)) : 0.85;
 
       const formattedEvidence: EvidenceCriterion[] = Array.isArray(parsed.evidence)
         ? parsed.evidence.map((ev: any) => ({
             criterion: typeof ev?.criterion === 'string' ? ev.criterion : 'Criteria evaluation',
-            status: ['demonstrated', 'partially_demonstrated', 'missing', 'incorrect'].includes(ev?.status)
+            status: ['demonstrated', 'partially_demonstrated', 'missing', 'incorrect'].includes(
+              ev?.status
+            )
               ? ev.status
               : 'partially_demonstrated',
-            explanation: typeof ev?.explanation === 'string' ? ev.explanation : 'Evaluated against rubric.'
+            explanation:
+              typeof ev?.explanation === 'string' ? ev.explanation : 'Evaluated against rubric.',
           }))
         : [];
 
@@ -163,11 +170,16 @@ Return ONLY a valid JSON object adhering strictly to this schema:
         score: rawScore,
         confidence: rawConfidence,
         evidence: formattedEvidence,
-        strengths: Array.isArray(parsed.strengths) ? parsed.strengths.filter((s: any) => typeof s === 'string') : [],
-        gaps: Array.isArray(parsed.gaps) ? parsed.gaps.filter((g: any) => typeof g === 'string') : [],
-        reason: typeof parsed.reason === 'string' ? parsed.reason : 'Evaluated against evidence rubric.',
+        strengths: Array.isArray(parsed.strengths)
+          ? parsed.strengths.filter((s: any) => typeof s === 'string')
+          : [],
+        gaps: Array.isArray(parsed.gaps)
+          ? parsed.gaps.filter((g: any) => typeof g === 'string')
+          : [],
+        reason:
+          typeof parsed.reason === 'string' ? parsed.reason : 'Evaluated against evidence rubric.',
         needsReview: Boolean(parsed.needsReview),
-        status: 'evaluated'
+        status: 'evaluated',
       };
     } catch (err) {
       console.error('AI open-ended evaluation failed:', err);
@@ -176,12 +188,19 @@ Return ONLY a valid JSON object adhering strictly to this schema:
   }
 
   // AI Relevance Engine ("Why does this matter to me?")
-  async generateRelevanceReport(learnerRole: string, goal: string, gapSummary: string, signalTitle: string, signalSummary: string) {
+  async generateRelevanceReport(
+    learnerRole: string,
+    goal: string,
+    gapSummary: string,
+    signalTitle: string,
+    signalSummary: string
+  ) {
     if (!this.client && !this.geminiClient) {
       return {
         relevanceScore: 85,
         whyItMatters: `As a ${learnerRole} working towards "${goal}", ${signalTitle} alters how you handle workflow automation and technical tools.`,
-        actionableTakeaway: 'Review signal capabilities and evaluate impact on your target workflow.'
+        actionableTakeaway:
+          'Review signal capabilities and evaluate impact on your target workflow.',
       };
     }
 
@@ -204,25 +223,26 @@ Return a JSON object with:
         const res = await this.client.messages.create({
           model: config.claudeModel || 'claude-3-5-sonnet-20240620',
           max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: prompt }],
         });
         text = res.content[0].type === 'text' ? res.content[0].text : '';
       } else if (this.geminiClient) {
         text = await this.generateWithGemini(prompt, 800, 0.2);
       }
 
-      let parsed: any;
       let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      if (cleaned.startsWith('```json'))
+        cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      else if (cleaned.startsWith('```'))
+        cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
       const match = cleaned.match(/\{[\s\S]*\}/);
-      parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
+      const parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
       return parsed;
     } catch {
       return {
         relevanceScore: 75,
         whyItMatters: `This AI update impacts your role as ${learnerRole}.`,
-        actionableTakeaway: 'Review signal documentation.'
+        actionableTakeaway: 'Review signal documentation.',
       };
     }
   }
@@ -234,7 +254,7 @@ Return a JSON object with:
         yesterday: 'Manual script writing and static step execution.',
         today: 'Dynamic reasoning and automated multi-step resolution.',
         whatChanged: 'Shift from rule-based scripts to context-driven reasoning loops.',
-        whosAffected: 'Software Developers, QA Engineers, Operations Specialists.'
+        whosAffected: 'Software Developers, QA Engineers, Operations Specialists.',
       };
     }
 
@@ -256,26 +276,27 @@ Return JSON with:
         const res = await this.client.messages.create({
           model: config.claudeModel || 'claude-3-5-sonnet-20240620',
           max_tokens: 800,
-          messages: [{ role: 'user', content: prompt }]
+          messages: [{ role: 'user', content: prompt }],
         });
         text = res.content[0].type === 'text' ? res.content[0].text : '';
       } else if (this.geminiClient) {
         text = await this.generateWithGemini(prompt, 800, 0.2);
       }
 
-      let parsed: any;
       let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      if (cleaned.startsWith('```json'))
+        cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      else if (cleaned.startsWith('```'))
+        cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
       const match = cleaned.match(/\{[\s\S]*\}/);
-      parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
+      const parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
       return parsed;
     } catch {
       return {
         yesterday: 'Legacy approach',
         today: 'Current approach',
         whatChanged: 'Technical paradigm shift',
-        whosAffected: 'Target roles'
+        whosAffected: 'Target roles',
       };
     }
   }
@@ -309,7 +330,7 @@ Return ONLY the generated prompt text, ready to be executed.`;
         const res = await this.client.messages.create({
           model: config.claudeModel || 'claude-3-5-sonnet-20240620',
           max_tokens: 800,
-          messages: [{ role: 'user', content: systemPrompt }]
+          messages: [{ role: 'user', content: systemPrompt }],
         });
         const text = res.content[0].type === 'text' ? res.content[0].text : '';
         return { prompt: text.trim(), model: 'Anthropic Claude 3.5' };
@@ -347,11 +368,14 @@ OUTPUT FORMAT:
 - Key Findings (bulleted)
 - Recommended Remediation or Action Item
 - Confidence Score: (0.0 to 1.0)`,
-      model: 'AIIMS AI Prompt Engine'
+      model: 'AIIMS AI Prompt Engine',
     };
   }
 
-  public async executePromptWithAI(userPrompt: string, testData?: string): Promise<{ output: string; model: string }> {
+  public async executePromptWithAI(
+    userPrompt: string,
+    testData?: string
+  ): Promise<{ output: string; model: string }> {
     const fullPrompt = testData
       ? `${userPrompt}\n\n[INPUT DATA FOR EXECUTION]:\n${testData}`
       : userPrompt;
@@ -361,7 +385,7 @@ OUTPUT FORMAT:
         const res = await this.client.messages.create({
           model: config.claudeModel || 'claude-3-5-sonnet-20240620',
           max_tokens: 1200,
-          messages: [{ role: 'user', content: fullPrompt }]
+          messages: [{ role: 'user', content: fullPrompt }],
         });
         const text = res.content[0].type === 'text' ? res.content[0].text : '';
         return { output: text.trim(), model: 'Anthropic Claude 3.5' };
@@ -393,7 +417,7 @@ OUTPUT FORMAT:
 Proceed with downstream workflow integration. Human checkpoint logged for auditability.
 
 *Executed locally via AIIMS AI Engine.*`,
-      model: 'AIIMS AI Execution Engine'
+      model: 'AIIMS AI Execution Engine',
     };
   }
 
@@ -458,14 +482,16 @@ Return valid JSON adhering strictly to:
           const res = await this.client.messages.create({
             model: config.claudeModel || 'claude-3-5-sonnet-20240620',
             max_tokens: 700,
-            messages: [{ role: 'user', content: evalPrompt }]
+            messages: [{ role: 'user', content: evalPrompt }],
           });
           rawJson = res.content[0].type === 'text' ? res.content[0].text : '';
         }
 
         let cleaned = rawJson.trim();
-        if (cleaned.startsWith('```json')) cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        else if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        if (cleaned.startsWith('```json'))
+          cleaned = cleaned.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        else if (cleaned.startsWith('```'))
+          cleaned = cleaned.replace(/^```\s*/, '').replace(/\s*```$/, '');
         const match = cleaned.match(/\{[\s\S]*\}/);
         const parsed = match ? JSON.parse(match[0]) : JSON.parse(cleaned);
 
@@ -473,17 +499,24 @@ Return valid JSON adhering strictly to:
           clarity: Math.min(25, Math.max(10, Math.round(parsed.breakdown?.clarity || 20))),
           constraints: Math.min(25, Math.max(10, Math.round(parsed.breakdown?.constraints || 19))),
           structure: Math.min(25, Math.max(10, Math.round(parsed.breakdown?.structure || 22))),
-          reliability: Math.min(25, Math.max(10, Math.round(parsed.breakdown?.reliability || 20)))
+          reliability: Math.min(25, Math.max(10, Math.round(parsed.breakdown?.reliability || 20))),
         };
-        const total = breakdown.clarity + breakdown.constraints + breakdown.structure + breakdown.reliability;
+        const total =
+          breakdown.clarity + breakdown.constraints + breakdown.structure + breakdown.reliability;
 
         return {
           score: Math.min(100, Math.max(0, parsed.score || total)),
           breakdown,
           grade: total >= 85 ? 'Mastery' : total >= 70 ? 'Proficient' : 'Developing',
-          strengths: Array.isArray(parsed.strengths) && parsed.strengths.length > 0 ? parsed.strengths : ['Clear role definition', 'Well-defined objective'],
-          gaps: Array.isArray(parsed.gaps) && parsed.gaps.length > 0 ? parsed.gaps : ['Could specify stricter edge-case bounds'],
-          tip: parsed.tip || 'Specify a fallback behavior when required input data is missing.'
+          strengths:
+            Array.isArray(parsed.strengths) && parsed.strengths.length > 0
+              ? parsed.strengths
+              : ['Clear role definition', 'Well-defined objective'],
+          gaps:
+            Array.isArray(parsed.gaps) && parsed.gaps.length > 0
+              ? parsed.gaps
+              : ['Could specify stricter edge-case bounds'],
+          tip: parsed.tip || 'Specify a fallback behavior when required input data is missing.',
         };
       } catch (err) {
         console.warn('[ClaudeService] Evaluation failed, using deterministic rubric:', err);
@@ -492,7 +525,9 @@ Return valid JSON adhering strictly to:
 
     // Deterministic rubric evaluation based on prompt quality indicators
     const hasRole = /act as|role|you are|expert|specialist/i.test(params.userPrompt);
-    const hasConstraints = /do not|never|avoid|guardrail|constraint|must not/i.test(params.userPrompt);
+    const hasConstraints = /do not|never|avoid|guardrail|constraint|must not/i.test(
+      params.userPrompt
+    );
     const hasFormat = /json|format|output|schema|bullet|table|section/i.test(params.userPrompt);
     const hasVerification = /verify|check|step|validate|inspect|audit/i.test(params.userPrompt);
     const wordCount = params.userPrompt.trim().split(/\s+/).length;
@@ -511,7 +546,8 @@ Return valid JSON adhering strictly to:
 
     const gaps: string[] = [];
     if (!hasConstraints) gaps.push('Include negative constraints to prevent AI hallucination');
-    if (!hasFormat) gaps.push('Specify concrete output format (e.g., bulleted list or JSON schema)');
+    if (!hasFormat)
+      gaps.push('Specify concrete output format (e.g., bulleted list or JSON schema)');
     if (!hasVerification) gaps.push('Add an explicit validation step before finalizing output');
 
     return {
@@ -520,14 +556,14 @@ Return valid JSON adhering strictly to:
         clarity: clarityScore,
         constraints: constraintScore,
         structure: structureScore,
-        reliability: reliabilityScore
+        reliability: reliabilityScore,
       },
       grade: totalScore >= 85 ? 'Mastery' : totalScore >= 70 ? 'Proficient' : 'Developing',
       strengths,
       gaps: gaps.length > 0 ? gaps : ['Consider testing with boundary edge cases'],
       tip: hasConstraints
         ? 'Great constraint handling! Next, try defining explicit failure modes.'
-        : 'Tip: Add "Do not assume missing details; flag them explicitly" to boost constraint score.'
+        : 'Tip: Add "Do not assume missing details; flag them explicitly" to boost constraint score.',
     };
   }
 
@@ -538,27 +574,29 @@ Return valid JSON adhering strictly to:
     jsonMode: boolean = false
   ): Promise<string> {
     if (!this.geminiClient) throw new Error('Gemini client not configured');
-    const candidateModels = Array.from(new Set([
-      'gemini-3.1-flash-lite',
-      config.geminiModel || 'gemini-3.5-flash',
-      'gemini-flash-latest',
-      'gemini-3.8-flash',
-      'gemini-3.5-flash-lite'
-    ]));
+    const candidateModels = Array.from(
+      new Set([
+        'gemini-3.1-flash-lite',
+        config.geminiModel || 'gemini-3.5-flash',
+        'gemini-flash-latest',
+        'gemini-3.8-flash',
+        'gemini-3.5-flash-lite',
+      ])
+    );
 
     let lastErr: any = null;
     for (const m of candidateModels) {
       try {
         const generationConfig: any = {
           temperature,
-          maxOutputTokens: maxTokens
+          maxOutputTokens: maxTokens,
         };
         if (jsonMode) {
           generationConfig.responseMimeType = 'application/json';
         }
         const genModel = this.geminiClient.getGenerativeModel({
           model: m,
-          generationConfig
+          generationConfig,
         });
         const res = await genModel.generateContent(prompt);
         return res.response.text();
@@ -569,4 +607,3 @@ Return valid JSON adhering strictly to:
     throw lastErr;
   }
 }
-

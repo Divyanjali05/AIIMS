@@ -20,9 +20,17 @@
 
 import mongoose from 'mongoose';
 import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/aiTool.model';
-import { ToolEvidenceModel, IToolEvidence, EvidenceSourceType, EvidenceCredibility } from '../models/toolEvidence.model';
+import {
+  ToolEvidenceModel,
+  EvidenceSourceType,
+  EvidenceCredibility,
+} from '../models/toolEvidence.model';
 import { ToolVersionHistoryModel, ToolChangeType } from '../models/toolVersionHistory.model';
-import { ToolDiscoveryRunModel, DiscoveryRunSource, IToolDiscoveryRun } from '../models/ToolDiscoveryRun.model';
+import {
+  ToolDiscoveryRunModel,
+  DiscoveryRunSource,
+  IToolDiscoveryRun,
+} from '../models/ToolDiscoveryRun.model';
 
 // ==========================================
 // TOOL CANDIDATE — Data Shape Submitted by Adapters
@@ -174,7 +182,6 @@ function deriveSlugId(provider: string, name: string): string {
 // ==========================================
 
 export class ToolDiscoveryService {
-
   // ── Run Lifecycle ─────────────────────────────────────────────────────
 
   /**
@@ -184,7 +191,7 @@ export class ToolDiscoveryService {
     return ToolDiscoveryRunModel.create({
       startedAt: new Date(),
       status: 'RUNNING',
-      source
+      source,
     });
   }
 
@@ -208,8 +215,8 @@ export class ToolDiscoveryService {
       $set: {
         completedAt: new Date(),
         status,
-        ...counters
-      }
+        ...counters,
+      },
     });
   }
 
@@ -222,18 +229,19 @@ export class ToolDiscoveryService {
   normalizeCandidate(candidate: ToolCandidate): ToolCandidate {
     return {
       ...candidate,
-      candidateId: candidate.candidateId?.trim() ||
+      candidateId:
+        candidate.candidateId?.trim() ||
         deriveSlugId(candidate.provider || 'unknown', candidate.name),
       name: candidate.name?.trim(),
       description: candidate.description?.trim(),
       provider: candidate.provider?.trim(),
       websiteUrl: candidate.websiteUrl ? normalizeUrl(candidate.websiteUrl) : undefined,
-      capabilities: (candidate.capabilities || []).map(c => c.trim()).filter(Boolean),
-      useCases: (candidate.useCases || []).map(u => u.trim()).filter(Boolean),
+      capabilities: (candidate.capabilities || []).map((c) => c.trim()).filter(Boolean),
+      useCases: (candidate.useCases || []).map((u) => u.trim()).filter(Boolean),
       category: candidate.category?.trim(),
       pricing: candidate.pricing?.trim(),
-      sourceUrls: (candidate.sourceUrls || []).map(u => normalizeUrl(u)).filter(Boolean),
-      confidence: candidate.confidence ?? 0
+      sourceUrls: (candidate.sourceUrls || []).map((u) => normalizeUrl(u)).filter(Boolean),
+      confidence: candidate.confidence ?? 0,
     };
   }
 
@@ -266,7 +274,7 @@ export class ToolDiscoveryService {
     if (candidate.provider && candidate.name) {
       const normalizedName = normalizeName(candidate.name);
       const existingByProvider = await AIToolModel.find({
-        provider: candidate.provider
+        provider: candidate.provider,
       }).lean<IAITool[]>();
 
       for (const existing of existingByProvider) {
@@ -298,12 +306,16 @@ export class ToolDiscoveryService {
     if (candidate.pricing && candidate.pricing !== (existing.pricing || '')) {
       changedFields.pricing = { from: existing.pricing, to: candidate.pricing };
     }
-    if (candidate.version && existing.name && !existing.name.toLowerCase().includes(candidate.version.toLowerCase())) {
+    if (
+      candidate.version &&
+      existing.name &&
+      !existing.name.toLowerCase().includes(candidate.version.toLowerCase())
+    ) {
       changedFields.version = { from: null, to: candidate.version };
     }
     if (candidate.capabilities && candidate.capabilities.length > 0) {
       const existingSet = new Set(existing.capabilities || []);
-      const newCaps = candidate.capabilities.filter(c => !existingSet.has(c));
+      const newCaps = candidate.capabilities.filter((c) => !existingSet.has(c));
       if (newCaps.length > 0) {
         changedFields.capabilities = { added: newCaps };
       }
@@ -325,13 +337,10 @@ export class ToolDiscoveryService {
    * Persists evidence documents for a candidate (or existing tool).
    * All evidence starts in PENDING verification status.
    */
-  async storeEvidence(
-    toolId: string,
-    evidenceItems: ToolCandidate['evidence']
-  ): Promise<void> {
+  async storeEvidence(toolId: string, evidenceItems: ToolCandidate['evidence']): Promise<void> {
     if (!evidenceItems || evidenceItems.length === 0) return;
 
-    const docs = evidenceItems.map(e => ({
+    const docs = evidenceItems.map((e) => ({
       id: `ev-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       toolId,
       claim: e.title || 'Tool Evidence Claim',
@@ -348,7 +357,7 @@ export class ToolDiscoveryService {
       fetchedAt: new Date(),
       publishedAt: new Date().toISOString(),
       verifiedAt: new Date().toISOString(),
-      confidence: 0.9
+      confidence: 0.9,
     }));
 
     await ToolEvidenceModel.insertMany(docs, { ordered: false });
@@ -375,7 +384,7 @@ export class ToolDiscoveryService {
       detectedAt: new Date().toISOString(),
       verifiedAt: new Date().toISOString(),
       previousValue: previousData ? JSON.stringify(previousData) : undefined,
-      newValue: newData ? JSON.stringify(newData) : undefined
+      newValue: newData ? JSON.stringify(newData) : undefined,
     });
   }
 
@@ -387,37 +396,37 @@ export class ToolDiscoveryService {
   async createDiscoveredTool(candidate: ToolCandidate): Promise<IAITool> {
     const now = new Date().toISOString();
     const tool = await AIToolModel.create({
-      id:                  candidate.candidateId,
-      name:                candidate.name,
-      description:         candidate.description || '',
-      category:            (candidate.category as any) || 'Reasoning & Writing',
-      capabilities:        candidate.capabilities || [],
-      useCases:            candidate.useCases || [],
-      strengths:           [],
-      limitations:         [],
-      taskMappings:        [],
-      websiteUrl:          candidate.websiteUrl || '',
-      officialWebsite:     candidate.websiteUrl || '',
-      activeStatus:        false,                         // NOT active until verified
-      provider:            candidate.provider || 'AI Provider',
-      pricing:             candidate.pricing,
-      pricingDetails:      {
+      id: candidate.candidateId,
+      name: candidate.name,
+      description: candidate.description || '',
+      category: (candidate.category as any) || 'Reasoning & Writing',
+      capabilities: candidate.capabilities || [],
+      useCases: candidate.useCases || [],
+      strengths: [],
+      limitations: [],
+      taskMappings: [],
+      websiteUrl: candidate.websiteUrl || '',
+      officialWebsite: candidate.websiteUrl || '',
+      activeStatus: false, // NOT active until verified
+      provider: candidate.provider || 'AI Provider',
+      pricing: candidate.pricing,
+      pricingDetails: {
         type: 'FREEMIUM',
         summary: candidate.pricing || 'Free / Paid',
         freeTierAvailable: true,
         freeTrialAvailable: false,
-        verified: false
+        verified: false,
       },
-      status:              'UNVERIFIED',
-      categories:          candidate.category ? [candidate.category as any] : ['Reasoning & Writing'],
-      domains:             candidate.category ? [candidate.category] : ['Education & Learning'],
-      tasks:               [],
-      tags:                [],
-      sourceUrls:          candidate.sourceUrls || [],
-      verificationStatus:  'DISCOVERED' as ToolVerificationStatus,
-      firstSeenAt:         now,
-      lastVerifiedAt:      now,
-      lastUpdatedAt:       now
+      status: 'UNVERIFIED',
+      categories: candidate.category ? [candidate.category as any] : ['Reasoning & Writing'],
+      domains: candidate.category ? [candidate.category] : ['Education & Learning'],
+      tasks: [],
+      tags: [],
+      sourceUrls: candidate.sourceUrls || [],
+      verificationStatus: 'DISCOVERED' as ToolVerificationStatus,
+      firstSeenAt: now,
+      lastVerifiedAt: now,
+      lastUpdatedAt: now,
     });
 
     // Record the birth of this tool in version history
@@ -465,9 +474,7 @@ export class ToolDiscoveryService {
       existing.id,
       changeType,
       `Detected ${changeType.toLowerCase().replace('_', ' ')} for "${existing.name}"`,
-      Object.fromEntries(
-        Object.entries(changedFields).map(([k, v]) => [k, (v as any).from])
-      ),
+      Object.fromEntries(Object.entries(changedFields).map(([k, v]) => [k, (v as any).from])),
       Object.fromEntries(
         Object.entries(changedFields).map(([k, v]) => [k, (v as any).to || (v as any).added])
       ),
@@ -494,7 +501,7 @@ export class ToolDiscoveryService {
   async processCandidates(
     candidates: ToolCandidate[],
     runId: string,
-    source: DiscoveryRunSource = 'DISCOVERY_RUN' as any
+    _source: DiscoveryRunSource = 'DISCOVERY_RUN' as any
   ): Promise<DiscoveryRunResult> {
     const counters = {
       discoveredCount: candidates.length,
@@ -503,7 +510,7 @@ export class ToolDiscoveryService {
       duplicateCount: 0,
       rejectedCount: 0,
       errorCount: 0,
-      errors: [] as Array<{ candidateId?: string; message: string }>
+      errors: [] as Array<{ candidateId?: string; message: string }>,
     };
 
     for (const rawCandidate of candidates) {
@@ -515,7 +522,7 @@ export class ToolDiscoveryService {
           counters.rejectedCount++;
           counters.errors.push({
             candidateId: candidate.candidateId,
-            message: `Rejected: missing required fields (name or candidateId)`
+            message: `Rejected: missing required fields (name or candidateId)`,
           });
           continue;
         }
@@ -544,7 +551,7 @@ export class ToolDiscoveryService {
         counters.errorCount++;
         counters.errors.push({
           candidateId: candidate.candidateId,
-          message: err.message || 'Unknown error during candidate processing'
+          message: err.message || 'Unknown error during candidate processing',
         });
       }
     }
@@ -562,7 +569,7 @@ export class ToolDiscoveryService {
     return {
       runId,
       status: finalStatus,
-      ...counters
+      ...counters,
     };
   }
 }

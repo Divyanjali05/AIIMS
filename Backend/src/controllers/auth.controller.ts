@@ -10,24 +10,15 @@ import { mockUser } from '../models/aiims.models';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { formatUserState } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import {
-  PROGRAMS,
-  SPECIALIZATIONS,
-  validateAcademicCombination,
-  AI_FAMILIARITY_OPTIONS,
-  AI_USAGE_CONTEXTS,
-  PRIMARY_GOAL_OPTIONS
-} from '../config/academicTaxonomy';
+import { PROGRAMS, validateAcademicCombination } from '../config/academicTaxonomy';
 
 /**
  * Generates a cryptographically signed JWT token with a 7-day expiration
  */
 export const generateAuthToken = (userId: string, email: string): string => {
-  return jwt.sign(
-    { userId, email: email.toLowerCase().trim() },
-    config.jwtSecret,
-    { expiresIn: '7d' }
-  );
+  return jwt.sign({ userId, email: email.toLowerCase().trim() }, config.jwtSecret, {
+    expiresIn: '7d',
+  });
 };
 
 import { registeredUsers } from '../models/userStore';
@@ -57,13 +48,13 @@ export const login = async (req: Request, res: Response) => {
           return res.json({
             token,
             user: userState.profile,
-            state: userState
+            state: userState,
           });
         } else {
           return res.status(401).json({ error: 'Email or password is incorrect.' });
         }
       }
-    } catch (err) {
+    } catch {
       // Proceed to fallback
     }
   }
@@ -74,9 +65,10 @@ export const login = async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'Email or password is incorrect.' });
   }
 
-  const isMatch = user.password && user.password.startsWith('$2')
-    ? await bcrypt.compare(password, user.password)
-    : user.password === password;
+  const isMatch =
+    user.password && user.password.startsWith('$2')
+      ? await bcrypt.compare(password, user.password)
+      : user.password === password;
 
   if (!isMatch) {
     return res.status(401).json({ error: 'Email or password is incorrect.' });
@@ -94,8 +86,8 @@ export const login = async (req: Request, res: Response) => {
       targetGoal: user.targetGoal,
       stage: user.stage,
       xpPoints: user.xpPoints,
-      aiimsCredits: user.aiimsCredits
-    }
+      aiimsCredits: user.aiimsCredits,
+    },
   });
 };
 
@@ -119,7 +111,7 @@ export const register = async (req: Request, res: Response) => {
     expectedGraduationYear,
     aiFamiliarity,
     aiUsageContexts,
-    primaryGoal
+    primaryGoal,
   } = req.body;
 
   // Account validation
@@ -130,13 +122,19 @@ export const register = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Please enter your full name.', field: 'name' });
   }
   if (!password || password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters long.', field: 'password' });
+    return res
+      .status(400)
+      .json({ error: 'Password must be at least 8 characters long.', field: 'password' });
   }
   if (!/[A-Z]/.test(password)) {
-    return res.status(400).json({ error: 'Password must contain at least one uppercase letter.', field: 'password' });
+    return res
+      .status(400)
+      .json({ error: 'Password must contain at least one uppercase letter.', field: 'password' });
   }
   if (!/[0-9]/.test(password)) {
-    return res.status(400).json({ error: 'Password must contain at least one number.', field: 'password' });
+    return res
+      .status(400)
+      .json({ error: 'Password must contain at least one number.', field: 'password' });
   }
   if (confirmPassword && password !== confirmPassword) {
     return res.status(400).json({ error: 'Passwords do not match.', field: 'confirmPassword' });
@@ -144,57 +142,73 @@ export const register = async (req: Request, res: Response) => {
 
   // Academic identity validation
   if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
-    return res.status(400).json({ error: 'Please select a valid academic stream.', field: 'stream' });
+    return res
+      .status(400)
+      .json({ error: 'Please select a valid academic stream.', field: 'stream' });
   }
-  if (!educationLevel || !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)) {
-    return res.status(400).json({ error: 'Please select a valid education level.', field: 'educationLevel' });
+  if (
+    !educationLevel ||
+    !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'Please select a valid education level.', field: 'educationLevel' });
   }
   if (!programId) {
-    return res.status(400).json({ error: 'Please select your degree or program.', field: 'programId' });
+    return res
+      .status(400)
+      .json({ error: 'Please select your degree or program.', field: 'programId' });
   }
   if (!specializationId) {
-    return res.status(400).json({ error: 'Please select your branch or specialization.', field: 'specializationId' });
+    return res
+      .status(400)
+      .json({ error: 'Please select your branch or specialization.', field: 'specializationId' });
   }
   if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > 7) {
-    return res.status(400).json({ error: 'Please enter a valid year of study (1–7).', field: 'yearOfStudy' });
+    return res
+      .status(400)
+      .json({ error: 'Please enter a valid year of study (1–7).', field: 'yearOfStudy' });
   }
   if (!admissionYear || Number(admissionYear) < 1990 || Number(admissionYear) > 2030) {
-    return res.status(400).json({ error: 'Please enter a valid admission year.', field: 'admissionYear' });
+    return res
+      .status(400)
+      .json({ error: 'Please enter a valid admission year.', field: 'admissionYear' });
   }
   if (!expectedGraduationYear || Number(expectedGraduationYear) < Number(admissionYear)) {
-    return res.status(400).json({ error: 'Expected graduation year must be after admission year.', field: 'expectedGraduationYear' });
+    return res.status(400).json({
+      error: 'Expected graduation year must be after admission year.',
+      field: 'expectedGraduationYear',
+    });
   }
 
   // Taxonomy consistency check
-  const taxonomyCheck = validateAcademicCombination(stream, educationLevel, programId, specializationId);
+  const taxonomyCheck = validateAcademicCombination(
+    stream,
+    educationLevel,
+    programId,
+    specializationId
+  );
   if (!taxonomyCheck.valid) {
-    return res.status(400).json({ error: taxonomyCheck.reason || 'Invalid academic combination.', field: 'specializationId' });
+    return res.status(400).json({
+      error: taxonomyCheck.reason || 'Invalid academic combination.',
+      field: 'specializationId',
+    });
   }
 
   const normalizedEmail = email.trim().toLowerCase();
   const displayName = name.trim();
-  const programInfo = PROGRAMS.find(p => p.id === programId);
+  const programInfo = PROGRAMS.find((p) => p.id === programId);
 
   // Check MongoDB connection
   if (mongoose.connection.readyState !== 1) {
     if (registeredUsers[normalizedEmail]) {
-      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+      return res
+        .status(400)
+        .json({ error: 'An account with this email already exists. Please sign in.' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const stableId = new mongoose.Types.ObjectId().toHexString();
-    const welcomeTx = {
-      id: `tx-welcome-${Date.now()}`,
-      transactionType: 'REWARD',
-      type: 'EARN' as const,
-      source: 'SYSTEM',
-      sourceId: 'WELCOME_BONUS',
-      amount: 100,
-      description: 'Welcome Learning Grant (+100 AC)',
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      previousBalance: 0,
-      newBalance: 100
-    };
-    const newUser: any = {
+    const newUser: Record<string, unknown> = {
       _id: stableId,
       id: stableId,
       name: displayName,
@@ -209,22 +223,24 @@ export const register = async (req: Request, res: Response) => {
       stream,
       programName,
       specializationName,
-      transactions: []
+      transactions: [],
     };
     registeredUsers[normalizedEmail] = newUser;
-    const welcomeResult = await creditsLedgerService.executeTransaction({
-      userId: stableId,
-      type: 'EARN',
-      category: 'REWARD',
-      amount: 100,
-      reason: 'Welcome Learning Grant (+100 AC)',
-      source: 'SYSTEM',
-      sourceId: 'WELCOME_BONUS',
-      idempotencyKey: `welcome::${stableId}`
-    }).catch(() => null);
+    const welcomeResult = await creditsLedgerService
+      .executeTransaction({
+        userId: stableId,
+        type: 'EARN',
+        category: 'REWARD',
+        amount: 100,
+        reason: 'Welcome Learning Grant (+100 AC)',
+        source: 'SYSTEM',
+        sourceId: 'WELCOME_BONUS',
+        idempotencyKey: `welcome::${stableId}`,
+      })
+      .catch(() => null);
 
     newUser.aiimsCredits = welcomeResult?.balance ?? 100;
-    const token = generateAuthToken(newUser.id, newUser.email);
+    const token = generateAuthToken(stableId, normalizedEmail);
     const baseState = formatUserState(new User(newUser) as IUser);
     return res.status(201).json({
       token,
@@ -232,16 +248,22 @@ export const register = async (req: Request, res: Response) => {
       state: {
         ...baseState,
         academicProfile: {
-          stream, programName, specializationName, educationLevel, yearOfStudy: Number(yearOfStudy)
-        }
-      }
+          stream,
+          programName,
+          specializationName,
+          educationLevel,
+          yearOfStudy: Number(yearOfStudy),
+        },
+      },
     });
   }
 
   try {
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+      return res
+        .status(400)
+        .json({ error: 'An account with this email already exists. Please sign in.' });
     }
 
     const dbUser = await User.create({
@@ -253,23 +275,25 @@ export const register = async (req: Request, res: Response) => {
       targetGoal: 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
-      aiimsCredits: 0
+      aiimsCredits: 0,
     });
 
     // Record welcome bonus authoritatively in CreditLedger and User document
-    const welcomeResult = await creditsLedgerService.executeTransaction({
-      userId: String(dbUser._id),
-      type: 'EARN',
-      category: 'REWARD',
-      amount: 100,
-      reason: 'Welcome Learning Grant (+100 AC)',
-      source: 'SYSTEM',
-      sourceId: 'WELCOME_BONUS',
-      idempotencyKey: `welcome::${String(dbUser._id)}`
-    }).catch((e) => {
-      console.warn('[Auth] Welcome ledger entry warning:', e.message);
-      return null;
-    });
+    const welcomeResult = await creditsLedgerService
+      .executeTransaction({
+        userId: String(dbUser._id),
+        type: 'EARN',
+        category: 'REWARD',
+        amount: 100,
+        reason: 'Welcome Learning Grant (+100 AC)',
+        source: 'SYSTEM',
+        sourceId: 'WELCOME_BONUS',
+        idempotencyKey: `welcome::${String(dbUser._id)}`,
+      })
+      .catch((e) => {
+        console.warn('[Auth] Welcome ledger entry warning:', e.message);
+        return null;
+      });
 
     // Refresh user document to ensure persisted balance is reflected in registration response
     const refreshedUser = await User.findById(dbUser._id);
@@ -293,7 +317,7 @@ export const register = async (req: Request, res: Response) => {
           programId,
           specializationId,
           admissionYear: admissionYearNum,
-          graduationYear: graduationYearNum
+          graduationYear: graduationYearNum,
         },
         {
           $setOnInsert: {
@@ -302,9 +326,9 @@ export const register = async (req: Request, res: Response) => {
             specializationName,
             displayName: cohortDisplayName,
             shortCode: cohortShortCode,
-            assessmentVersion: 'v1.0'
+            assessmentVersion: 'v1.0',
           },
-          $inc: { studentCount: 1 }
+          $inc: { studentCount: 1 },
         },
         { upsert: true, returnDocument: 'after' }
       );
@@ -312,7 +336,7 @@ export const register = async (req: Request, res: Response) => {
       console.warn('Cohort upsert warning:', cohortErr);
     }
 
-    const profileData: any = {
+    const profileData: Record<string, unknown> = {
       userId: dbUser._id,
       fullName: displayName,
       stream,
@@ -325,13 +349,14 @@ export const register = async (req: Request, res: Response) => {
       yearOfStudy: Number(yearOfStudy),
       admissionYear: Number(admissionYear),
       expectedGraduationYear: Number(expectedGraduationYear),
-      isComplete: true
+      isComplete: true,
     };
     if (instituteId) profileData.instituteId = new mongoose.Types.ObjectId(String(instituteId));
     if (instituteName) profileData.instituteName = instituteName;
     if (cohortDoc) profileData.cohortId = cohortDoc._id;
     if (aiFamiliarity) profileData.aiFamiliarity = aiFamiliarity;
-    if (aiUsageContexts && Array.isArray(aiUsageContexts)) profileData.aiUsageContexts = aiUsageContexts;
+    if (aiUsageContexts && Array.isArray(aiUsageContexts))
+      profileData.aiUsageContexts = aiUsageContexts;
     if (primaryGoal) profileData.primaryGoal = primaryGoal;
 
     const studentProfile = await StudentProfile.create(profileData);
@@ -359,14 +384,21 @@ export const register = async (req: Request, res: Response) => {
           instituteName: studentProfile.instituteName,
           cohortId: cohortDoc ? String(cohortDoc._id) : undefined,
           cohortDisplayName: cohortDoc?.displayName,
-          isComplete: true
-        }
-      }
+          isComplete: true,
+        },
+      },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Registration error:', err);
-    if (err.code === 11000) {
-      return res.status(400).json({ error: 'An account with this email already exists. Please sign in.' });
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: number }).code === 11000
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'An account with this email already exists. Please sign in.' });
     }
     return res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
@@ -383,7 +415,7 @@ export const getProfile = (req: AuthenticatedRequest, res: Response) => {
       targetGoal: req.user.targetGoal,
       stage: req.user.stage,
       xpPoints: req.user.xpPoints,
-      aiimsCredits: req.user.aiimsCredits
+      aiimsCredits: req.user.aiimsCredits,
     });
   }
   return res.json(mockUser);
@@ -401,8 +433,9 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
       try {
         await req.user.save();
-      } catch (saveErr: any) {
-        console.warn('Could not persist profile update to MongoDB:', saveErr.message);
+      } catch (saveErr: unknown) {
+        const errorMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);
+        console.warn('Could not persist profile update to MongoDB:', errorMsg);
       }
     } else if (req.user.email && registeredUsers && registeredUsers[req.user.email.toLowerCase()]) {
       const reg = registeredUsers[req.user.email.toLowerCase()];
@@ -421,7 +454,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
       targetGoal: req.user.targetGoal,
       stage: req.user.stage,
       xpPoints: req.user.xpPoints,
-      aiimsCredits: req.user.aiimsCredits
+      aiimsCredits: req.user.aiimsCredits,
     });
   }
 

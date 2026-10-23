@@ -6,7 +6,7 @@ import {
   ICreditLedger,
   CreditTransactionType,
   CreditTransactionCategory,
-  CreditTransactionStatus
+  CreditTransactionStatus,
 } from '../models/CreditLedger.model';
 import { registeredUsers } from '../models/userStore';
 
@@ -20,7 +20,7 @@ export interface ExecuteTransactionParams {
   sourceId?: string;
   idempotencyKey?: string;
   relatedTaskId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface TransactionResult {
@@ -32,11 +32,17 @@ export interface TransactionResult {
   balance?: number;
   previousBalance?: number;
   newBalance?: number;
-  transaction?: any;
+  transaction?: {
+    id?: string;
+    type?: CreditTransactionType;
+    amount?: number;
+    [key: string]: unknown;
+  };
 }
 
 // In-memory fallback ledger store for offline / test runner environments
-interface MemoryLedgerEntry {
+export interface MemoryLedgerEntry {
+  [key: string]: unknown;
   id: string;
   userId: string;
   type: CreditTransactionType;
@@ -50,7 +56,7 @@ interface MemoryLedgerEntry {
   idempotencyKey?: string;
   status: CreditTransactionStatus;
   relatedTaskId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   createdAt: Date;
 }
 
@@ -61,7 +67,7 @@ export class CreditsLedgerService {
   /**
    * Helper to clean metadata so internal keys/secrets are never saved
    */
-  private sanitizeMetadata(meta?: Record<string, any>): Record<string, any> {
+  private sanitizeMetadata(meta?: Record<string, unknown>): Record<string, unknown> {
     if (!meta) return {};
     const sanitized = { ...meta };
     delete sanitized.apiKey;
@@ -87,7 +93,7 @@ export class CreditsLedgerService {
       sourceId,
       idempotencyKey,
       relatedTaskId,
-      metadata
+      metadata,
     } = params;
 
     // 1. Strict validation
@@ -123,14 +129,14 @@ export class CreditsLedgerService {
               balance: existingTx.balanceAfter,
               previousBalance: existingTx.balanceBefore,
               newBalance: existingTx.balanceAfter,
-              transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx
+              transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx,
             };
           } else {
             return {
               success: false,
               conflict: true,
               code: 'IDEMPOTENCY_KEY_CONFLICT',
-              error: 'Idempotency key reuse with conflicting operation parameters'
+              error: 'Idempotency key reuse with conflicting operation parameters',
             };
           }
         }
@@ -158,7 +164,7 @@ export class CreditsLedgerService {
               success: false,
               code: 'INSUFFICIENT_CREDITS',
               error: `Insufficient balance: ${balanceBefore} AC available, ${numAmount} AC requested`,
-              balance: balanceBefore
+              balance: balanceBefore,
             };
           }
 
@@ -172,23 +178,23 @@ export class CreditsLedgerService {
             description: reason,
             timestamp: nowStr,
             previousBalance: balanceBefore,
-            newBalance: balanceBefore - numAmount
+            newBalance: balanceBefore - numAmount,
           };
 
           // Conditional atomic update: only succeeds if balance is still >= numAmount
           updatedUser = await User.findOneAndUpdate(
             {
               _id: user._id,
-              aiimsCredits: { $gte: numAmount }
+              aiimsCredits: { $gte: numAmount },
             },
             {
               $inc: { aiimsCredits: -numAmount },
               $push: {
                 transactions: {
                   $each: [legacyTx],
-                  $position: 0
-                }
-              }
+                  $position: 0,
+                },
+              },
             },
             { returnDocument: 'after' }
           );
@@ -200,7 +206,7 @@ export class CreditsLedgerService {
               success: false,
               code: 'INSUFFICIENT_CREDITS',
               error: `Insufficient balance during atomic update (current: ${freshBal} AC)`,
-              balance: freshBal
+              balance: freshBal,
             };
           }
         } else {
@@ -216,10 +222,10 @@ export class CreditsLedgerService {
             description: reason,
             timestamp: nowStr,
             previousBalance: balanceBefore,
-            newBalance: balanceAfter
+            newBalance: balanceAfter,
           };
 
-          const earnFilter: any = { _id: user._id };
+          const earnFilter: Record<string, unknown> = { _id: user._id };
           if (sourceId) {
             earnFilter['transactions.sourceId'] = { $ne: sourceId };
           }
@@ -231,9 +237,9 @@ export class CreditsLedgerService {
               $push: {
                 transactions: {
                   $each: [legacyTx],
-                  $position: 0
-                }
-              }
+                  $position: 0,
+                },
+              },
             },
             { returnDocument: 'after' }
           );
@@ -242,22 +248,29 @@ export class CreditsLedgerService {
             // Concurrently already awarded under this sourceId
             const freshUser = await User.findById(user._id);
             const freshBal = freshUser?.aiimsCredits ?? balanceBefore;
-            const existingTx = (await CreditLedger.findOne({ userId, sourceId })) ||
-                               (idempotencyKey ? await CreditLedger.findOne({ userId, idempotencyKey }) : null);
+            const existingTx =
+              (await CreditLedger.findOne({ userId, sourceId })) ||
+              (idempotencyKey ? await CreditLedger.findOne({ userId, idempotencyKey }) : null);
             return {
               success: true,
               duplicate: true,
               balance: freshBal,
               previousBalance: freshBal,
               newBalance: freshBal,
-              transaction: existingTx ? (existingTx.toJSON ? existingTx.toJSON() : existingTx) : undefined
+              transaction: existingTx
+                ? existingTx.toJSON
+                  ? existingTx.toJSON()
+                  : existingTx
+                : undefined,
             };
           }
         }
 
-        const balanceAfter = updatedUser ? updatedUser.aiimsCredits : (
-          type === 'SPEND' ? balanceBefore - numAmount : balanceBefore + numAmount
-        );
+        const balanceAfter = updatedUser
+          ? updatedUser.aiimsCredits
+          : type === 'SPEND'
+            ? balanceBefore - numAmount
+            : balanceBefore + numAmount;
 
         // 2d. Record in CreditLedger collection
         try {
@@ -275,7 +288,7 @@ export class CreditsLedgerService {
             idempotencyKey,
             status: 'COMPLETED',
             relatedTaskId,
-            metadata: this.sanitizeMetadata(metadata)
+            metadata: this.sanitizeMetadata(metadata),
           });
 
           return {
@@ -283,21 +296,26 @@ export class CreditsLedgerService {
             balance: balanceAfter,
             previousBalance: balanceBefore,
             newBalance: balanceAfter,
-            transaction: ledgerEntry.toJSON ? ledgerEntry.toJSON() : ledgerEntry
+            transaction: ledgerEntry.toJSON ? ledgerEntry.toJSON() : ledgerEntry,
           };
-        } catch (err: any) {
+        } catch (err: unknown) {
           // In case of unique index violation on { userId, idempotencyKey }
-          if (err.code === 11000 && idempotencyKey) {
+          const isDuplicateKey =
+            err &&
+            typeof err === 'object' &&
+            'code' in err &&
+            (err as { code: number }).code === 11000;
+          if (isDuplicateKey && idempotencyKey) {
             // Revert speculative balance mutation and legacy transaction entry
             if (type === 'SPEND') {
               await User.findByIdAndUpdate(user._id, {
                 $inc: { aiimsCredits: numAmount },
-                $pull: { transactions: { id: txId } }
+                $pull: { transactions: { id: txId } },
               });
             } else {
               await User.findByIdAndUpdate(user._id, {
                 $inc: { aiimsCredits: -numAmount },
-                $pull: { transactions: { id: txId } }
+                $pull: { transactions: { id: txId } },
               });
             }
 
@@ -309,7 +327,7 @@ export class CreditsLedgerService {
                 balance: existingTx.balanceAfter,
                 previousBalance: existingTx.balanceBefore,
                 newBalance: existingTx.balanceAfter,
-                transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx
+                transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx,
               };
             }
           }
@@ -329,8 +347,8 @@ export class CreditsLedgerService {
               balanceAfter,
               reason,
               source,
-              status: 'COMPLETED'
-            }
+              status: 'COMPLETED',
+            },
           };
         }
       }
@@ -359,9 +377,7 @@ export class CreditsLedgerService {
       );
       if (existing) {
         const matches =
-          existing.type === type &&
-          existing.amount === numAmount &&
-          existing.source === source;
+          existing.type === type && existing.amount === numAmount && existing.source === source;
 
         if (matches) {
           return {
@@ -370,14 +386,14 @@ export class CreditsLedgerService {
             balance: existing.balanceAfter,
             previousBalance: existing.balanceBefore,
             newBalance: existing.balanceAfter,
-            transaction: existing
+            transaction: existing,
           };
         } else {
           return {
             success: false,
             conflict: true,
             code: 'IDEMPOTENCY_KEY_CONFLICT',
-            error: 'Idempotency key reuse with conflicting operation parameters'
+            error: 'Idempotency key reuse with conflicting operation parameters',
           };
         }
       }
@@ -390,7 +406,7 @@ export class CreditsLedgerService {
           success: false,
           code: 'INSUFFICIENT_CREDITS',
           error: `Insufficient balance: ${currentBal} AC available, ${numAmount} AC requested`,
-          balance: currentBal
+          balance: currentBal,
         };
       }
       currentBal -= numAmount;
@@ -415,7 +431,7 @@ export class CreditsLedgerService {
       status: 'COMPLETED',
       relatedTaskId,
       metadata: this.sanitizeMetadata(metadata),
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     memoryLedgerStore.unshift(memTx);
@@ -436,7 +452,7 @@ export class CreditsLedgerService {
             description: reason,
             timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
             previousBalance: balanceBefore,
-            newBalance: currentBal
+            newBalance: currentBal,
           });
           break;
         }
@@ -448,7 +464,7 @@ export class CreditsLedgerService {
       balance: currentBal,
       previousBalance: balanceBefore,
       newBalance: currentBal,
-      transaction: memTx
+      transaction: memTx,
     };
   }
 
@@ -459,7 +475,12 @@ export class CreditsLedgerService {
     userId: string,
     options?: { limit?: number; skip?: number; type?: CreditTransactionType }
   ): Promise<{
-    transactions: any[];
+    transactions: Array<{
+      id?: string;
+      type?: CreditTransactionType | string;
+      amount: number;
+      [key: string]: unknown;
+    }>;
     total: number;
     balance: number;
     totalEarned: number;
@@ -467,7 +488,14 @@ export class CreditsLedgerService {
     totalRefunded: number;
   }> {
     if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
-      return { transactions: [], total: 0, balance: 0, totalEarned: 0, totalSpent: 0, totalRefunded: 0 };
+      return {
+        transactions: [],
+        total: 0,
+        balance: 0,
+        totalEarned: 0,
+        totalSpent: 0,
+        totalRefunded: 0,
+      };
     }
 
     const isDbConnected = mongoose.connection.readyState === 1;
@@ -482,19 +510,15 @@ export class CreditsLedgerService {
         user = await User.findOne({ email: userId.toLowerCase().trim() });
       }
 
-      const query: any = { userId };
+      const query: Record<string, unknown> = { userId };
       if (options?.type) {
         query.type = options.type;
       }
 
       const [transactions, total, allEntries] = await Promise.all([
-        CreditLedger.find(query)
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .lean(),
+        CreditLedger.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
         CreditLedger.countDocuments(query),
-        CreditLedger.find({ userId }).lean()
+        CreditLedger.find({ userId }).lean(),
       ]);
 
       if (total > 0 || user) {
@@ -517,7 +541,7 @@ export class CreditsLedgerService {
               source: t.source || 'SYSTEM',
               sourceId: t.sourceId,
               status: 'COMPLETED',
-              createdAt: new Date(t.timestamp || Date.now())
+              createdAt: new Date(t.timestamp || Date.now()),
             }));
           finalTxs = mapped.slice(skip, skip + limit);
           finalTotal = mapped.length;
@@ -539,7 +563,7 @@ export class CreditsLedgerService {
           balance,
           totalEarned,
           totalSpent,
-          totalRefunded
+          totalRefunded,
         };
       }
     }
@@ -567,7 +591,7 @@ export class CreditsLedgerService {
       balance,
       totalEarned,
       totalSpent,
-      totalRefunded
+      totalRefunded,
     };
   }
 
@@ -614,7 +638,13 @@ export class CreditsLedgerService {
     entriesCount: number;
   }> {
     if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
-      return { isReconciled: true, currentBalance: 0, calculatedBalance: 0, discrepancy: 0, entriesCount: 0 };
+      return {
+        isReconciled: true,
+        currentBalance: 0,
+        calculatedBalance: 0,
+        discrepancy: 0,
+        entriesCount: 0,
+      };
     }
 
     const isDbConnected = mongoose.connection.readyState === 1;
@@ -629,7 +659,7 @@ export class CreditsLedgerService {
       if (user) {
         const currentBalance = user.aiimsCredits ?? 0;
         const ledgerEntries = await CreditLedger.find({ userId }).sort({ createdAt: 1 });
-        
+
         let calculatedBalance = 0; // Pure ledger accumulation from 0
         if (ledgerEntries.length > 0) {
           for (const entry of ledgerEntries) {
@@ -654,14 +684,17 @@ export class CreditsLedgerService {
           currentBalance,
           calculatedBalance,
           discrepancy,
-          entriesCount: ledgerEntries.length
+          entriesCount: ledgerEntries.length,
         };
       }
     }
 
-    const currentBalance = memoryUserBalances.get(userId) ?? (
-      registeredUsers ? Object.values(registeredUsers).find(u => String(u._id || u.id) === userId)?.aiimsCredits ?? 0 : 0
-    );
+    const currentBalance =
+      memoryUserBalances.get(userId) ??
+      (registeredUsers
+        ? (Object.values(registeredUsers).find((u) => String(u._id || u.id) === userId)
+            ?.aiimsCredits ?? 0)
+        : 0);
     const userEntries = memoryLedgerStore.filter((e) => e.userId === userId);
     let calculatedBalance = 0;
     for (const e of userEntries) {
@@ -674,7 +707,7 @@ export class CreditsLedgerService {
       currentBalance,
       calculatedBalance,
       discrepancy: currentBalance - calculatedBalance,
-      entriesCount: userEntries.length
+      entriesCount: userEntries.length,
     };
   }
 
@@ -688,7 +721,11 @@ export class CreditsLedgerService {
     source: string;
     idempotencyKey?: string;
     taskFn: (operationId: string) => Promise<T>;
-  }): Promise<{ result: T; transaction?: any; balance: number }> {
+  }): Promise<{
+    result: T;
+    transaction?: ICreditLedger | MemoryLedgerEntry | Record<string, unknown>;
+    balance: number;
+  }> {
     const { userId, cost, taskTitle, source, idempotencyKey, taskFn } = params;
     const operationId = `op-${Date.now()}-${randomUUID().substring(0, 8)}`;
 
@@ -705,14 +742,14 @@ export class CreditsLedgerService {
         source,
         sourceId: operationId,
         idempotencyKey: idempotencyKey || operationId,
-        relatedTaskId: operationId
+        relatedTaskId: operationId,
       });
 
       if (!spendTxResult.success) {
         throw {
           status: 402,
           code: spendTxResult.code || 'INSUFFICIENT_CREDITS',
-          message: spendTxResult.error || 'Failed to authorize credit deduction for AI task'
+          message: spendTxResult.error || 'Failed to authorize credit deduction for AI task',
         };
       }
     }
@@ -724,12 +761,15 @@ export class CreditsLedgerService {
       return {
         result,
         transaction: spendTxResult?.transaction,
-        balance: currentBalance
+        balance: currentBalance,
       };
-    } catch (taskError: any) {
+    } catch (taskError: unknown) {
+      const errorMsg = taskError instanceof Error ? taskError.message : String(taskError);
       // 3. Provider failure: atomically compensate and refund the learner
       if (cost > 0 && spendTxResult && spendTxResult.success && !spendTxResult.duplicate) {
-        console.warn(`[CreditsLedgerService] Task failed for op ${operationId}. Issuing automatic refund of ${cost} AC`);
+        console.warn(
+          `[CreditsLedgerService] Task failed for op ${operationId}. Issuing automatic refund of ${cost} AC`
+        );
         const refundResult = await this.executeTransaction({
           userId,
           type: 'REFUND',
@@ -740,7 +780,7 @@ export class CreditsLedgerService {
           sourceId: operationId,
           idempotencyKey: `refund::${operationId}`,
           relatedTaskId: operationId,
-          metadata: { originalError: taskError.message || String(taskError) }
+          metadata: { originalError: errorMsg },
         });
 
         throw {
@@ -750,7 +790,7 @@ export class CreditsLedgerService {
           refunded: true,
           refundAmount: cost,
           currentBalance: refundResult.balance,
-          error: taskError.message || String(taskError)
+          error: errorMsg,
         };
       }
       throw taskError;

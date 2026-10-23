@@ -1,6 +1,6 @@
 import { LearnerState } from '../context/LearnerContext';
 import { buildLearnerProfileContext } from './learnerProfileContext';
-import { AITool, ToolRecommendation, TaskCategory, RecommendationType, ToolFamiliarity } from '../types';
+import { AITool, ToolRecommendation, RecommendationType, ToolFamiliarity } from '../types';
 
 /**
  * Transparent Metadata-Driven Multi-Signal Recommendation Engine for AI Wallet
@@ -45,11 +45,17 @@ export const generateWalletRecommendations = (
 
   // Map user tool familiarity
   const userToolFamiliarityMap = new Map<string, ToolFamiliarity>();
-  userTools.forEach((t: { toolId: string; familiarity: ToolFamiliarity }) => userToolFamiliarityMap.set(t.toolId, t.familiarity));
+  userTools.forEach((t: { toolId: string; familiarity: ToolFamiliarity }) =>
+    userToolFamiliarityMap.set(t.toolId, t.familiarity)
+  );
 
   // Extract Learner Context Signals
-  const activeFocus = state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
-  const clarityTopic = state.clarity.selectedTopic || (state.clarity.completedTopics && state.clarity.completedTopics[0]) || '';
+  const activeFocus =
+    state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
+  const clarityTopic =
+    state.clarity.selectedTopic ||
+    (state.clarity.completedTopics && state.clarity.completedTopics[0]) ||
+    '';
   const growthArea = state.analysis.growthArea || 'AI Workflow Design';
   const investigatedRadarIds = state.radar.investigatedSignalIds || [];
   const walletCategories = profileCtx.aiWallet.primaryCategories || [];
@@ -93,11 +99,13 @@ export const generateWalletRecommendations = (
     const combinedPrompts = `${archPrompt} ${protoPrompt}`;
 
     const matchesAssessmentPrompt =
-      combinedPrompts.length > 5 && (
-        (tool.category === 'Agentic Coding' && /code|prototype|react|next|app|fullstack|backend|api/i.test(combinedPrompts)) ||
-        (tool.id === 'tool-claude' && /architecture|system|design|schema|database|microservice/i.test(combinedPrompts)) ||
-        (tool.category === 'Research & RAG' && /research|search|papers|verify|rag|data/i.test(combinedPrompts))
-      );
+      combinedPrompts.length > 5 &&
+      ((tool.category === 'Agentic Coding' &&
+        /code|prototype|react|next|app|fullstack|backend|api/i.test(combinedPrompts)) ||
+        (tool.id === 'tool-claude' &&
+          /architecture|system|design|schema|database|microservice/i.test(combinedPrompts)) ||
+        (tool.category === 'Research & RAG' &&
+          /research|search|papers|verify|rag|data/i.test(combinedPrompts)));
 
     if (matchesAssessmentPrompt && !familiarity) {
       matchedSignals.push({
@@ -106,7 +114,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `directly accelerates the workflow you formulated in your Assessment prompts`,
         relatedTask: tool.useCases?.[0] || 'Assessment Prompt Workflow',
         relatedSkill: tool.category,
-        relevance: 'Matched to your authentic Assessment prompts'
+        relevance: 'Matched to your authentic Assessment prompts',
       });
     }
 
@@ -114,7 +122,8 @@ export const generateWalletRecommendations = (
     // SIGNAL 1: FOCUS_BASED
     // Matches active Focus track or growth area against tool focusTracks & categories
     // ------------------------------------------------------------------------
-    const matchesFocus = toolFocusTracks.some((ft) => containsMatch(ft, activeFocus)) ||
+    const matchesFocus =
+      toolFocusTracks.some((ft) => containsMatch(ft, activeFocus)) ||
       toolCategories.some((cat) => containsMatch(cat, activeFocus)) ||
       containsMatch(tool.description, activeFocus);
 
@@ -125,7 +134,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `aligns with your active focus on ${activeFocus}`,
         relatedTask: tool.useCases?.[0] || `${activeFocus} Execution`,
         relatedSkill: tool.category,
-        relevance: `Matches your primary focus on ${activeFocus}`
+        relevance: `Matches your primary focus on ${activeFocus}`,
       });
     }
 
@@ -153,8 +162,12 @@ export const generateWalletRecommendations = (
       }
       // Fallback: match category if user has active radar investigations in matching category
       if (!matchedRadarTopic && investigatedRadarIds.length > 0) {
-        const hasCategoryOverlap = toolCategories.some(cat =>
-          cat === 'Agentic Coding' || cat === 'Research & RAG' || cat === 'Reasoning & Writing' || cat === 'Automation'
+        const hasCategoryOverlap = toolCategories.some(
+          (cat) =>
+            cat === 'Agentic Coding' ||
+            cat === 'Research & RAG' ||
+            cat === 'Reasoning & Writing' ||
+            cat === 'Automation'
         );
         if (hasCategoryOverlap) {
           matchedRadarTopic = toolRadarTopics[0] || tool.category;
@@ -163,14 +176,16 @@ export const generateWalletRecommendations = (
     }
 
     if (matchedRadarTopic) {
-      const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-') ? tool.category : matchedRadarTopic;
+      const displayTopic = matchedRadarTopic.toLowerCase().includes('sig-')
+        ? tool.category
+        : matchedRadarTopic;
       matchedSignals.push({
         type: 'RADAR_DISCOVERY',
         priority: 1, // High relevance when connected to investigated shift
         reasonSnippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
         relatedTask: tool.useCases?.[0] || 'AI Radar Workflow Exploration',
         relatedSkill: tool.category,
-        relevance: `Connected to your recent AI Radar investigation`
+        relevance: `Connected to your recent AI Radar investigation`,
       });
     }
 
@@ -178,15 +193,17 @@ export const generateWalletRecommendations = (
     // SIGNAL 3: TASK_BASED
     // Matches Clarity goals, Problem Solver activity, or Build projects
     // ------------------------------------------------------------------------
-    const matchesClarity = clarityTopic && (
-      toolClarityTopics.some((ct) => containsMatch(ct, clarityTopic)) ||
-      toolCategories.some((cat) => containsMatch(cat, clarityTopic)) ||
-      containsMatch(tool.description, clarityTopic)
-    );
+    const matchesClarity =
+      clarityTopic &&
+      (toolClarityTopics.some((ct) => containsMatch(ct, clarityTopic)) ||
+        toolCategories.some((cat) => containsMatch(cat, clarityTopic)) ||
+        containsMatch(tool.description, clarityTopic));
 
-    const matchesSolverWorkflow = latestWorkflow && toolCategories.some((cat) =>
-      containsMatch(cat, latestWorkflow.workflowSteps[0]?.toolCategory || '')
-    );
+    const matchesSolverWorkflow =
+      latestWorkflow &&
+      toolCategories.some((cat) =>
+        containsMatch(cat, latestWorkflow.workflowSteps[0]?.toolCategory || '')
+      );
 
     if (matchesClarity || matchesSolverWorkflow) {
       const taskContext = matchesSolverWorkflow
@@ -199,7 +216,9 @@ export const generateWalletRecommendations = (
         reasonSnippet: `directly supports ${taskContext}`,
         relatedTask: matchesSolverWorkflow ? latestWorkflow?.problemSummary : clarityTopic,
         relatedSkill: tool.category,
-        relevance: matchesSolverWorkflow ? 'Connected to Problem Solver activity' : 'Aligns with your Clarity goal'
+        relevance: matchesSolverWorkflow
+          ? 'Connected to Problem Solver activity'
+          : 'Aligns with your Clarity goal',
       });
     }
 
@@ -207,10 +226,10 @@ export const generateWalletRecommendations = (
     // SIGNAL 4: SKILL_GAP
     // Matches diagnostic profile growth areas against tool categories & focusTracks
     // ------------------------------------------------------------------------
-    const matchesGrowthArea = growthArea && (
-      toolCategories.some((cat) => containsMatch(cat, growthArea)) ||
-      toolFocusTracks.some((ft) => containsMatch(ft, growthArea))
-    );
+    const matchesGrowthArea =
+      growthArea &&
+      (toolCategories.some((cat) => containsMatch(cat, growthArea)) ||
+        toolFocusTracks.some((ft) => containsMatch(ft, growthArea)));
 
     if (matchesGrowthArea) {
       matchedSignals.push({
@@ -219,7 +238,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `strengthens your growth area in ${growthArea}`,
         relatedTask: tool.useCases?.[0] || `${growthArea} Capability Development`,
         relatedSkill: growthArea,
-        relevance: `Strengthens your growth area (${growthArea})`
+        relevance: `Strengthens your growth area (${growthArea})`,
       });
     }
 
@@ -227,8 +246,8 @@ export const generateWalletRecommendations = (
     // SIGNAL 5: TOOLKIT_GAP
     // Matches unrepresented TaskCategory domains in user's wallet
     // ------------------------------------------------------------------------
-    const isCategoryUnrepresented = toolkitGaps.includes(tool.category) ||
-      !walletCategories.includes(tool.category);
+    const isCategoryUnrepresented =
+      toolkitGaps.includes(tool.category) || !walletCategories.includes(tool.category);
 
     if (isCategoryUnrepresented && !familiarity) {
       matchedSignals.push({
@@ -237,7 +256,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
         relatedTask: tool.useCases?.[0] || `${tool.category} Capability`,
         relatedSkill: tool.category,
-        relevance: `Fills your ${tool.category} toolkit gap`
+        relevance: `Fills your ${tool.category} toolkit gap`,
       });
     }
 
@@ -247,9 +266,9 @@ export const generateWalletRecommendations = (
     // ------------------------------------------------------------------------
     const isAlternativeToWalletTool = userTools.some((ut: { toolId: string }) => {
       const userToolObj = candidateTools.find((c) => c.id === ut.toolId);
-      return userToolObj && (
-        userToolObj.alternatives?.includes(tool.id) ||
-        tool.alternatives?.includes(ut.toolId)
+      return (
+        userToolObj &&
+        (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId))
       );
     });
 
@@ -260,7 +279,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `offers a complementary workflow alternative to tools currently in your wallet`,
         relatedTask: tool.useCases?.[0] || 'Alternative Workflow Comparison',
         relatedSkill: tool.category,
-        relevance: 'Complements your existing toolkit'
+        relevance: 'Complements your existing toolkit',
       });
     }
 
@@ -270,7 +289,9 @@ export const generateWalletRecommendations = (
     // ------------------------------------------------------------------------
     if (familiarity === 'exploring' || familiarity === 'practicing') {
       const practiceStage = familiarity === 'exploring' ? 'Exploring' : 'Practicing';
-      const guidanceText = tool.familiarityGuidance?.[familiarity] || `Applying it to tasks in ${activeFocus} deepens your proficiency.`;
+      const guidanceText =
+        tool.familiarityGuidance?.[familiarity] ||
+        `Applying it to tasks in ${activeFocus} deepens your proficiency.`;
 
       matchedSignals.push({
         type: 'LEARNING_RECOMMENDATION',
@@ -278,7 +299,7 @@ export const generateWalletRecommendations = (
         reasonSnippet: `you are currently ${practiceStage.toLowerCase()} ${tool.name}. ${guidanceText}`,
         relatedTask: `Practice task in ${tool.category}`,
         relatedSkill: tool.category,
-        relevance: `Elevates your familiarity with ${tool.name}`
+        relevance: `Elevates your familiarity with ${tool.name}`,
       });
     }
 
@@ -290,12 +311,18 @@ export const generateWalletRecommendations = (
     // ------------------------------------------------------------------------
     if (familiarity === 'mastered') {
       // Suppress normal discovery recs; allow only if new Radar opportunity or alternative comparison
-      const hasRadarOrAlt = matchedSignals.some((s) => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL');
+      const hasRadarOrAlt = matchedSignals.some(
+        (s) => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
+      );
       if (!hasRadarOrAlt) continue;
     } else if (familiarity === 'proficient') {
       // Suppress basic discovery / generic toolkit-gap recs; allow advanced signals
       const hasAdvancedSignal = matchedSignals.some(
-        (s) => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED' || s.type === 'TASK_BASED'
+        (s) =>
+          s.type === 'RADAR_DISCOVERY' ||
+          s.type === 'ALTERNATIVE_TOOL' ||
+          s.type === 'FOCUS_BASED' ||
+          s.type === 'TASK_BASED'
       );
       if (!hasAdvancedSignal) continue;
     }
@@ -355,7 +382,7 @@ export const generateWalletRecommendations = (
       relevance: primarySignal.relevance || `Aligned with your ${activeFocus} workflow`,
       actionLabel,
       status: 'active',
-      createdAt: 'Just now'
+      createdAt: 'Just now',
     });
   }
 

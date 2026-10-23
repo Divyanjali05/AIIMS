@@ -3,14 +3,14 @@ import {
   Sparkles,
   ArrowRight,
   Compass,
-  Brain,
   ShieldCheck,
   Cpu,
-  Layers,
-  ChevronDown,
   CheckCircle2,
-  LogIn
+  LogIn,
+  Sun,
+  Moon,
 } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import { AinovaLogo } from '../../components/common/AinovaLogo';
 import { Hero3DVisual } from '../../components/3d/Hero3DVisual';
 import { LearningUniverseMap } from '../../components/universe/LearningUniverseMap';
@@ -20,10 +20,8 @@ interface PublicHeroScreenProps {
   onSignIn: () => void;
 }
 
-export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
-  onStartJourney,
-  onSignIn
-}) => {
+export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourney, onSignIn }) => {
+  const { isDarkMode, toggleTheme } = useTheme();
   const universeSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToUniverse = () => {
@@ -40,7 +38,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
         fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
         overflowX: 'hidden',
         position: 'relative',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
       }}
     >
       {/* Background Ambient Cosmic Glows */}
@@ -53,9 +51,10 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           width: '600px',
           height: '600px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(8, 11, 22, 0) 70%)',
+          background:
+            'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(8, 11, 22, 0) 70%)',
           pointerEvents: 'none',
-          zIndex: 0
+          zIndex: 0,
         }}
       />
       <div
@@ -67,9 +66,10 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, rgba(8, 11, 22, 0) 70%)',
+          background:
+            'radial-gradient(circle, rgba(34, 211, 238, 0.12) 0%, rgba(8, 11, 22, 0) 70%)',
           pointerEvents: 'none',
-          zIndex: 0
+          zIndex: 0,
         }}
       />
 
@@ -181,7 +181,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           backdropFilter: 'blur(16px)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
           padding: '16px 24px',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
         }}
       >
         <div
@@ -190,7 +190,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             margin: '0 auto',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
           }}
         >
           {/* Logo */}
@@ -203,7 +203,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '20px'
+              gap: '20px',
             }}
           >
             <button className="aiims-nav-link" onClick={scrollToUniverse}>
@@ -212,22 +212,44 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           </div>
 
           {/* Right Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
+              id="hero-theme-toggle-btn"
+              onClick={toggleTheme}
+              aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+              title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: isDarkMode ? '#FBBF24' : '#818CF8',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '10px',
+                width: '36px',
+                height: '36px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button
+              id="hero-nav-signin-btn"
               onClick={onSignIn}
               style={{
                 background: 'transparent',
                 color: '#E2E8F0',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 borderRadius: '10px',
-                padding: '8px 18px',
+                padding: '8px 16px',
                 fontSize: '13.5px',
                 fontWeight: 600,
                 cursor: 'pointer',
                 transition: 'all 0.2s ease',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
               }}
             >
               <LogIn size={15} />
@@ -245,8 +267,8 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 fontSize: '13.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
-                transition: 'all 0.2s ease'
+                boxShadow: '0 4px 14px rgba(139, 92, 246, 0.35)',
+                transition: 'all 0.2s ease',
               }}
             >
               Start Your Journey
@@ -263,7 +285,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           padding: '60px 24px 80px 24px',
           boxSizing: 'border-box',
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
         }}
       >
         <div
@@ -272,7 +294,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             display: 'grid',
             gridTemplateColumns: '1.05fr 0.95fr',
             gap: '32px',
-            alignItems: 'center'
+            alignItems: 'center',
           }}
         >
           {/* LEFT COLUMN: HERO CONTENT */}
@@ -281,13 +303,13 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             style={{
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'flex-start'
+              alignItems: 'flex-start',
             }}
           >
             {/* Small brand/category label */}
             <div className="aiims-hero-badge">
               <Sparkles size={13} color="#A78BFA" />
-              AINOVA AI INTELLIGENT MENTORSHIP SYSTEM
+              AIIMS — AI INTELLIGENCE & MENTORING SYSTEM
             </div>
 
             {/* Main Headline */}
@@ -298,7 +320,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 lineHeight: 1.1,
                 letterSpacing: '-1.5px',
                 margin: '0 0 20px 0',
-                color: '#F8FAFC'
+                color: '#F8FAFC',
               }}
             >
               Don’t Just Learn AI.{' '}
@@ -308,7 +330,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                   WebkitBackgroundClip: 'text',
                   backgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  display: 'inline-block'
+                  display: 'inline-block',
                 }}
               >
                 Become Future-Ready.
@@ -323,12 +345,12 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 color: '#94A3B8',
                 fontWeight: 450,
                 margin: '0 0 32px 0',
-                maxWidth: '540px'
+                maxWidth: '540px',
               }}
             >
               Experience an intelligent mentorship cosmos. Discover your cognitive strengths,
-              practice prompt challenges evaluated by multi-model rubrics, investigate emerging
-              AI shifts, and engineer production-grade AI solutions.
+              practice prompt challenges evaluated by multi-model rubrics, investigate emerging AI
+              shifts, and engineer production-grade AI solutions.
             </p>
 
             {/* CTA Group */}
@@ -339,7 +361,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 alignItems: 'center',
                 gap: '16px',
                 flexWrap: 'wrap',
-                marginBottom: '40px'
+                marginBottom: '40px',
               }}
             >
               <button
@@ -371,7 +393,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 paddingTop: '16px',
                 borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                 width: '100%',
-                maxWidth: '540px'
+                maxWidth: '540px',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -402,7 +424,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              minHeight: '440px'
+              minHeight: '440px',
             }}
           >
             <Hero3DVisual onExploreClick={scrollToUniverse} />
@@ -418,7 +440,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           background: 'linear-gradient(180deg, rgba(8, 11, 22, 0.95) 0%, #0F172A 100%)',
           padding: '80px 24px',
           boxSizing: 'border-box',
-          position: 'relative'
+          position: 'relative',
         }}
       >
         <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
@@ -438,11 +460,10 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.8px',
-                marginBottom: '14px'
+                marginBottom: '14px',
               }}
             >
-              <Compass size={13} />
-              7 Interconnected Learning Destinations
+              <Compass size={13} />7 Interconnected Learning Destinations
             </div>
             <h2
               style={{
@@ -450,7 +471,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 fontWeight: 800,
                 color: '#F8FAFC',
                 margin: '0 0 12px 0',
-                letterSpacing: '-1px'
+                letterSpacing: '-1px',
               }}
             >
               AIIMS — Your Personal AI Learning Universe
@@ -461,7 +482,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 color: '#94A3B8',
                 maxWidth: '640px',
                 margin: '0 auto',
-                lineHeight: 1.55
+                lineHeight: 1.55,
               }}
             >
               Journey through purposeful learning zones. Build competence step-by-step from
@@ -472,7 +493,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           {/* Interactive Universe Map */}
           <LearningUniverseMap
             forceDark
-            setActiveTab={(tab) => {
+            setActiveTab={(_tab) => {
               // Non-authenticated visitors are directed to sign in / register to access
               onStartJourney();
             }}
@@ -484,17 +505,20 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
               marginTop: '40px',
               padding: '24px 32px',
               borderRadius: '16px',
-              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(34, 211, 238, 0.08) 100%)',
+              background:
+                'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(34, 211, 238, 0.08) 100%)',
               border: '1px solid rgba(139, 92, 246, 0.25)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               flexWrap: 'wrap',
-              gap: '20px'
+              gap: '20px',
             }}
           >
             <div>
-              <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#F8FAFC' }}>
+              <h4
+                style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800, color: '#F8FAFC' }}
+              >
                 Ready to unlock your personalized AI path?
               </h4>
               <p style={{ margin: 0, fontSize: '14px', color: '#94A3B8' }}>
@@ -519,7 +543,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           backgroundColor: '#05070E',
           padding: '36px 24px',
-          boxSizing: 'border-box'
+          boxSizing: 'border-box',
         }}
       >
         <div
@@ -530,24 +554,32 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '16px'
+            gap: '16px',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <AinovaLogo size="sm" showWordmark={true} textColor="#FFFFFF" />
             <span style={{ fontSize: '12px', color: '#64748B' }}>
-              © {new Date().getFullYear()} Ainova. All rights reserved.
+              © {new Date().getFullYear()} AIIMS. All rights reserved.
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-            <span style={{ fontSize: '12px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                color: '#10B981',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
               <span
                 style={{
                   width: '6px',
                   height: '6px',
                   borderRadius: '50%',
                   backgroundColor: '#10B981',
-                  boxShadow: '0 0 8px #10B981'
+                  boxShadow: '0 0 8px #10B981',
                 }}
               />
               Systems Live · 58 Verified Endpoints
@@ -560,7 +592,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 color: '#A78BFA',
                 fontSize: '13px',
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               Sign In to Your Workspace →

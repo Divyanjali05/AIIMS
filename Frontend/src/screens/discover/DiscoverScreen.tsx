@@ -18,10 +18,6 @@ import {
   Layers,
   BookOpen,
   Cpu,
-  Bookmark,
-  CheckCircle2,
-  TrendingUp,
-  Radar
 } from 'lucide-react';
 
 interface DiscoverScreenProps {
@@ -46,16 +42,17 @@ const CAPABILITY_TILES: CapabilityTile[] = [
     variant: 'sky',
     btnVariant: 'cyan',
     icon: <Cpu size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'AI Literacy & Verification',
     category: 'LITERACY',
-    description: 'Master hallucination detection, primary source verification, and privacy safeguards.',
+    description:
+      'Master hallucination detection, primary source verification, and privacy safeguards.',
     variant: 'mint',
     btnVariant: 'green',
     icon: <ShieldCheck size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'Prompting & Workflow Design',
@@ -64,16 +61,17 @@ const CAPABILITY_TILES: CapabilityTile[] = [
     variant: 'violet',
     btnVariant: 'violet',
     icon: <Zap size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'AI Agents & Automation',
     category: 'WORKFLOWS',
-    description: 'Delegate multi-turn execution tasks to tool-calling agents with strict safety boundaries.',
+    description:
+      'Delegate multi-turn execution tasks to tool-calling agents with strict safety boundaries.',
     variant: 'cyan',
     btnVariant: 'cyan',
     icon: <Layers size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'Critical Thinking & Oversight',
@@ -82,7 +80,7 @@ const CAPABILITY_TILES: CapabilityTile[] = [
     variant: 'amber',
     btnVariant: 'amber',
     icon: <Brain size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'AI Strategy & Problem Framing',
@@ -91,16 +89,17 @@ const CAPABILITY_TILES: CapabilityTile[] = [
     variant: 'violet',
     btnVariant: 'violet',
     icon: <Target size={20} />,
-    actionTab: 'clarity'
+    actionTab: 'clarity',
   },
   {
     title: 'Emerging AI Innovation',
     category: 'INNOVATION',
-    description: 'Adapt your career skills as new model releases, multimodal tools, and RAG architectures arrive.',
+    description:
+      'Adapt your career skills as new model releases, multimodal tools, and RAG architectures arrive.',
     variant: 'rose',
     btnVariant: 'rose',
     icon: <Sparkles size={20} />,
-    actionTab: 'radar'
+    actionTab: 'radar',
   },
   {
     title: 'Human + AI Collaboration',
@@ -109,8 +108,8 @@ const CAPABILITY_TILES: CapabilityTile[] = [
     variant: 'peach',
     btnVariant: 'amber',
     icon: <BookOpen size={20} />,
-    actionTab: 'clarity'
-  }
+    actionTab: 'clarity',
+  },
 ];
 
 export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) => {
@@ -131,47 +130,125 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
   };
 
   return (
-    <div style={{ maxWidth: '1080px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-
+    <div
+      style={{
+        maxWidth: '1080px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '32px',
+      }}
+    >
       {/* PAGE HEADER */}
       <PageHeader
         icon={<Compass size={24} />}
         title="Discover AI Capabilities & Directions"
         description="Explore structured AI learning domains, emerging technical shifts, and recommended development paths."
-        badge={{ label: `Current Focus: ${activeFocus}`, variant: 'purple', icon: <Target size={12} /> }}
+        badge={{
+          label: `Current Focus: ${activeFocus}`,
+          variant: 'purple',
+          icon: <Target size={12} />,
+        }}
       />
 
       {/* SECTION 1: WHAT DESERVES YOUR ATTENTION (COLOURFUL DISCOVERY TILES) */}
       <div>
-        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 14px', fontFamily: "'Fredoka', sans-serif" }}>
+        <h2
+          style={{
+            fontSize: '20px',
+            fontWeight: 800,
+            color: 'var(--aiims-text-heading)',
+            margin: '0 0 14px',
+            fontFamily: "'Fredoka', sans-serif",
+          }}
+        >
           What Deserves Your Attention
         </h2>
 
         <div className="aiims-card-grid">
-
-          <Surface variant="violet" radius="lg" padding="md" hoverable onClick={() => setActiveTab(isAssessmentCompleted ? 'analysis' : 'assessment')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-violet-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <Surface
+            variant="violet"
+            radius="lg"
+            padding="md"
+            hoverable
+            onClick={() => setActiveTab(isAssessmentCompleted ? 'analysis' : 'assessment')}
+          >
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                color: 'var(--aiims-card-violet-text)',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}
+            >
               PROFILE REPORT
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
-              {isAssessmentCompleted ? `Growth Area: ${growthArea}` : 'Discover Your Baseline Profile'}
+            <h3
+              style={{
+                margin: '0 0 6px',
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-heading)',
+              }}
+            >
+              {isAssessmentCompleted
+                ? `Growth Area: ${growthArea}`
+                : 'Discover Your Baseline Profile'}
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-text-secondary)', lineHeight: 1.45 }}>
-              {isAssessmentCompleted ? 'Surfaced because your diagnostic indicated this dimension as your primary growth area.' : 'Complete your 25-question baseline assessment.'}
+            <p
+              style={{
+                margin: '0 0 14px',
+                fontSize: '12px',
+                color: 'var(--aiims-text-secondary)',
+                lineHeight: 1.45,
+              }}
+            >
+              {isAssessmentCompleted
+                ? 'Surfaced because your diagnostic indicated this dimension as your primary growth area.'
+                : 'Complete your 25-question baseline assessment.'}
             </p>
             <Button variant="violet" size="sm" icon={<ArrowRight size={13} />}>
               {isAssessmentCompleted ? 'Explore Analysis' : 'Start Assessment'}
             </Button>
           </Surface>
 
-          <Surface variant="cyan" radius="lg" padding="md" hoverable onClick={() => setActiveTab('radar')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-cyan-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <Surface
+            variant="cyan"
+            radius="lg"
+            padding="md"
+            hoverable
+            onClick={() => setActiveTab('radar')}
+          >
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                color: 'var(--aiims-card-cyan-text)',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}
+            >
               EMERGING SIGNAL
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+            <h3
+              style={{
+                margin: '0 0 6px',
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-heading)',
+              }}
+            >
               Autonomous Tool Agents
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-card-cyan-text)', lineHeight: 1.45 }}>
+            <p
+              style={{
+                margin: '0 0 14px',
+                fontSize: '12px',
+                color: 'var(--aiims-card-cyan-text)',
+                lineHeight: 1.45,
+              }}
+            >
               LLM providers are shipping native agent loop capabilities with dynamic tool execution.
             </p>
             <Button variant="cyan" size="sm" icon={<ArrowRight size={13} />}>
@@ -179,29 +256,71 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
             </Button>
           </Surface>
 
-          <Surface variant="amber" radius="lg" padding="md" hoverable onClick={() => setActiveTab('focus')}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--aiims-card-amber-text)', textTransform: 'uppercase', marginBottom: '4px' }}>
+          <Surface
+            variant="amber"
+            radius="lg"
+            padding="md"
+            hoverable
+            onClick={() => setActiveTab('focus')}
+          >
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: 800,
+                color: 'var(--aiims-card-amber-text)',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}
+            >
               ACTIVE FOCUS TRACK
             </div>
-            <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+            <h3
+              style={{
+                margin: '0 0 6px',
+                fontSize: '15px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-heading)',
+              }}
+            >
               {activeFocus}
             </h3>
-            <p style={{ margin: '0 0 14px', fontSize: '12px', color: 'var(--aiims-card-amber-text)', lineHeight: 1.45 }}>
+            <p
+              style={{
+                margin: '0 0 14px',
+                fontSize: '12px',
+                color: 'var(--aiims-card-amber-text)',
+                lineHeight: 1.45,
+              }}
+            >
               You are currently prioritizing attention on this learning direction.
             </p>
             <Button variant="amber" size="sm" icon={<ArrowRight size={13} />}>
               Manage Focus
             </Button>
           </Surface>
-
         </div>
       </div>
 
       {/* SECTION 2: EXPLORE AI CAPABILITIES (SEMANTIC TILES GRID) */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '14px',
+          }}
+        >
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2
+              style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                margin: '0 0 2px',
+                fontFamily: "'Fredoka', sans-serif",
+              }}
+            >
               Explore AI Capabilities
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
@@ -222,20 +341,22 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
               }}
             >
               <div>
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--aiims-bg-card-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '10px'
-                }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--aiims-bg-card-subtle)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '10px',
+                  }}
+                >
                   {tile.icon}
                 </div>
 
@@ -243,11 +364,25 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
                   {tile.category}
                 </Badge>
 
-                <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+                <h3
+                  style={{
+                    margin: '0 0 6px',
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                  }}
+                >
                   {tile.title}
                 </h3>
 
-                <p style={{ margin: '0 0 16px', fontSize: '12px', color: 'var(--aiims-text-body)', lineHeight: 1.45 }}>
+                <p
+                  style={{
+                    margin: '0 0 16px',
+                    fontSize: '12px',
+                    color: 'var(--aiims-text-body)',
+                    lineHeight: 1.45,
+                  }}
+                >
                   {tile.description}
                 </p>
               </div>
@@ -262,9 +397,24 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
 
       {/* SECTION 3: AI RADAR SIGNALS SHOWCASE */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '14px',
+          }}
+        >
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 2px', fontFamily: "'Fredoka', sans-serif" }}>
+            <h2
+              style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                margin: '0 0 2px',
+                fontFamily: "'Fredoka', sans-serif",
+              }}
+            >
               AI Radar — Technical Shifts
             </h2>
             <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
@@ -272,25 +422,62 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
             </p>
           </div>
 
-          <Button variant="cyan" size="sm" icon={<ArrowRight size={14} />} onClick={() => setActiveTab('radar')}>
+          <Button
+            variant="cyan"
+            size="sm"
+            icon={<ArrowRight size={14} />}
+            onClick={() => setActiveTab('radar')}
+          >
             View All Radar Signals
           </Button>
         </div>
 
         <div className="aiims-card-grid">
           {signals.slice(0, 3).map((sig) => (
-            <Surface key={sig.id} variant="cyan" radius="lg" padding="md" hoverable onClick={() => setActiveTab('radar')}>
-              <Badge variant="purple" style={{ marginBottom: '8px' }}>{sig.category}</Badge>
+            <Surface
+              key={sig.id}
+              variant="cyan"
+              radius="lg"
+              padding="md"
+              hoverable
+              onClick={() => setActiveTab('radar')}
+            >
+              <Badge variant="purple" style={{ marginBottom: '8px' }}>
+                {sig.category}
+              </Badge>
 
-              <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 6px', color: 'var(--aiims-text-heading)' }}>
+              <h3
+                style={{
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  margin: '0 0 6px',
+                  color: 'var(--aiims-text-heading)',
+                }}
+              >
                 {sig.title}
               </h3>
 
-              <p style={{ fontSize: '12px', color: 'var(--aiims-text-body)', margin: '0 0 12px', lineHeight: 1.45 }}>
+              <p
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--aiims-text-body)',
+                  margin: '0 0 12px',
+                  lineHeight: 1.45,
+                }}
+              >
                 {sig.summary}
               </p>
 
-              <div style={{ padding: '10px', backgroundColor: 'var(--aiims-bg-card-subtle)', borderRadius: '8px', border: '1px solid var(--aiims-border-subtle)', fontSize: '11px', color: 'var(--aiims-primary)' }}>
+              <div
+                style={{
+                  padding: '10px',
+                  backgroundColor: 'var(--aiims-bg-card-subtle)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--aiims-border-subtle)',
+                  fontSize: '11px',
+                  color: 'var(--aiims-primary)',
+                }}
+              >
                 <strong>Today: </strong> {sig.scaffold.today}
               </div>
             </Surface>
@@ -302,12 +489,16 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({ setActiveTab }) 
       <MentorMessage
         message="Discovery is about connecting what is changing in AI with your personal capability profile. Choose a capability to explore or investigate a technical signal."
         action={
-          <Button variant="violet" size="md" icon={<ArrowRight size={14} />} onClick={() => setActiveTab('clarity')}>
+          <Button
+            variant="violet"
+            size="md"
+            icon={<ArrowRight size={14} />}
+            onClick={() => setActiveTab('clarity')}
+          >
             Explore Clarity Workspace
           </Button>
         }
       />
-
     </div>
   );
 };

@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Coins,
   X,
-  ArrowRight,
   Settings,
   Wallet,
   Sparkles,
@@ -28,14 +27,12 @@ import {
   Wrench,
   Layers,
   CornerDownLeft,
-  CheckCircle2,
-  HelpCircle
+  HelpCircle,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { buildLearnerProfileContext } from '../../services/learnerProfileContext';
 import { MentorService } from '../../services/mentorProvider';
-import { AiimsLogo } from './AiimsLogo';
 
 export interface HeaderProps {
   activeTab: string;
@@ -60,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   isSidebarCollapsed = false,
   onToggleSidebarCollapse,
-  onToggleMobileMenu
+  onToggleMobileMenu,
 }) => {
   const { state, markNotificationRead, clearNotifications, logout } = useLearner();
   const { theme, isDarkMode, toggleTheme } = useTheme();
@@ -106,28 +103,120 @@ export const Header: React.FC<HeaderProps> = ({
     build: { section: 'Build', title: 'Projects' },
     mentor: { section: 'Support', title: 'Mentor Workspace' },
     credits: { section: 'Support', title: 'Credits & Progress' },
-    settings: { section: 'Support', title: 'Account Settings' }
+    settings: { section: 'Support', title: 'Account Settings' },
   };
 
   const currentBreadcrumb = breadcrumbMap[activeTab] || { section: 'Workspace', title: 'Home' };
 
   // Searchable feature registry for Command Palette
-  const searchableFeatures: SearchableItem[] = useMemo(() => [
-    { id: 'home', title: 'Home Dashboard', category: 'Workspace', desc: 'Daily focus, progress, and stage overview', icon: Home },
-    { id: 'journey', title: 'My AI Journey', category: 'Workspace', desc: '10-stage canonical development timeline', icon: Route },
-    { id: 'assessment', title: 'Baseline Assessment', category: 'Understand', desc: '25-question multidimensional diagnostic', icon: ClipboardCheck },
-    { id: 'analysis', title: 'My AI Profile', category: 'Understand', desc: 'Strengths, gap radar, and capability analysis', icon: BarChart3 },
-    { id: 'wallet', title: 'AI Wallet', category: 'Develop', desc: 'Personalized AI toolkit & prompt suggestions', icon: Wallet },
-    { id: 'clarity', title: 'Clarity & Prompts', category: 'Develop', desc: 'Systematic prompt engineering & task derivation', icon: Compass },
-    { id: 'focus', title: 'Focus Workspace', category: 'Develop', desc: 'Pomodoro timer with session history', icon: Target },
-    { id: 'radar', title: 'AI Radar', category: 'Discover', desc: 'Market shifts & breakthrough model releases', icon: Radar, locked: true },
-    { id: 'relevance', title: 'AI Relevance', category: 'Discover', desc: 'Impact synthesis & practical utility', icon: Sparkles, locked: true },
-    { id: 'solver', title: 'Problem Solver', category: 'Build', desc: 'Real-task derivation & workflow generator', icon: Wrench, locked: true },
-    { id: 'build', title: 'Projects Workspace', category: 'Build', desc: 'Production-ready reusable project templates', icon: Layers, locked: true },
-    { id: 'mentor', title: 'Mentor Workspace', category: 'Support', desc: 'Adaptive AI mentorship and guidance', icon: MessageCircle, locked: true },
-    { id: 'credits', title: 'Credits & Ledger', category: 'Support', desc: 'Transaction history and earned AIIMS credits', icon: Coins },
-    { id: 'settings', title: 'Account Settings', category: 'Support', desc: 'Learner profile, academic stream, and preferences', icon: Settings }
-  ], []);
+  const searchableFeatures: SearchableItem[] = useMemo(
+    () => [
+      {
+        id: 'home',
+        title: 'Home Dashboard',
+        category: 'Workspace',
+        desc: 'Daily focus, progress, and stage overview',
+        icon: Home,
+      },
+      {
+        id: 'journey',
+        title: 'My AI Journey',
+        category: 'Workspace',
+        desc: '10-stage canonical development timeline',
+        icon: Route,
+      },
+      {
+        id: 'assessment',
+        title: 'Baseline Assessment',
+        category: 'Understand',
+        desc: '25-question multidimensional diagnostic',
+        icon: ClipboardCheck,
+      },
+      {
+        id: 'analysis',
+        title: 'My AI Profile',
+        category: 'Understand',
+        desc: 'Strengths, gap radar, and capability analysis',
+        icon: BarChart3,
+      },
+      {
+        id: 'wallet',
+        title: 'AI Wallet',
+        category: 'Develop',
+        desc: 'Personalized AI toolkit & prompt suggestions',
+        icon: Wallet,
+      },
+      {
+        id: 'clarity',
+        title: 'Clarity & Prompts',
+        category: 'Develop',
+        desc: 'Systematic prompt engineering & task derivation',
+        icon: Compass,
+      },
+      {
+        id: 'focus',
+        title: 'Focus Workspace',
+        category: 'Develop',
+        desc: 'Pomodoro timer with session history',
+        icon: Target,
+      },
+      {
+        id: 'radar',
+        title: 'AI Radar',
+        category: 'Discover',
+        desc: 'Market shifts & breakthrough model releases',
+        icon: Radar,
+        locked: true,
+      },
+      {
+        id: 'relevance',
+        title: 'AI Relevance',
+        category: 'Discover',
+        desc: 'Impact synthesis & practical utility',
+        icon: Sparkles,
+        locked: true,
+      },
+      {
+        id: 'solver',
+        title: 'Problem Solver',
+        category: 'Build',
+        desc: 'Real-task derivation & workflow generator',
+        icon: Wrench,
+        locked: true,
+      },
+      {
+        id: 'build',
+        title: 'Projects Workspace',
+        category: 'Build',
+        desc: 'Production-ready reusable project templates',
+        icon: Layers,
+        locked: true,
+      },
+      {
+        id: 'mentor',
+        title: 'Mentor Workspace',
+        category: 'Support',
+        desc: 'Adaptive AI mentorship and guidance',
+        icon: MessageCircle,
+        locked: true,
+      },
+      {
+        id: 'credits',
+        title: 'Credits & Ledger',
+        category: 'Support',
+        desc: 'Transaction history and earned AIIMS credits',
+        icon: Coins,
+      },
+      {
+        id: 'settings',
+        title: 'Account Settings',
+        category: 'Support',
+        desc: 'Learner profile, academic stream, and preferences',
+        icon: Settings,
+      },
+    ],
+    []
+  );
 
   // Filtered command palette items
   const filteredItems = useMemo(() => {
@@ -173,10 +262,14 @@ export const Header: React.FC<HeaderProps> = ({
   const handlePaletteKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex((prev) => (filteredItems.length > 0 ? (prev + 1) % filteredItems.length : 0));
+      setSelectedIndex((prev) =>
+        filteredItems.length > 0 ? (prev + 1) % filteredItems.length : 0
+      );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex((prev) => (filteredItems.length > 0 ? (prev - 1 + filteredItems.length) % filteredItems.length : 0));
+      setSelectedIndex((prev) =>
+        filteredItems.length > 0 ? (prev - 1 + filteredItems.length) % filteredItems.length : 0
+      );
     } else if (e.key === 'Enter') {
       e.preventDefault();
       if (filteredItems.length > 0 && filteredItems[selectedIndex]) {
@@ -251,7 +344,7 @@ export const Header: React.FC<HeaderProps> = ({
           zIndex: 100,
           boxSizing: 'border-box',
           backdropFilter: 'blur(8px)',
-          transition: 'border-color 0.15s ease, background-color 0.15s ease'
+          transition: 'border-color 0.15s ease, background-color 0.15s ease',
         }}
       >
         {/* ======================================================== */}
@@ -276,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({
                 justifyContent: 'center',
                 cursor: 'pointer',
                 color: 'var(--aiims-text-primary, #334155)',
-                flexShrink: 0
+                flexShrink: 0,
               }}
             >
               <Menu size={18} />
@@ -289,7 +382,11 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               className="aiims-desktop-sidebar-btn"
               onClick={onToggleSidebarCollapse}
-              title={isSidebarCollapsed ? `Expand sidebar (${isMac ? '⌘B' : 'Ctrl+B'})` : `Collapse sidebar (${isMac ? '⌘B' : 'Ctrl+B'})`}
+              title={
+                isSidebarCollapsed
+                  ? `Expand sidebar (${isMac ? '⌘B' : 'Ctrl+B'})`
+                  : `Collapse sidebar (${isMac ? '⌘B' : 'Ctrl+B'})`
+              }
               aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               style={{
                 border: 'none',
@@ -303,7 +400,7 @@ export const Header: React.FC<HeaderProps> = ({
                 cursor: 'pointer',
                 color: 'var(--aiims-text-secondary, #64748b)',
                 transition: 'all 0.15s ease',
-                flexShrink: 0
+                flexShrink: 0,
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f1f5f9)';
@@ -319,17 +416,23 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           {/* Breadcrumb Indicator */}
-          <nav aria-label="Breadcrumb" className="aiims-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+          <nav
+            aria-label="Breadcrumb"
+            className="aiims-breadcrumb"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}
+          >
             <span
               onClick={() => setActiveTab('home')}
               style={{
                 color: 'var(--aiims-text-muted, #94a3b8)',
                 cursor: 'pointer',
                 fontWeight: 600,
-                transition: 'color 0.15s'
+                transition: 'color 0.15s',
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--aiims-primary, #6366f1)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--aiims-text-muted, #94a3b8)')}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = 'var(--aiims-text-muted, #94a3b8)')
+              }
             >
               AIIMS
             </span>
@@ -357,14 +460,22 @@ export const Header: React.FC<HeaderProps> = ({
             backgroundColor: 'var(--aiims-border-subtle, #f8fafc)',
             padding: '3px',
             borderRadius: '9px',
-            border: '1px solid var(--aiims-border-card, #ede9fe)'
+            border: '1px solid var(--aiims-border-card, #ede9fe)',
           }}
         >
           {[
             { id: 'home', label: 'Home', isMatch: activeTab === 'home' },
             { id: 'journey', label: 'My Journey', isMatch: activeTab === 'journey' },
-            { id: 'wallet', label: 'Develop', isMatch: ['wallet', 'clarity', 'focus'].includes(activeTab) },
-            { id: 'discover', label: 'Discover', isMatch: ['discover', 'radar', 'relevance', 'investigation'].includes(activeTab) }
+            {
+              id: 'wallet',
+              label: 'Develop',
+              isMatch: ['wallet', 'clarity', 'focus'].includes(activeTab),
+            },
+            {
+              id: 'discover',
+              label: 'Discover',
+              isMatch: ['discover', 'radar', 'relevance', 'investigation'].includes(activeTab),
+            },
           ].map((item) => (
             <button
               key={item.id}
@@ -377,10 +488,12 @@ export const Header: React.FC<HeaderProps> = ({
                 fontSize: '12.5px',
                 fontWeight: item.isMatch ? 700 : 600,
                 backgroundColor: item.isMatch ? 'var(--aiims-bg-card, #ffffff)' : 'transparent',
-                color: item.isMatch ? 'var(--aiims-primary, #6366f1)' : 'var(--aiims-text-secondary, #475569)',
+                color: item.isMatch
+                  ? 'var(--aiims-primary, #6366f1)'
+                  : 'var(--aiims-text-secondary, #475569)',
                 boxShadow: item.isMatch ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease'
+                transition: 'all 0.15s ease',
               }}
               onMouseEnter={(e) => {
                 if (!item.isMatch) {
@@ -421,7 +534,7 @@ export const Header: React.FC<HeaderProps> = ({
               color: 'var(--aiims-text-muted, #94a3b8)',
               fontSize: '12.5px',
               fontFamily: 'inherit',
-              transition: 'border-color 0.15s ease, background-color 0.15s ease'
+              transition: 'border-color 0.15s ease, background-color 0.15s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = 'var(--aiims-primary, #6366f1)';
@@ -436,16 +549,18 @@ export const Header: React.FC<HeaderProps> = ({
               <Search size={14} color="var(--aiims-primary, #6366f1)" />
               <span style={{ color: 'var(--aiims-text-secondary, #64748b)' }}>Search...</span>
             </div>
-            <kbd style={{
-              fontSize: '10.5px',
-              fontWeight: 700,
-              padding: '2px 5px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--aiims-bg-card, #ffffff)',
-              border: '1px solid var(--aiims-border-card, #cbd5e1)',
-              color: 'var(--aiims-text-muted, #64748b)',
-              lineHeight: 1
-            }}>
+            <kbd
+              style={{
+                fontSize: '10.5px',
+                fontWeight: 700,
+                padding: '2px 5px',
+                borderRadius: '4px',
+                backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+                border: '1px solid var(--aiims-border-card, #cbd5e1)',
+                color: 'var(--aiims-text-muted, #64748b)',
+                lineHeight: 1,
+              }}
+            >
               {shortcutSymbol}
             </kbd>
           </button>
@@ -468,7 +583,7 @@ export const Header: React.FC<HeaderProps> = ({
               fontSize: '12px',
               fontWeight: 700,
               cursor: 'pointer',
-              transition: 'transform 0.15s ease'
+              transition: 'transform 0.15s ease',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-1px)')}
             onMouseLeave={(e) => (e.currentTarget.style.transform = 'none')}
@@ -494,7 +609,7 @@ export const Header: React.FC<HeaderProps> = ({
               justifyContent: 'center',
               cursor: 'pointer',
               color: isDarkMode ? '#f59e0b' : 'var(--aiims-text-secondary, #475569)',
-              transition: 'all 0.15s ease'
+              transition: 'all 0.15s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--aiims-border-subtle, #ede9fe)';
@@ -502,7 +617,9 @@ export const Header: React.FC<HeaderProps> = ({
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)';
-              e.currentTarget.style.color = isDarkMode ? '#f59e0b' : 'var(--aiims-text-secondary, #475569)';
+              e.currentTarget.style.color = isDarkMode
+                ? '#f59e0b'
+                : 'var(--aiims-text-secondary, #475569)';
             }}
           >
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
@@ -525,29 +642,34 @@ export const Header: React.FC<HeaderProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: unreadCount > 0 ? 'var(--aiims-primary, #4f46e5)' : 'var(--aiims-text-secondary, #64748b)',
+                color:
+                  unreadCount > 0
+                    ? 'var(--aiims-primary, #4f46e5)'
+                    : 'var(--aiims-text-secondary, #64748b)',
                 transition: 'all 0.15s ease',
-                position: 'relative'
+                position: 'relative',
               }}
             >
               <Bell size={16} />
               {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-3px',
-                  right: '-3px',
-                  backgroundColor: '#ef4444',
-                  color: '#ffffff',
-                  fontSize: '9.5px',
-                  fontWeight: 800,
-                  width: '15px',
-                  height: '15px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '2px solid var(--aiims-bg-card, #ffffff)'
-                }}>
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: '-3px',
+                    right: '-3px',
+                    backgroundColor: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: '9.5px',
+                    fontWeight: 800,
+                    width: '15px',
+                    height: '15px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px solid var(--aiims-bg-card, #ffffff)',
+                  }}
+                >
                   {unreadCount}
                 </span>
               )}
@@ -555,39 +677,51 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Notifications Dropdown Panel */}
             {showNotifications && (
-              <div style={{
-                position: 'absolute',
-                top: '42px',
-                right: 0,
-                width: '320px',
-                backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
-                borderRadius: '12px',
-                boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
-                border: '1px solid var(--aiims-modal-border, #e2e8f0)',
-                padding: '12px',
-                zIndex: 200
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '10px',
-                  paddingBottom: '8px',
-                  borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)'
-                }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '42px',
+                  right: 0,
+                  width: '320px',
+                  backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
+                  borderRadius: '12px',
+                  boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
+                  border: '1px solid var(--aiims-modal-border, #e2e8f0)',
+                  padding: '12px',
+                  zIndex: 200,
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '10px',
+                    paddingBottom: '8px',
+                    borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)',
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        color: 'var(--aiims-text-heading, #0f172a)',
+                      }}
+                    >
                       Notifications
                     </span>
                     {unreadCount > 0 && (
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        padding: '1px 6px',
-                        borderRadius: '10px',
-                        backgroundColor: 'var(--aiims-primary, #6366f1)',
-                        color: '#fff'
-                      }}>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--aiims-primary, #6366f1)',
+                          color: '#fff',
+                        }}
+                      >
                         {unreadCount}
                       </span>
                     )}
@@ -603,7 +737,7 @@ export const Header: React.FC<HeaderProps> = ({
                         color: 'var(--aiims-primary, #4f46e5)',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        padding: 0
+                        padding: 0,
                       }}
                     >
                       Mark all read
@@ -611,7 +745,15 @@ export const Header: React.FC<HeaderProps> = ({
                   )}
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '260px', overflowY: 'auto' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                    maxHeight: '260px',
+                    overflowY: 'auto',
+                  }}
+                >
                   {state?.notifications && state.notifications.length > 0 ? (
                     state.notifications.map((notif) => (
                       <div
@@ -622,27 +764,57 @@ export const Header: React.FC<HeaderProps> = ({
                           borderRadius: '8px',
                           backgroundColor: notif.read
                             ? 'var(--aiims-bg-card-hover, #f8fafc)'
-                            : (isDarkMode ? 'rgba(99, 102, 241, 0.16)' : '#eef2ff'),
+                            : isDarkMode
+                              ? 'rgba(99, 102, 241, 0.16)'
+                              : '#eef2ff',
                           border: notif.read
                             ? '1px solid var(--aiims-border-card, #f1f5f9)'
                             : '1px solid var(--aiims-border-card-hover, #c7d2fe)',
                           cursor: 'pointer',
-                          transition: 'background-color 0.15s ease'
+                          transition: 'background-color 0.15s ease',
                         }}
                       >
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)', display: 'flex', justifyContent: 'space-between' }}>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--aiims-text-heading, #0f172a)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                          }}
+                        >
                           <span>{notif.title}</span>
-                          <span style={{ fontSize: '10px', color: 'var(--aiims-text-muted, #94a3b8)', fontWeight: 500 }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              color: 'var(--aiims-text-muted, #94a3b8)',
+                              fontWeight: 500,
+                            }}
+                          >
                             {notif.timestamp}
                           </span>
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--aiims-text-secondary, #475569)', marginTop: '3px', lineHeight: 1.35 }}>
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--aiims-text-secondary, #475569)',
+                            marginTop: '3px',
+                            lineHeight: 1.35,
+                          }}
+                        >
                           {notif.message}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--aiims-text-muted, #94a3b8)', fontSize: '12px' }}>
+                    <div
+                      style={{
+                        padding: '20px 0',
+                        textAlign: 'center',
+                        color: 'var(--aiims-text-muted, #94a3b8)',
+                        fontSize: '12px',
+                      }}
+                    >
                       No new notifications.
                     </div>
                   )}
@@ -665,30 +837,42 @@ export const Header: React.FC<HeaderProps> = ({
                 padding: '4px 6px',
                 borderRadius: '8px',
                 border: '1px solid transparent',
-                backgroundColor: showProfileMenu ? 'var(--aiims-bg-card-hover, #f8fafc)' : 'transparent',
-                transition: 'all 0.15s ease'
+                backgroundColor: showProfileMenu
+                  ? 'var(--aiims-bg-card-hover, #f8fafc)'
+                  : 'transparent',
+                transition: 'all 0.15s ease',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')
+              }
               onMouseLeave={(e) => {
                 if (!showProfileMenu) e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <div style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--aiims-accent-glow, #e0e7ff)',
-                color: 'var(--aiims-primary, #4f46e5)',
-                fontWeight: 800,
-                fontSize: '12.5px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1.5px solid var(--aiims-border-card, #c7d2fe)'
-              }}>
+              <div
+                style={{
+                  width: '30px',
+                  height: '30px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--aiims-accent-glow, #e0e7ff)',
+                  color: 'var(--aiims-primary, #4f46e5)',
+                  fontWeight: 800,
+                  fontSize: '12.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1.5px solid var(--aiims-border-card, #c7d2fe)',
+                }}
+              >
                 {userName.charAt(0)}
               </div>
-              <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)' }}>
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: 'var(--aiims-text-heading, #0f172a)',
+                }}
+              >
                 {userName}
               </span>
               <ChevronDown size={14} color="var(--aiims-text-secondary, #64748b)" />
@@ -696,24 +880,44 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Account Menu Dropdown */}
             {showProfileMenu && (
-              <div style={{
-                position: 'absolute',
-                top: '42px',
-                right: 0,
-                width: '210px',
-                backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
-                borderRadius: '12px',
-                boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
-                border: '1px solid var(--aiims-modal-border, #e2e8f0)',
-                padding: '6px',
-                zIndex: 200
-              }}>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '42px',
+                  right: 0,
+                  width: '210px',
+                  backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
+                  borderRadius: '12px',
+                  boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 30px rgba(0, 0, 0, 0.15))',
+                  border: '1px solid var(--aiims-modal-border, #e2e8f0)',
+                  padding: '6px',
+                  zIndex: 200,
+                }}
+              >
                 {/* User Identity Summary */}
-                <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)', marginBottom: '4px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                <div
+                  style={{
+                    padding: '8px 10px',
+                    borderBottom: '1px solid var(--aiims-border-card, #f1f5f9)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 800,
+                      color: 'var(--aiims-text-heading, #0f172a)',
+                    }}
+                  >
                     {userFullName}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #64748b)', marginTop: '1px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--aiims-text-muted, #64748b)',
+                      marginTop: '1px',
+                    }}
+                  >
                     Stage: {userStage}
                   </div>
                 </div>
@@ -732,9 +936,11 @@ export const Header: React.FC<HeaderProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    fontWeight: 600
+                    fontWeight: 600,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')
+                  }
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <Settings size={14} color="var(--aiims-text-secondary, #64748b)" />
@@ -755,16 +961,24 @@ export const Header: React.FC<HeaderProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    fontWeight: 600
+                    fontWeight: 600,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')
+                  }
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <Coins size={14} color="var(--aiims-card-amber-text, #b45309)" />
                   AIIMS Wallet ({creditsBalance})
                 </div>
 
-                <div style={{ height: '1px', backgroundColor: 'var(--aiims-border-card, #f1f5f9)', margin: '4px 0' }} />
+                <div
+                  style={{
+                    height: '1px',
+                    backgroundColor: 'var(--aiims-border-card, #f1f5f9)',
+                    margin: '4px 0',
+                  }}
+                />
 
                 <div
                   onClick={() => {
@@ -780,9 +994,11 @@ export const Header: React.FC<HeaderProps> = ({
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px',
-                    fontWeight: 700
+                    fontWeight: 700,
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8fafc)')
+                  }
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   <LogOut size={14} color="#ef4444" />
@@ -812,7 +1028,7 @@ export const Header: React.FC<HeaderProps> = ({
             paddingTop: '12vh',
             zIndex: 10000,
             paddingLeft: '16px',
-            paddingRight: '16px'
+            paddingRight: '16px',
           }}
         >
           <div
@@ -827,17 +1043,19 @@ export const Header: React.FC<HeaderProps> = ({
               boxShadow: 'var(--aiims-shadow-modal, 0 25px 50px -12px rgba(0, 0, 0, 0.25))',
               overflow: 'hidden',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
             }}
           >
             {/* Command Palette Input Header */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '14px 18px',
-              borderBottom: '1px solid var(--aiims-border-card, #ede9fe)'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 18px',
+                borderBottom: '1px solid var(--aiims-border-card, #ede9fe)',
+              }}
+            >
               <Search size={18} color="var(--aiims-primary, #6366f1)" />
               <input
                 ref={searchInputRef}
@@ -858,26 +1076,33 @@ export const Header: React.FC<HeaderProps> = ({
                   fontSize: '15px',
                   fontWeight: 600,
                   width: '100%',
-                  fontFamily: 'inherit'
+                  fontFamily: 'inherit',
                 }}
               />
               {paletteQuery ? (
                 <button
                   type="button"
                   onClick={() => setPaletteQuery('')}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--aiims-text-muted)' }}
+                  style={{
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--aiims-text-muted)',
+                  }}
                 >
                   <X size={16} />
                 </button>
               ) : (
-                <kbd style={{
-                  fontSize: '11px',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--aiims-bg-subtle, #f1f5f9)',
-                  border: '1px solid var(--aiims-border-card, #cbd5e1)',
-                  color: 'var(--aiims-text-muted, #64748b)'
-                }}>
+                <kbd
+                  style={{
+                    fontSize: '11px',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--aiims-bg-subtle, #f1f5f9)',
+                    border: '1px solid var(--aiims-border-card, #cbd5e1)',
+                    color: 'var(--aiims-text-muted, #64748b)',
+                  }}
+                >
                   ESC
                 </kbd>
               )}
@@ -887,17 +1112,36 @@ export const Header: React.FC<HeaderProps> = ({
             <div style={{ maxHeight: '380px', overflowY: 'auto', padding: '8px' }}>
               {/* If Mentor Observation result exists */}
               {mentorTurn && (
-                <div style={{
-                  margin: '8px 4px 12px 4px',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  backgroundColor: 'var(--aiims-accent-glow, #eef2ff)',
-                  border: '1px solid var(--aiims-border-card-hover, #c7d2fe)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', color: 'var(--aiims-primary, #4338ca)', fontWeight: 800, fontSize: '13px' }}>
+                <div
+                  style={{
+                    margin: '8px 4px 12px 4px',
+                    padding: '14px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--aiims-accent-glow, #eef2ff)',
+                    border: '1px solid var(--aiims-border-card-hover, #c7d2fe)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '6px',
+                      color: 'var(--aiims-primary, #4338ca)',
+                      fontWeight: 800,
+                      fontSize: '13px',
+                    }}
+                  >
                     <Sparkles size={16} /> AIIMS Mentor Observation
                   </div>
-                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-body, #334155)', lineHeight: 1.5 }}>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: '13px',
+                      color: 'var(--aiims-text-body, #334155)',
+                      lineHeight: 1.5,
+                    }}
+                  >
                     {mentorTurn.observation || mentorTurn.guidance || JSON.stringify(mentorTurn)}
                   </p>
                 </div>
@@ -925,60 +1169,83 @@ export const Header: React.FC<HeaderProps> = ({
                             ? 'var(--aiims-accent-glow, rgba(99, 102, 241, 0.12))'
                             : 'transparent',
                           cursor: 'pointer',
-                          transition: 'background-color 0.12s ease'
+                          transition: 'background-color 0.12s ease',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                          <div style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '8px',
-                            backgroundColor: isSelected
-                              ? 'var(--aiims-primary, #6366f1)'
-                              : 'var(--aiims-bg-card-hover, #f1f5f9)',
+                        <div
+                          style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            color: isSelected ? '#ffffff' : 'var(--aiims-text-secondary, #475569)',
-                            flexShrink: 0,
-                            transition: 'all 0.12s ease'
-                          }}>
+                            gap: '12px',
+                            minWidth: 0,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
+                              backgroundColor: isSelected
+                                ? 'var(--aiims-primary, #6366f1)'
+                                : 'var(--aiims-bg-card-hover, #f1f5f9)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: isSelected
+                                ? '#ffffff'
+                                : 'var(--aiims-text-secondary, #475569)',
+                              flexShrink: 0,
+                              transition: 'all 0.12s ease',
+                            }}
+                          >
                             <Icon size={16} />
                           </div>
                           <div>
-                            <div style={{
-                              fontSize: '13.5px',
-                              fontWeight: 700,
-                              color: isSelected ? 'var(--aiims-primary, #6366f1)' : 'var(--aiims-text-heading, #0f172a)'
-                            }}>
+                            <div
+                              style={{
+                                fontSize: '13.5px',
+                                fontWeight: 700,
+                                color: isSelected
+                                  ? 'var(--aiims-primary, #6366f1)'
+                                  : 'var(--aiims-text-heading, #0f172a)',
+                              }}
+                            >
                               {item.title}
                             </div>
-                            <div style={{
-                              fontSize: '11.5px',
-                              color: 'var(--aiims-text-secondary, #64748b)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
+                            <div
+                              style={{
+                                fontSize: '11.5px',
+                                color: 'var(--aiims-text-secondary, #64748b)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
                               {item.desc}
                             </div>
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
-                            color: 'var(--aiims-text-muted, #64748b)'
-                          }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
+                              color: 'var(--aiims-text-muted, #64748b)',
+                            }}
+                          >
                             {item.category}
                           </span>
-                          {item.locked && <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />}
-                          {isSelected && <CornerDownLeft size={14} color="var(--aiims-primary, #6366f1)" />}
+                          {item.locked && (
+                            <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />
+                          )}
+                          {isSelected && (
+                            <CornerDownLeft size={14} color="var(--aiims-primary, #6366f1)" />
+                          )}
                         </div>
                       </div>
                     );
@@ -986,11 +1253,27 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               ) : (
                 <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                  <HelpCircle size={32} color="var(--aiims-text-muted, #94a3b8)" style={{ margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                  <HelpCircle
+                    size={32}
+                    color="var(--aiims-text-muted, #94a3b8)"
+                    style={{ margin: '0 auto 8px' }}
+                  />
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: 'var(--aiims-text-heading, #0f172a)',
+                    }}
+                  >
                     No matching workspace found
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)', margin: '4px 0 14px' }}>
+                  <p
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--aiims-text-secondary, #64748b)',
+                      margin: '4px 0 14px',
+                    }}
+                  >
                     Try searching for Assessment, Wallet, Focus, Credits, or ask the AIIMS Mentor.
                   </p>
                   {paletteQuery.trim() && (
@@ -1009,7 +1292,7 @@ export const Header: React.FC<HeaderProps> = ({
                         cursor: 'pointer',
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        gap: '6px',
                       }}
                     >
                       <Sparkles size={14} />
@@ -1021,22 +1304,62 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {/* Footer Quick Keys */}
-            <div style={{
-              padding: '10px 16px',
-              borderTop: '1px solid var(--aiims-border-card, #ede9fe)',
-              backgroundColor: 'var(--aiims-bg-subtle, #f8fafc)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '11px',
-              color: 'var(--aiims-text-muted, #64748b)'
-            }}>
+            <div
+              style={{
+                padding: '10px 16px',
+                borderTop: '1px solid var(--aiims-border-card, #ede9fe)',
+                backgroundColor: 'var(--aiims-bg-subtle, #f8fafc)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '11px',
+                color: 'var(--aiims-text-muted, #64748b)',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span><kbd style={{ padding: '1px 4px', borderRadius: '3px', background: 'var(--aiims-border-card)', color: 'inherit' }}>↑↓</kbd> to navigate</span>
-                <span><kbd style={{ padding: '1px 4px', borderRadius: '3px', background: 'var(--aiims-border-card)', color: 'inherit' }}>↵</kbd> to select</span>
-                <span><kbd style={{ padding: '1px 4px', borderRadius: '3px', background: 'var(--aiims-border-card)', color: 'inherit' }}>ESC</kbd> to close</span>
+                <span>
+                  <kbd
+                    style={{
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      background: 'var(--aiims-border-card)',
+                      color: 'inherit',
+                    }}
+                  >
+                    ↑↓
+                  </kbd>{' '}
+                  to navigate
+                </span>
+                <span>
+                  <kbd
+                    style={{
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      background: 'var(--aiims-border-card)',
+                      color: 'inherit',
+                    }}
+                  >
+                    ↵
+                  </kbd>{' '}
+                  to select
+                </span>
+                <span>
+                  <kbd
+                    style={{
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      background: 'var(--aiims-border-card)',
+                      color: 'inherit',
+                    }}
+                  >
+                    ESC
+                  </kbd>{' '}
+                  to close
+                </span>
               </div>
-              <span>{filteredItems.length} {filteredItems.length === 1 ? 'result' : 'results'}</span>
+              <span>
+                {filteredItems.length} {filteredItems.length === 1 ? 'result' : 'results'}
+              </span>
             </div>
           </div>
         </div>

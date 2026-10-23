@@ -19,7 +19,6 @@ import {
   PanelLeftClose,
   PanelLeft,
   ArrowRight,
-  ShieldAlert
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { getFeatureAccess } from '../../services/featureAccessService';
@@ -54,10 +53,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   isOpen = false,
-  onClose
+  onClose,
 }) => {
   const { state } = useLearner();
-  const [lockedModal, setLockedModal] = useState<{ title: string; message: string; targetTab: string } | null>(null);
+  const [lockedModal, setLockedModal] = useState<{
+    title: string;
+    message: string;
+    targetTab: string;
+  } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
   const isAssessmentDone = state?.assessment?.status === 'completed';
@@ -72,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon,
       locked: !access.unlocked,
       badge: customBadge,
-      lockMsg: access.reason
+      lockMsg: access.reason,
     };
   };
 
@@ -81,54 +84,65 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'WORKSPACE',
       items: [
         createNavItem('home', 'Home', Home),
-        createNavItem('journey', 'My AI Journey', Route)
-      ]
+        createNavItem('journey', 'My AI Journey', Route),
+      ],
     },
     {
       group: 'UNDERSTAND',
       items: [
-        createNavItem('assessment', 'Baseline Assessment', ClipboardCheck, isAssessmentDone ? '✓' : 'Start'),
-        createNavItem('analysis', 'My AI Profile', BarChart3)
-      ]
+        createNavItem(
+          'assessment',
+          'Baseline Assessment',
+          ClipboardCheck,
+          isAssessmentDone ? '✓' : 'Start'
+        ),
+        createNavItem('analysis', 'My AI Profile', BarChart3),
+      ],
     },
     {
       group: 'DEVELOP',
       items: [
         createNavItem('wallet', 'AI Wallet', Wallet),
         createNavItem('clarity', 'Clarity', Compass),
-        createNavItem('focus', 'Focus', Target)
-      ]
+        createNavItem('focus', 'Focus', Target),
+      ],
     },
     {
       group: 'DISCOVER',
       items: [
         createNavItem('radar', 'AI Radar', Radar),
-        createNavItem('relevance', 'AI Relevance', Sparkles)
-      ]
+        createNavItem('relevance', 'AI Relevance', Sparkles),
+      ],
     },
     {
       group: 'BUILD',
       items: [
         createNavItem('solver', 'Problem Solver', Wrench),
-        createNavItem('build', 'Projects', Layers)
-      ]
+        createNavItem('build', 'Projects', Layers),
+      ],
     },
     {
       group: 'SUPPORT',
       items: [
         createNavItem('mentor', 'Mentor Workspace', MessageCircle),
-        createNavItem('credits', 'Credits & Progress', Coins, state?.credits?.balance ? `${state.credits.balance}` : undefined),
-        createNavItem('settings', 'Settings', Settings)
-      ]
-    }
+        createNavItem(
+          'credits',
+          'Credits & Progress',
+          Coins,
+          state?.credits?.balance ? `${state.credits.balance}` : undefined
+        ),
+        createNavItem('settings', 'Settings', Settings),
+      ],
+    },
   ];
 
   const handleNavClick = (item: NavItem) => {
     if (item.locked) {
       setLockedModal({
         title: item.label,
-        message: item.lockMsg || 'This workspace is locked pending prerequisite milestone completion.',
-        targetTab: item.id
+        message:
+          item.lockMsg || 'This workspace is locked pending prerequisite milestone completion.',
+        targetTab: item.id,
       });
     } else {
       setActiveTab(item.id);
@@ -139,9 +153,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const renderNavList = (collapsed: boolean) => (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        justifyContent: 'space-between',
+      }}
+    >
       {/* Scrollable Navigation Groups */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: collapsed ? '12px' : '18px', overflowY: 'auto', paddingRight: collapsed ? '0' : '4px' }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: collapsed ? '12px' : '18px',
+          overflowY: 'auto',
+          paddingRight: collapsed ? '0' : '4px',
+        }}
+      >
         {navGroups.map((group, groupIdx) => (
           <div key={group.group}>
             {/* Section Heading or Divider */}
@@ -151,21 +180,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   style={{
                     height: '1px',
                     backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
-                    margin: '4px 10px 8px 10px'
+                    margin: '4px 10px 8px 10px',
                   }}
                 />
               ) : null
             ) : (
-              <div style={{
-                fontSize: '10.5px',
-                fontWeight: 800,
-                color: 'var(--aiims-text-muted, #64748b)',
-                letterSpacing: '0.8px',
-                padding: '0 10px',
-                marginBottom: '5px',
-                textTransform: 'uppercase',
-                userSelect: 'none'
-              }}>
+              <div
+                style={{
+                  fontSize: '10.5px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-muted, #64748b)',
+                  letterSpacing: '0.8px',
+                  padding: '0 10px',
+                  marginBottom: '5px',
+                  textTransform: 'uppercase',
+                  userSelect: 'none',
+                }}
+              >
                 {group.group}
               </div>
             )}
@@ -187,7 +218,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       type="button"
                       onClick={() => handleNavClick(item)}
                       aria-label={item.label}
-                      title={!collapsed ? (item.locked && item.lockMsg ? item.lockMsg : undefined) : undefined}
+                      title={
+                        !collapsed
+                          ? item.locked && item.lockMsg
+                            ? item.lockMsg
+                            : undefined
+                          : undefined
+                      }
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -202,19 +239,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         color: isActive
                           ? 'var(--aiims-primary, #6366f1)'
                           : item.locked
-                          ? 'var(--aiims-text-muted, #94a3b8)'
-                          : 'var(--aiims-text-secondary, #334155)',
+                            ? 'var(--aiims-text-muted, #94a3b8)'
+                            : 'var(--aiims-text-secondary, #334155)',
                         fontWeight: isActive ? 700 : 600,
                         fontSize: '13px',
                         cursor: 'pointer',
                         transition: 'background-color 0.15s ease, color 0.15s ease',
                         textAlign: 'left',
                         boxSizing: 'border-box',
-                        position: 'relative'
+                        position: 'relative',
                       }}
                       onMouseEnter={(e) => {
                         if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8f7fd)';
+                          e.currentTarget.style.backgroundColor =
+                            'var(--aiims-bg-card-hover, #f8f7fd)';
                           e.currentTarget.style.color = 'var(--aiims-text-heading, #0f172a)';
                         }
                       }}
@@ -237,38 +275,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             bottom: '6px',
                             width: '3px',
                             borderRadius: '0 3px 3px 0',
-                            backgroundColor: 'var(--aiims-primary, #6366f1)'
+                            backgroundColor: 'var(--aiims-primary, #6366f1)',
                           }}
                         />
                       )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                        <div style={{
-                          width: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}
+                      >
+                        <div
+                          style={{
+                            width: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
                           <Icon
                             size={17}
                             color={
                               isActive
                                 ? 'var(--aiims-primary, #6366f1)'
                                 : item.locked
-                                ? 'var(--aiims-text-subtle, #94a3b8)'
-                                : 'var(--aiims-text-secondary, #64748b)'
+                                  ? 'var(--aiims-text-subtle, #94a3b8)'
+                                  : 'var(--aiims-text-secondary, #64748b)'
                             }
                           />
                         </div>
 
                         {!collapsed && (
-                          <span style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            fontSize: '13px'
-                          }}>
+                          <span
+                            style={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontSize: '13px',
+                            }}
+                          >
                             {item.label}
                           </span>
                         )}
@@ -276,22 +320,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       {/* Right Lock / Badge indicators */}
                       {!collapsed && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            flexShrink: 0,
+                          }}
+                        >
                           {item.locked && (
                             <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />
                           )}
                           {item.badge ? (
-                            <span style={{
-                              fontSize: '10.5px',
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              borderRadius: '6px',
-                              backgroundColor: isActive
-                                ? 'var(--aiims-primary, #6366f1)'
-                                : 'var(--aiims-border-subtle, #ede9fe)',
-                              color: isActive ? '#ffffff' : 'var(--aiims-primary, #4338ca)',
-                              lineHeight: 1
-                            }}>
+                            <span
+                              style={{
+                                fontSize: '10.5px',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: '6px',
+                                backgroundColor: isActive
+                                  ? 'var(--aiims-primary, #6366f1)'
+                                  : 'var(--aiims-border-subtle, #ede9fe)',
+                                color: isActive ? '#ffffff' : 'var(--aiims-primary, #4338ca)',
+                                lineHeight: 1,
+                              }}
+                            >
                               {item.badge}
                             </span>
                           ) : null}
@@ -318,33 +371,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           whiteSpace: 'nowrap',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '8px'
+                          gap: '8px',
                         }}
                       >
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                        <span
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: 'var(--aiims-text-heading, #0f172a)',
+                          }}
+                        >
                           {item.label}
                         </span>
                         {item.locked && (
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
-                            color: 'var(--aiims-text-muted, #64748b)'
-                          }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
+                              color: 'var(--aiims-text-muted, #64748b)',
+                            }}
+                          >
                             Locked
                           </span>
                         )}
                         {item.badge && (
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            padding: '1px 5px',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--aiims-primary, #6366f1)',
-                            color: '#ffffff'
-                          }}>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--aiims-primary, #6366f1)',
+                              color: '#ffffff',
+                            }}
+                          >
                             {item.badge}
                           </span>
                         )}
@@ -359,15 +422,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Profile & Account Bottom Anchor */}
-      <div style={{
-        marginTop: '16px',
-        paddingTop: '12px',
-        borderTop: '1px solid var(--aiims-border-card, #ede9fe)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: collapsed ? 'center' : 'space-between',
-        position: 'relative'
-      }}>
+      <div
+        style={{
+          marginTop: '16px',
+          paddingTop: '12px',
+          borderTop: '1px solid var(--aiims-border-card, #ede9fe)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          position: 'relative',
+        }}
+      >
         {collapsed ? (
           <button
             type="button"
@@ -385,7 +450,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {userName.charAt(0)}
@@ -401,43 +466,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
               padding: '6px 8px',
               borderRadius: '8px',
               width: '100%',
-              transition: 'background-color 0.15s ease'
+              transition: 'background-color 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8f7fd)')}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f8f7fd)')
+            }
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
           >
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              backgroundColor: 'var(--aiims-accent-glow, #e0e7ff)',
-              color: 'var(--aiims-primary, #4f46e5)',
-              border: '1px solid var(--aiims-border-card, #c7d2fe)',
-              fontWeight: 800,
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0
-            }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--aiims-accent-glow, #e0e7ff)',
+                color: 'var(--aiims-primary, #4f46e5)',
+                border: '1px solid var(--aiims-border-card, #c7d2fe)',
+                fontWeight: 800,
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
               {userName.charAt(0)}
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{
-                fontSize: '13px',
-                fontWeight: 700,
-                color: 'var(--aiims-text-heading, #0f172a)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
+              <div
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: 'var(--aiims-text-heading, #0f172a)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {userName}
               </div>
-              <div style={{
-                fontSize: '11px',
-                color: 'var(--aiims-text-secondary, #64748b)',
-                lineHeight: 1.2
-              }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--aiims-text-secondary, #64748b)',
+                  lineHeight: 1.2,
+                }}
+              >
                 {userStage}
               </div>
             </div>
@@ -454,8 +527,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <aside
         className="aiims-sidebar-desktop"
         style={{
-          width: isCollapsed ? 'var(--aiims-sidebar-collapsed-width, 68px)' : 'var(--aiims-sidebar-width, 250px)',
-          minWidth: isCollapsed ? 'var(--aiims-sidebar-collapsed-width, 68px)' : 'var(--aiims-sidebar-width, 250px)',
+          width: isCollapsed
+            ? 'var(--aiims-sidebar-collapsed-width, 68px)'
+            : 'var(--aiims-sidebar-width, 250px)',
+          minWidth: isCollapsed
+            ? 'var(--aiims-sidebar-collapsed-width, 68px)'
+            : 'var(--aiims-sidebar-width, 250px)',
           backgroundColor: 'var(--aiims-bg-card, #ffffff)',
           borderRight: '1px solid var(--aiims-border-card, #ede9fe)',
           height: 'calc(100vh - var(--aiims-header-height, 60px))',
@@ -465,19 +542,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           display: 'flex',
           flexDirection: 'column',
           zIndex: 90,
-          overflow: 'visible'
+          overflow: 'visible',
         }}
       >
         {/* Sidebar Brand & Collapse Control Header */}
-        <div style={{
-          height: '52px',
-          padding: isCollapsed ? '0 12px' : '0 14px',
-          borderBottom: '1px solid var(--aiims-border-card, #ede9fe)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: isCollapsed ? 'center' : 'space-between',
-          flexShrink: 0
-        }}>
+        <div
+          style={{
+            height: '52px',
+            padding: isCollapsed ? '0 12px' : '0 14px',
+            borderBottom: '1px solid var(--aiims-border-card, #ede9fe)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isCollapsed ? 'center' : 'space-between',
+            flexShrink: 0,
+          }}
+        >
           {!isCollapsed ? (
             <>
               <AiimsLogo size="sm" showWordmark={true} onClick={() => setActiveTab('home')} />
@@ -498,7 +577,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f1f5f9)';
@@ -514,7 +593,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}
+            >
               {onToggleCollapse ? (
                 <button
                   type="button"
@@ -532,7 +613,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    transition: 'all 0.15s ease'
+                    transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-hover, #f1f5f9)';
@@ -553,7 +634,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Navigation Content Area */}
-        <div style={{ flex: 1, padding: isCollapsed ? '12px 8px' : '14px 12px', overflowY: 'auto', boxSizing: 'border-box' }}>
+        <div
+          style={{
+            flex: 1,
+            padding: isCollapsed ? '12px 8px' : '14px 12px',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+          }}
+        >
           {renderNavList(isCollapsed)}
         </div>
       </aside>
@@ -574,18 +662,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           boxSizing: 'border-box',
           overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
         }}
       >
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px',
-          paddingBottom: '12px',
-          borderBottom: '1px solid var(--aiims-border-card, #ede9fe)'
-        }}>
-          <AiimsLogo size="sm" showWordmark={true} onClick={() => { setActiveTab('home'); if (onClose) onClose(); }} />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+            paddingBottom: '12px',
+            borderBottom: '1px solid var(--aiims-border-card, #ede9fe)',
+          }}
+        >
+          <AiimsLogo
+            size="sm"
+            showWordmark={true}
+            onClick={() => {
+              setActiveTab('home');
+              if (onClose) onClose();
+            }}
+          />
           <button
             type="button"
             onClick={onClose}
@@ -600,44 +697,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: 'var(--aiims-text-secondary, #64748b)'
+              color: 'var(--aiims-text-secondary, #64748b)',
             }}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div style={{ flex: 1 }}>
-          {renderNavList(false)}
-        </div>
+        <div style={{ flex: 1 }}>{renderNavList(false)}</div>
       </aside>
 
       {/* Locked Feature Guidance Modal */}
       {lockedModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000,
-          padding: '16px'
-        }}>
-          <div style={{
-            backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
-            borderRadius: '16px',
-            border: '1px solid var(--aiims-modal-border, #e2e8f0)',
-            boxShadow: 'var(--aiims-shadow-modal, 0 20px 40px rgba(0, 0, 0, 0.2))',
-            maxWidth: '440px',
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
             width: '100%',
-            padding: '24px',
-            position: 'relative'
-          }}>
+            height: '100%',
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '16px',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
+              borderRadius: '16px',
+              border: '1px solid var(--aiims-modal-border, #e2e8f0)',
+              boxShadow: 'var(--aiims-shadow-modal, 0 20px 40px rgba(0, 0, 0, 0.2))',
+              maxWidth: '440px',
+              width: '100%',
+              padding: '24px',
+              position: 'relative',
+            }}
+          >
             <button
               onClick={() => setLockedModal(null)}
               style={{
@@ -647,41 +746,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 border: 'none',
                 background: 'none',
                 cursor: 'pointer',
-                color: 'var(--aiims-text-muted, #94a3b8)'
+                color: 'var(--aiims-text-muted, #94a3b8)',
               }}
             >
               <X size={18} />
             </button>
 
-            <div style={{
-              width: '42px',
-              height: '42px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--aiims-accent-glow, #eef2ff)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '14px'
-            }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--aiims-accent-glow, #eef2ff)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '14px',
+              }}
+            >
               <Lock size={20} color="var(--aiims-primary, #6366f1)" />
             </div>
 
-            <h3 style={{
-              margin: '0 0 6px 0',
-              fontSize: '18px',
-              fontWeight: 800,
-              color: 'var(--aiims-text-heading, #0f172a)',
-              fontFamily: "'Fredoka', sans-serif"
-            }}>
+            <h3
+              style={{
+                margin: '0 0 6px 0',
+                fontSize: '18px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0f172a)',
+                fontFamily: "'Fredoka', sans-serif",
+              }}
+            >
               {lockedModal.title}
             </h3>
 
-            <p style={{
-              margin: '0 0 20px 0',
-              fontSize: '13px',
-              color: 'var(--aiims-text-secondary, #475569)',
-              lineHeight: 1.5
-            }}>
+            <p
+              style={{
+                margin: '0 0 20px 0',
+                fontSize: '13px',
+                color: 'var(--aiims-text-secondary, #475569)',
+                lineHeight: 1.5,
+              }}
+            >
               {lockedModal.message}
             </p>
 
@@ -697,7 +802,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   color: 'var(--aiims-text-secondary, #475569)',
                   fontSize: '13px',
                   fontWeight: 600,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
                 }}
               >
                 Close
@@ -720,7 +825,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
                 }}
               >
                 <span>View Details</span>

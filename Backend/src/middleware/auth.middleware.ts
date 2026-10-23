@@ -57,7 +57,7 @@ export const authenticateStudent = async (
         if (!dbUser && email) {
           dbUser = await User.findOne({ email });
         }
-      } catch (err) {
+      } catch {
         // Fall back to memory document
       }
     }
@@ -66,66 +66,118 @@ export const authenticateStudent = async (
       // In offline development mode (when MongoDB is not connected) allow mockUser or registeredUsers fallback
       if (mongoose.connection.readyState !== 1) {
         if (email === mockUser.email.toLowerCase()) {
-          if (!(mockUser as any)._id) {
-            (mockUser as any)._id = new mongoose.Types.ObjectId('65d000000000000000000101');
+          const mockUserWithId = mockUser as unknown as {
+            _id?: mongoose.Types.ObjectId | string;
+            id: string;
+          };
+          if (!mockUserWithId._id) {
+            mockUserWithId._id = new mongoose.Types.ObjectId('65d000000000000000000101');
           }
-          mockUser.id = String((mockUser as any)._id);
-          dbUser = mockUser as any;
+          mockUser.id = String(mockUserWithId._id);
+          dbUser = mockUser as unknown as IUser;
         } else if (registeredUsers && registeredUsers[email]) {
           const regUser = registeredUsers[email];
           if (!regUser._id || !mongoose.Types.ObjectId.isValid(regUser._id)) {
-            regUser._id = (decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId))
-              ? decoded.userId
-              : new mongoose.Types.ObjectId().toHexString();
+            regUser._id =
+              decoded.userId && mongoose.Types.ObjectId.isValid(decoded.userId)
+                ? decoded.userId
+                : new mongoose.Types.ObjectId().toHexString();
           }
           regUser.id = String(regUser._id);
-          if (!regUser.radar) regUser.radar = { status: 'locked', investigatedSignalIds: [], followedSignalIds: [] };
-          if (!regUser.assessment) regUser.assessment = { status: 'not_started', answers: {}, scores: {}, rewardClaimed: false };
-          if (!regUser.clarity) regUser.clarity = { status: 'locked', selectedAreas: [], completedTopics: [], reflections: {}, taskScores: {} };
+          if (!regUser.radar)
+            regUser.radar = { status: 'locked', investigatedSignalIds: [], followedSignalIds: [] };
+          if (!regUser.assessment)
+            regUser.assessment = {
+              status: 'not_started',
+              answers: {},
+              scores: {},
+              rewardClaimed: false,
+            };
+          if (!regUser.clarity)
+            regUser.clarity = {
+              status: 'locked',
+              selectedAreas: [],
+              completedTopics: [],
+              reflections: {},
+              taskScores: {},
+            };
           if (!regUser.focus) regUser.focus = { status: 'locked', history: [], sessionHistory: [] };
           if (!regUser.aiWallet) regUser.aiWallet = { userTools: [], dismissedRecommendations: [] };
           dbUser = new User(regUser);
-          (dbUser as any)._id = regUser._id;
-          (dbUser as any).id = regUser.id || regUser._id;
+          const memoryUser = dbUser as unknown as { _id?: unknown; id?: string };
+          memoryUser._id = regUser._id;
+          memoryUser.id = regUser.id || String(regUser._id);
           Object.defineProperty(dbUser, 'aiimsCredits', {
-            get() { return regUser.aiimsCredits; },
-            set(v) { regUser.aiimsCredits = v; },
-            configurable: true
+            get() {
+              return regUser.aiimsCredits;
+            },
+            set(v) {
+              regUser.aiimsCredits = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'xpPoints', {
-            get() { return regUser.xpPoints; },
-            set(v) { regUser.xpPoints = v; },
-            configurable: true
+            get() {
+              return regUser.xpPoints;
+            },
+            set(v) {
+              regUser.xpPoints = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'transactions', {
-            get() { return regUser.transactions; },
-            set(v) { regUser.transactions = v; },
-            configurable: true
+            get() {
+              return regUser.transactions;
+            },
+            set(v) {
+              regUser.transactions = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'radar', {
-            get() { return regUser.radar; },
-            set(v) { regUser.radar = v; },
-            configurable: true
+            get() {
+              return regUser.radar;
+            },
+            set(v) {
+              regUser.radar = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'assessment', {
-            get() { return regUser.assessment; },
-            set(v) { regUser.assessment = v; },
-            configurable: true
+            get() {
+              return regUser.assessment;
+            },
+            set(v) {
+              regUser.assessment = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'clarity', {
-            get() { return regUser.clarity; },
-            set(v) { regUser.clarity = v; },
-            configurable: true
+            get() {
+              return regUser.clarity;
+            },
+            set(v) {
+              regUser.clarity = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'focus', {
-            get() { return regUser.focus; },
-            set(v) { regUser.focus = v; },
-            configurable: true
+            get() {
+              return regUser.focus;
+            },
+            set(v) {
+              regUser.focus = v;
+            },
+            configurable: true,
           });
           Object.defineProperty(dbUser, 'aiWallet', {
-            get() { return regUser.aiWallet; },
-            set(v) { regUser.aiWallet = v; },
-            configurable: true
+            get() {
+              return regUser.aiWallet;
+            },
+            set(v) {
+              regUser.aiWallet = v;
+            },
+            configurable: true,
           });
         }
       }
@@ -138,7 +190,7 @@ export const authenticateStudent = async (
     }
 
     next();
-  } catch (error) {
+  } catch {
     // Cryptographic validation failed (bad signature, expired, or malformed) -> req.user remains undefined
     next();
   }
@@ -148,15 +200,11 @@ export const authenticateStudent = async (
  * Strict authorization guard middleware for protected endpoints.
  * Returns 401 if unauthenticated or token is invalid/expired.
  */
-export const requireAuth = (
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-) => {
+export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!req.user) {
     return res.status(401).json({
       error: 'Invalid or expired session. Please sign in again.',
-      code: 'UNAUTHORIZED'
+      code: 'UNAUTHORIZED',
     });
   }
   next();

@@ -13,7 +13,17 @@ export interface JourneyStageItem {
 }
 
 export interface LearnerNextAction {
-  currentStageKey: 'assessment' | 'analysis' | 'wallet' | 'clarity' | 'focus' | 'radar' | 'relevance' | 'solver' | 'build' | 'mentor';
+  currentStageKey:
+    | 'assessment'
+    | 'analysis'
+    | 'wallet'
+    | 'clarity'
+    | 'focus'
+    | 'radar'
+    | 'relevance'
+    | 'solver'
+    | 'build'
+    | 'mentor';
   currentStageTitle: string;
   nextActionTitle: string;
   nextActionReason: string;
@@ -68,20 +78,23 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
   const isAssessmentDone = state.assessment.status === 'completed';
   const isAnalysisViewed = state.analysis.status === 'viewed'; // Must actually view profile, unlocked alone is NOT completed
   const isWalletExplored = (state.aiWallet?.userTools?.length || 0) >= 1;
-  const isClarityCompleted = (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
+  const isClarityCompleted =
+    (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
   const isFocusSelected = state.focus?.status === 'active' && state.focus?.selectedTrack !== null;
-  const isRadarInvestigated = (state.radar?.investigatedSignalIds?.length || 0) > 0 || state.investigation?.status === 'completed';
+  const isRadarInvestigated =
+    (state.radar?.investigatedSignalIds?.length || 0) > 0 ||
+    state.investigation?.status === 'completed';
   const isRelevanceCompleted = state.relevance?.status === 'completed';
-  const hasSolvedWorkflow = !!state.solver?.latestWorkflow || (state.solver?.history?.length || 0) > 0;
+  const hasSolvedWorkflow =
+    !!state.solver?.latestWorkflow || (state.solver?.history?.length || 0) > 0;
   const hasBuildProject = (state.build?.projects?.length || 0) > 0;
-
-  const activeFocus = state.focus?.selectedTrack || profileCtx.assessment.growthArea || 'AI Workflows';
 
   // Determine stage key and single recommended next action in canonical sequence
   let currentStageKey: LearnerNextAction['currentStageKey'] = 'assessment';
   let currentStageTitle = '1. UNDERSTAND AI';
   let nextActionTitle = 'Complete your AI assessment';
-  let nextActionReason = 'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
+  let nextActionReason =
+    'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
   let targetTab = 'assessment';
   let actionButtonLabel = 'Start Assessment';
   let progressPercent = 10;
@@ -90,7 +103,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     currentStageKey = 'assessment';
     currentStageTitle = '1. UNDERSTAND AI';
     nextActionTitle = 'Complete your AI assessment';
-    nextActionReason = 'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
+    nextActionReason =
+      'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
     targetTab = 'assessment';
     actionButtonLabel = 'Start Assessment';
     progressPercent = 10;
@@ -106,7 +120,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     currentStageKey = 'wallet';
     currentStageTitle = '3. AI WALLET';
     nextActionTitle = 'Explore AI tools';
-    nextActionReason = 'Discover AI tools that match your role and profile. Learn which tools you should know or use.';
+    nextActionReason =
+      'Discover AI tools that match your role and profile. Learn which tools you should know or use.';
     targetTab = 'wallet';
     actionButtonLabel = 'Explore AI Tools';
     progressPercent = 30;
@@ -114,7 +129,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     currentStageKey = 'clarity';
     currentStageTitle = '4. CLARITY';
     nextActionTitle = 'Clarify your AI goals';
-    nextActionReason = 'Define what you actually want AI to help you accomplish in your work and projects.';
+    nextActionReason =
+      'Define what you actually want AI to help you accomplish in your work and projects.';
     targetTab = 'clarity';
     actionButtonLabel = 'Clarify Your Goals';
     progressPercent = 40;
@@ -122,7 +138,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     currentStageKey = 'focus';
     currentStageTitle = '5. FOCUS';
     nextActionTitle = 'Choose your focus';
-    nextActionReason = 'Select what area you want to concentrate on right now to personalize your radar opportunities.';
+    nextActionReason =
+      'Select what area you want to concentrate on right now to personalize your radar opportunities.';
     targetTab = 'focus';
     actionButtonLabel = 'Choose Focus Track';
     progressPercent = 50;
@@ -131,7 +148,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     currentStageKey = 'wallet';
     currentStageTitle = 'DEVELOP & EXPLORE';
     nextActionTitle = 'Curate AI Wallet & Deepen Clarity';
-    nextActionReason = 'You have selected your Focus Track! Advanced workspaces (AI Radar, Relevance, Problem Solver, Projects, Mentor) will unlock as you complete learning activities.';
+    nextActionReason =
+      'You have selected your Focus Track! Advanced workspaces (AI Radar, Relevance, Problem Solver, Projects, Mentor) will unlock as you complete learning activities.';
     targetTab = 'wallet';
     actionButtonLabel = 'Explore AI Wallet';
     progressPercent = 55;
@@ -155,16 +173,22 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: 'Baseline Assessment',
       status: isAssessmentDone ? 'completed' : 'current',
       description: 'Discover your AI profile through baseline assessment.',
-      targetTab: 'assessment'
+      targetTab: 'assessment',
     },
     {
       id: 'profile',
       number: 2,
       name: 'MY AI PROFILE',
       subtitle: 'Your AI Skills',
-      status: isAnalysisViewed ? 'completed' : !profileAccess.unlocked ? 'locked' : isAssessmentDone ? 'current' : 'locked',
+      status: isAnalysisViewed
+        ? 'completed'
+        : !profileAccess.unlocked
+          ? 'locked'
+          : isAssessmentDone
+            ? 'current'
+            : 'locked',
       description: 'Understand your top AI skills and growth areas.',
-      targetTab: 'analysis'
+      targetTab: 'analysis',
     },
     {
       id: 'wallet',
@@ -173,25 +197,37 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: 'Your AI Tools',
       status: isWalletExplored ? 'completed' : isAnalysisViewed ? 'current' : 'upcoming',
       description: 'Discover and evaluate tools suited to your profile.',
-      targetTab: 'wallet'
+      targetTab: 'wallet',
     },
     {
       id: 'clarity',
       number: 4,
       name: 'CLARITY',
       subtitle: 'Your AI Goals',
-      status: isClarityCompleted ? 'completed' : !clarityAccess.unlocked ? 'locked' : isWalletExplored ? 'current' : 'upcoming',
+      status: isClarityCompleted
+        ? 'completed'
+        : !clarityAccess.unlocked
+          ? 'locked'
+          : isWalletExplored
+            ? 'current'
+            : 'upcoming',
       description: 'Define what you actually want AI to help you accomplish.',
-      targetTab: 'clarity'
+      targetTab: 'clarity',
     },
     {
       id: 'focus',
       number: 5,
       name: 'FOCUS',
       subtitle: 'Your Focus Track',
-      status: isFocusSelected ? 'completed' : !focusAccess.unlocked ? 'locked' : isClarityCompleted ? 'current' : 'upcoming',
+      status: isFocusSelected
+        ? 'completed'
+        : !focusAccess.unlocked
+          ? 'locked'
+          : isClarityCompleted
+            ? 'current'
+            : 'upcoming',
       description: 'Select your concentration area right now.',
-      targetTab: 'focus'
+      targetTab: 'focus',
     },
     {
       id: 'radar',
@@ -200,16 +236,20 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: "What's Changing in AI",
       status: !radarAccess.unlocked ? 'locked' : isRadarInvestigated ? 'completed' : 'upcoming',
       description: 'Discover AI opportunities and tech shifts (Activity-Gated).',
-      targetTab: 'radar'
+      targetTab: 'radar',
     },
     {
       id: 'relevance',
       number: 7,
       name: 'AI RELEVANCE',
       subtitle: 'Why This Matters to You',
-      status: !relevanceAccess.unlocked ? 'locked' : isRelevanceCompleted ? 'completed' : 'upcoming',
+      status: !relevanceAccess.unlocked
+        ? 'locked'
+        : isRelevanceCompleted
+          ? 'completed'
+          : 'upcoming',
       description: 'Understand why emerging opportunities matter to your work (Activity-Gated).',
-      targetTab: 'relevance'
+      targetTab: 'relevance',
     },
     {
       id: 'solver',
@@ -218,7 +258,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: 'Solve a Real Problem',
       status: !solverAccess.unlocked ? 'locked' : hasSolvedWorkflow ? 'completed' : 'upcoming',
       description: 'Apply AI tools to derive workflows for real tasks (Activity-Gated).',
-      targetTab: 'solver'
+      targetTab: 'solver',
     },
     {
       id: 'build',
@@ -227,7 +267,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: 'Create a Project',
       status: !buildAccess.unlocked ? 'locked' : hasBuildProject ? 'completed' : 'upcoming',
       description: 'Turn your solved workflows into reusable projects (Activity-Gated).',
-      targetTab: 'build'
+      targetTab: 'build',
     },
     {
       id: 'improve',
@@ -236,8 +276,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       subtitle: 'What AIIMS Learned',
       status: !mentorAccess.unlocked ? 'locked' : 'upcoming',
       description: 'Review updated insights and continuous growth guidance (Activity-Gated).',
-      targetTab: 'mentor'
-    }
+      targetTab: 'mentor',
+    },
   ];
 
   return {
@@ -248,7 +288,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     targetTab,
     actionButtonLabel,
     progressPercent,
-    journeyStages
+    journeyStages,
   };
 };
 
@@ -263,23 +303,27 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
     state.clarity.status === 'completed' ||
     (state.clarity.completedTopics && state.clarity.completedTopics.length > 0);
   const isFocusActive = state.focus.status === 'active' && Boolean(state.focus.selectedTrack);
-  const activeFocusTrack = state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
+  const activeFocusTrack =
+    state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
   const growthArea = state.analysis.growthArea || 'AI Workflow Design';
   const topCapability = state.analysis.topCapability || 'AI Literacy & Verification';
-  const hasInvestigatedSignal = (state.radar?.investigatedSignalIds && state.radar.investigatedSignalIds.length > 0);
+  const hasInvestigatedSignal =
+    state.radar?.investigatedSignalIds && state.radar.investigatedSignalIds.length > 0;
   const isInvestigationCompleted = state.investigation.status === 'completed';
   const isRelevanceUnlocked = state.relevance.status !== 'locked';
 
   let currentStageKey = 'understand';
   let nextActionTitle = 'Discover your AI capability baseline.';
-  let nextActionReason = 'AIIMS needs to understand your usage habits, evaluation skills, and workflow patterns through a 25-question diagnostic.';
+  let nextActionReason =
+    'AIIMS needs to understand your usage habits, evaluation skills, and workflow patterns through a 25-question diagnostic.';
   let targetTab = 'assessment';
   let actionButtonLabel = 'Start Baseline Assessment (+50 Credits)';
 
   if (!isAssessmentCompleted) {
     currentStageKey = 'understand';
     nextActionTitle = 'Discover your AI capability baseline.';
-    nextActionReason = 'AIIMS needs to understand your usage habits, evaluation skills, and workflow patterns through a 25-question diagnostic.';
+    nextActionReason =
+      'AIIMS needs to understand your usage habits, evaluation skills, and workflow patterns through a 25-question diagnostic.';
     targetTab = 'assessment';
     actionButtonLabel = 'Start Baseline Assessment (+50 Credits)';
   } else if (!isAnalysisViewed) {
@@ -310,7 +354,8 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
   } else if (!isInvestigationCompleted) {
     currentStageKey = 'build';
     nextActionTitle = 'Complete your technical signal investigation.';
-    nextActionReason = 'Record your evidence and reflection notes on how recent model advances change your everyday workflows.';
+    nextActionReason =
+      'Record your evidence and reflection notes on how recent model advances change your everyday workflows.';
     targetTab = 'radar';
     actionButtonLabel = 'Continue Investigation';
   } else {
@@ -327,50 +372,50 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
       label: 'Understand',
       sublabel: 'Baseline Diagnostic',
       targetTab: 'assessment',
-      isCompleted: isAssessmentCompleted
+      isCompleted: isAssessmentCompleted,
     },
     {
       key: 'learn',
       label: 'Learn',
       sublabel: 'Profile Report',
       targetTab: 'analysis',
-      isCompleted: isAnalysisViewed
+      isCompleted: isAnalysisViewed,
     },
     {
       key: 'discover',
       label: 'Discover',
       sublabel: 'Clarity Hub',
       targetTab: 'clarity',
-      isCompleted: isClarityCompleted
+      isCompleted: isClarityCompleted,
     },
     {
       key: 'choose',
       label: 'Choose',
       sublabel: 'Focus Track',
       targetTab: 'focus',
-      isCompleted: isFocusActive
+      isCompleted: isFocusActive,
     },
     {
       key: 'solve',
       label: 'Solve',
       sublabel: 'AI Radar',
       targetTab: 'radar',
-      isCompleted: hasInvestigatedSignal
+      isCompleted: hasInvestigatedSignal,
     },
     {
       key: 'build',
       label: 'Build',
       sublabel: 'Investigation',
       targetTab: 'radar',
-      isCompleted: isInvestigationCompleted
+      isCompleted: isInvestigationCompleted,
     },
     {
       key: 'improve',
       label: 'Improve',
       sublabel: 'Relevance Synthesis',
       targetTab: 'relevance',
-      isCompleted: isInvestigationCompleted && isRelevanceUnlocked
-    }
+      isCompleted: isInvestigationCompleted && isRelevanceUnlocked,
+    },
   ];
 
   const currentStageIndex = stagesDefinition.findIndex((s) => s.key === currentStageKey);
@@ -389,7 +434,7 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
       label: s.label,
       sublabel: s.sublabel,
       status,
-      targetTab: s.targetTab
+      targetTab: s.targetTab,
     };
   });
 
@@ -398,23 +443,23 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
     title: isFocusActive ? activeFocusTrack : growthArea,
     status: isFocusActive ? 'Active Track' : 'Candidate Track',
     actionLabel: isFocusActive ? 'Manage' : 'Select',
-    targetTab: 'focus'
+    targetTab: 'focus',
   };
 
   const clarityStatusText = isClarityCompleted
     ? 'Completed'
     : state.clarity.selectedTopic
-    ? `Exploring: ${state.clarity.selectedTopic}`
-    : isAnalysisUnlocked
-    ? 'Available'
-    : 'Pending Baseline';
+      ? `Exploring: ${state.clarity.selectedTopic}`
+      : isAnalysisUnlocked
+        ? 'Available'
+        : 'Pending Baseline';
 
   const clarityItem: DirectionItem = {
     category: 'CLARITY',
     title: state.clarity.selectedTopic || growthArea,
     status: clarityStatusText,
     actionLabel: isClarityCompleted ? 'Review' : 'Continue',
-    targetTab: 'clarity'
+    targetTab: 'clarity',
   };
 
   const profileStatusText = isAssessmentCompleted
@@ -426,7 +471,7 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
     title: isAssessmentCompleted ? 'Assessment Complete' : 'Baseline Pending',
     status: profileStatusText,
     actionLabel: isAssessmentCompleted ? 'View' : 'Start',
-    targetTab: isAssessmentCompleted ? 'analysis' : 'assessment'
+    targetTab: isAssessmentCompleted ? 'analysis' : 'assessment',
   };
 
   return {
@@ -441,7 +486,7 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
     direction: {
       focus: focusItem,
       clarity: clarityItem,
-      profile: profileItem
-    }
+      profile: profileItem,
+    },
   };
 };

@@ -19,7 +19,7 @@
 import {
   evaluateAssessment,
   ASSESSMENT_RUBRICS,
-  CapabilityKey
+  CapabilityKey,
 } from '../services/assessmentScoring';
 
 let passed = 0;
@@ -60,7 +60,7 @@ const EXPECTED_STATIONS: StoryStationDef[] = [
     domainTitle: 'Using AI',
     stationName: 'Workbench',
     fullTitle: 'Using AI — Workbench',
-    challengeIds: [1, 2, 3, 4, 5]
+    challengeIds: [1, 2, 3, 4, 5],
   },
   {
     id: 2,
@@ -68,7 +68,7 @@ const EXPECTED_STATIONS: StoryStationDef[] = [
     domainTitle: 'Understanding AI',
     stationName: 'Machine Room',
     fullTitle: 'Understanding AI — Machine Room',
-    challengeIds: [6, 7, 8, 9, 10]
+    challengeIds: [6, 7, 8, 9, 10],
   },
   {
     id: 3,
@@ -76,7 +76,7 @@ const EXPECTED_STATIONS: StoryStationDef[] = [
     domainTitle: 'Solving with AI',
     stationName: 'Architecture Studio',
     fullTitle: 'Solving with AI — Architecture Studio',
-    challengeIds: [11, 12, 13, 14, 15]
+    challengeIds: [11, 12, 13, 14, 15],
   },
   {
     id: 4,
@@ -84,7 +84,7 @@ const EXPECTED_STATIONS: StoryStationDef[] = [
     domainTitle: 'Checking AI',
     stationName: 'Inspection Desk',
     fullTitle: 'Checking AI — Inspection Desk',
-    challengeIds: [16, 17, 18, 19, 20]
+    challengeIds: [16, 17, 18, 19, 20],
   },
   {
     id: 5,
@@ -92,15 +92,21 @@ const EXPECTED_STATIONS: StoryStationDef[] = [
     domainTitle: 'Adapting to AI',
     stationName: 'Radar Tower',
     fullTitle: 'Adapting to AI — Radar Tower',
-    challengeIds: [21, 22, 23, 24, 25]
-  }
+    challengeIds: [21, 22, 23, 24, 25],
+  },
 ];
 
 assert(EXPECTED_STATIONS.length === 5, 'Exactly 5 Story Stations defined');
 
 EXPECTED_STATIONS.forEach((station) => {
-  assert(station.challengeIds.length === 5, `Station 0${station.id} (${station.stationName}) has exactly 5 challenges`);
-  assert(station.domainKey !== undefined, `Station 0${station.id} maps to valid domainKey: ${station.domainKey}`);
+  assert(
+    station.challengeIds.length === 5,
+    `Station 0${station.id} (${station.stationName}) has exactly 5 challenges`
+  );
+  assert(
+    station.domainKey !== undefined,
+    `Station 0${station.id} maps to valid domainKey: ${station.domainKey}`
+  );
 });
 
 // -----------------------------------------------------------------
@@ -108,7 +114,7 @@ EXPECTED_STATIONS.forEach((station) => {
 // -----------------------------------------------------------------
 console.log('\n[Test Group 2] Question Count & Distribution Integrity');
 
-const allChallengeIds = EXPECTED_STATIONS.flatMap(s => s.challengeIds);
+const allChallengeIds = EXPECTED_STATIONS.flatMap((s) => s.challengeIds);
 assert(allChallengeIds.length === 25, 'Total challenge count is exactly 25');
 
 const uniqueIds = new Set(allChallengeIds);
@@ -123,7 +129,7 @@ assert(isConsecutive, 'All challenge IDs are strictly consecutive from 1 to 25')
 console.log('\n[Test Group 3] Rubric Purpose & Question Explanation Coverage');
 
 let allHavePurpose = true;
-let missingPurposeIds: number[] = [];
+const missingPurposeIds: number[] = [];
 
 for (let qId = 1; qId <= 25; qId++) {
   const rubric = ASSESSMENT_RUBRICS[qId];
@@ -133,7 +139,10 @@ for (let qId = 1; qId <= 25; qId++) {
   }
 }
 
-assert(allHavePurpose, 'Every question from Q1 to Q25 has an approved purpose explanation in the rubric');
+assert(
+  allHavePurpose,
+  'Every question from Q1 to Q25 has an approved purpose explanation in the rubric'
+);
 
 // -----------------------------------------------------------------
 // Test Group 4: Question Type Diversity
@@ -148,7 +157,10 @@ const textQuestions = [11, 12, 25];
 assert(singleSelectQuestions.length === 18, '18 single_select questions properly configured');
 assert(multiSelectQuestions.length === 2, '2 multi_select questions (Q2, Q24) properly configured');
 assert(scaleQuestions.length === 2, '2 scale rating questions (Q4, Q21) properly configured');
-assert(textQuestions.length === 3, '3 Thinking Lab long_text questions (Q11, Q12, Q25) properly configured');
+assert(
+  textQuestions.length === 3,
+  '3 Thinking Lab long_text questions (Q11, Q12, Q25) properly configured'
+);
 
 // -----------------------------------------------------------------
 // Test Group 5: Station Transition Interstitial Triggers
@@ -156,14 +168,22 @@ assert(textQuestions.length === 3, '3 Thinking Lab long_text questions (Q11, Q12
 console.log('\n[Test Group 5] Station Transition Trigger Logic');
 
 function shouldTriggerTransition(questionIndex0Based: number): boolean {
-  return questionIndex0Based === 4 || questionIndex0Based === 9 || questionIndex0Based === 14 || questionIndex0Based === 19;
+  return (
+    questionIndex0Based === 4 ||
+    questionIndex0Based === 9 ||
+    questionIndex0Based === 14 ||
+    questionIndex0Based === 19
+  );
 }
 
 assert(shouldTriggerTransition(4), 'Transition fires at end of Station 1 (Q5 / idx 4)');
 assert(shouldTriggerTransition(9), 'Transition fires at end of Station 2 (Q10 / idx 9)');
 assert(shouldTriggerTransition(14), 'Transition fires at end of Station 3 (Q15 / idx 14)');
 assert(shouldTriggerTransition(19), 'Transition fires at end of Station 4 (Q20 / idx 19)');
-assert(!shouldTriggerTransition(24), 'Q25 (idx 24) advances to REVIEW instead of intermediate station transition');
+assert(
+  !shouldTriggerTransition(24),
+  'Q25 (idx 24) advances to REVIEW instead of intermediate station transition'
+);
 assert(!shouldTriggerTransition(0), 'Q1 (idx 0) does not trigger station transition');
 
 // -----------------------------------------------------------------
@@ -196,27 +216,57 @@ const sampleAnswers: Record<number, any> = {
   22: 'q22_a',
   23: 'q23_b',
   24: ['q24_a', 'q24_b', 'q24_c'],
-  25: 'Adapting means evolving workflows alongside AI rather than passively using it.'
+  25: 'Adapting means evolving workflows alongside AI rather than passively using it.',
 };
 
 const evaluation = evaluateAssessment(sampleAnswers);
 
-assert(typeof evaluation.overallScore === 'number' && evaluation.overallScore > 0, 'Overall score computed successfully');
-assert(evaluation.assessmentStatus === 'complete', 'Assessment status marks complete with all 25 answers');
+assert(
+  typeof evaluation.overallScore === 'number' && evaluation.overallScore > 0,
+  'Overall score computed successfully'
+);
+assert(
+  evaluation.assessmentStatus === 'complete',
+  'Assessment status marks complete with all 25 answers'
+);
 
 // Check all 5 capability domains exist in evaluation
-const requiredDomains: CapabilityKey[] = ['usingAI', 'understandingAI', 'solvingWithAI', 'checkingAI', 'adaptingToAI'];
+const requiredDomains: CapabilityKey[] = [
+  'usingAI',
+  'understandingAI',
+  'solvingWithAI',
+  'checkingAI',
+  'adaptingToAI',
+];
 requiredDomains.forEach((domain) => {
   const cap = evaluation.capabilities[domain];
-  assert(cap !== undefined && typeof cap.score === 'number', `Capability ${domain} scored: ${cap?.score}`);
+  assert(
+    cap !== undefined && typeof cap.score === 'number',
+    `Capability ${domain} scored: ${cap?.score}`
+  );
 });
 
 // Check legacy score mappings exist
-assert(typeof evaluation.legacyScores.usageFrequency === 'number', 'Legacy score usageFrequency exists');
-assert(typeof evaluation.legacyScores.evaluationCapability === 'number', 'Legacy score evaluationCapability exists');
-assert(typeof evaluation.legacyScores.workflowDesign === 'number', 'Legacy score workflowDesign exists');
-assert(typeof evaluation.legacyScores.strategicVision === 'number', 'Legacy score strategicVision exists');
-assert(typeof evaluation.legacyScores.mentorshipReadiness === 'number', 'Legacy score mentorshipReadiness exists');
+assert(
+  typeof evaluation.legacyScores.usageFrequency === 'number',
+  'Legacy score usageFrequency exists'
+);
+assert(
+  typeof evaluation.legacyScores.evaluationCapability === 'number',
+  'Legacy score evaluationCapability exists'
+);
+assert(
+  typeof evaluation.legacyScores.workflowDesign === 'number',
+  'Legacy score workflowDesign exists'
+);
+assert(
+  typeof evaluation.legacyScores.strategicVision === 'number',
+  'Legacy score strategicVision exists'
+);
+assert(
+  typeof evaluation.legacyScores.mentorshipReadiness === 'number',
+  'Legacy score mentorshipReadiness exists'
+);
 
 // -----------------------------------------------------------------
 // Summary

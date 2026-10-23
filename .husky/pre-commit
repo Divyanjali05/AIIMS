@@ -1,0 +1,25 @@
+#!/bin/sh
+
+# 1. AIIMS Security Guard: Enforce Gitleaks secret detection before any commit
+if ! command -v gitleaks >/dev/null 2>&1; then
+    if [ -d "$LOCALAPPDATA/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe" ]; then
+        PATH="$PATH:$LOCALAPPDATA/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    elif [ -d "/c/Users/divya/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe" ]; then
+        PATH="$PATH:/c/Users/divya/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    fi
+fi
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --redact --config .gitleaks.toml
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo "❌ [SECURITY FATAL] Gitleaks detected sensitive credentials in staged files!"
+        echo "Commit aborted. Please review staged changes or remove credentials."
+        exit 1
+    fi
+else
+    echo "⚠️ [SECURITY WARNING] Gitleaks is not installed or not in PATH. Skipping secret pre-commit hook."
+fi
+
+# 2. Run lint-staged on staged files
+npx lint-staged

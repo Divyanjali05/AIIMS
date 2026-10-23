@@ -33,7 +33,8 @@ export class AnthropicProvider implements AIProvider {
   private configStatus: AIProviderStatus = 'CONFIG_ERROR';
 
   constructor() {
-    const rawKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || config.anthropicApiKey;
+    const rawKey =
+      process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || config.anthropicApiKey;
     this.model = process.env.AI_TOOL_ASSESSMENT_MODEL || 'claude-3-5-sonnet-20241022';
 
     if (AnthropicProvider.isKeyValid(rawKey)) {
@@ -48,7 +49,12 @@ export class AnthropicProvider implements AIProvider {
   public static isKeyValid(key?: string): boolean {
     if (!key) return false;
     const trimmed = key.trim();
-    if (trimmed.startsWith('mock-') || trimmed.includes('placeholder') || trimmed === 'your-api-key-here' || trimmed.length < 10) {
+    if (
+      trimmed.startsWith('mock-') ||
+      trimmed.includes('placeholder') ||
+      trimmed === 'your-api-key-here' ||
+      trimmed.length < 10
+    ) {
       return false;
     }
     return true;
@@ -62,16 +68,22 @@ export class AnthropicProvider implements AIProvider {
     return this.configStatus;
   }
 
-  public async assessToolCandidate(sourceContent: string, systemPrompt: string): Promise<AIProviderResponse> {
+  public async assessToolCandidate(
+    sourceContent: string,
+    systemPrompt: string
+  ): Promise<AIProviderResponse> {
     if (!this.client || this.configStatus !== 'READY') {
-      console.warn('[AnthropicProvider] API key is not configured or uses a placeholder key. Returning explicit UNAVAILABLE status.');
+      console.warn(
+        '[AnthropicProvider] API key is not configured or uses a placeholder key. Returning explicit UNAVAILABLE status.'
+      );
       return {
         rawResponse: '',
         modelUsed: this.model,
         providerName: this.name,
         status: 'CONFIG_ERROR',
         isAIAssessed: false,
-        errorMessage: 'Anthropic API key is unconfigured or a placeholder. Live AI assessment unavailable.'
+        errorMessage:
+          'Anthropic API key is unconfigured or a placeholder. Live AI assessment unavailable.',
       };
     }
 
@@ -84,12 +96,12 @@ export class AnthropicProvider implements AIProvider {
         messages: [
           {
             role: 'user',
-            content: `ANALYZE THE FOLLOWING UNTRUSTED SOURCE DATA:\n\n<source_content>\n${sourceContent.slice(0, 8000)}\n</source_content>\n\nReturn schema-valid structured JSON only.`
-          }
-        ]
+            content: `ANALYZE THE FOLLOWING UNTRUSTED SOURCE DATA:\n\n<source_content>\n${sourceContent.slice(0, 8000)}\n</source_content>\n\nReturn schema-valid structured JSON only.`,
+          },
+        ],
       });
 
-      const textBlock = response.content.find(c => c.type === 'text');
+      const textBlock = response.content.find((c) => c.type === 'text');
       const text = textBlock ? textBlock.text : '';
       let parsedJson: any = null;
 
@@ -111,8 +123,8 @@ export class AnthropicProvider implements AIProvider {
         isAIAssessed: true,
         usage: {
           inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens
-        }
+          outputTokens: response.usage.output_tokens,
+        },
       };
     } catch (err: any) {
       console.warn(`[AnthropicProvider] API error (${err.message}). Live AI provider unavailable.`);
@@ -122,7 +134,7 @@ export class AnthropicProvider implements AIProvider {
         providerName: this.name,
         status: 'UNAVAILABLE',
         isAIAssessed: false,
-        errorMessage: `Anthropic API request failed: ${err.message}`
+        errorMessage: `Anthropic API request failed: ${err.message}`,
       };
     }
   }
@@ -142,59 +154,82 @@ export class DeterministicFallbackProvider implements AIProvider {
     return 'READY';
   }
 
-  public async assessToolCandidate(sourceContent: string, systemPrompt: string): Promise<AIProviderResponse> {
+  public async assessToolCandidate(
+    sourceContent: string,
+    _systemPrompt: string
+  ): Promise<AIProviderResponse> {
     const text = sourceContent.toLowerCase();
 
     // Deterministic extraction strictly based on evidence
-    const isTool = text.includes('tool') || text.includes('assistant') || text.includes('platform') || text.includes('app') || text.includes('model');
-    const nameMatch = sourceContent.match(/name["\s:]+([^"\n,]+)/i) || sourceContent.match(/title["\s:]+([^"\n,]+)/i);
+    const isTool =
+      text.includes('tool') ||
+      text.includes('assistant') ||
+      text.includes('platform') ||
+      text.includes('app') ||
+      text.includes('model');
+    const nameMatch =
+      sourceContent.match(/name["\s:]+([^"\n,]+)/i) ||
+      sourceContent.match(/title["\s:]+([^"\n,]+)/i);
     const candidateName = nameMatch ? nameMatch[1].trim() : 'Candidate Tool';
 
-    const freeTier = text.includes('free tier') || text.includes('free plan') || text.includes('100% free');
+    const freeTier =
+      text.includes('free tier') || text.includes('free plan') || text.includes('100% free');
     const freeTrial = text.includes('free trial') || text.includes('trial available');
 
     // Extract ONLY evidenced capabilities — NEVER fabricate Task Execution
     const evidencedCapabilities: string[] = [];
-    if (text.includes('code') || text.includes('coding') || text.includes('repo')) evidencedCapabilities.push('Code Generation');
-    if (text.includes('pdf') || text.includes('document')) evidencedCapabilities.push('Document Analysis');
-    if (text.includes('image') || text.includes('diffusion')) evidencedCapabilities.push('Image Generation');
-    if (text.includes('voice') || text.includes('speech') || text.includes('audio')) evidencedCapabilities.push('Voice Synthesis');
-    if (text.includes('search') || text.includes('retrieval')) evidencedCapabilities.push('Information Retrieval');
+    if (text.includes('code') || text.includes('coding') || text.includes('repo'))
+      evidencedCapabilities.push('Code Generation');
+    if (text.includes('pdf') || text.includes('document'))
+      evidencedCapabilities.push('Document Analysis');
+    if (text.includes('image') || text.includes('diffusion'))
+      evidencedCapabilities.push('Image Generation');
+    if (text.includes('voice') || text.includes('speech') || text.includes('audio'))
+      evidencedCapabilities.push('Voice Synthesis');
+    if (text.includes('search') || text.includes('retrieval'))
+      evidencedCapabilities.push('Information Retrieval');
 
     const evidencedTasks: string[] = [];
     if (evidencedCapabilities.includes('Code Generation')) evidencedTasks.push('Code Assistance');
-    if (evidencedCapabilities.includes('Document Analysis')) evidencedTasks.push('Document Analysis');
+    if (evidencedCapabilities.includes('Document Analysis'))
+      evidencedTasks.push('Document Analysis');
 
     const parsedJson = {
       classification: {
         itemType: isTool ? 'AI_TOOL' : 'UNKNOWN',
-        isRelevant: isTool && evidencedCapabilities.length > 0
+        isRelevant: isTool && evidencedCapabilities.length > 0,
       },
       identity: {
         name: candidateName,
         provider: 'AI Ecosystem Provider',
-        officialWebsite: sourceContent.match(/https?:\/\/[^\s"',]+/i)?.[0] || ''
+        officialWebsite: sourceContent.match(/https?:\/\/[^\s"',]+/i)?.[0] || '',
       },
       description: {
         short: sourceContent.slice(0, 150).trim(),
-        long: sourceContent.slice(0, 500).trim()
+        long: sourceContent.slice(0, 500).trim(),
       },
       taxonomy: {
-        category: evidencedCapabilities.includes('Code Generation') ? 'Agentic Coding' : 'Reasoning & Writing',
+        category: evidencedCapabilities.includes('Code Generation')
+          ? 'Agentic Coding'
+          : 'Reasoning & Writing',
         domains: ['Software & Technology'],
         subdomains: ['AI Tools'],
         tasks: evidencedTasks,
-        capabilities: evidencedCapabilities
+        capabilities: evidencedCapabilities,
       },
       pricing: {
         type: freeTier ? 'FREEMIUM' : freeTrial ? 'FREE_TRIAL' : 'UNKNOWN',
         freeTierAvailable: freeTier,
         freeTrialAvailable: freeTrial,
-        summary: freeTier ? 'Free tier available' : freeTrial ? 'Free trial available' : 'Pricing not verified'
+        summary: freeTier
+          ? 'Free tier available'
+          : freeTrial
+            ? 'Free trial available'
+            : 'Pricing not verified',
       },
-      confidence: 0.40, // Conservative confidence for rule extraction
+      confidence: 0.4, // Conservative confidence for rule extraction
       needsVerification: true,
-      evidence: []
+      evidence: [],
     };
 
     return {
@@ -203,7 +238,7 @@ export class DeterministicFallbackProvider implements AIProvider {
       modelUsed: 'rule-engine-v1',
       providerName: this.name,
       status: 'SUCCESS',
-      isAIAssessed: false
+      isAIAssessed: false,
     };
   }
 }
@@ -233,7 +268,12 @@ export class GeminiProvider implements AIProvider {
   public static isKeyValid(key?: string): boolean {
     if (!key) return false;
     const trimmed = key.trim();
-    if (trimmed.startsWith('mock-') || trimmed.includes('placeholder') || trimmed === 'your-api-key-here' || trimmed.length < 10) {
+    if (
+      trimmed.startsWith('mock-') ||
+      trimmed.includes('placeholder') ||
+      trimmed === 'your-api-key-here' ||
+      trimmed.length < 10
+    ) {
       return false;
     }
     return true;
@@ -247,26 +287,34 @@ export class GeminiProvider implements AIProvider {
     return this.configStatus;
   }
 
-  public async assessToolCandidate(sourceContent: string, systemPrompt: string): Promise<AIProviderResponse> {
+  public async assessToolCandidate(
+    sourceContent: string,
+    systemPrompt: string
+  ): Promise<AIProviderResponse> {
     if (!this.client || this.configStatus !== 'READY') {
-      console.warn('[GeminiProvider] Google API key is not configured or uses a placeholder key. Returning explicit UNAVAILABLE status.');
+      console.warn(
+        '[GeminiProvider] Google API key is not configured or uses a placeholder key. Returning explicit UNAVAILABLE status.'
+      );
       return {
         rawResponse: '',
         modelUsed: this.model,
         providerName: this.name,
         status: 'CONFIG_ERROR',
         isAIAssessed: false,
-        errorMessage: 'Google Gemini API key is unconfigured or a placeholder. Live AI assessment unavailable.'
+        errorMessage:
+          'Google Gemini API key is unconfigured or a placeholder. Live AI assessment unavailable.',
       };
     }
 
-    const candidateModels = Array.from(new Set([
-      this.model,
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite',
-      'gemini-3.8-flash',
-      'gemini-flash-latest'
-    ]));
+    const candidateModels = Array.from(
+      new Set([
+        this.model,
+        'gemini-3.5-flash',
+        'gemini-3.5-flash-lite',
+        'gemini-3.8-flash',
+        'gemini-flash-latest',
+      ])
+    );
 
     const prompt = `${systemPrompt}\n\nANALYZE THE FOLLOWING UNTRUSTED SOURCE DATA:\n\n<source_content>\n${sourceContent.slice(0, 8000)}\n</source_content>\n\nReturn schema-valid structured JSON only.`;
 
@@ -279,8 +327,8 @@ export class GeminiProvider implements AIProvider {
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 2000,
-            responseMimeType: 'application/json'
-          }
+            responseMimeType: 'application/json',
+          },
         });
 
         const result = await genModel.generateContent(prompt);
@@ -308,7 +356,7 @@ export class GeminiProvider implements AIProvider {
         const usage = usageMetadata
           ? {
               inputTokens: usageMetadata.promptTokenCount || 0,
-              outputTokens: usageMetadata.candidatesTokenCount || 0
+              outputTokens: usageMetadata.candidatesTokenCount || 0,
             }
           : undefined;
 
@@ -319,11 +367,13 @@ export class GeminiProvider implements AIProvider {
           providerName: this.name,
           status: 'SUCCESS',
           isAIAssessed: true,
-          usage
+          usage,
         };
       } catch (err: any) {
         lastError = err;
-        console.warn(`[GeminiProvider] Model ${modelName} call failed (${err.message}). Trying next candidate...`);
+        console.warn(
+          `[GeminiProvider] Model ${modelName} call failed (${err.message}). Trying next candidate...`
+        );
       }
     }
 
@@ -334,7 +384,7 @@ export class GeminiProvider implements AIProvider {
       providerName: this.name,
       status: 'UNAVAILABLE',
       isAIAssessed: false,
-      errorMessage: `Gemini API request failed: ${lastError?.message || 'Unknown error'}`
+      errorMessage: `Gemini API request failed: ${lastError?.message || 'Unknown error'}`,
     };
   }
 }
@@ -345,7 +395,8 @@ export class GeminiProvider implements AIProvider {
 export function getAIProvider(): AIProvider {
   const providerType = (process.env.AI_PROVIDER || '').toLowerCase();
   const geminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || config.geminiApiKey;
-  const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || config.anthropicApiKey;
+  const anthropicKey =
+    process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || config.anthropicApiKey;
 
   // 1. Explicit provider choice
   if (providerType === 'gemini') {

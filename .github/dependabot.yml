@@ -1,0 +1,98 @@
+# ==============================================================
+# AIIMS Dependabot Configuration
+# ==============================================================
+# Monitors:
+#  1. Root repository tooling npm dependencies (Husky, lint-staged, commitlint)
+#  2. Backend Express API npm dependencies
+#  3. Frontend React/Three.js web app npm dependencies
+#  4. GitHub Actions workflow versions in .github/workflows/
+#
+# Scheduling & Grouping Strategy:
+#  - Weekly schedule (Mondays at 06:00 UTC) to minimize PR churn.
+#  - Groups compatible minor and patch updates into a single PR per ecosystem.
+#  - Major version updates are opened as individual PRs for manual review.
+#  - PR limit set to 5 per ecosystem to prevent notification overload.
+#  - Security alerts and vulnerability updates remain fully enabled without suppressions.
+# ==============================================================
+
+version: 2
+updates:
+  # ------------------------------------------------------------
+  # 1. Root Repository Tooling
+  # ------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      root-tooling-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------
+  # 2. Backend API Service
+  # ------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/Backend"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      backend-dependencies-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------
+  # 3. Frontend Web Application
+  # ------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/Frontend"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      frontend-dependencies-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------
+  # 4. GitHub Actions CI Workflows
+  # ------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"

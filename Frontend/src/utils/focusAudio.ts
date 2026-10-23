@@ -1,6 +1,6 @@
 /**
  * AIIMS Focus Audio Synthesizer (Phase 6C)
- * 
+ *
  * Uses standard Web Audio API oscillators to generate gentle, ambient focus and break
  * notification chimes without external audio assets or network requests.
  * Complies with browser autoplay policies by resuming context upon user gesture.
@@ -12,7 +12,9 @@ function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
   try {
     if (!audioCtx) {
-      const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtxClass) {
         audioCtx = new AudioCtxClass();
       }
@@ -21,7 +23,7 @@ function getAudioContext(): AudioContext | null {
       audioCtx.resume().catch(() => {});
     }
     return audioCtx;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -62,7 +64,7 @@ export function playSessionCompleteSound(soundEnabled: boolean = true): void {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.18);
     osc2.stop(now + 0.7);
-  } catch (e) {
+  } catch {
     // Silently handle any browser audio policy restrictions
   }
 }
@@ -82,7 +84,7 @@ export function playBreakCompleteSound(soundEnabled: boolean = true): void {
     const osc1 = ctx.createOscillator();
     const gain1 = ctx.createGain();
     osc1.type = 'triangle';
-    osc1.frequency.setValueAtTime(440.00, now);
+    osc1.frequency.setValueAtTime(440.0, now);
     gain1.gain.setValueAtTime(0.18, now);
     gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
 
@@ -103,7 +105,7 @@ export function playBreakCompleteSound(soundEnabled: boolean = true): void {
     gain2.connect(ctx.destination);
     osc2.start(now + 0.2);
     osc2.stop(now + 0.65);
-  } catch (e) {
+  } catch {
     // Silently handle audio restrictions
   }
 }

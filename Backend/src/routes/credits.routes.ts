@@ -1,21 +1,27 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { validateBody, validateQuery } from '../middleware/validate.middleware';
+import {
+  awardLevelSchema,
+  investCreditsSchema,
+  ledgerQuerySchema,
+} from '../schemas/credits.schema';
 import {
   getWallet,
   getLedger,
   getBalance,
   reconcileBalance,
   awardLevel,
-  investCredits
+  investCredits,
 } from '../controllers/credits.controller';
 
 const router = Router();
 
 router.get('/credits/wallet', requireAuth, getWallet);
-router.get('/credits/ledger', requireAuth, getLedger);
+router.get('/credits/ledger', requireAuth, validateQuery(ledgerQuerySchema), getLedger);
 router.get('/credits/balance', requireAuth, getBalance);
 router.get('/credits/reconcile', requireAuth, reconcileBalance);
-router.post('/credits/award-level', requireAuth, awardLevel);
-router.post('/credits/invest', requireAuth, investCredits);
+router.post('/credits/award-level', requireAuth, validateBody(awardLevelSchema), awardLevel);
+router.post('/credits/invest', requireAuth, validateBody(investCreditsSchema), investCredits);
 
 export default router;

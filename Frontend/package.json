@@ -13,10 +13,17 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "test": "npx ts-node --transpile-only ../Backend/src/scripts/runFrontendTests.ts",
+    "test:unit": "vitest run --config ../vitest.config.ts",
+    "cap:sync": "cap sync android",
+    "cap:copy": "cap copy android",
+    "cap:open": "cap open android",
     "secrets:scan": "gitleaks detect --redact --config ../.gitleaks.toml",
     "secrets:protect": "gitleaks protect --staged --redact --config ../.gitleaks.toml"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@types/three": "^0.169.0",

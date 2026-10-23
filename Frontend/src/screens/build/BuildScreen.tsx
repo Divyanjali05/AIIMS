@@ -1,17 +1,6 @@
 import React, { useState } from 'react';
 import { useLearner } from '../../context/LearnerContext';
-import {
-  Layers,
-  Sparkles,
-  Plus,
-  ArrowRight,
-  CheckCircle2,
-  FolderPlus,
-  Wrench,
-  Calendar,
-  ExternalLink,
-  Code
-} from 'lucide-react';
+import { Layers, Sparkles, Plus, ArrowRight, FolderPlus, Wrench, ExternalLink } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { PageHeader } from '../../components/common/PageHeader';
@@ -43,7 +32,15 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
   };
 
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div
+      style={{
+        maxWidth: '960px',
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '24px',
+      }}
+    >
       {/* Header */}
       <PageHeader
         icon={<Layers size={24} style={{ color: '#ea580c' }} />}
@@ -52,12 +49,18 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
       />
 
       {/* Action bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Badge variant="warning">{projects.length} Active Projects</Badge>
-          {latestWorkflow && (
-            <Badge variant="success">Solved Workflow Available</Badge>
-          )}
+          {latestWorkflow && <Badge variant="success">Solved Workflow Available</Badge>}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -94,21 +97,44 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '16px',
-            flexWrap: 'wrap'
+            flexWrap: 'wrap',
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
               <Sparkles size={14} style={{ color: '#ea580c' }} />
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#c2410c', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#c2410c',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                }}
+              >
                 Ready to Turn Into Project
               </span>
             </div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+            <h3
+              style={{
+                margin: '0 0 4px 0',
+                fontSize: '16px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0f172a)',
+              }}
+            >
               {latestWorkflow.problemSummary}
             </h3>
-            <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary, #475569)', lineHeight: 1.4 }}>
-              Turn your {latestWorkflow.workflowSteps.length}-step solved execution sequence into a reusable workflow project template.
+            <p
+              style={{
+                margin: 0,
+                fontSize: '13px',
+                color: 'var(--aiims-text-secondary, #475569)',
+                lineHeight: 1.4,
+              }}
+            >
+              Turn your {latestWorkflow.workflowSteps.length}-step solved execution sequence into a
+              reusable workflow project template.
             </p>
           </div>
 
@@ -119,7 +145,9 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
             onClick={() => {
               setTitle(latestWorkflow.problemSummary);
               const toolNames = latestWorkflow.matchedTools.map((t) => t.name);
-              setDescription(`Workflow sequence derived from problem solver: ${toolNames.join(', ')}`);
+              setDescription(
+                `Workflow sequence derived from problem solver: ${toolNames.join(', ')}`
+              );
               setToolsUsed(toolNames);
               setShowCreateModal(true);
             }}
@@ -131,19 +159,53 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
 
       {/* Projects List */}
       {projects.length === 0 ? (
-        <Card variant="bordered" radius="default" padding="lg" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <FolderPlus size={40} style={{ color: 'var(--aiims-text-subtle, #cbd5e1)', margin: '0 auto 12px' }} />
-          <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px' }}>
+        <Card
+          variant="bordered"
+          radius="default"
+          padding="lg"
+          style={{ textAlign: 'center', padding: '48px 24px' }}
+        >
+          <FolderPlus
+            size={40}
+            style={{ color: 'var(--aiims-text-subtle, #cbd5e1)', margin: '0 auto 12px' }}
+          />
+          <h3
+            style={{
+              fontSize: '18px',
+              fontWeight: 800,
+              color: 'var(--aiims-text-heading, #0f172a)',
+              margin: '0 0 6px',
+            }}
+          >
             No Projects in Workspace Yet
           </h3>
-          <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748b)', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
-            Solve real-world tasks with the <strong>Problem Solver</strong> or define custom multi-tool templates to turn your AI capabilities into verifiable assets.
+          <p
+            style={{
+              fontSize: '14px',
+              color: 'var(--aiims-text-secondary, #64748b)',
+              maxWidth: '480px',
+              margin: '0 auto 20px',
+              lineHeight: 1.5,
+            }}
+          >
+            Solve real-world tasks with the <strong>Problem Solver</strong> or define custom
+            multi-tool templates to turn your AI capabilities into verifiable assets.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
-            <Button variant="primary" size="md" icon={<Plus size={15} />} onClick={() => setShowCreateModal(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Plus size={15} />}
+              onClick={() => setShowCreateModal(true)}
+            >
               Define First Project
             </Button>
-            <Button variant="outline" size="md" icon={<Wrench size={15} />} onClick={() => setActiveTab('solver')}>
+            <Button
+              variant="outline"
+              size="md"
+              icon={<Wrench size={15} />}
+              onClick={() => setActiveTab('solver')}
+            >
               Launch Problem Solver
             </Button>
           </div>
@@ -152,16 +214,38 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
         <div className="aiims-card-grid">
           {projects.map((project) => (
             <Card key={project.id} variant="bordered" radius="default" padding="default" hoverable>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '8px',
+                }}
+              >
                 <Badge variant="cyan">{project.category}</Badge>
                 <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
                   {new Date(project.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <h4 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--aiims-text-heading, #0f172a)', margin: '0 0 6px' }}>
+              <h4
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: 'var(--aiims-text-heading, #0f172a)',
+                  margin: '0 0 6px',
+                }}
+              >
                 {project.title}
               </h4>
-              <p className="aiims-card-body" style={{ fontSize: '13.5px', color: 'var(--aiims-text-secondary, #64748b)', lineHeight: 1.4, margin: '0 0 14px' }}>
+              <p
+                className="aiims-card-body"
+                style={{
+                  fontSize: '13.5px',
+                  color: 'var(--aiims-text-secondary, #64748b)',
+                  lineHeight: 1.4,
+                  margin: '0 0 14px',
+                }}
+              >
                 {project.description}
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '14px' }}>
@@ -175,7 +259,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                       border: '1px solid var(--aiims-border-card, #e2e8f0)',
                       borderRadius: '4px',
                       color: 'var(--aiims-text-secondary, #475569)',
-                      fontWeight: 600
+                      fontWeight: 600,
                     }}
                   >
                     {tool}
@@ -201,7 +285,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: '20px'
+            padding: '20px',
           }}
         >
           <div
@@ -212,19 +296,37 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               padding: '28px',
               width: '100%',
               maxWidth: '520px',
-              boxShadow: 'var(--aiims-shadow-modal)'
+              boxShadow: 'var(--aiims-shadow-modal)',
             }}
           >
-            <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--aiims-text-heading)', margin: '0 0 6px' }}>
+            <h3
+              style={{
+                fontSize: '20px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                margin: '0 0 6px',
+              }}
+            >
               Create AI Project Blueprint
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: '0 0 18px' }}>
               Define a reusable workflow template connected to your evaluated AI tools.
             </p>
 
-            <form onSubmit={handleCreateProject} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <form
+              onSubmit={handleCreateProject}
+              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                    marginBottom: '4px',
+                  }}
+                >
                   Project Title
                 </label>
                 <input
@@ -242,13 +344,21 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     color: 'var(--aiims-input-text)',
                     fontSize: '13.5px',
                     outline: 'none',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                    marginBottom: '4px',
+                  }}
+                >
                   Category
                 </label>
                 <select
@@ -263,7 +373,7 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     outline: 'none',
                     backgroundColor: 'var(--aiims-input-bg)',
                     color: 'var(--aiims-input-text)',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
                 >
                   <option value="Workflow Automation">Workflow Automation</option>
@@ -274,7 +384,15 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: 'var(--aiims-text-heading)', marginBottom: '4px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                    marginBottom: '4px',
+                  }}
+                >
                   Description & Execution Notes
                 </label>
                 <textarea
@@ -292,13 +410,35 @@ export const BuildScreen: React.FC<BuildScreenProps> = ({ setActiveTab }) => {
                     fontSize: '13px',
                     outline: 'none',
                     boxSizing: 'border-box',
-                    resize: 'vertical'
+                    resize: 'vertical',
                   }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                <Button variant="ghost" size="md" type="button" onClick={() => setShowCreateModal(false)}>
+              {toolsUsed.length > 0 && (
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
+                  {toolsUsed.map((t) => (
+                    <Badge key={t} variant="warning">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                  marginTop: '8px',
+                }}
+              >
+                <Button
+                  variant="ghost"
+                  size="md"
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                >
                   Cancel
                 </Button>
                 <Button variant="primary" size="md" type="submit">

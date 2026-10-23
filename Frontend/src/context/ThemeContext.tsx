@@ -20,7 +20,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const getSystemTheme = (): 'light' | 'dark' => {
-    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+    ) {
       return 'dark';
     }
     return 'light';
@@ -32,7 +36,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (saved === 'dark' || saved === 'light' || saved === 'system') {
         return saved;
       }
-    } catch (e) {
+    } catch {
       // Fallback
     }
     return 'system';
@@ -91,7 +95,10 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Listen for storage events across tabs
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === THEME_STORAGE_KEY && (e.newValue === 'light' || e.newValue === 'dark' || e.newValue === 'system')) {
+      if (
+        e.key === THEME_STORAGE_KEY &&
+        (e.newValue === 'light' || e.newValue === 'dark' || e.newValue === 'system')
+      ) {
         setModeState(e.newValue as ThemeMode);
       }
     };
@@ -122,7 +129,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         themeMode: mode,
         toggleTheme,
         setTheme,
-        setThemeMode
+        setThemeMode,
       }}
     >
       {children}

@@ -15,7 +15,7 @@ export const RELEVANCE_WEIGHTS = {
   /** Signal matches learning history & diagnostic profile scores */
   learningHistoryMatch: 15,
   /** Baseline presence as an emerging AI ecosystem development */
-  baseEcosystem: 5
+  baseEcosystem: 5,
 };
 
 export type QualitativeRelevanceTier = 'Highly Relevant' | 'Relevant' | 'Possibly Useful';
@@ -48,7 +48,10 @@ export const evaluateSignalRelevance = (
   const activeFocus = context.focus.activeFocusTrack || 'AI Workflow Design';
   const growthArea = context.assessment.growthArea || 'AI Workflow Design';
   const topCapability = context.assessment.topCapability || 'AI Evaluation & Critical Scrutiny';
-  const clarityTopic = context.clarity.selectedTopic || (context.clarity.completedTopics && context.clarity.completedTopics[0]) || null;
+  const clarityTopic =
+    context.clarity.selectedTopic ||
+    (context.clarity.completedTopics && context.clarity.completedTopics[0]) ||
+    null;
   const userNote = context.investigation.latestNote;
   const clarityReflection = context.clarity.latestReflection;
   const walletCategories = context.aiWallet.primaryCategories || [];
@@ -63,10 +66,22 @@ export const evaluateSignalRelevance = (
   const categoryLower = signal.category.toLowerCase();
   const clarityLower = clarityTopic ? clarityTopic.toLowerCase() : '';
 
-  const isFocusMatch = titleLower.includes(focusLower) || summaryLower.includes(focusLower) || categoryLower.includes(focusLower);
-  const isClarityMatch = clarityTopic ? (titleLower.includes(clarityLower) || summaryLower.includes(clarityLower) || categoryLower.includes(clarityLower)) : false;
-  const isGrowthMatch = titleLower.includes(growthLower) || summaryLower.includes(growthLower) || categoryLower.includes(growthLower);
-  const isWalletMatch = walletCategories.some((cat) => titleLower.includes(cat.toLowerCase()) || summaryLower.includes(cat.toLowerCase()));
+  const isFocusMatch =
+    titleLower.includes(focusLower) ||
+    summaryLower.includes(focusLower) ||
+    categoryLower.includes(focusLower);
+  const isClarityMatch = clarityTopic
+    ? titleLower.includes(clarityLower) ||
+      summaryLower.includes(clarityLower) ||
+      categoryLower.includes(clarityLower)
+    : false;
+  const isGrowthMatch =
+    titleLower.includes(growthLower) ||
+    summaryLower.includes(growthLower) ||
+    categoryLower.includes(growthLower);
+  const isWalletMatch = walletCategories.some(
+    (cat) => titleLower.includes(cat.toLowerCase()) || summaryLower.includes(cat.toLowerCase())
+  );
 
   if (isFocusMatch) calculatedScore += RELEVANCE_WEIGHTS.focusMatch;
   if (isClarityMatch) calculatedScore += RELEVANCE_WEIGHTS.clarityMatch;
@@ -104,7 +119,7 @@ export const evaluateSignalRelevance = (
   }
 
   // 1. WHY? (Explanation)
-  let explanation = `${attributionReason} This development represents an actionable shift for your daily workflow.`;
+  const explanation = `${attributionReason} This development represents an actionable shift for your daily workflow.`;
 
   // 2. WHAT DOES IT CONNECT TO? (Personal Connection)
   let personalConnection = `Connects your baseline evaluation strength in '${topCapability}' with your focus in '${activeFocus}'.`;
@@ -115,8 +130,14 @@ export const evaluateSignalRelevance = (
   }
 
   // 3. WHAT CAN I DO? (Recommended Action)
-  const relatedSkill = signal.capabilities && signal.capabilities.length > 0 ? signal.capabilities[0] : 'AI Workflow Design';
-  const relatedTask = signal.recommendedTasks && signal.recommendedTasks.length > 0 ? signal.recommendedTasks[0] : 'Workflow Automation';
+  const relatedSkill =
+    signal.capabilities && signal.capabilities.length > 0
+      ? signal.capabilities[0]
+      : 'AI Workflow Design';
+  const relatedTask =
+    signal.recommendedTasks && signal.recommendedTasks.length > 0
+      ? signal.recommendedTasks[0]
+      : 'Workflow Automation';
   const recommendedAction = `Test this capability against one task in ${activeFocus} before delegating to your AI Wallet tools.`;
 
   // FACT & INTERPRETATION
@@ -137,6 +158,6 @@ export const evaluateSignalRelevance = (
     relevanceBadgeText: badgeText,
     fact,
     interpretation,
-    recommendedNextStep
+    recommendedNextStep,
   };
 };

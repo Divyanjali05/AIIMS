@@ -1,0 +1,61 @@
+# ==============================================================
+# AIIMS CodeQL Static Application Security Testing (SAST)
+# ==============================================================
+# Performs deep semantic, data-flow, and taint-tracking security
+# analysis across the Backend and Frontend TypeScript/JavaScript code.
+# ==============================================================
+
+name: "CodeQL Security Analysis"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Run every Monday morning at 02:30 UTC
+    - cron: '30 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  # Least-privilege permissions:
+  contents: read          # Read source code
+  security-events: write # Upload SARIF scan results to GitHub Security tab
+  actions: read          # Inspect workflow and action execution metadata
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: CodeQL Analysis (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Initializes CodeQL tools and registers query packs & path filters
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: .github/codeql/codeql-config.yml
+
+      # Runs the CodeQL analysis and uploads SARIF findings
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"

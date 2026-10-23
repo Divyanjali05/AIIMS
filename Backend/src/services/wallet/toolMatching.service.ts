@@ -1,4 +1,10 @@
-import { AITool, RequirementProfile, SearchIntent, ToolMatchResult, ToolSearchResult } from '../../types';
+import {
+  AITool,
+  RequirementProfile,
+  SearchIntent,
+  ToolMatchResult,
+  ToolSearchResult,
+} from '../../types';
 import { ToolCatalogService } from './toolCatalog.service';
 import { SearchIntentService } from './searchIntent.service';
 import { RequirementUnderstandingService } from './requirementUnderstanding.service';
@@ -26,18 +32,23 @@ export class ToolMatchingService {
   /**
    * Primary entry point for requirement-first tool search
    */
-  public static searchTools(query: string, userWalletToolIds: string[] = []): ToolSearchResult {
+  public static searchTools(query: string, _userWalletToolIds: string[] = []): ToolSearchResult {
     const rawQuery = query || '';
-    
+
     // 1. Intent Extraction
     const intent: SearchIntent = SearchIntentService.extractIntent(rawQuery);
 
     // 2. Requirement Understanding
-    const profile: RequirementProfile = RequirementUnderstandingService.buildRequirementProfile(intent);
+    const profile: RequirementProfile =
+      RequirementUnderstandingService.buildRequirementProfile(intent);
 
     // 3. Tool Catalog Candidate Retrieval — strictly active, verified tools only
     const catalog: AITool[] = ToolCatalogService.getCatalog().filter(
-      t => t.activeStatus && t.verificationStatus !== 'UNVERIFIED' && t.verificationStatus !== 'DISCOVERED' && t.verificationStatus !== 'REJECTED'
+      (t) =>
+        t.activeStatus &&
+        t.verificationStatus !== 'UNVERIFIED' &&
+        t.verificationStatus !== 'DISCOVERED' &&
+        t.verificationStatus !== 'REJECTED'
     );
 
     // 4. Tool Ranking & Multi-Signal Matching
@@ -46,15 +57,18 @@ export class ToolMatchingService {
     // Alternative tool handling ("something like ChatGPT for research")
     if (intent.comparisonIntent?.type === 'alternative' && intent.comparisonIntent.referenceTool) {
       const refToolName = intent.comparisonIntent.referenceTool.toLowerCase();
-      rankedMatches = rankedMatches.map(match => {
-        if (match.tool.name.toLowerCase().includes(refToolName) || match.tool.id.toLowerCase().includes(refToolName)) {
+      rankedMatches = rankedMatches.map((match) => {
+        if (
+          match.tool.name.toLowerCase().includes(refToolName) ||
+          match.tool.id.toLowerCase().includes(refToolName)
+        ) {
           // Downrank the reference tool itself when looking for alternatives
           const newScore = Math.max(20, match.matchScore - 40);
           return {
             ...match,
             matchScore: newScore,
             relevanceScore: newScore,
-            matchLabel: 'Potential match'
+            matchLabel: 'Potential match',
           };
         }
         return match;
@@ -64,7 +78,7 @@ export class ToolMatchingService {
     }
 
     // Filter out tools that do not satisfy the minimum quality threshold (Item 11: No forced results)
-    const validMatches = rankedMatches.filter(m => m.matchScore >= 45);
+    const validMatches = rankedMatches.filter((m) => m.matchScore >= 45);
 
     // 5. Generate Evidence-Backed Explanations for valid matches
     for (const match of validMatches) {
@@ -79,7 +93,10 @@ export class ToolMatchingService {
     const topMatches = validMatches.slice(0, 8);
 
     // Handle tool combinations for multi-intent queries
-    const toolCombinations = this.deriveToolCombinationsIfNeeded(intent, topMatches.map(m => m.tool));
+    const toolCombinations = this.deriveToolCombinationsIfNeeded(
+      intent,
+      topMatches.map((m) => m.tool)
+    );
 
     // Handle empty state suggestions
     let suggestionsIfNoMatches: string[] | undefined = undefined;
@@ -87,7 +104,7 @@ export class ToolMatchingService {
       suggestionsIfNoMatches = [
         'No strong match found for your exact requirements.',
         'Try removing strict price constraints (e.g. "free only").',
-        'Broaden your task description (e.g., search for "research" instead of specific paper titles).'
+        'Broaden your task description (e.g., search for "research" instead of specific paper titles).',
       ];
     }
 
@@ -100,14 +117,19 @@ export class ToolMatchingService {
       totalMatches: topMatches.length,
       matches: topMatches,
       toolCombinations,
-      suggestionsIfNoMatches
+      suggestionsIfNoMatches,
     };
   }
 
   /**
    * Safe Debug Logging (Omits private learner data, API keys, passwords)
    */
-  private static safeDebugLog(rawQuery: string, intent: SearchIntent, profile: RequirementProfile, topMatches: ToolMatchResult[]): void {
+  private static safeDebugLog(
+    rawQuery: string,
+    intent: SearchIntent,
+    profile: RequirementProfile,
+    topMatches: ToolMatchResult[]
+  ): void {
     if (process.env.NODE_ENV !== 'production') {
       console.log('=== [AIIMS SEARCH INTENT & MATCHING PIPELINE LOG] ===');
       console.log('Original Query:', rawQuery);
@@ -119,7 +141,11 @@ export class ToolMatchingService {
       console.log('Constraints:', JSON.stringify(profile.constraints));
       console.log('Ambiguity Level:', profile.ambiguityLevel);
       if (topMatches.length > 0) {
-        console.log('Top Match:', topMatches[0].tool.name, `| Score: ${topMatches[0].matchScore}% | Label: ${topMatches[0].matchLabel} | Conf: ${topMatches[0].confidence} | Coverage: ${topMatches[0].evidenceCoverage}`);
+        console.log(
+          'Top Match:',
+          topMatches[0].tool.name,
+          `| Score: ${topMatches[0].matchScore}% | Label: ${topMatches[0].matchLabel} | Conf: ${topMatches[0].confidence} | Coverage: ${topMatches[0].evidenceCoverage}`
+        );
       } else {
         console.log('Top Match: NONE (No strong match found)');
       }
@@ -130,23 +156,31 @@ export class ToolMatchingService {
   /**
    * Generates tool combination workflows when user requirement spans multiple distinct domains
    */
-  private static deriveToolCombinationsIfNeeded(intent: SearchIntent, topTools: AITool[]): {
-    workflowTitle: string;
-    explanation: string;
-    suggestedTools: AITool[];
-  }[] | undefined {
-    if ((intent.domain && intent.domain.length >= 2) || (intent.tasks.includes('Research') && intent.tasks.includes('Presentation Creation'))) {
-      const researchTool = topTools.find(t => t.category === 'Research & RAG');
-      const presTool = topTools.find(t => t.category === 'Presentation');
-      const dataTool = topTools.find(t => t.category === 'Data Analysis');
+  private static deriveToolCombinationsIfNeeded(
+    intent: SearchIntent,
+    topTools: AITool[]
+  ):
+    | {
+        workflowTitle: string;
+        explanation: string;
+        suggestedTools: AITool[];
+      }[]
+    | undefined {
+    if (
+      (intent.domain && intent.domain.length >= 2) ||
+      (intent.tasks.includes('Research') && intent.tasks.includes('Presentation Creation'))
+    ) {
+      const researchTool = topTools.find((t) => t.category === 'Research & RAG');
+      const presTool = topTools.find((t) => t.category === 'Presentation');
+      const dataTool = topTools.find((t) => t.category === 'Data Analysis');
 
       if (researchTool && presTool) {
         return [
           {
             workflowTitle: '2-Tool Multi-Domain Workflow: Research → Presentation',
             explanation: `Use ${researchTool.name} to extract zero-hallucination insights from your documents, then pass the outline to ${presTool.name} to automatically generate your slide deck.`,
-            suggestedTools: [researchTool, presTool]
-          }
+            suggestedTools: [researchTool, presTool],
+          },
         ];
       }
 
@@ -155,8 +189,8 @@ export class ToolMatchingService {
           {
             workflowTitle: '2-Tool Multi-Domain Workflow: Research → Data Analysis',
             explanation: `Use ${researchTool.name} for literature review and ${dataTool.name} to execute sandbox Python scripts and interactive charts.`,
-            suggestedTools: [researchTool, dataTool]
-          }
+            suggestedTools: [researchTool, dataTool],
+          },
         ];
       }
     }
@@ -164,4 +198,3 @@ export class ToolMatchingService {
     return undefined;
   }
 }
-

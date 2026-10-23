@@ -75,15 +75,16 @@ const TEST_CANDIDATE: ToolCandidate = {
       sourceUrl: 'https://www.novai-test-ainova.example.com',
       sourceName: 'Nova AI Official Website',
       title: 'Nova AI — The AI assistant platform',
-      evidenceText: 'Nova AI is a language model tool and AI assistant platform built by TestCorp. Visit our official website for pricing and docs.',
-      credibility: 'HIGH'
-    }
-  ]
+      evidenceText:
+        'Nova AI is a language model tool and AI assistant platform built by TestCorp. Visit our official website for pricing and docs.',
+      credibility: 'HIGH',
+    },
+  ],
 };
 
 const UPDATED_CANDIDATE: ToolCandidate = {
   ...TEST_CANDIDATE,
-  pricing: '$9.99/mo Pro' // Price changed
+  pricing: '$9.99/mo Pro', // Price changed
 };
 
 // ==========================================
@@ -101,14 +102,14 @@ async function runOfflineTests(discoveryService: ToolDiscoveryService): Promise<
     provider: ' TestCorp ',
     websiteUrl: 'https://www.novai-test-ainova.example.com/path/',
     capabilities: [' Language Model ', ''],
-    confidence: 0.9
+    confidence: 0.9,
   });
   assert(
     'T1: Normalization trims name, provider, capabilities',
     normalized.name === 'Nova AI' &&
-    normalized.provider === 'TestCorp' &&
-    normalized.capabilities?.length === 1 &&
-    normalized.capabilities[0] === 'Language Model'
+      normalized.provider === 'TestCorp' &&
+      normalized.capabilities?.length === 1 &&
+      normalized.capabilities[0] === 'Language Model'
   );
   assert(
     'T1b: Normalization strips trailing slash from URL',
@@ -121,10 +122,13 @@ async function runOfflineTests(discoveryService: ToolDiscoveryService): Promise<
     name: 'Nova AI',
     websiteUrl: 'https://www.novai-test-ainova.example.com',
     pricing: 'Free (test)',
-    capabilities: ['Language Model', 'Summarization']
+    capabilities: ['Language Model', 'Summarization'],
   } as any;
 
-  const { hasChanges, changeType } = discoveryService.diffCandidate(UPDATED_CANDIDATE, fakeExisting);
+  const { hasChanges, changeType } = discoveryService.diffCandidate(
+    UPDATED_CANDIDATE,
+    fakeExisting
+  );
   assert('T2: diffCandidate detects pricing change', hasChanges && changeType === 'PRICING_UPDATE');
 
   // T3: diff — no changes on identical candidate
@@ -169,25 +173,43 @@ async function runDbTests(
   // Verify the tool was created as DISCOVERED, NOT active
   const createdTool = await AIToolModel.findOne({ id: 'tool-test-nova' }).lean();
   assert('T6d: Created tool exists in DB', !!createdTool);
-  assert('T6e: Created tool has verificationStatus DISCOVERED', (createdTool as any)?.verificationStatus === 'DISCOVERED');
-  assert('T6f: Created tool is NOT active (requires verification)', (createdTool as any)?.activeStatus === false);
+  assert(
+    'T6e: Created tool has verificationStatus DISCOVERED',
+    (createdTool as any)?.verificationStatus === 'DISCOVERED'
+  );
+  assert(
+    'T6f: Created tool is NOT active (requires verification)',
+    (createdTool as any)?.activeStatus === false
+  );
 
   // ── T7: Evidence Stored ────────────────────────────────────────────
   const evidenceDocs = await ToolEvidenceModel.find({ toolId: 'tool-test-nova' }).lean();
   assert('T7: Evidence document was stored', evidenceDocs.length === 1);
-  assert('T7b: Evidence starts as PENDING', (evidenceDocs[0] as any).verificationStatus === 'PENDING');
-  assert('T7c: Evidence has correct sourceType', (evidenceDocs[0] as any).sourceType === 'OFFICIAL_WEBSITE');
+  assert(
+    'T7b: Evidence starts as PENDING',
+    (evidenceDocs[0] as any).verificationStatus === 'PENDING'
+  );
+  assert(
+    'T7c: Evidence has correct sourceType',
+    (evidenceDocs[0] as any).sourceType === 'OFFICIAL_WEBSITE'
+  );
 
   // ── T8: Version History on New Tool ───────────────────────────────
   const history = await ToolVersionHistoryModel.find({ toolId: 'tool-test-nova' }).lean();
   assert('T8: NEW_TOOL history entry was recorded', history.length >= 1);
-  assert('T8b: History entry changeType is NEW_TOOL', (history[0] as any).changeType === 'NEW_TOOL');
+  assert(
+    'T8b: History entry changeType is NEW_TOOL',
+    (history[0] as any).changeType === 'NEW_TOOL'
+  );
 
   // ── T9: Duplicate Detection (exact slug) ──────────────────────────
   const run2 = await discoveryService.createRun('ADAPTER');
   const result2 = await discoveryService.processCandidates([TEST_CANDIDATE], String(run2._id));
   // Same candidateId, same websiteUrl, same provider+name → should be duplicate
-  assert('T9: Exact duplicate (same candidateId) is not duplicated in DB', result2.duplicateCount === 1);
+  assert(
+    'T9: Exact duplicate (same candidateId) is not duplicated in DB',
+    result2.duplicateCount === 1
+  );
   assert('T9b: No new tools created for duplicate', result2.newToolsCount === 0);
 
   const toolCount = await AIToolModel.countDocuments({ id: 'tool-test-nova' });
@@ -209,7 +231,10 @@ async function runDbTests(
     'T11: Tool with only PENDING evidence stays DISCOVERED or UNVERIFIED',
     verifyResult.status === 'DISCOVERED' || verifyResult.status === 'UNVERIFIED'
   );
-  assert('T11b: Evidence coverage is 0 (no accepted evidence)', verifyResult.evidenceCoverage === 0);
+  assert(
+    'T11b: Evidence coverage is 0 (no accepted evidence)',
+    verifyResult.evidenceCoverage === 0
+  );
 
   // ── T12: Accept Evidence → Tool becomes VERIFIED ──────────────────
   const evidenceDoc = await ToolEvidenceModel.findOne({ toolId: 'tool-test-nova' });
@@ -235,22 +260,27 @@ async function runDbTests(
   assert('T13b: Error is recorded in run', invalidResult.errors.length > 0);
 
   // ── T14: Existing 12 Seeded Tools Are Untouched ───────────────────
-  const seededIds = mockToolCatalog.map(t => t.id);
+  const seededIds = mockToolCatalog.map((t) => t.id);
   const seededTools = await AIToolModel.find({ id: { $in: seededIds } }).lean<any[]>();
   const allSeeded = seededTools.length === seededIds.length;
   assert(`T14: All ${seededIds.length} seeded tools still exist`, allSeeded);
 
-  const allVerifiedSeed = seededTools.every(t =>
-    t.verificationStatus === 'VERIFIED_SEED' || !t.verificationStatus
+  const allVerifiedSeed = seededTools.every(
+    (t) =>
+      !t.verificationStatus ||
+      t.verificationStatus === 'VERIFIED_SEED' ||
+      t.verificationStatus === 'VERIFIED'
   );
   // Note: tools seeded before Phase 2A won't have verificationStatus set yet
   // (schema default is VERIFIED_SEED, so they either have it or default)
   assert(
     'T14b: Seeded tools have VERIFIED_SEED or VERIFIED status (or schema default)',
-    seededTools.every(t => !t.verificationStatus || t.verificationStatus === 'VERIFIED_SEED' || t.verificationStatus === 'VERIFIED')
+    allVerifiedSeed
   );
 
-  const allActive = seededTools.filter(t => t.activeStatus !== undefined).every(t => t.activeStatus !== false);
+  const allActive = seededTools
+    .filter((t) => t.activeStatus !== undefined)
+    .every((t) => t.activeStatus !== false);
   assert('T14c: Seeded tools remain active', allActive || seededTools.length === 0);
 
   // Clean up test data
@@ -259,7 +289,7 @@ async function runDbTests(
   await ToolVersionHistoryModel.deleteMany({ toolId: 'tool-test-nova' });
   await ToolDiscoveryRunModel.deleteMany({
     source: 'ADAPTER',
-    startedAt: { $gte: new Date(Date.now() - 60000) }
+    startedAt: { $gte: new Date(Date.now() - 60000) },
   });
 }
 
@@ -300,14 +330,14 @@ async function main(): Promise<void> {
   console.log(`  RESULTS: ${passed} passed | ${failed} failed`);
   if (errors.length > 0) {
     console.log(`  FAILURES:`);
-    errors.forEach(e => console.log(`    - ${e}`));
+    errors.forEach((e) => console.log(`    - ${e}`));
   }
   console.log('═══════════════════════════════════════════════════════════\n');
 
   if (failed > 0) process.exit(1);
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Test runner crashed:', err);
   process.exit(1);
 });

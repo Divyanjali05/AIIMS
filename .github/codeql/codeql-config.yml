@@ -1,0 +1,29 @@
+# ==============================================================
+# AIIMS CodeQL Scan Configuration
+# ==============================================================
+# Configures targeted paths and query suites for static security
+# analysis across the Backend and Frontend TypeScript/JavaScript code.
+# ==============================================================
+
+name: "AIIMS CodeQL Security Profile"
+
+# Security query suites: includes default security and extended taint/quality rules
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+# Explicitly target active production source code
+paths:
+  - Backend/src
+  - Frontend/src
+
+# Exclude generated output, third-party libraries, and test suites
+# to eliminate false positives from mock tokens and test fixtures
+paths-ignore:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/coverage/**'
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/*.spec.ts'
+  - 'Backend/src/scripts/**'

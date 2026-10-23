@@ -1,4 +1,5 @@
 import { RadarSignal } from '../types';
+import { getApiBaseUrl } from '../api/client';
 
 /**
  * Signal Ingestion Pipeline Architecture:
@@ -18,18 +19,24 @@ export class FallbackStaticIngestionAdapter implements ISignalIngestionAdapter {
         category: 'Tech Shift',
         source: 'ArXiv AI & Tech Release Feed',
         dateTime: 'September 2026',
-        summary: 'LLM providers are shipping native agent loop capabilities, reducing the need for line-by-line user instruction in favor of high-level goal specification.',
+        summary:
+          'LLM providers are shipping native agent loop capabilities, reducing the need for line-by-line user instruction in favor of high-level goal specification.',
         scaffold: {
-          yesterday: 'Single-prompt back-and-forth chat requiring manual step-by-step instructions for every action.',
-          today: 'Goal-based agent execution with dynamic tool calling, autonomous file editing, and automated verification loops.',
-          whatChanged: 'Models execute multi-turn function calls internally before returning a final verified result.',
-          whosAffected: 'Software developers, product managers, and knowledge workers relying on repetitive multi-step workflows.'
+          yesterday:
+            'Single-prompt back-and-forth chat requiring manual step-by-step instructions for every action.',
+          today:
+            'Goal-based agent execution with dynamic tool calling, autonomous file editing, and automated verification loops.',
+          whatChanged:
+            'Models execute multi-turn function calls internally before returning a final verified result.',
+          whosAffected:
+            'Software developers, product managers, and knowledge workers relying on repetitive multi-step workflows.',
         },
         previousState: 'Single-prompt manual execution',
         currentState: 'Autonomous goal delegation & tool calling',
-        relevanceContext: 'Directly impacts your workflow design and agentic task delegation goals.',
+        relevanceContext:
+          'Directly impacts your workflow design and agentic task delegation goals.',
         investigationStatus: 'uninvestigated',
-        isFollowed: true
+        isFollowed: true,
       },
       {
         id: 'sig-2',
@@ -37,18 +44,24 @@ export class FallbackStaticIngestionAdapter implements ISignalIngestionAdapter {
         category: 'Model Release',
         source: 'AI Industry Benchmark Bulletin',
         dateTime: 'September 2026',
-        summary: 'Extremely large context windows combined with local vector RAG enable full repository reasoning without manual chunking.',
+        summary:
+          'Extremely large context windows combined with local vector RAG enable full repository reasoning without manual chunking.',
         scaffold: {
-          yesterday: 'Frequent context loss and manual document truncation to fit 8K-32K token limits.',
-          today: 'Native 2M token context windows with near 100% recall on needle-in-a-haystack benchmarks.',
-          whatChanged: 'Attention mechanisms and sparse retrieval allow instant full-codebase context inclusion.',
-          whosAffected: 'Technical architects and researchers managing large document stores or codebases.'
+          yesterday:
+            'Frequent context loss and manual document truncation to fit 8K-32K token limits.',
+          today:
+            'Native 2M token context windows with near 100% recall on needle-in-a-haystack benchmarks.',
+          whatChanged:
+            'Attention mechanisms and sparse retrieval allow instant full-codebase context inclusion.',
+          whosAffected:
+            'Technical architects and researchers managing large document stores or codebases.',
         },
         previousState: 'Manual chunking and limited prompt context',
         currentState: 'Full-repository zero-loss context reasoning',
-        relevanceContext: 'High relevance for critical evaluation and large document analysis capabilities.',
+        relevanceContext:
+          'High relevance for critical evaluation and large document analysis capabilities.',
         investigationStatus: 'uninvestigated',
-        isFollowed: false
+        isFollowed: false,
       },
       {
         id: 'sig-3',
@@ -56,19 +69,24 @@ export class FallbackStaticIngestionAdapter implements ISignalIngestionAdapter {
         category: 'Role Shift',
         source: 'Enterprise Tech Governance Report',
         dateTime: 'August 2026',
-        summary: 'Organizations are instituting mandatory verification checklists and human-in-the-loop oversight before AI-generated code is deployed.',
+        summary:
+          'Organizations are instituting mandatory verification checklists and human-in-the-loop oversight before AI-generated code is deployed.',
         scaffold: {
-          yesterday: 'Ad-hoc copy-pasting of AI outputs without structured verification or audit logs.',
-          today: 'Formal evaluation protocols requiring human sign-off on security, compliance, and factual accuracy.',
+          yesterday:
+            'Ad-hoc copy-pasting of AI outputs without structured verification or audit logs.',
+          today:
+            'Formal evaluation protocols requiring human sign-off on security, compliance, and factual accuracy.',
           whatChanged: 'Emphasis shifted from prompt generation speed to output evaluation rigor.',
-          whosAffected: 'All AI-assisted professionals responsibility-bound for operational compliance.'
+          whosAffected:
+            'All AI-assisted professionals responsibility-bound for operational compliance.',
         },
         previousState: 'Unverified copy-paste adoption',
         currentState: 'Mandatory human verification and auditability',
-        relevanceContext: 'Essential context for evaluating AI accuracy and maintaining human judgment.',
+        relevanceContext:
+          'Essential context for evaluating AI accuracy and maintaining human judgment.',
         investigationStatus: 'uninvestigated',
-        isFollowed: true
-      }
+        isFollowed: true,
+      },
     ];
   }
 }
@@ -78,7 +96,7 @@ export class ArXivHuggingFaceIngestionAdapter implements ISignalIngestionAdapter
 
   public async fetchLatestSignals(): Promise<RadarSignal[]> {
     try {
-      const response = await fetch('/api/radar/signals', { method: 'GET' });
+      const response = await fetch(`${getApiBaseUrl()}/radar/signals`, { method: 'GET' });
       if (!response.ok) {
         throw new Error(`Ingestion endpoint returned status ${response.status}`);
       }
@@ -97,16 +115,21 @@ export class ArXivHuggingFaceIngestionAdapter implements ISignalIngestionAdapter
         dateTime: item.dateTime || item.date || 'Recent',
         summary: item.summary || item.description || 'Technical development summary unavailable.',
         scaffold: {
-          yesterday: item.scaffold?.yesterday || item.yesterday || 'Legacy approach requiring manual execution.',
+          yesterday:
+            item.scaffold?.yesterday ||
+            item.yesterday ||
+            'Legacy approach requiring manual execution.',
           today: item.scaffold?.today || item.today || 'Modern approach utilizing AI assistance.',
-          whatChanged: item.scaffold?.whatChanged || item.whatChanged || 'Automated capability upgrade.',
-          whosAffected: item.scaffold?.whosAffected || item.whosAffected || 'Technical professionals.'
+          whatChanged:
+            item.scaffold?.whatChanged || item.whatChanged || 'Automated capability upgrade.',
+          whosAffected:
+            item.scaffold?.whosAffected || item.whosAffected || 'Technical professionals.',
         },
         previousState: item.previousState || undefined,
         currentState: item.currentState || undefined,
         relevanceContext: item.relevanceContext || undefined,
         investigationStatus: item.investigationStatus || 'uninvestigated',
-        isFollowed: !!item.isFollowed
+        isFollowed: !!item.isFollowed,
       }));
     } catch (e) {
       console.warn('Signal Ingestion Adapter fallback activated:', e);

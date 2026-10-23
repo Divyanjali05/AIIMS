@@ -1,0 +1,16 @@
+{
+  "Backend/src/**/*.{ts,js}": [
+    "npx --prefix Backend eslint --fix",
+    "npx --prefix Backend prettier --write"
+  ],
+  "Backend/src/**/*.json": [
+    "npx --prefix Backend prettier --write"
+  ],
+  "Frontend/src/**/*.{ts,tsx}": [
+    "npx --prefix Frontend eslint --fix",
+    "npx --prefix Frontend prettier --write"
+  ],
+  "Frontend/src/**/*.{css,json}": [
+    "npx --prefix Frontend prettier --write"
+  ]
+}

@@ -1,10 +1,19 @@
 import { LearnerProfileContext } from './learnerProfileContext';
 import { getMentorObservation } from '../utils/mentorObservation';
 import { LearnerState } from '../context/LearnerContext';
+import { getApiBaseUrl } from '../api/client';
 
 export interface MentorResponse {
   message: string;
-  observationType: 'orientation' | 'observation' | 'clarification' | 'encouragement' | 'connection' | 'investigation' | 'reflection' | 'nextStep';
+  observationType:
+    | 'orientation'
+    | 'observation'
+    | 'clarification'
+    | 'encouragement'
+    | 'connection'
+    | 'investigation'
+    | 'reflection'
+    | 'nextStep';
   relatedStage: string;
   relatedTopic?: string;
   suggestedAction?: {
@@ -29,7 +38,11 @@ export interface MentorTurn {
 }
 
 export interface IMentorProvider {
-  getObservation(context: LearnerProfileContext, rawState: LearnerState, customPrompt?: string): Promise<MentorResponse>;
+  getObservation(
+    context: LearnerProfileContext,
+    rawState: LearnerState,
+    customPrompt?: string
+  ): Promise<MentorResponse>;
 }
 
 /**
@@ -37,7 +50,8 @@ export interface IMentorProvider {
  */
 export const validateMentorResponse = (data: any): boolean => {
   if (!data || typeof data !== 'object') return false;
-  if (!data.message || typeof data.message !== 'string' || data.message.trim().length === 0) return false;
+  if (!data.message || typeof data.message !== 'string' || data.message.trim().length === 0)
+    return false;
   if (data.message.length > 600) return false; // Max response length safeguard
   return true;
 };
@@ -46,7 +60,11 @@ export const validateMentorResponse = (data: any): boolean => {
  * DeterministicMentorProvider — Reliable Local Fallback Engine with Reflective Questions
  */
 export class DeterministicMentorProvider implements IMentorProvider {
-  public async getObservation(context: LearnerProfileContext, rawState: LearnerState, customPrompt?: string): Promise<MentorResponse> {
+  public async getObservation(
+    context: LearnerProfileContext,
+    rawState: LearnerState,
+    customPrompt?: string
+  ): Promise<MentorResponse> {
     const localObs = getMentorObservation(rawState);
     const stage = context.journeyProgress.currentStageName;
 
@@ -70,10 +88,10 @@ export class DeterministicMentorProvider implements IMentorProvider {
         relatedTopic: context.focus.activeFocusTrack || context.assessment.growthArea,
         suggestedAction: {
           text: localObs.primaryCtaText,
-          targetTab: localObs.primaryTabTarget
+          targetTab: localObs.primaryTabTarget,
         },
         questionPrompt,
-        provider: 'deterministic'
+        provider: 'deterministic',
       };
     }
 
@@ -84,10 +102,10 @@ export class DeterministicMentorProvider implements IMentorProvider {
       relatedTopic: context.focus.activeFocusTrack || context.assessment.growthArea,
       suggestedAction: {
         text: localObs.primaryCtaText,
-        targetTab: localObs.primaryTabTarget
+        targetTab: localObs.primaryTabTarget,
       },
       questionPrompt,
-      provider: 'deterministic'
+      provider: 'deterministic',
     };
   }
 }
@@ -96,7 +114,11 @@ export class DeterministicMentorProvider implements IMentorProvider {
  * AIMentorProvider — AI Service Boundary Provider
  */
 export class AIMentorProvider implements IMentorProvider {
-  public async getObservation(context: LearnerProfileContext, _rawState: LearnerState, customPrompt?: string): Promise<MentorResponse> {
+  public async getObservation(
+    context: LearnerProfileContext,
+    _rawState: LearnerState,
+    customPrompt?: string
+  ): Promise<MentorResponse> {
     const payload = {
       role: context.profile.role,
       stage: context.journeyProgress.currentStageName,
@@ -106,13 +128,13 @@ export class AIMentorProvider implements IMentorProvider {
       clarityTopic: context.clarity.selectedTopic,
       hasReflection: !!context.clarity.latestReflection,
       hasInvestigation: context.investigation.isCompleted,
-      customPrompt
+      customPrompt,
     };
 
-    const response = await fetch('/api/ai/mentor', {
+    const response = await fetch(`${getApiBaseUrl()}/ai/mentor`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -131,7 +153,7 @@ export class AIMentorProvider implements IMentorProvider {
       relatedTopic: data.relatedTopic || context.focus.activeFocusTrack || undefined,
       suggestedAction: data.suggestedAction || undefined,
       questionPrompt: data.questionPrompt || undefined,
-      provider: 'ai_service'
+      provider: 'ai_service',
     };
   }
 }
@@ -157,11 +179,19 @@ export class MentorService {
       );
 
       const response = await Promise.race([aiPromise, timeoutPromise]);
-      console.log(`[AIIMS MentorService] Provider: ai_service | Stage: ${context.journeyProgress.currentStageName} | Validated: true`);
+      console.log(
+        `[AIIMS MentorService] Provider: ai_service | Stage: ${context.journeyProgress.currentStageName} | Validated: true`
+      );
       return response;
     } catch (e) {
-      console.warn(`[AIIMS MentorService] Fallback activated: ${(e as Error).message} -> Falling back to DeterministicMentorProvider`);
-      return await MentorService.deterministicProvider.getObservation(context, rawState, customPrompt);
+      console.warn(
+        `[AIIMS MentorService] Fallback activated: ${(e as Error).message} -> Falling back to DeterministicMentorProvider`
+      );
+      return await MentorService.deterministicProvider.getObservation(
+        context,
+        rawState,
+        customPrompt
+      );
     }
   }
 }

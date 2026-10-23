@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { Sparkles, Brain, Cpu, Compass } from 'lucide-react';
 import { WebGLBoundary, isWebGLAvailable } from './WebGLBoundary';
 import { Hero2DFallback } from './Hero2DFallback';
 
@@ -28,7 +27,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
   isDarkMode = false,
   pulseTrigger = 0,
   completedStationIds = [],
-  height = '100%'
+  height = '100%',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isInViewport, setIsInViewport] = useState<boolean>(true);
@@ -99,7 +98,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
         boxShadow: isDarkMode
           ? 'inset 0 0 60px rgba(0, 0, 0, 0.6), 0 12px 30px rgba(0, 0, 0, 0.4)'
           : 'inset 0 0 40px rgba(99, 102, 241, 0.04), 0 8px 24px rgba(99, 102, 241, 0.06)',
-        userSelect: 'none'
+        userSelect: 'none',
       }}
     >
       {/* Ambient Radial Vignette */}
@@ -115,7 +114,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
             ? `radial-gradient(circle at 50% 50%, ${stationThemeColor}18 0%, rgba(10, 14, 28, 0) 75%)`
             : `radial-gradient(circle at 50% 50%, ${stationThemeColor}14 0%, rgba(246, 248, 253, 0) 70%)`,
           pointerEvents: 'none',
-          zIndex: 0
+          zIndex: 0,
         }}
       />
 
@@ -160,7 +159,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
           fontSize: '11px',
           fontWeight: 700,
           color: stationThemeColor,
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       >
         <span
@@ -169,10 +168,12 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
             height: '7px',
             borderRadius: '50%',
             backgroundColor: stationThemeColor,
-            boxShadow: `0 0 8px ${stationThemeColor}`
+            boxShadow: `0 0 8px ${stationThemeColor}`,
           }}
         />
-        <span>Station 0{activeStationId}: {stationName}</span>
+        <span>
+          Station 0{activeStationId}: {stationName}
+        </span>
       </div>
 
       <div
@@ -185,7 +186,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       >
         <div
@@ -197,7 +198,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
             border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(99, 102, 241, 0.18)'}`,
             fontSize: '10.5px',
             fontWeight: 700,
-            color: isDarkMode ? '#cbd5e1' : '#475569'
+            color: isDarkMode ? '#cbd5e1' : '#475569',
           }}
         >
           {domainTitle} Calibration Active
@@ -212,7 +213,7 @@ export const Assessment3DVisual: React.FC<Assessment3DVisualProps> = ({
             border: `1px solid ${isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(99, 102, 241, 0.18)'}`,
             fontSize: '10.5px',
             fontWeight: 800,
-            color: isDarkMode ? '#6ee7b7' : '#059669'
+            color: isDarkMode ? '#6ee7b7' : '#059669',
           }}
         >
           {answeredCount}/25 Calibrated

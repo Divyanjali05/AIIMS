@@ -1,4 +1,3 @@
-import { AITool, ToolLifecycleStatus, VerificationStatus } from '../../types';
 import { ToolCatalogService } from './toolCatalog.service';
 import { ToolIntelligenceService } from './toolIntelligence.service';
 
@@ -25,8 +24,8 @@ export class ToolDiscoveryService {
     sourceLogs: [
       { source: 'Anthropic Technical Bulletins', status: 'SUCCESS', count: 1 },
       { source: 'GitHub Public AI Releases', status: 'SUCCESS', count: 1 },
-      { source: 'HuggingFace & AI Directory Aggregators', status: 'SUCCESS', count: 1 }
-    ]
+      { source: 'HuggingFace & AI Directory Aggregators', status: 'SUCCESS', count: 1 },
+    ],
   };
 
   private static isJobRunning = false;
@@ -44,17 +43,24 @@ export class ToolDiscoveryService {
     this.schedulerInitialized = true;
 
     console.log('[ToolDiscovery] Initializing daily AI tool discovery scheduler...');
-    
+
     // Initial run after server startup (5s delay)
     setTimeout(() => {
-      this.runDiscoveryJob().catch(err => console.error('[ToolDiscovery] Startup job error:', err.message));
+      this.runDiscoveryJob().catch((err) =>
+        console.error('[ToolDiscovery] Startup job error:', err.message)
+      );
     }, 5000);
 
     // Schedule 24-hour periodic worker (86,400,000 ms)
-    setInterval(() => {
-      console.log('[ToolDiscovery] Running scheduled 24-hour AI tool discovery worker...');
-      this.runDiscoveryJob().catch(err => console.error('[ToolDiscovery] Scheduled job error:', err.message));
-    }, 24 * 60 * 60 * 1000);
+    setInterval(
+      () => {
+        console.log('[ToolDiscovery] Running scheduled 24-hour AI tool discovery worker...');
+        this.runDiscoveryJob().catch((err) =>
+          console.error('[ToolDiscovery] Scheduled job error:', err.message)
+        );
+      },
+      24 * 60 * 60 * 1000
+    );
   }
 
   /**
@@ -77,8 +83,8 @@ export class ToolDiscoveryService {
         sourceLogs: [
           { source: 'Anthropic Technical Bulletins', status: 'SUCCESS', count: 1 },
           { source: 'GitHub Public AI Releases', status: 'SUCCESS', count: 1 },
-          { source: 'HuggingFace & AI Directory Aggregators', status: 'SUCCESS', count: 1 }
-        ]
+          { source: 'HuggingFace & AI Directory Aggregators', status: 'SUCCESS', count: 1 },
+        ],
       };
     } catch (err: any) {
       this.discoveryLog.status = 'FAILED';

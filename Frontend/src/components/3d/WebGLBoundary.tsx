@@ -7,7 +7,7 @@ export const isWebGLAvailable = (): boolean => {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     return Boolean(gl && gl instanceof WebGLRenderingContext);
-  } catch (e) {
+  } catch {
     return false;
   }
 };
@@ -31,7 +31,7 @@ export class WebGLBoundary extends Component<WebGLBoundaryProps, WebGLBoundarySt
     this.state = {
       hasError: false,
       contextLost: false,
-      webGLSupported: isWebGLAvailable()
+      webGLSupported: isWebGLAvailable(),
     };
   }
 
@@ -40,7 +40,11 @@ export class WebGLBoundary extends Component<WebGLBoundaryProps, WebGLBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.warn('WebGLBoundary caught 3D scene error, switching to graceful 2D fallback:', error, errorInfo);
+    console.warn(
+      'WebGLBoundary caught 3D scene error, switching to graceful 2D fallback:',
+      error,
+      errorInfo
+    );
   }
 
   componentDidMount() {

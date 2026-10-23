@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, AlertCircle, CheckCircle, ArrowLeft, Sun, Moon } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, Sun, Moon, Loader2 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
@@ -13,16 +13,17 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode }) => {
   const { login } = useLearner();
-  const { theme, isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode, toggleTheme } = useTheme();
 
   // Determine view based on URL pathname or prop
-  const getModeFromPath = (): 'home' | 'login' | 'register' => {
+  const getModeFromPath = useCallback((): 'home' | 'login' | 'register' => {
     const path = window.location.pathname.toLowerCase();
     if (path === '/register') return 'register';
     if (path === '/login') return 'login';
-    if (path === '/' || path === '/index.html' || path === '/hero' || path === '/preview-hero') return 'home';
+    if (path === '/' || path === '/index.html' || path === '/hero' || path === '/preview-hero')
+      return 'home';
     return initialMode || 'home';
-  };
+  }, [initialMode]);
 
   const [mode, setMode] = useState<'home' | 'login' | 'register'>(getModeFromPath);
 
@@ -30,9 +31,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   const navigateTo = (newMode: 'home' | 'login' | 'register') => {
     setMode(newMode);
     setErrorMessage('');
-    setSuccessMessage('');
     const currentPath = window.location.pathname.toLowerCase();
-    const targetPath = newMode === 'home' ? (currentPath === '/hero' || currentPath === '/preview-hero' ? currentPath : '/') : `/${newMode}`;
+    const targetPath =
+      newMode === 'home'
+        ? currentPath === '/hero' || currentPath === '/preview-hero'
+          ? currentPath
+          : '/'
+        : `/${newMode}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState(null, '', targetPath);
     }
@@ -42,11 +47,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     const handlePopState = () => {
       setMode(getModeFromPath());
       setErrorMessage('');
-      setSuccessMessage('');
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [initialMode]);
+  }, [getModeFromPath]);
 
   // Form Fields State (login only — register is handled by RegisterScreen)
   const [email, setEmail] = useState('');
@@ -56,13 +60,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Handle Login Submit
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
-    setSuccessMessage('');
 
     const cleanEmail = email.trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -82,7 +84,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       } else {
         setErrorMessage(res.error || 'Email or password is incorrect.');
       }
-    } catch (err) {
+    } catch {
       setErrorMessage("We couldn't sign you in right now. Please try again.");
     } finally {
       setIsLoading(false);
@@ -128,7 +130,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         padding: '32px 16px',
         boxSizing: 'border-box',
         overflowX: 'hidden',
-        position: 'relative'
+        position: 'relative',
       }}
     >
       {/* Logged-out Theme Toggle */}
@@ -153,7 +155,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
           color: isDarkMode ? '#fbbf24' : '#4f46e5',
           boxShadow: 'var(--aiims-shadow-card, 0 2px 8px rgba(0,0,0,0.06))',
           transition: 'all 0.2s ease',
-          zIndex: 50
+          zIndex: 50,
         }}
       >
         {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -169,6 +171,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         @keyframes ainovaFadeIn {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes aiimsSpin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         .aiims-btn-primary, .ainova-btn-primary {
@@ -248,188 +254,242 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
           width: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center'
+          alignItems: 'center',
         }}
       >
-          {/* Top Brand Logo & Back to Home */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', gap: '8px' }}>
-            <AiimsLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
-            <button
-              type="button"
-              onClick={() => navigateTo('home')}
+        {/* Top Brand Logo & Back to Home */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            marginBottom: '20px',
+            gap: '8px',
+          }}
+        >
+          <AiimsLogo size="lg" showWordmark={true} onClick={() => navigateTo('home')} />
+          <button
+            type="button"
+            onClick={() => navigateTo('home')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'none',
+              border: 'none',
+              color: 'var(--aiims-text-secondary, #64748B)',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '8px',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.color = 'var(--aiims-text-secondary, #64748B)')
+            }
+          >
+            <ArrowLeft size={13} /> Back to 3D Space
+          </button>
+        </div>
+
+        {/* Card Container */}
+        <div
+          style={{
+            width: '100%',
+            backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+            borderRadius: '20px',
+            border: '1px solid var(--aiims-border-card, #E2E8F0)',
+            padding: '36px 32px',
+            boxShadow: 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0, 0, 0, 0.06))',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <h2
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--aiims-text-secondary, #64748B)',
-                fontSize: '12.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: '4px 8px',
-                borderRadius: '8px',
-                transition: 'all 0.15s ease'
+                fontSize: '24px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading, #0F172A)',
+                letterSpacing: '-0.5px',
+                margin: '0 0 6px 0',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#5B4BFF')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--aiims-text-secondary, #64748B)')}
             >
-              <ArrowLeft size={13} /> Back to 3D Space
-            </button>
+              Welcome back
+            </h2>
+            <p
+              style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}
+            >
+              Sign in to continue your AI journey.
+            </p>
           </div>
 
-          {/* Card Container */}
-          <div
-            style={{
-              width: '100%',
-              backgroundColor: 'var(--aiims-bg-card, #ffffff)',
-              borderRadius: '20px',
-              border: '1px solid var(--aiims-border-card, #E2E8F0)',
-              padding: '36px 32px',
-              boxShadow: 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0, 0, 0, 0.06))',
-              boxSizing: 'border-box'
-            }}
-          >
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <h2
+          {/* Error Notification */}
+          {errorMessage && (
+            <div
+              style={{
+                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
+                color: isDarkMode ? '#FCA5A5' : '#991B1B',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 600,
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+              }}
+            >
+              <AlertCircle
                 style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading, #0F172A)',
-                  letterSpacing: '-0.5px',
-                  margin: '0 0 6px 0'
+                  width: '16px',
+                  height: '16px',
+                  flexShrink: 0,
+                  color: isDarkMode ? '#EF4444' : '#DC2626',
+                }}
+              />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          <form
+            onSubmit={handleLoginSubmit}
+            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+          >
+            {/* Email */}
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: 650,
+                  color: 'var(--aiims-text-secondary, #334155)',
+                  marginBottom: '6px',
                 }}
               >
-                Welcome back
-              </h2>
-              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
-                Sign in to continue your AI journey.
-              </p>
+                Email
+              </label>
+              <input
+                type="email"
+                className="aiims-input"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
+              />
             </div>
 
-            {/* Error Notification */}
-            {errorMessage && (
-              <div
+            {/* Password */}
+            <div>
+              <label
                 style={{
-                  backgroundColor: '#FEF2F2',
-                  border: '1px solid #FCA5A5',
-                  color: '#991B1B',
-                  padding: '12px 14px',
-                  borderRadius: '10px',
+                  display: 'block',
                   fontSize: '13px',
-                  fontWeight: 600,
-                  marginBottom: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px'
+                  fontWeight: 650,
+                  color: 'var(--aiims-text-secondary, #334155)',
+                  marginBottom: '6px',
                 }}
               >
-                <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0, color: '#DC2626' }} />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleLoginSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Email */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: 'var(--aiims-text-secondary, #334155)', marginBottom: '6px' }}>
-                  Email
-                </label>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
                 <input
-                  type="email"
+                  type={showPassword ? 'text' : 'password'}
                   className="aiims-input"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--aiims-text-muted, #64748B)',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                  }}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
+            </div>
 
-              {/* Password */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 650, color: 'var(--aiims-text-secondary, #334155)', marginBottom: '6px' }}>
-                  Password
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    className="aiims-input"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--aiims-text-muted, #64748B)',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Primary Action Button */}
-              <button
-                type="submit"
-                className="aiims-btn-primary"
-                disabled={isLoading}
-                style={{
-                  width: '100%',
-                  padding: '13px',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: 700,
-                  marginTop: '8px'
-                }}
-              >
-                {isLoading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-
-            {/* Secondary Navigation */}
-            <div
+            {/* Primary Action Button */}
+            <button
+              type="submit"
+              className="aiims-btn-primary"
+              disabled={isLoading}
               style={{
-                marginTop: '24px',
-                textAlign: 'center',
+                width: '100%',
+                padding: '13px',
+                borderRadius: '10px',
                 fontSize: '14px',
-                color: 'var(--aiims-text-secondary, #64748B)'
+                fontWeight: 700,
+                marginTop: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
               }}
             >
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => navigateTo('register')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#5B4BFF',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  padding: 0,
-                  fontSize: 'inherit',
-                  fontFamily: 'inherit'
-                }}
-              >
-                Register
-              </button>
-            </div>
+              {isLoading ? (
+                <>
+                  <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
+                  Signing in...
+                </>
+              ) : (
+                'Sign In'
+              )}
+            </button>
+          </form>
+
+          {/* Secondary Navigation */}
+          <div
+            style={{
+              marginTop: '24px',
+              textAlign: 'center',
+              fontSize: '14px',
+              color: 'var(--aiims-text-secondary, #64748B)',
+            }}
+          >
+            Don't have an account?{' '}
+            <button
+              type="button"
+              onClick={() => navigateTo('register')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#5B4BFF',
+                fontWeight: 700,
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: 'inherit',
+                fontFamily: 'inherit',
+              }}
+            >
+              Register
+            </button>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 export default LoginScreen;

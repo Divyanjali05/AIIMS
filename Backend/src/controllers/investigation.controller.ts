@@ -7,7 +7,7 @@ import {
   mockFocusAreas,
   mockRadarSignals,
   mockCapabilityGaps,
-  mockTransactions
+  mockTransactions,
 } from '../models/aiims.models';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { CREDIT_RULES } from '../config/credits.config';
@@ -28,7 +28,7 @@ export const getFocusAreas = (req: Request, res: Response) => {
  */
 export const overrideFocus = (req: Request, res: Response) => {
   const { focusId, mentorOverride } = req.body;
-  const focus = mockFocusAreas.find(f => f.id === focusId);
+  const focus = mockFocusAreas.find((f) => f.id === focusId);
   if (focus) {
     focus.mentorOverride = mentorOverride;
   }
@@ -47,7 +47,7 @@ export const getRadarSignals = (req: Request, res: Response) => {
  */
 export const toggleFollowSignal = (req: Request, res: Response) => {
   const { signalId } = req.body;
-  const signal = mockRadarSignals.find(s => s.id === signalId);
+  const signal = mockRadarSignals.find((s) => s.id === signalId);
   if (signal) {
     signal.isFollowed = !signal.isFollowed;
   }
@@ -70,18 +70,18 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
       const updatedUser = await User.findOneAndUpdate(
         {
           _id: req.user._id,
-          'radar.investigatedSignalIds': { $ne: signalId }
+          'radar.investigatedSignalIds': { $ne: signalId },
         },
         {
           $inc: { xpPoints: xpReward },
           $push: {
-            'radar.investigatedSignalIds': signalId
+            'radar.investigatedSignalIds': signalId,
           },
           $set: {
             [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
             'investigation.selectedSignalId': signalId,
-            'investigation.status': 'completed'
-          }
+            'investigation.status': 'completed',
+          },
         },
         { returnDocument: 'after' }
       );
@@ -97,7 +97,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
           source: 'RADAR',
           sourceId: signalId,
-          idempotencyKey: `investigation::${userId}::${signalId}`
+          idempotencyKey: `investigation::${userId}::${signalId}`,
         });
 
         const latestUser = await User.findById(req.user._id);
@@ -110,7 +110,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           personalInterpretation,
           creditsEarned: reward,
           awarded: true,
-          newBalance: newBal
+          newBalance: newBal,
         });
       } else {
         await User.updateOne(
@@ -119,8 +119,8 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
             $set: {
               [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
               'investigation.selectedSignalId': signalId,
-              'investigation.status': 'completed'
-            }
+              'investigation.status': 'completed',
+            },
           }
         );
         const latestUser = await User.findById(req.user._id);
@@ -130,7 +130,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           personalInterpretation,
           creditsEarned: 0,
           awarded: false,
-          newBalance: currentBal
+          newBalance: currentBal,
         });
       }
     }
@@ -142,25 +142,27 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
       const userId = String(req.user._id || req.user.id);
       const actionKey = `investigation::${userId}::${signalId}`;
 
-      const ledgerResult = await creditsLedgerService.executeTransaction({
-        userId,
-        type: 'EARN',
-        category: 'REWARD',
-        amount: reward,
-        reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
-        source: 'RADAR',
-        sourceId: signalId,
-        idempotencyKey: actionKey
-      }).catch((e) => {
-        console.warn('[Investigation] Ledger offline write notice:', e.message);
-        return null;
-      });
+      const ledgerResult = await creditsLedgerService
+        .executeTransaction({
+          userId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: reward,
+          reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
+          source: 'RADAR',
+          sourceId: signalId,
+          idempotencyKey: actionKey,
+        })
+        .catch((e) => {
+          console.warn('[Investigation] Ledger offline write notice:', e.message);
+          return null;
+        });
 
       if (ledgerResult && ledgerResult.duplicate) {
         creditsEarned = 0;
       } else {
         const previousBalance = req.user.aiimsCredits || 0;
-        req.user.aiimsCredits = ledgerResult?.newBalance ?? (previousBalance + reward);
+        req.user.aiimsCredits = ledgerResult?.newBalance ?? previousBalance + reward;
         req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
         creditsEarned = reward;
 
@@ -179,7 +181,7 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           description: `Investigated Signal: ${signalId} (+${reward} AC)`,
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
           previousBalance,
-          newBalance: req.user.aiimsCredits
+          newBalance: req.user.aiimsCredits,
         };
 
         req.user.transactions = req.user.transactions || [];
@@ -207,15 +209,17 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
     req.user.investigation.userNotes[signalId] = personalInterpretation;
 
     return res.json({
-      message: alreadyInvestigated ? 'Investigation notes updated (credits already claimed).' : `Investigation recorded. ${reward} AIIMS Credits earned!`,
+      message: alreadyInvestigated
+        ? 'Investigation notes updated (credits already claimed).'
+        : `Investigation recorded. ${reward} AIIMS Credits earned!`,
       personalInterpretation,
       creditsEarned,
       awarded: !alreadyInvestigated,
-      newBalance: req.user.aiimsCredits
+      newBalance: req.user.aiimsCredits,
     });
   }
 
-  const alreadyInvestigatedMock = mockRadarSignals.some(s => s.id === signalId && s.isFollowed);
+  const alreadyInvestigatedMock = mockRadarSignals.some((s) => s.id === signalId && s.isFollowed);
   if (!alreadyInvestigatedMock) {
     mockUser.aiimsCredits += reward;
     mockUser.xpPoints += xpReward;
@@ -225,17 +229,19 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
       sourceId: signalId,
       amount: reward,
       description: `Investigated Signal ${signalId} (+${reward} AC)`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
     };
     mockTransactions.unshift(tx as any);
   }
 
   res.json({
-    message: alreadyInvestigatedMock ? 'Investigation notes updated (credits already claimed).' : `Investigation recorded. ${reward} AIIMS Credits earned!`,
+    message: alreadyInvestigatedMock
+      ? 'Investigation notes updated (credits already claimed).'
+      : `Investigation recorded. ${reward} AIIMS Credits earned!`,
     personalInterpretation,
     creditsEarned: alreadyInvestigatedMock ? 0 : reward,
     awarded: !alreadyInvestigatedMock,
-    newBalance: mockUser.aiimsCredits
+    newBalance: mockUser.aiimsCredits,
   });
 };
 
@@ -244,8 +250,8 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
  */
 export const generateRelevance = async (req: AuthenticatedRequest, res: Response) => {
   const { signalId } = req.body;
-  const signal = mockRadarSignals.find(s => s.id === signalId) || mockRadarSignals[0];
-  const gapSummary = mockCapabilityGaps.map(g => g.capabilityArea).join(', ');
+  const signal = mockRadarSignals.find((s) => s.id === signalId) || mockRadarSignals[0];
+  const gapSummary = mockCapabilityGaps.map((g) => g.capabilityArea).join(', ');
 
   const studentRole = req.user?.role || mockUser.role;
   const studentGoal = req.user?.targetGoal || mockUser.targetGoal;
@@ -265,13 +271,13 @@ export const generateRelevance = async (req: AuthenticatedRequest, res: Response
  * POST /ai/mentor
  */
 export const getMentorAdvice = async (req: AuthenticatedRequest, res: Response) => {
-  const { role, stage, topCapability, growthArea, activeFocus, clarityTopic, hasReflection, hasInvestigation } = req.body;
+  const { role, stage, growthArea, activeFocus, hasInvestigation } = req.body;
 
   const studentRole = role || req.user?.role || 'Student / AI Learner';
   const studentCollege = req.user?.college || 'your college';
 
   let message = `Hello! As an AI learner at ${studentCollege}, I noticed you are focused on ${activeFocus || growthArea || 'mastering AI capability'}. Continuing your active track will strengthen your practical engineering instincts.`;
-  
+
   if (!stage || stage === 'Knowing') {
     message = `Welcome to AIIMS! Your AI journey at ${studentCollege} starts with establishing your baseline capability profile. Completing the diagnostic provides a verifiable radar of your strengths and growth areas.`;
   } else if (hasInvestigation) {
@@ -287,8 +293,8 @@ export const getMentorAdvice = async (req: AuthenticatedRequest, res: Response) 
     relatedTopic: activeFocus || growthArea,
     suggestedAction: {
       text: activeFocus ? 'Explore AI Radar' : 'Start Assessment',
-      targetTab: activeFocus ? 'radar' : 'assessment'
+      targetTab: activeFocus ? 'radar' : 'assessment',
     },
-    provider: 'ai_service'
+    provider: 'ai_service',
   });
 };

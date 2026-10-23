@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
-import { CreditLedger } from '../models/CreditLedger.model';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 
 const API_BASE = `http://localhost:${config.port}/api`;
@@ -57,8 +55,8 @@ async function run() {
       specializationName: 'AI & ML',
       yearOfStudy: 2,
       admissionYear: 2024,
-      expectedGraduationYear: 2028
-    })
+      expectedGraduationYear: 2028,
+    }),
   });
 
   const regDataA = await regResA.json();
@@ -71,7 +69,7 @@ async function run() {
   const userIdA = userA.id || userA._id;
   const authHeadersA = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${tokenA}`
+    Authorization: `Bearer ${tokenA}`,
   };
 
   // 3. Register Learner B (for cross-user isolation tests)
@@ -92,14 +90,14 @@ async function run() {
       specializationName: 'Finance',
       yearOfStudy: 1,
       admissionYear: 2025,
-      expectedGraduationYear: 2028
-    })
+      expectedGraduationYear: 2028,
+    }),
   });
   const regDataB = await regResB.json();
   const tokenB = regDataB.token;
   const authHeadersB = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${tokenB}`
+    Authorization: `Bearer ${tokenB}`,
   };
 
   console.log(`👤 Created Learner A (${emailA}) and Learner B (${emailB})\n`);
@@ -108,21 +106,19 @@ async function run() {
   const unauthInvest = await fetch(`${API_BASE}/credits/invest`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: 20 })
+    body: JSON.stringify({ amount: 20 }),
   });
   const unauthAward = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ levelId: 1 })
+    body: JSON.stringify({ levelId: 1 }),
   });
   const unauthLedger = await fetch(`${API_BASE}/credits/ledger`, {
-    method: 'GET'
+    method: 'GET',
   });
 
   const test1Pass =
-    unauthInvest.status === 401 &&
-    unauthAward.status === 401 &&
-    unauthLedger.status === 401;
+    unauthInvest.status === 401 && unauthAward.status === 401 && unauthLedger.status === 401;
 
   record(
     1,
@@ -132,10 +128,8 @@ async function run() {
   );
 
   // ── TEST 2: Learner isolation — Learner B cannot read or tamper with Learner A ledger ──
-  const ledgerARes = await fetch(`${API_BASE}/credits/ledger`, { headers: authHeadersA });
-  const ledgerAData = await ledgerARes.json();
-  const ledgerBRes = await fetch(`${API_BASE}/credits/ledger`, { headers: authHeadersB });
-  const ledgerBData = await ledgerBRes.json();
+  await fetch(`${API_BASE}/credits/ledger`, { headers: authHeadersA });
+  await fetch(`${API_BASE}/credits/ledger`, { headers: authHeadersB });
 
   // Any attempt to pass another user's id in body must be ignored
   const crossUserSpend = await fetch(`${API_BASE}/credits/invest`, {
@@ -144,8 +138,8 @@ async function run() {
     body: JSON.stringify({
       amount: 15,
       userId: userIdA, // Malicious override attempt: Learner B tries to spend Learner A credits
-      description: 'Cross-user spend attempt'
-    })
+      description: 'Cross-user spend attempt',
+    }),
   });
   const crossUserData = await crossUserSpend.json();
 
@@ -154,7 +148,7 @@ async function run() {
 
   const test2Pass =
     balanceAData.balance === 100 && // Learner A balance untouched!
-    crossUserData.balance === 85;   // Deducted from Learner B, NOT Learner A
+    crossUserData.balance === 85; // Deducted from Learner B, NOT Learner A
 
   record(
     2,
@@ -172,19 +166,20 @@ async function run() {
         profile: {
           name: 'Tamper Tester',
           aiimsCredits: 999999,
-          xpPoints: 888888
+          xpPoints: 888888,
         },
         credits: {
-          balance: 999999
-        }
-      }
-    })
+          balance: 999999,
+        },
+      },
+    }),
   });
   const tamperData = await tamperRes.json();
   const freshBalA = await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA });
   const freshBalAData = await freshBalA.json();
 
-  const test3Pass = freshBalAData.balance === 100 && tamperData.state?.profile?.aiimsCredits === 100;
+  const test3Pass =
+    freshBalAData.balance === 100 && tamperData.state?.profile?.aiimsCredits === 100;
   record(
     3,
     'Client Balance Tamper Resistance',
@@ -198,16 +193,14 @@ async function run() {
     headers: authHeadersA,
     body: JSON.stringify({
       amount: 500, // Available is 100
-      description: 'Overdraft test'
-    })
+      description: 'Overdraft test',
+    }),
   });
-  const overdraftData = await overdraftRes.json();
+  await overdraftRes.json();
   const postOverdraftBal = await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA });
   const postOverdraftBalData = await postOverdraftBal.json();
 
-  const test4Pass =
-    overdraftRes.status === 400 &&
-    postOverdraftBalData.balance === 100;
+  const test4Pass = overdraftRes.status === 400 && postOverdraftBalData.balance === 100;
 
   record(
     4,
@@ -225,8 +218,8 @@ async function run() {
       headers: authHeadersA,
       body: JSON.stringify({
         amount: 20,
-        description: `Concurrent spend request #${idx + 1}`
-      })
+        description: `Concurrent spend request #${idx + 1}`,
+      }),
     })
   );
 
@@ -237,10 +230,7 @@ async function run() {
   const postConcurrentBal = await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA });
   const postConcurrentBalData = await postConcurrentBal.json();
 
-  const test5Pass =
-    successCount === 5 &&
-    failureCount === 5 &&
-    postConcurrentBalData.balance === 0;
+  const test5Pass = successCount === 5 && failureCount === 5 && postConcurrentBalData.balance === 0;
 
   record(
     5,
@@ -254,7 +244,7 @@ async function run() {
   await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: authHeadersA,
-    body: JSON.stringify({ levelId: 1 })
+    body: JSON.stringify({ levelId: 1 }),
   });
 
   const sharedKey = `idemp-key-${Date.now()}`;
@@ -264,10 +254,10 @@ async function run() {
     body: JSON.stringify({
       amount: 5,
       description: 'Idempotency test operation',
-      idempotencyKey: sharedKey
-    })
+      idempotencyKey: sharedKey,
+    }),
   });
-  const firstData = await firstCharge.json();
+  await firstCharge.json();
 
   const secondCharge = await fetch(`${API_BASE}/credits/invest`, {
     method: 'POST',
@@ -275,8 +265,8 @@ async function run() {
     body: JSON.stringify({
       amount: 5,
       description: 'Idempotency test operation',
-      idempotencyKey: sharedKey
-    })
+      idempotencyKey: sharedKey,
+    }),
   });
   const secondData = await secondCharge.json();
 
@@ -303,8 +293,8 @@ async function run() {
     body: JSON.stringify({
       amount: 15, // Conflicting amount!
       description: 'Different operation attempting to reuse key',
-      idempotencyKey: sharedKey
-    })
+      idempotencyKey: sharedKey,
+    }),
   });
 
   const test7Pass = conflictRes.status === 409;
@@ -323,7 +313,7 @@ async function run() {
     type: 'EARN',
     amount: 50,
     reason: 'Test funding for AI task execution',
-    source: 'TEST'
+    source: 'TEST',
   });
 
   const balBeforeTask = await creditsLedgerService.getBalance(unitUserId);
@@ -336,15 +326,17 @@ async function run() {
       cost: 10,
       taskTitle: 'Failing AI Task',
       source: 'CLARITY',
-      taskFn: async (opId: string) => {
+      taskFn: async (_opId: string) => {
         // Balance must be deducted BEFORE this provider function runs
         const balDuringExecution = await creditsLedgerService.getBalance(unitUserId);
         if (balDuringExecution !== balBeforeTask - 10) {
-          throw new Error(`Deduction did not occur before provider execution! Bal: ${balDuringExecution}`);
+          throw new Error(
+            `Deduction did not occur before provider execution! Bal: ${balDuringExecution}`
+          );
         }
         // Simulate provider crash
         throw new Error('Anthropic API connection timeout / 503 Service Unavailable');
-      }
+      },
     });
   } catch (err: any) {
     refundCaught = true;
@@ -375,15 +367,14 @@ async function run() {
     cost: 10,
     taskTitle: 'Successful AI Task',
     source: 'CLARITY',
-    taskFn: async (opId: string) => {
+    taskFn: async (_opId: string) => {
       return { output: 'Successful AI response generated', model: 'Claude 3.5' };
-    }
+    },
   });
 
   const balAfterSuccess = await creditsLedgerService.getBalance(unitUserId);
   const test9Pass =
-    successTaskResult.result.output.length > 0 &&
-    balAfterSuccess === balBeforeSuccess - 10;
+    successTaskResult.result.output.length > 0 && balAfterSuccess === balBeforeSuccess - 10;
 
   record(
     9,
@@ -397,7 +388,7 @@ async function run() {
   const level1Dup = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: authHeadersA,
-    body: JSON.stringify({ levelId: 1 }) // Already awarded earlier
+    body: JSON.stringify({ levelId: 1 }), // Already awarded earlier
   });
   const level1DupData = await level1Dup.json();
 
@@ -406,19 +397,19 @@ async function run() {
     topic: 'Checking AI',
     difficulty: 'easy',
     taskId: 'prompt-test-01',
-    score: 85
+    score: 85,
   };
   const task1First = await fetch(`${API_BASE}/clarity/save-task-score`, {
     method: 'POST',
     headers: authHeadersA,
-    body: JSON.stringify(taskRewardPayload)
+    body: JSON.stringify(taskRewardPayload),
   });
   const task1FirstData = await task1First.json();
 
   const task1Repeat = await fetch(`${API_BASE}/clarity/save-task-score`, {
     method: 'POST',
     headers: authHeadersA,
-    body: JSON.stringify(taskRewardPayload)
+    body: JSON.stringify(taskRewardPayload),
   });
   const task1RepeatData = await task1Repeat.json();
 
@@ -436,7 +427,7 @@ async function run() {
 
   // ── TEST 11: Transaction Ledger Integrity & Balance Reconciliation ──
   const reconcileRes = await fetch(`${API_BASE}/credits/reconcile`, {
-    headers: authHeadersA
+    headers: authHeadersA,
   });
   const reconcileData = await reconcileRes.json();
 
@@ -474,28 +465,34 @@ async function run() {
 
   // ── TEST 13: Signal Investigation & Non-ObjectId Edge Case Resilience ──
   // Test Signal Investigation single-grant
-  const balBeforeInv = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+  const balBeforeInv = (
+    await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()
+  ).balance;
   const invRes1 = await fetch(`${API_BASE}/investigations/submit`, {
     method: 'POST',
     headers: authHeadersA,
     body: JSON.stringify({
       signalId: 'sig-ledger-test-01',
-      personalInterpretation: 'Testing single-grant ledger accounting.'
-    })
+      personalInterpretation: 'Testing single-grant ledger accounting.',
+    }),
   });
   const invData1 = await invRes1.json();
-  const balAfterInv1 = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+  const balAfterInv1 = (
+    await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()
+  ).balance;
 
   const invRes2 = await fetch(`${API_BASE}/investigations/submit`, {
     method: 'POST',
     headers: authHeadersA,
     body: JSON.stringify({
       signalId: 'sig-ledger-test-01',
-      personalInterpretation: 'Testing duplicate single-grant ledger accounting.'
-    })
+      personalInterpretation: 'Testing duplicate single-grant ledger accounting.',
+    }),
   });
   const invData2 = await invRes2.json();
-  const balAfterInv2 = (await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()).balance;
+  const balAfterInv2 = (
+    await (await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA })).json()
+  ).balance;
 
   // Test Non-ObjectId and empty user resilience
   const emptyUserRes = await creditsLedgerService.executeTransaction({
@@ -503,7 +500,7 @@ async function run() {
     type: 'SPEND',
     amount: 10,
     reason: 'Empty user test',
-    source: 'TEST'
+    source: 'TEST',
   });
   const nonObjBal = await creditsLedgerService.getBalance('non-existent-learner-id');
   const nonObjRecon = await creditsLedgerService.reconcileBalance('non-existent-learner-id');

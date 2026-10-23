@@ -9,10 +9,8 @@ import {
   Wallet,
   Lock,
   CheckCircle2,
-  Clock,
   ArrowRight,
   Sparkles,
-  Info
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -49,7 +47,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 35,
     color: '#8B5CF6',
     glow: 'rgba(139, 92, 246, 0.45)',
-    gated: false
+    gated: false,
   },
   {
     id: 'lab',
@@ -62,7 +60,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 22,
     color: '#06B6D4',
     glow: 'rgba(6, 182, 212, 0.45)',
-    gated: false
+    gated: false,
   },
   {
     id: 'toolkit',
@@ -75,7 +73,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 32,
     color: '#10B981',
     glow: 'rgba(16, 185, 129, 0.45)',
-    gated: false
+    gated: false,
   },
   {
     id: 'orbit',
@@ -88,7 +86,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 78,
     color: '#38BDF8',
     glow: 'rgba(56, 189, 248, 0.45)',
-    gated: true
+    gated: true,
   },
   {
     id: 'solver',
@@ -101,7 +99,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 72,
     color: '#F59E0B',
     glow: 'rgba(245, 158, 11, 0.45)',
-    gated: true
+    gated: true,
   },
   {
     id: 'creation',
@@ -114,7 +112,7 @@ const DESTINATIONS: DestinationNode[] = [
     y: 78,
     color: '#EC4899',
     glow: 'rgba(236, 72, 153, 0.45)',
-    gated: true
+    gated: true,
   },
   {
     id: 'mentor',
@@ -127,11 +125,14 @@ const DESTINATIONS: DestinationNode[] = [
     y: 48,
     color: '#A855F7',
     glow: 'rgba(168, 85, 247, 0.55)',
-    gated: true
-  }
+    gated: true,
+  },
 ];
 
-export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setActiveTab, forceDark }) => {
+export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
+  setActiveTab,
+  forceDark,
+}) => {
   const { state } = useLearner();
   const { theme } = useTheme();
   const isLight = forceDark ? false : theme === 'light';
@@ -182,9 +183,11 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
         padding: '28px 24px',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: isLight ? '0 10px 30px rgba(0, 0, 0, 0.05)' : '0 20px 50px -10px rgba(0, 0, 0, 0.6)',
+        boxShadow: isLight
+          ? '0 10px 30px rgba(0, 0, 0, 0.05)'
+          : '0 20px 50px -10px rgba(0, 0, 0, 0.6)',
         color: isLight ? '#172033' : '#F8FAFC',
-        transition: 'all 0.2s ease'
+        transition: 'all 0.2s ease',
       }}
     >
       {/* Background celestial grid & soft radial glows */}
@@ -198,7 +201,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
           background: isLight
             ? 'radial-gradient(circle at 50% 50%, rgba(109, 93, 251, 0.06) 0%, rgba(246, 248, 252, 0.95) 85%)'
             : 'radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.12) 0%, rgba(8, 11, 22, 0.95) 85%)',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
         }}
       />
 
@@ -212,7 +215,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
           justifyContent: 'space-between',
           marginBottom: '20px',
           flexWrap: 'wrap',
-          gap: '12px'
+          gap: '12px',
         }}
       >
         <div>
@@ -225,7 +228,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
               textTransform: 'uppercase',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
             }}
           >
             <Sparkles size={13} color="#22D3EE" />
@@ -237,7 +240,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
               fontWeight: 800,
               color: isLight ? '#172033' : '#FFFFFF',
               margin: '4px 0 0',
-              fontFamily: "'Plus Jakarta Sans', sans-serif"
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
             }}
           >
             Explore Your AI Destinations
@@ -245,17 +248,47 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
         </div>
 
         {/* Legend */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11.5px', color: isLight ? '#64748B' : '#94A3B8' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            fontSize: '11.5px',
+            color: isLight ? '#64748B' : '#94A3B8',
+          }}
+        >
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#10B981',
+              }}
+            />
             Completed
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isLight ? '#0891B2' : '#22D3EE', boxShadow: isLight ? 'none' : '0 0 6px #22D3EE' }} />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: isLight ? '#0891B2' : '#22D3EE',
+                boxShadow: isLight ? 'none' : '0 0 6px #22D3EE',
+              }}
+            />
             Available
           </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#94A3B8' }} />
+            <span
+              style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#94A3B8',
+              }}
+            />
             Locked
           </span>
         </div>
@@ -272,7 +305,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
           backgroundColor: isLight ? '#F8FAFC' : 'rgba(16, 22, 42, 0.45)',
           border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
           zIndex: 2,
-          overflow: 'hidden'
+          overflow: 'hidden',
         }}
       >
         {/* SVG Conduits connecting celestial nodes */}
@@ -283,7 +316,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
             left: 0,
             width: '100%',
             height: '100%',
-            pointerEvents: 'none'
+            pointerEvents: 'none',
           }}
         >
           <defs>
@@ -298,17 +331,84 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
           </defs>
 
           {/* Central Conduit Ring */}
-          <circle cx="50%" cy="48%" r="130" fill="none" stroke={isLight ? 'rgba(109, 93, 251, 0.12)' : 'rgba(139, 92, 246, 0.15)'} strokeWidth="1" strokeDasharray="5,5" />
-          <circle cx="50%" cy="48%" r="220" fill="none" stroke={isLight ? 'rgba(8, 145, 178, 0.1)' : 'rgba(34, 211, 238, 0.1)'} strokeWidth="1" strokeDasharray="3,7" />
+          <circle
+            cx="50%"
+            cy="48%"
+            r="130"
+            fill="none"
+            stroke={isLight ? 'rgba(109, 93, 251, 0.12)' : 'rgba(139, 92, 246, 0.15)'}
+            strokeWidth="1"
+            strokeDasharray="5,5"
+          />
+          <circle
+            cx="50%"
+            cy="48%"
+            r="220"
+            fill="none"
+            stroke={isLight ? 'rgba(8, 145, 178, 0.1)' : 'rgba(34, 211, 238, 0.1)'}
+            strokeWidth="1"
+            strokeDasharray="3,7"
+          />
 
           {/* Connected Pathways between Core -> Lab -> Toolkit -> Orbit -> Solver -> Creation */}
-          <line x1="18%" y1="35%" x2="48%" y2="22%" stroke="url(#orbitGrad1)" strokeWidth="1.5" strokeDasharray="4,4" />
-          <line x1="48%" y1="22%" x2="80%" y2="32%" stroke="url(#orbitGrad2)" strokeWidth="1.5" strokeDasharray="4,4" />
-          <line x1="18%" y1="35%" x2="24%" y2="78%" stroke={isLight ? 'rgba(8, 145, 178, 0.25)' : 'rgba(56, 189, 248, 0.3)'} strokeWidth="1.5" />
-          <line x1="48%" y1="22%" x2="52%" y2="72%" stroke={isLight ? 'rgba(217, 119, 6, 0.25)' : 'rgba(245, 158, 11, 0.3)'} strokeWidth="1.5" />
-          <line x1="52%" y1="72%" x2="78%" y2="78%" stroke={isLight ? 'rgba(219, 39, 119, 0.25)' : 'rgba(236, 72, 153, 0.3)'} strokeWidth="1.5" />
-          <line x1="50%" y1="48%" x2="52%" y2="72%" stroke={isLight ? 'rgba(109, 93, 251, 0.25)' : 'rgba(168, 85, 247, 0.3)'} strokeWidth="1.5" />
-          <line x1="50%" y1="48%" x2="48%" y2="22%" stroke={isLight ? 'rgba(109, 93, 251, 0.25)' : 'rgba(168, 85, 247, 0.3)'} strokeWidth="1.5" />
+          <line
+            x1="18%"
+            y1="35%"
+            x2="48%"
+            y2="22%"
+            stroke="url(#orbitGrad1)"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+          />
+          <line
+            x1="48%"
+            y1="22%"
+            x2="80%"
+            y2="32%"
+            stroke="url(#orbitGrad2)"
+            strokeWidth="1.5"
+            strokeDasharray="4,4"
+          />
+          <line
+            x1="18%"
+            y1="35%"
+            x2="24%"
+            y2="78%"
+            stroke={isLight ? 'rgba(8, 145, 178, 0.25)' : 'rgba(56, 189, 248, 0.3)'}
+            strokeWidth="1.5"
+          />
+          <line
+            x1="48%"
+            y1="22%"
+            x2="52%"
+            y2="72%"
+            stroke={isLight ? 'rgba(217, 119, 6, 0.25)' : 'rgba(245, 158, 11, 0.3)'}
+            strokeWidth="1.5"
+          />
+          <line
+            x1="52%"
+            y1="72%"
+            x2="78%"
+            y2="78%"
+            stroke={isLight ? 'rgba(219, 39, 119, 0.25)' : 'rgba(236, 72, 153, 0.3)'}
+            strokeWidth="1.5"
+          />
+          <line
+            x1="50%"
+            y1="48%"
+            x2="52%"
+            y2="72%"
+            stroke={isLight ? 'rgba(109, 93, 251, 0.25)' : 'rgba(168, 85, 247, 0.3)'}
+            strokeWidth="1.5"
+          />
+          <line
+            x1="50%"
+            y1="48%"
+            x2="48%"
+            y2="22%"
+            stroke={isLight ? 'rgba(109, 93, 251, 0.25)' : 'rgba(168, 85, 247, 0.3)'}
+            strokeWidth="1.5"
+          />
         </svg>
 
         {/* Destination Nodes */}
@@ -346,7 +446,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '8px',
-                outline: 'none'
+                outline: 'none',
               }}
             >
               {/* Node Orb Container */}
@@ -357,21 +457,27 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                   height: dest.id === 'mentor' ? '68px' : '56px',
                   borderRadius: '50%',
                   backgroundColor: isLocked
-                    ? (isLight ? '#F1F5F9' : 'rgba(30, 41, 59, 0.85)')
-                    : (isLight ? '#FFFFFF' : 'rgba(16, 22, 42, 0.95)'),
+                    ? isLight
+                      ? '#F1F5F9'
+                      : 'rgba(30, 41, 59, 0.85)'
+                    : isLight
+                      ? '#FFFFFF'
+                      : 'rgba(16, 22, 42, 0.95)',
                   border: isLocked
-                    ? (isLight ? '1.5px dashed #94A3B8' : '1.5px dashed rgba(148, 163, 184, 0.4)')
+                    ? isLight
+                      ? '1.5px dashed #94A3B8'
+                      : '1.5px dashed rgba(148, 163, 184, 0.4)'
                     : `2px solid ${isHovered ? (isLight ? '#172033' : '#FFFFFF') : dest.color}`,
                   boxShadow: isLocked
                     ? 'none'
                     : isHovered
-                    ? `0 0 25px ${dest.color}, inset 0 0 15px ${dest.color}`
-                    : `0 0 15px ${dest.glow}`,
+                      ? `0 0 25px ${dest.color}, inset 0 0 15px ${dest.color}`
+                      : `0 0 15px ${dest.glow}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: isLocked ? '#94A3B8' : dest.color,
-                  transition: 'all 0.25s ease'
+                  transition: 'all 0.25s ease',
                 }}
               >
                 <Icon size={dest.id === 'mentor' ? 28 : 22} />
@@ -390,7 +496,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#FFFFFF'
+                    color: '#FFFFFF',
                   }}
                 >
                   {isCompleted ? (
@@ -409,9 +515,9 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                   style={{
                     fontSize: '12.5px',
                     fontWeight: 800,
-                    color: isLocked ? '#94A3B8' : (isLight ? '#172033' : '#F8FAFC'),
+                    color: isLocked ? '#94A3B8' : isLight ? '#172033' : '#F8FAFC',
                     textShadow: isLight ? 'none' : '0 2px 4px rgba(0,0,0,0.8)',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {dest.name}
@@ -422,7 +528,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                     color: isLocked ? '#64748B' : dest.color,
                     fontWeight: 700,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
+                    letterSpacing: '0.5px',
                   }}
                 >
                   {dest.tagline}
@@ -444,25 +550,60 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                     padding: '12px 14px',
                     width: '220px',
                     textAlign: 'left',
-                    boxShadow: isLight ? '0 10px 25px rgba(0, 0, 0, 0.12)' : '0 10px 25px rgba(0, 0, 0, 0.6)',
+                    boxShadow: isLight
+                      ? '0 10px 25px rgba(0, 0, 0, 0.12)'
+                      : '0 10px 25px rgba(0, 0, 0, 0.6)',
                     pointerEvents: 'none',
-                    zIndex: 20
+                    zIndex: 20,
                   }}
                 >
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: dest.color, textTransform: 'uppercase', marginBottom: '2px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: dest.color,
+                      textTransform: 'uppercase',
+                      marginBottom: '2px',
+                    }}
+                  >
                     {dest.name}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: isLight ? '#334155' : '#E2E8F0', lineHeight: 1.4, marginBottom: '8px' }}>
+                  <div
+                    style={{
+                      fontSize: '11.5px',
+                      color: isLight ? '#334155' : '#E2E8F0',
+                      lineHeight: 1.4,
+                      marginBottom: '8px',
+                    }}
+                  >
                     {dest.description}
                   </div>
 
                   {isLocked && accessInfo?.reason && (
-                    <div style={{ fontSize: '10.5px', color: '#DC2626', borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.1)', paddingTop: '6px' }}>
+                    <div
+                      style={{
+                        fontSize: '10.5px',
+                        color: '#DC2626',
+                        borderTop: isLight
+                          ? '1px solid #E2E8F0'
+                          : '1px solid rgba(255,255,255,0.1)',
+                        paddingTop: '6px',
+                      }}
+                    >
                       🔒 {accessInfo.reason}
                     </div>
                   )}
 
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, color: isLight ? '#0891B2' : '#38BDF8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: isLight ? '#0891B2' : '#38BDF8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
                     {isLocked ? 'View requirements' : 'Launch destination'} <ArrowRight size={11} />
                   </div>
                 </div>
@@ -480,7 +621,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
           gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
           gap: '12px',
           position: 'relative',
-          zIndex: 2
+          zIndex: 2,
         }}
       >
         {DESTINATIONS.map((dest) => {
@@ -496,8 +637,12 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
               style={{
                 backgroundColor: isLight ? '#FFFFFF' : 'rgba(16, 22, 42, 0.75)',
                 border: isLocked
-                  ? (isLight ? '1px dashed #CBD5E1' : '1px dashed rgba(148, 163, 184, 0.3)')
-                  : (isLight ? '1px solid #E2E8F0' : `1px solid ${dest.color}`),
+                  ? isLight
+                    ? '1px dashed #CBD5E1'
+                    : '1px dashed rgba(148, 163, 184, 0.3)'
+                  : isLight
+                    ? '1px solid #E2E8F0'
+                    : `1px solid ${dest.color}`,
                 borderRadius: '14px',
                 padding: '14px',
                 cursor: 'pointer',
@@ -505,22 +650,28 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
                 flexDirection: 'column',
                 gap: '8px',
                 opacity: isLocked ? 0.75 : 1,
-                boxShadow: isLight ? '0 4px 12px rgba(0, 0, 0, 0.04)' : 'none'
+                boxShadow: isLight ? '0 4px 12px rgba(0, 0, 0, 0.04)' : 'none',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
                 <div
                   style={{
                     width: '32px',
                     height: '32px',
                     borderRadius: '8px',
                     backgroundColor: isLocked
-                      ? (isLight ? '#F1F5F9' : 'rgba(255,255,255,0.05)')
-                      : (isLight ? `${dest.color}15` : `${dest.color}20`),
+                      ? isLight
+                        ? '#F1F5F9'
+                        : 'rgba(255,255,255,0.05)'
+                      : isLight
+                        ? `${dest.color}15`
+                        : `${dest.color}20`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: isLocked ? '#94A3B8' : dest.color
+                    color: isLocked ? '#94A3B8' : dest.color,
                   }}
                 >
                   <Icon size={18} />
@@ -536,8 +687,18 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({ setAct
               </div>
 
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: isLight ? '#172033' : '#FFFFFF' }}>{dest.name}</div>
-                <div style={{ fontSize: '10.5px', color: isLocked ? '#64748B' : dest.color }}>{dest.tagline}</div>
+                <div
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    color: isLight ? '#172033' : '#FFFFFF',
+                  }}
+                >
+                  {dest.name}
+                </div>
+                <div style={{ fontSize: '10.5px', color: isLocked ? '#64748B' : dest.color }}>
+                  {dest.tagline}
+                </div>
               </div>
             </div>
           );

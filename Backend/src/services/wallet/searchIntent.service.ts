@@ -1,6 +1,4 @@
 import { SearchIntent, SearchIntentConstraints, TaskCategory } from '../../types';
-import { DomainTaxonomyService } from './domainTaxonomy.service';
-import { getAIProvider } from './aiProvider.service';
 
 /**
  * Search Intent Service — Requirement-First Natural Language Intent Engine
@@ -25,7 +23,22 @@ export class SearchIntentService {
     const constraints = this.extractConstraints(q);
 
     // 3. Known Tool & Comparison Intent Extraction
-    const knownToolsList = ['chatgpt', 'gpt', 'claude', 'cursor', 'copilot', 'perplexity', 'notebooklm', 'midjourney', 'runway', 'gamma', 'julius', 'canva', 'make', 'zapier'];
+    const knownToolsList = [
+      'chatgpt',
+      'gpt',
+      'claude',
+      'cursor',
+      'copilot',
+      'perplexity',
+      'notebooklm',
+      'midjourney',
+      'runway',
+      'gamma',
+      'julius',
+      'canva',
+      'make',
+      'zapier',
+    ];
     const detectedKnownTools: string[] = [];
     for (const kt of knownToolsList) {
       if (q.includes(kt)) {
@@ -33,19 +46,35 @@ export class SearchIntentService {
       }
     }
 
-    const isAlternative = q.includes('alternative') || q.includes('similar to') || q.includes('like ') || q.includes('instead of') || q.includes('better than');
-    const isCompare = q.includes('compare') || q.includes(' vs ') || q.includes('difference between') || q.includes('which one');
-    
+    const isAlternative =
+      q.includes('alternative') ||
+      q.includes('similar to') ||
+      q.includes('like ') ||
+      q.includes('instead of') ||
+      q.includes('better than');
+    const isCompare =
+      q.includes('compare') ||
+      q.includes(' vs ') ||
+      q.includes('difference between') ||
+      q.includes('which one');
+
     let comparisonType: 'alternative' | 'compare' | 'like_tool' | null = null;
     if (isAlternative) comparisonType = 'alternative';
     else if (isCompare) comparisonType = 'compare';
-    else if (detectedKnownTools.length > 0 && (q.includes('like') || q.includes('for'))) comparisonType = 'like_tool';
+    else if (detectedKnownTools.length > 0 && (q.includes('like') || q.includes('for')))
+      comparisonType = 'like_tool';
 
     const referenceTool = detectedKnownTools[0] || undefined;
 
     // 4. Freshness Requirement Detection
     let freshnessRequirement: 'low' | 'normal' | 'high' = 'normal';
-    if (q.includes('latest') || q.includes('newest') || q.includes('recent') || q.includes('new ') || q.includes('fresh')) {
+    if (
+      q.includes('latest') ||
+      q.includes('newest') ||
+      q.includes('recent') ||
+      q.includes('new ') ||
+      q.includes('fresh')
+    ) {
       freshnessRequirement = 'high';
     }
 
@@ -54,12 +83,17 @@ export class SearchIntentService {
 
     // 6. Domain Determination (Explicit > Conservative Fallback)
     const domains = explicitDomain.length > 0 ? explicitDomain : extraction.domains;
-    const domainConfidence = explicitDomain.length > 0 ? 0.95 : (extraction.domains.includes('General') ? 0.6 : 0.8);
+    const domainConfidence =
+      explicitDomain.length > 0 ? 0.95 : extraction.domains.includes('General') ? 0.6 : 0.8;
 
     // 7. Ambiguity & Specificity Detection
     const wordCount = q.split(/\s+/).filter(Boolean).length;
     const isBroad = wordCount <= 2 && !explicitDomain.length;
-    const specificity: 'broad' | 'moderate' | 'specific' = isBroad ? 'broad' : (explicitDomain.length > 0 || extraction.tasks.length >= 3 ? 'specific' : 'moderate');
+    const specificity: 'broad' | 'moderate' | 'specific' = isBroad
+      ? 'broad'
+      : explicitDomain.length > 0 || extraction.tasks.length >= 3
+        ? 'specific'
+        : 'moderate';
 
     const missingInfo: string[] = [];
     if (!explicitDomain.length) {
@@ -85,18 +119,39 @@ export class SearchIntentService {
       outputTypes: extraction.outputTypes,
       constraints,
       knownTools: detectedKnownTools,
-      comparisonIntent: comparisonType ? {
-        type: comparisonType,
-        referenceTool
-      } : undefined,
+      comparisonIntent: comparisonType
+        ? {
+            type: comparisonType,
+            referenceTool,
+          }
+        : undefined,
       ambiguity: {
         isAmbiguous: missingInfo.length > 0,
         missingInformation: missingInfo,
-        clarificationNeeded: false // Do not block user recommendations
+        clarificationNeeded: false, // Do not block user recommendations
       },
       specificity,
       freshnessRequirement,
-      keywords: q.split(/\s+/).filter(w => w.length > 2 && !['for', 'the', 'and', 'with', 'from', 'tool', 'tools', 'make', 'making', 'find', 'want', 'like'].includes(w)),
+      keywords: q
+        .split(/\s+/)
+        .filter(
+          (w) =>
+            w.length > 2 &&
+            ![
+              'for',
+              'the',
+              'and',
+              'with',
+              'from',
+              'tool',
+              'tools',
+              'make',
+              'making',
+              'find',
+              'want',
+              'like',
+            ].includes(w)
+        ),
       exclusions: [],
 
       // Backward compatibility fields
@@ -104,7 +159,7 @@ export class SearchIntentService {
       desiredOutcome: primaryGoal,
       categories: legacyCategories,
       subdomains: extraction.subdomains,
-      alternativeIntent: isAlternative
+      alternativeIntent: isAlternative,
     };
   }
 
@@ -129,19 +184,43 @@ export class SearchIntentService {
     if (q.includes('legal') || q.includes('lawyer') || q.includes('contract')) {
       domains.push('Legal & Compliance');
     }
-    if (q.includes('academic') || q.includes('university') || q.includes('student') || q.includes('exam') || q.includes('literature paper')) {
+    if (
+      q.includes('academic') ||
+      q.includes('university') ||
+      q.includes('student') ||
+      q.includes('exam') ||
+      q.includes('literature paper')
+    ) {
       domains.push('Education & Learning');
     }
-    if (q.includes('market') || q.includes('sales') || q.includes('finance') || q.includes('accounting') || q.includes('stock')) {
+    if (
+      q.includes('market') ||
+      q.includes('sales') ||
+      q.includes('finance') ||
+      q.includes('accounting') ||
+      q.includes('stock')
+    ) {
       domains.push('Business & Operations');
     }
-    if (q.includes('code') || q.includes('coding') || q.includes('python') || q.includes('javascript') || q.includes('developer') || q.includes('app')) {
+    if (
+      q.includes('code') ||
+      q.includes('coding') ||
+      q.includes('python') ||
+      q.includes('javascript') ||
+      q.includes('developer') ||
+      q.includes('app')
+    ) {
       domains.push('Software & Technology');
     }
     if (q.includes('video') || q.includes('movie') || q.includes('animation')) {
       domains.push('Video Production');
     }
-    if (q.includes('design') || q.includes('image') || q.includes('photo') || q.includes('graphic')) {
+    if (
+      q.includes('design') ||
+      q.includes('image') ||
+      q.includes('photo') ||
+      q.includes('graphic')
+    ) {
       domains.push('Design & Creative');
     }
     if (q.includes('house') || q.includes('architecture') || q.includes('floor plan')) {
@@ -155,7 +234,12 @@ export class SearchIntentService {
    */
   private static extractConstraints(q: string): SearchIntentConstraints {
     const constraints: SearchIntentConstraints = {};
-    if (q.includes('free') || q.includes("don't want to pay") || q.includes('no cost') || q.includes('without paying')) {
+    if (
+      q.includes('free') ||
+      q.includes("don't want to pay") ||
+      q.includes('no cost') ||
+      q.includes('without paying')
+    ) {
       constraints.freeOnly = true;
     }
     if (q.includes('trial') || q.includes('free trial')) {
@@ -181,7 +265,10 @@ export class SearchIntentService {
   /**
    * Broad Workflow, Task, Capability, Input & Output Extractor
    */
-  private static extractWorkflowGoalTasksCapabilities(q: string, raw: string): {
+  private static extractWorkflowGoalTasksCapabilities(
+    q: string,
+    raw: string
+  ): {
     primaryGoal: string;
     intentSummary: string;
     tasks: string[];
@@ -205,15 +292,29 @@ export class SearchIntentService {
     let intentSummary = 'Tool Search';
 
     // Query Pattern 1: PDF/Document Understanding & Analysis ("analyze a 100-page PDF", "understand this document")
-    const isPdfDocAction = q.includes('analyze') || q.includes('understanding') || q.includes('understand') ||
-      q.includes('read') || q.includes('summarize') || q.includes('extract') || q.includes('review') ||
-      q.includes('chat') || q.includes('insights') || q.includes('parse');
-    const hasDocKeyword = q.includes('pdf') || q.includes('page') || q.includes('document') || q.includes('paper');
+    const isPdfDocAction =
+      q.includes('analyze') ||
+      q.includes('understanding') ||
+      q.includes('understand') ||
+      q.includes('read') ||
+      q.includes('summarize') ||
+      q.includes('extract') ||
+      q.includes('review') ||
+      q.includes('chat') ||
+      q.includes('insights') ||
+      q.includes('parse');
+    const hasDocKeyword =
+      q.includes('pdf') || q.includes('page') || q.includes('document') || q.includes('paper');
 
     if ((hasDocKeyword && isPdfDocAction) || q.includes('pdf')) {
       primaryGoal = 'Document Understanding & Analysis';
       intentSummary = 'Analyze and extract insights from long documents and PDFs';
-      tasks.push('Document Analysis', 'Information Extraction', 'Summarization', 'PDF Vector Indexing');
+      tasks.push(
+        'Document Analysis',
+        'Information Extraction',
+        'Summarization',
+        'PDF Vector Indexing'
+      );
       reqCap.push('document_analysis', 'pdf_summarization', 'information_extraction');
       optCap.push('citation_support', 'q_and_a', 'vector_search');
       inputTypes.push('pdf', 'document', 'text');
@@ -222,11 +323,34 @@ export class SearchIntentService {
       categories.push('Research & RAG');
     }
     // Query Pattern 2: Research Document Creation ("for research document making", "research report")
-    else if (q.includes('research') && (q.includes('document') || q.includes('making') || q.includes('report') || q.includes('write'))) {
+    else if (
+      q.includes('research') &&
+      (q.includes('document') ||
+        q.includes('making') ||
+        q.includes('report') ||
+        q.includes('write'))
+    ) {
       primaryGoal = 'Research Document Creation';
       intentSummary = 'Conduct research and create structured research documents';
-      tasks.push('Research', 'Source Discovery', 'Source Verification', 'Analysis', 'Synthesis', 'Citation', 'Document Generation');
-      reqCap.push('web_research', 'source_discovery', 'source_verification', 'document_analysis', 'synthesis', 'citation_support', 'structured_writing', 'document_generation');
+      tasks.push(
+        'Research',
+        'Source Discovery',
+        'Source Verification',
+        'Analysis',
+        'Synthesis',
+        'Citation',
+        'Document Generation'
+      );
+      reqCap.push(
+        'web_research',
+        'source_discovery',
+        'source_verification',
+        'document_analysis',
+        'synthesis',
+        'citation_support',
+        'structured_writing',
+        'document_generation'
+      );
       optCap.push('pdf_export', 'collaboration');
       inputTypes.push('topic_prompt', 'text', 'reference_links');
       outputTypes.push('research_document', 'report', 'citations');
@@ -238,7 +362,12 @@ export class SearchIntentService {
       if (q.includes('research')) {
         primaryGoal = 'Research Synthesis & Presentation Creation';
         intentSummary = 'Synthesize research materials into structured presentation slides';
-        tasks.push('Research Synthesis', 'Content Structuring', 'Slide Deck Generation', 'Visual Presentation');
+        tasks.push(
+          'Research Synthesis',
+          'Content Structuring',
+          'Slide Deck Generation',
+          'Visual Presentation'
+        );
         reqCap.push('synthesis', 'content_structuring', 'slide_generation', 'theme_customization');
         optCap.push('export_pptx', 'presenter_notes');
         inputTypes.push('research_notes', 'text_prompt', 'document');
@@ -257,11 +386,29 @@ export class SearchIntentService {
       }
     }
     // Query Pattern 4: Data Analysis & Visualization ("analyze my CSV and create charts")
-    else if (q.includes('csv') || q.includes('excel') || q.includes('spreadsheet') || q.includes('data analysis') || q.includes('chart')) {
+    else if (
+      q.includes('csv') ||
+      q.includes('excel') ||
+      q.includes('spreadsheet') ||
+      q.includes('data analysis') ||
+      q.includes('chart')
+    ) {
       primaryGoal = 'Data Analysis & Chart Visualization';
       intentSummary = 'Analyze structured tabular data and produce visual charts and insights';
-      tasks.push('Data Ingestion', 'Statistical Analysis', 'Pattern Recognition', 'Chart Visualization', 'Insight Generation');
-      reqCap.push('csv_ingestion', 'statistical_analysis', 'chart_rendering', 'insight_generation', 'python_execution');
+      tasks.push(
+        'Data Ingestion',
+        'Statistical Analysis',
+        'Pattern Recognition',
+        'Chart Visualization',
+        'Insight Generation'
+      );
+      reqCap.push(
+        'csv_ingestion',
+        'statistical_analysis',
+        'chart_rendering',
+        'insight_generation',
+        'python_execution'
+      );
       optCap.push('sql_querying', 'report_export');
       inputTypes.push('csv', 'excel', 'dataframe');
       outputTypes.push('charts', 'visualizations', 'insights_report');
@@ -269,9 +416,16 @@ export class SearchIntentService {
       categories.push('Data Analysis');
     }
     // Query Pattern 5: Multi-intent ("research AI agents, summarize papers, and create a presentation")
-    else if (q.includes('and') && (q.includes('research') || q.includes('summarize') || q.includes('presentation') || q.includes('video'))) {
+    else if (
+      q.includes('and') &&
+      (q.includes('research') ||
+        q.includes('summarize') ||
+        q.includes('presentation') ||
+        q.includes('video'))
+    ) {
       primaryGoal = 'Multi-Task Workflow Execution';
-      intentSummary = 'Execute multi-step workflow covering research, summarization, and content generation';
+      intentSummary =
+        'Execute multi-step workflow covering research, summarization, and content generation';
       if (q.includes('research')) {
         tasks.push('Research', 'Source Discovery');
         reqCap.push('web_research', 'source_discovery');
@@ -315,7 +469,12 @@ export class SearchIntentService {
       categories.push('Video');
     }
     // Pattern 8: Coding / Software ("coding", "write python")
-    else if (q.includes('code') || q.includes('coding') || q.includes('python') || q.includes('app')) {
+    else if (
+      q.includes('code') ||
+      q.includes('coding') ||
+      q.includes('python') ||
+      q.includes('app')
+    ) {
       primaryGoal = 'Software Coding & Development';
       intentSummary = 'Write, refactor, and debug software code';
       tasks.push('Agentic Coding', 'Code Completion', 'Debugging');
@@ -347,8 +506,7 @@ export class SearchIntentService {
       outputTypes: Array.from(new Set(outputTypes)),
       domains: Array.from(new Set(domains)),
       subdomains,
-      categories: Array.from(new Set(categories))
+      categories: Array.from(new Set(categories)),
     };
   }
 }
-

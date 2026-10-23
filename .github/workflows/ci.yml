@@ -1,0 +1,225 @@
+name: AIIMS CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==============================================================
+  # 1. SECRET SCANNING: Gitleaks Pre-flight Security Gate
+  # ==============================================================
+  secret-scan:
+    name: Secret Scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Detection
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # ==============================================================
+  # 2. COMMIT MESSAGE VALIDATION (Pull Requests only)
+  # ==============================================================
+  commitlint:
+    name: Conventional Commit Linting
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20.x LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+
+      - name: Install root tooling dependencies
+        run: npm ci
+
+      - name: Validate Conventional Commits
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # ==============================================================
+  # 3. BACKEND CI: Lint, Typecheck, Build, Security & Credits Tests
+  # ==============================================================
+  backend:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd mongosh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: 'Backend/package-lock.json'
+
+      - name: Install Backend dependencies
+        working-directory: Backend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: Backend
+        run: npm run lint
+
+      - name: Run TypeScript typecheck
+        working-directory: Backend
+        run: npm run typecheck
+
+      - name: Compile Backend (tsc)
+        working-directory: Backend
+        run: npm run build
+
+      - name: Run Phase 1 Security Test Suite (36 checks)
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
+          PORT: 5001
+        run: npm run test:security
+
+      - name: Run Evidence-Based Scoring Test Suite (17 checks)
+        working-directory: Backend
+        run: npm run test:scoring
+
+      - name: Run Credits System Verification Suite (17 checks)
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          PORT: 5001
+          JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
+          MONGODB_URI: mongodb://localhost:27017/aiims_ci_test
+        run: |
+          npx ts-node src/server.ts &
+          SERVER_PID=$!
+          echo "Waiting for background server to become healthy on port 5001..."
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:5001/health | grep -q '"status":"ok"'; then
+              echo "Backend server is healthy!"
+              break
+            fi
+            sleep 1
+          done
+          npx ts-node src/scripts/verifyCreditsSystem.ts
+          kill $SERVER_PID || true
+
+  # ==============================================================
+  # 4. FRONTEND CI: Lint, Typecheck, Unit Tests, Production Build
+  # ==============================================================
+  frontend:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: |
+            Frontend/package-lock.json
+            Backend/package-lock.json
+
+      - name: Install Frontend dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Install Backend dependencies (for shared test runner)
+        working-directory: Backend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: Frontend
+        run: npm run lint
+
+      - name: Run TypeScript typecheck
+        working-directory: Frontend
+        run: npm run typecheck
+
+      - name: Run Frontend Unit & Service Test Suite (81 checks)
+        working-directory: Frontend
+        run: npm test
+
+      - name: Build Frontend for Production (Vite bundle)
+        working-directory: Frontend
+        run: npm run build
+
+  # ==============================================================
+  # 5. END-TO-END (E2E) SMOKE TESTS: Playwright Browser Suite
+  # ==============================================================
+  e2e:
+    name: End-to-End Smoke Tests (Playwright)
+    runs-on: ubuntu-latest
+    needs: [frontend]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            Frontend/package-lock.json
+
+      - name: Install root tooling dependencies
+        run: npm ci
+
+      - name: Install Frontend dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium Browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E Smoke Tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright Report on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e-report
+          path: playwright-report/
+          retention-days: 7
+

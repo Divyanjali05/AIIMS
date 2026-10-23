@@ -1,6 +1,6 @@
 /**
  * AIIMS Phase 6C Focus Sessions, Breaks, and Session History Verification Suite
- * 
+ *
  * Validates:
  * 1. Session duration & break configuration with strict validation bounds.
  * 2. Explicit lifecycle state machine (idle -> focusing -> paused -> break -> completed / abandoned).
@@ -58,21 +58,33 @@ function sanitizeConfig(input: Partial<FocusSessionConfig>): FocusSessionConfig 
     enableLongBreak: true,
     longBreakDurationMinutes: 15,
     longBreakInterval: 4,
-    soundEnabled: true
+    soundEnabled: true,
   };
 
-  const parsedFocus = input.focusDurationMinutes !== undefined ? Number(input.focusDurationMinutes) : NaN;
-  const parsedBreak = input.breakDurationMinutes !== undefined ? Number(input.breakDurationMinutes) : NaN;
-  const parsedLongBreak = input.longBreakDurationMinutes !== undefined ? Number(input.longBreakDurationMinutes) : NaN;
-  const parsedInterval = input.longBreakInterval !== undefined ? Number(input.longBreakInterval) : NaN;
+  const parsedFocus =
+    input.focusDurationMinutes !== undefined ? Number(input.focusDurationMinutes) : NaN;
+  const parsedBreak =
+    input.breakDurationMinutes !== undefined ? Number(input.breakDurationMinutes) : NaN;
+  const parsedLongBreak =
+    input.longBreakDurationMinutes !== undefined ? Number(input.longBreakDurationMinutes) : NaN;
+  const parsedInterval =
+    input.longBreakInterval !== undefined ? Number(input.longBreakInterval) : NaN;
 
   return {
-    focusDurationMinutes: !isNaN(parsedFocus) ? Math.max(1, Math.min(180, parsedFocus)) : current.focusDurationMinutes,
-    breakDurationMinutes: !isNaN(parsedBreak) ? Math.max(1, Math.min(60, parsedBreak)) : current.breakDurationMinutes,
+    focusDurationMinutes: !isNaN(parsedFocus)
+      ? Math.max(1, Math.min(180, parsedFocus))
+      : current.focusDurationMinutes,
+    breakDurationMinutes: !isNaN(parsedBreak)
+      ? Math.max(1, Math.min(60, parsedBreak))
+      : current.breakDurationMinutes,
     enableLongBreak: input.enableLongBreak ?? current.enableLongBreak,
-    longBreakDurationMinutes: !isNaN(parsedLongBreak) ? Math.max(1, Math.min(60, parsedLongBreak)) : current.longBreakDurationMinutes,
-    longBreakInterval: !isNaN(parsedInterval) ? Math.max(1, Math.min(12, parsedInterval)) : current.longBreakInterval,
-    soundEnabled: input.soundEnabled ?? current.soundEnabled
+    longBreakDurationMinutes: !isNaN(parsedLongBreak)
+      ? Math.max(1, Math.min(60, parsedLongBreak))
+      : current.longBreakDurationMinutes,
+    longBreakInterval: !isNaN(parsedInterval)
+      ? Math.max(1, Math.min(12, parsedInterval))
+      : current.longBreakInterval,
+    soundEnabled: input.soundEnabled ?? current.soundEnabled,
   };
 }
 
@@ -98,19 +110,43 @@ async function runPhase6CTests() {
   console.log('[Test Group 1] Session Configuration & Bounds Validation');
   {
     const defaultConfig = sanitizeConfig({});
-    assert('Default focus duration is 25 minutes (Pomodoro standard)', defaultConfig.focusDurationMinutes === 25);
+    assert(
+      'Default focus duration is 25 minutes (Pomodoro standard)',
+      defaultConfig.focusDurationMinutes === 25
+    );
     assert('Default break duration is 5 minutes', defaultConfig.breakDurationMinutes === 5);
-    assert('Default long break duration is 15 minutes', defaultConfig.longBreakDurationMinutes === 15);
+    assert(
+      'Default long break duration is 15 minutes',
+      defaultConfig.longBreakDurationMinutes === 15
+    );
     assert('Default long break interval is 4 sessions', defaultConfig.longBreakInterval === 4);
     assert('Sound chimes are enabled by default', defaultConfig.soundEnabled === true);
 
-    const zeroDurationConfig = sanitizeConfig({ focusDurationMinutes: 0, breakDurationMinutes: -5 });
-    assert('Zero-length focus duration is clamped to minimum 1 min', zeroDurationConfig.focusDurationMinutes === 1);
-    assert('Negative break duration is clamped to minimum 1 min', zeroDurationConfig.breakDurationMinutes === 1);
+    const zeroDurationConfig = sanitizeConfig({
+      focusDurationMinutes: 0,
+      breakDurationMinutes: -5,
+    });
+    assert(
+      'Zero-length focus duration is clamped to minimum 1 min',
+      zeroDurationConfig.focusDurationMinutes === 1
+    );
+    assert(
+      'Negative break duration is clamped to minimum 1 min',
+      zeroDurationConfig.breakDurationMinutes === 1
+    );
 
-    const excessiveConfig = sanitizeConfig({ focusDurationMinutes: 500, breakDurationMinutes: 999 });
-    assert('Excessive focus duration clamped to 180 min max', excessiveConfig.focusDurationMinutes === 180);
-    assert('Excessive break duration clamped to 60 min max', excessiveConfig.breakDurationMinutes === 60);
+    const excessiveConfig = sanitizeConfig({
+      focusDurationMinutes: 500,
+      breakDurationMinutes: 999,
+    });
+    assert(
+      'Excessive focus duration clamped to 180 min max',
+      excessiveConfig.focusDurationMinutes === 180
+    );
+    assert(
+      'Excessive break duration clamped to 60 min max',
+      excessiveConfig.breakDurationMinutes === 60
+    );
   }
 
   // TEST GROUP 2: Lifecycle State Machine Transitions
@@ -127,19 +163,22 @@ async function runPhase6CTests() {
       intention: 'Draft prompt pipeline',
       sessionState: 'focusing',
       periodType: 'focus',
-      targetEndTime: now + (focusDurationSeconds * 1000),
+      targetEndTime: now + focusDurationSeconds * 1000,
       totalPeriodSeconds: focusDurationSeconds,
       remainingSeconds: focusDurationSeconds,
       pausedAt: null,
       accumulatedFocusSeconds: 0,
       sessionStartEpoch: now,
       completedCycles: 0,
-      config
+      config,
     };
 
     assert('Session initializes in "focusing" state', session.sessionState === 'focusing');
     assert('Session periodType is "focus"', session.periodType === 'focus');
-    assert('targetEndTime accurately set to now + 25m in ms', session.targetEndTime === now + 1500000);
+    assert(
+      'targetEndTime accurately set to now + 25m in ms',
+      session.targetEndTime === now + 1500000
+    );
 
     // 2. Pause after 5 minutes (300 seconds)
     now += 300 * 1000;
@@ -153,22 +192,31 @@ async function runPhase6CTests() {
     session.accumulatedFocusSeconds = accumulatedAtPause;
 
     assert('Session transitions into "paused" state', session.sessionState === 'paused');
-    assert('targetEndTime is cleared during pause to freeze deadline', session.targetEndTime === null);
+    assert(
+      'targetEndTime is cleared during pause to freeze deadline',
+      session.targetEndTime === null
+    );
     assert('Remaining seconds frozen at 1200s (20 mins)', session.remainingSeconds === 1200);
     assert('Accumulated focus time equals exactly 300s', session.accumulatedFocusSeconds === 300);
 
     // 3. Time passes while paused (simulate 10 minutes of paused idle time)
     now += 600 * 1000;
-    assert('Paused session does NOT accumulate focus time during pause', session.accumulatedFocusSeconds === 300);
+    assert(
+      'Paused session does NOT accumulate focus time during pause',
+      session.accumulatedFocusSeconds === 300
+    );
 
     // 4. Resume session
-    const newTarget = now + (session.remainingSeconds * 1000);
+    const newTarget = now + session.remainingSeconds * 1000;
     session.sessionState = 'focusing';
     session.targetEndTime = newTarget;
     session.pausedAt = null;
 
     assert('Session resumes back into "focusing" state', session.sessionState === 'focusing');
-    assert('New targetEndTime accurately set based on frozen remaining seconds', session.targetEndTime === now + 1200000);
+    assert(
+      'New targetEndTime accurately set based on frozen remaining seconds',
+      session.targetEndTime === now + 1200000
+    );
 
     // 5. Complete session
     now += 1200 * 1000; // Remaining 20 minutes elapse
@@ -178,7 +226,10 @@ async function runPhase6CTests() {
     session.completedCycles = 1;
     session.accumulatedFocusSeconds = 1500; // 25 minutes total
 
-    assert('Session transitions to "completed" when target time reached', session.sessionState === 'completed');
+    assert(
+      'Session transitions to "completed" when target time reached',
+      session.sessionState === 'completed'
+    );
     assert('Remaining seconds is 0 upon completion', session.remainingSeconds === 0);
     assert('Completed cycles incremented to 1', session.completedCycles === 1);
   }
@@ -186,9 +237,9 @@ async function runPhase6CTests() {
   // TEST GROUP 3: Reliable Timestamp & Background Throttling Resilience
   console.log('\n[Test Group 3] Reliable Timer & Background Throttling Resilience');
   {
-    let now = 2000000;
+    const now = 2000000;
     const duration = 25 * 60; // 1500s
-    const targetEndTime = now + (duration * 1000); // 3500000
+    const targetEndTime = now + duration * 1000; // 3500000
 
     // Simulate tab being put into background or laptop lid closed for 1800s (30 minutes)
     const sleepDuration = 1800 * 1000;
@@ -199,21 +250,30 @@ async function runPhase6CTests() {
     const isElapsed = msRemaining <= 0;
 
     assert('Timer correctly detects period elapsed after tab sleep', isElapsed === true);
-    assert('Calculated negative remaining ms accurately reflects overshoot', msRemaining === -300000);
+    assert(
+      'Calculated negative remaining ms accurately reflects overshoot',
+      msRemaining === -300000
+    );
 
     // Simulate returning after 10 minutes (remaining 15 minutes)
-    const partialWakeNow = now + (600 * 1000);
+    const partialWakeNow = now + 600 * 1000;
     const partialMsRemaining = targetEndTime - partialWakeNow;
     const partialSecRemaining = Math.max(0, Math.ceil(partialMsRemaining / 1000));
 
-    assert('Accurate remaining time (900s / 15m) restored upon tab wake', partialSecRemaining === 900);
+    assert(
+      'Accurate remaining time (900s / 15m) restored upon tab wake',
+      partialSecRemaining === 900
+    );
 
     // Clock jump backwards test (e.g. DST or manual clock adjust)
-    const clockMovedBackNow = now - (300 * 1000);
+    const clockMovedBackNow = now - 300 * 1000;
     const msWithBackJump = targetEndTime - clockMovedBackNow;
     const clampedSecRemaining = Math.min(duration, Math.max(0, Math.ceil(msWithBackJump / 1000)));
 
-    assert('Clock backward jump is safely clamped to original session duration', clampedSecRemaining === 1500);
+    assert(
+      'Clock backward jump is safely clamped to original session duration',
+      clampedSecRemaining === 1500
+    );
   }
 
   // TEST GROUP 4: Single Completion & Duplicate Prevention
@@ -232,18 +292,22 @@ async function runPhase6CTests() {
       startedAt: new Date(1000000).toISOString(),
       completedAt: new Date(2500000).toISOString(),
       status: 'completed',
-      cyclesCompleted: 1
+      cyclesCompleted: 1,
     };
 
     // First completion
-    const alreadyLogged1 = history.some(r => r.id === record.id && r.cyclesCompleted === record.cyclesCompleted);
+    const alreadyLogged1 = history.some(
+      (r) => r.id === record.id && r.cyclesCompleted === record.cyclesCompleted
+    );
     if (!alreadyLogged1) {
       history.push(record);
     }
     assert('First completion logs session record to history', history.length === 1);
 
     // Repeated call (e.g. heartbeat firing twice right at 0s)
-    const alreadyLogged2 = history.some(r => r.id === record.id && r.cyclesCompleted === record.cyclesCompleted);
+    const alreadyLogged2 = history.some(
+      (r) => r.id === record.id && r.cyclesCompleted === record.cyclesCompleted
+    );
     if (!alreadyLogged2) {
       history.push(record);
     }
@@ -259,19 +323,19 @@ async function runPhase6CTests() {
       enableLongBreak: true,
       longBreakDurationMinutes: 15,
       longBreakInterval: 4,
-      soundEnabled: true
+      soundEnabled: true,
     };
 
     // Cycle 1: should offer short break
-    const isCycle1Long = config.enableLongBreak && (1 % config.longBreakInterval === 0);
+    const isCycle1Long = config.enableLongBreak && 1 % config.longBreakInterval === 0;
     assert('Cycle 1 offers standard short break (5m)', isCycle1Long === false);
 
     // Cycle 4: should offer long break
-    const isCycle4Long = config.enableLongBreak && (4 % config.longBreakInterval === 0);
+    const isCycle4Long = config.enableLongBreak && 4 % config.longBreakInterval === 0;
     assert('Cycle 4 offers restorative long break (15m)', isCycle4Long === true);
 
     // Cycle 8: should offer long break
-    const isCycle8Long = config.enableLongBreak && (8 % config.longBreakInterval === 0);
+    const isCycle8Long = config.enableLongBreak && 8 % config.longBreakInterval === 0;
     assert('Cycle 8 offers restorative long break (15m)', isCycle8Long === true);
   }
 
@@ -299,13 +363,16 @@ async function runPhase6CTests() {
         startedAt: new Date(1000000).toISOString(),
         completedAt: new Date(1480000).toISOString(),
         status: 'abandoned',
-        cyclesCompleted: 0
+        cyclesCompleted: 0,
       });
     }
 
     assert('Session terminated after >= 30s is preserved as "abandoned"', history.length === 1);
     assert('Preserved session has status "abandoned"', history[0].status === 'abandoned');
-    assert('Preserved session reflects accurate partial focus time (480s)', history[0].actualFocusSeconds === 480);
+    assert(
+      'Preserved session reflects accurate partial focus time (480s)',
+      history[0].actualFocusSeconds === 480
+    );
   }
 
   // TEST GROUP 7: Zero Credit / Subscription Side-Effects
@@ -322,7 +389,10 @@ async function runPhase6CTests() {
       balance -= creditCost;
     }
 
-    assert('Credit balance unchanged (150) after 5 focus sessions', balance === initialCreditBalance);
+    assert(
+      'Credit balance unchanged (150) after 5 focus sessions',
+      balance === initialCreditBalance
+    );
   }
 
   console.log('\n================================================================');
@@ -337,7 +407,7 @@ async function runPhase6CTests() {
   }
 }
 
-runPhase6CTests().catch(err => {
+runPhase6CTests().catch((err) => {
   console.error('Fatal error in test suite:', err);
   process.exit(1);
 });

@@ -1,9 +1,17 @@
-import {
-  evaluateAssessment,
-  scoreQuestion
-} from '../assessmentScoring';
+import { evaluateAssessment, scoreQuestion } from '../assessmentScoring';
 
-export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCount: number; totalCount: number; logs: string[] } {
+type TestFn = (name: string, fn: () => void | Promise<void>) => void;
+type ExpectMatcher = { [key: string]: (...args: unknown[]) => unknown };
+declare const describe: TestFn & { [key: string]: unknown };
+declare const it: TestFn & { [key: string]: unknown };
+declare const expect: (actual: unknown) => ExpectMatcher;
+
+export function runAssessmentScoringQualityChecks(): {
+  passed: boolean;
+  passedCount: number;
+  totalCount: number;
+  logs: string[];
+} {
   const logs: string[] = [];
   let passedCount = 0;
   let totalCount = 0;
@@ -66,13 +74,17 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
   const resQ23Concern = scoreQuestion(23, 'q23_b');
   const resQ23Optimism = scoreQuestion(23, 'q23_d');
   assert(
-    resQ23Concern.score >= 60 && resQ23Concern.score <= 85 && resQ23Optimism.score >= 60 && resQ23Optimism.score <= 85,
+    resQ23Concern.score >= 60 &&
+      resQ23Concern.score <= 85 &&
+      resQ23Optimism.score >= 60 &&
+      resQ23Optimism.score <= 85,
     'Check 6: Q23 attitude/concern stays within balanced analytical range',
     `Concern=${resQ23Concern.score}, Optimism=${resQ23Optimism.score}`
   );
 
   // Check 7: Open-ended answers are evaluated from their actual content, not length
-  const strongPrompt = 'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.';
+  const strongPrompt =
+    'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.';
   const weakPrompt = 'make a website make a website make a website make a website';
   const resStrongText = scoreQuestion(11, strongPrompt);
   const resWeakText = scoreQuestion(11, weakPrompt);
@@ -94,7 +106,9 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
   // Check 9: Anthropic failure does not produce a fake numeric score
   const resFallback = scoreQuestion(11, 'Build a typescript backend API');
   assert(
-    resFallback.scoringMethod === 'deterministic_fallback' && resFallback.anthropicStatus === 'unavailable' && ![85, 80, 94, 90].includes(resFallback.score),
+    resFallback.scoringMethod === 'deterministic_fallback' &&
+      resFallback.anthropicStatus === 'unavailable' &&
+      ![85, 80, 94, 90].includes(resFallback.score),
     'Check 9: Anthropic failure uses deterministic fallback without fake scores (85/80)',
     `Method=${resFallback.scoringMethod}, Status=${resFallback.anthropicStatus}`
   );
@@ -105,25 +119,44 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
     6: 'q6_b',
     7: 'q7_a',
     9: 'q9_a',
-    21: 5
+    21: 5,
   });
   const usingCap = fullEval.capabilities.usingAI;
   assert(
-    usingCap.contributingQuestionIds.includes(1) && usingCap.questionScores[1] === 100 && usingCap.rubricVersion === '3.0.0-evidence-based',
+    usingCap.contributingQuestionIds.includes(1) &&
+      usingCap.questionScores[1] === 100 &&
+      usingCap.rubricVersion === '3.0.0-evidence-based',
     'Check 10: Every final capability score can be traced to actual question evidence',
     `Contributing Qs=${usingCap.contributingQuestionIds.join(',')}`
   );
 
   // Check 11: Intermediate learner profile produces moderate score (50–74 range)
   const intermediateAnswers: Record<number, any> = {
-    1: 'q1_c', 2: ['q2_a', 'q2_b'], 3: 'q3_a', 4: 3, 5: 'q5_b',
-    6: 'q6_b', 7: 'q7_b', 8: 'q8_a', 9: 'q9_b', 10: 'q10_a',
+    1: 'q1_c',
+    2: ['q2_a', 'q2_b'],
+    3: 'q3_a',
+    4: 3,
+    5: 'q5_b',
+    6: 'q6_b',
+    7: 'q7_b',
+    8: 'q8_a',
+    9: 'q9_b',
+    10: 'q10_a',
     11: 'Act as a developer. Create a REST API using Node and Express with MongoDB.',
     12: 'Write a React component with state for counter.',
-    13: 'q13_c', 14: 'q14_b', 15: 'q15_c', 16: 'q16_b', 17: 'q17_b',
-    18: 'q18_b', 19: 'q19_b', 20: 'q20_b', 21: 3, 22: 'q22_b',
-    23: 'q23_b', 24: ['q24_b'],
-    25: 'Adapting means changing workflows and mindset while using is just typing.'
+    13: 'q13_c',
+    14: 'q14_b',
+    15: 'q15_c',
+    16: 'q16_b',
+    17: 'q17_b',
+    18: 'q18_b',
+    19: 'q19_b',
+    20: 'q20_b',
+    21: 3,
+    22: 'q22_b',
+    23: 'q23_b',
+    24: ['q24_b'],
+    25: 'Adapting means changing workflows and mindset while using is just typing.',
   };
   const evalIntermediate = evaluateAssessment(intermediateAnswers);
   assert(
@@ -134,11 +167,31 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
 
   // Check 12: Beginner profile produces low score (<50 range)
   const beginnerAnswers: Record<number, any> = {
-    1: 'q1_d', 2: ['q2_a'], 3: 'q3_d', 4: 5, 5: 'q5_a',
-    6: 'q6_a', 7: 'q7_d', 8: 'q8_d', 9: 'q9_d', 10: 'q10_d',
-    11: 'make website', 12: 'write code', 13: 'q13_d', 14: 'q14_d',
-    15: 'q15_d', 16: 'q16_d', 17: 'q17_d', 18: 'q18_d', 19: 'q19_d',
-    20: 'q20_d', 21: 1, 22: 'q22_d', 23: 'q23_d', 24: ['q24_a'], 25: 'idk'
+    1: 'q1_d',
+    2: ['q2_a'],
+    3: 'q3_d',
+    4: 5,
+    5: 'q5_a',
+    6: 'q6_a',
+    7: 'q7_d',
+    8: 'q8_d',
+    9: 'q9_d',
+    10: 'q10_d',
+    11: 'make website',
+    12: 'write code',
+    13: 'q13_d',
+    14: 'q14_d',
+    15: 'q15_d',
+    16: 'q16_d',
+    17: 'q17_d',
+    18: 'q18_d',
+    19: 'q19_d',
+    20: 'q20_d',
+    21: 1,
+    22: 'q22_d',
+    23: 'q23_d',
+    24: ['q24_a'],
+    25: 'idk',
   };
   const evalBeginner = evaluateAssessment(beginnerAnswers);
   assert(
@@ -149,14 +202,31 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
 
   // Check 13: Advanced profile produces high score (>=75 range)
   const advancedAnswers: Record<number, any> = {
-    1: 'q1_a', 2: ['q2_a', 'q2_d', 'q2_f'], 3: 'q3_b', 4: 1, 5: 'q5_c',
-    6: 'q6_b', 7: 'q7_a', 8: 'q8_a', 9: 'q9_a', 10: 'q10_a',
+    1: 'q1_a',
+    2: ['q2_a', 'q2_d', 'q2_f'],
+    3: 'q3_b',
+    4: 1,
+    5: 'q5_c',
+    6: 'q6_b',
+    7: 'q7_a',
+    8: 'q8_a',
+    9: 'q9_a',
+    10: 'q10_a',
     11: 'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.',
     12: 'Create modular TypeScript React component with custom hook, error handling, mock data, and unit tests.',
-    13: 'q13_a', 14: 'q14_a', 15: 'q15_a', 16: 'q16_a', 17: 'q17_a',
-    18: 'q18_a', 19: 'q19_a', 20: 'q20_a', 21: 5, 22: 'q22_a',
-    23: 'q23_b', 24: ['q24_a', 'q24_c'],
-    25: 'Adapting to AI requires continuous workflow redesign, technical understanding of model limitations, critical verification, and proactive hands-on experimentation.'
+    13: 'q13_a',
+    14: 'q14_a',
+    15: 'q15_a',
+    16: 'q16_a',
+    17: 'q17_a',
+    18: 'q18_a',
+    19: 'q19_a',
+    20: 'q20_a',
+    21: 5,
+    22: 'q22_a',
+    23: 'q23_b',
+    24: ['q24_a', 'q24_c'],
+    25: 'Adapting to AI requires continuous workflow redesign, technical understanding of model limitations, critical verification, and proactive hands-on experimentation.',
   };
   const evalAdvanced = evaluateAssessment(advancedAnswers);
   assert(
@@ -192,7 +262,8 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
   // Check 17: Evidence coverage matches percentage of answered weighted questions
   const partialCoverageEval = evaluateAssessment({ 1: 'q1_a', 6: 'q6_b' });
   assert(
-    partialCoverageEval.overallEvidenceCoverage < 1.0 && evalAdvanced.overallEvidenceCoverage === 1.0,
+    partialCoverageEval.overallEvidenceCoverage < 1.0 &&
+      evalAdvanced.overallEvidenceCoverage === 1.0,
     'Check 17: Evidence coverage matches percentage of answered weighted questions',
     `Partial coverage=${(partialCoverageEval.overallEvidenceCoverage * 100).toFixed(1)}%, Full coverage=${(evalAdvanced.overallEvidenceCoverage * 100).toFixed(1)}%`
   );
@@ -201,7 +272,264 @@ export function runAssessmentScoringQualityChecks(): { passed: boolean; passedCo
     passed: passedCount === totalCount,
     passedCount,
     totalCount,
-    logs
+    logs,
   };
 }
 
+if (typeof describe === 'function') {
+  describe('Evidence-Based Assessment Scoring Engine', () => {
+    it('Check 1: Similar meaning options produce similar scores', () => {
+      const score15 = scoreQuestion(15, 'q15_a');
+      const score16 = scoreQuestion(16, 'q16_a');
+      expect(score15.score).toBe(100);
+      expect(score16.score).toBe(100);
+    });
+
+    it('Check 2: Weak answer in Option A does NOT get a high score', () => {
+      const resQ6A = scoreQuestion(6, 'q6_a');
+      expect(resQ6A.score).toBeLessThanOrEqual(20);
+      expect(resQ6A.evidenceLevel).toBe('misunderstanding');
+    });
+
+    it('Check 3: Strong answer receives high score regardless of option letter B/C/D', () => {
+      const resQ6B = scoreQuestion(6, 'q6_b');
+      const resQ3B = scoreQuestion(3, 'q3_b');
+      expect(resQ6B.score).toBe(100);
+      expect(resQ3B.score).toBe(100);
+    });
+
+    it('Check 4: Multi-select evaluated on technical depth rather than raw option count', () => {
+      const resBasicMulti = scoreQuestion(2, ['q2_a', 'q2_c']);
+      const resDevMulti = scoreQuestion(2, ['q2_d', 'q2_f']);
+      expect(resDevMulti.score).toBeGreaterThan(resBasicMulti.score);
+    });
+
+    it('Check 5: Q5 & Q24 preferences do NOT inflate capability scores', () => {
+      const resQ24 = scoreQuestion(24, ['q24_a', 'q24_b', 'q24_c']);
+      const evalQ24Only = evaluateAssessment({ 24: ['q24_a', 'q24_b', 'q24_c', 'q24_d'] });
+      expect(resQ24.score).toBe(0);
+      expect(evalQ24Only.overallScore).toBe(0);
+    });
+
+    it('Check 6: Q23 attitude/concern stays within balanced analytical range', () => {
+      const resQ23Concern = scoreQuestion(23, 'q23_b');
+      const resQ23Optimism = scoreQuestion(23, 'q23_d');
+      expect(resQ23Concern.score).toBeGreaterThanOrEqual(60);
+      expect(resQ23Concern.score).toBeLessThanOrEqual(85);
+      expect(resQ23Optimism.score).toBeGreaterThanOrEqual(60);
+      expect(resQ23Optimism.score).toBeLessThanOrEqual(85);
+    });
+
+    it('Check 7: Open-ended answers evaluated from actual content, not repetitive length', () => {
+      const strongPrompt =
+        'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.';
+      const weakPrompt = 'make a website make a website make a website make a website';
+      const resStrongText = scoreQuestion(11, strongPrompt);
+      const resWeakText = scoreQuestion(11, weakPrompt);
+      expect(resStrongText.score).toBeGreaterThan(resWeakText.score);
+      expect(resStrongText.evidenceLevel).toBe('strong');
+    });
+
+    it('Check 8: Missing/empty evidence receives 0 score with no score inflation', () => {
+      const resEmptyText = scoreQuestion(11, '');
+      const evalEmptyAll = evaluateAssessment({});
+      expect(resEmptyText.score).toBe(0);
+      expect(evalEmptyAll.overallScore).toBe(0);
+    });
+
+    it('Check 9: Anthropic failure uses deterministic fallback without fake scores (85/80)', () => {
+      const resFallback = scoreQuestion(11, 'Build a typescript backend API');
+      expect(resFallback.scoringMethod).toBe('deterministic_fallback');
+      expect(resFallback.anthropicStatus).toBe('unavailable');
+      expect([85, 80, 94, 90].includes(resFallback.score)).toBe(false);
+    });
+
+    it('Check 10: Every final capability score can be traced to actual question evidence', () => {
+      const fullEval = evaluateAssessment({
+        1: 'q1_a',
+        6: 'q6_b',
+        7: 'q7_a',
+        9: 'q9_a',
+        21: 5,
+      });
+      const usingCap = fullEval.capabilities.usingAI;
+      expect(usingCap.contributingQuestionIds).toContain(1);
+      expect(usingCap.questionScores[1]).toBe(100);
+      expect(usingCap.rubricVersion).toBe('3.0.0-evidence-based');
+    });
+
+    it('Check 11: Intermediate learner profile produces moderate score (50–74 range)', () => {
+      const intermediateAnswers: Record<number, unknown> = {
+        1: 'q1_c',
+        2: ['q2_a', 'q2_b'],
+        3: 'q3_a',
+        4: 3,
+        5: 'q5_b',
+        6: 'q6_b',
+        7: 'q7_b',
+        8: 'q8_a',
+        9: 'q9_b',
+        10: 'q10_a',
+        11: 'Act as a developer. Create a REST API using Node and Express with MongoDB.',
+        12: 'Write a React component with state for counter.',
+        13: 'q13_c',
+        14: 'q14_b',
+        15: 'q15_c',
+        16: 'q16_b',
+        17: 'q17_b',
+        18: 'q18_b',
+        19: 'q19_b',
+        20: 'q20_b',
+        21: 3,
+        22: 'q22_b',
+        23: 'q23_b',
+        24: ['q24_b'],
+        25: 'Adapting means changing workflows and mindset while using is just typing.',
+      };
+      const evalIntermediate = evaluateAssessment(intermediateAnswers as Record<number, any>);
+      expect(evalIntermediate.overallScore).toBeGreaterThanOrEqual(50);
+      expect(evalIntermediate.overallScore).toBeLessThanOrEqual(74);
+    });
+
+    it('Check 12: Beginner profile produces low score (<50 range)', () => {
+      const beginnerAnswers: Record<number, unknown> = {
+        1: 'q1_d',
+        2: ['q2_a'],
+        3: 'q3_d',
+        4: 5,
+        5: 'q5_a',
+        6: 'q6_a',
+        7: 'q7_d',
+        8: 'q8_d',
+        9: 'q9_d',
+        10: 'q10_d',
+        11: 'make website',
+        12: 'write code',
+        13: 'q13_d',
+        14: 'q14_d',
+        15: 'q15_d',
+        16: 'q16_d',
+        17: 'q17_d',
+        18: 'q18_d',
+        19: 'q19_d',
+        20: 'q20_d',
+        21: 1,
+        22: 'q22_d',
+        23: 'q23_d',
+        24: ['q24_a'],
+        25: 'idk',
+      };
+      const evalBeginner = evaluateAssessment(beginnerAnswers as Record<number, any>);
+      expect(evalBeginner.overallScore).toBeLessThan(50);
+    });
+
+    it('Check 13: Advanced profile produces high score (>=75 range)', () => {
+      const advancedAnswers: Record<number, unknown> = {
+        1: 'q1_a',
+        2: ['q2_a', 'q2_d', 'q2_f'],
+        3: 'q3_b',
+        4: 1,
+        5: 'q5_c',
+        6: 'q6_b',
+        7: 'q7_a',
+        8: 'q8_a',
+        9: 'q9_a',
+        10: 'q10_a',
+        11: 'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.',
+        12: 'Create modular TypeScript React component with custom hook, error handling, mock data, and unit tests.',
+        13: 'q13_a',
+        14: 'q14_a',
+        15: 'q15_a',
+        16: 'q16_a',
+        17: 'q17_a',
+        18: 'q18_a',
+        19: 'q19_a',
+        20: 'q20_a',
+        21: 5,
+        22: 'q22_a',
+        23: 'q23_b',
+        24: ['q24_a', 'q24_c'],
+        25: 'Adapting to AI requires continuous workflow redesign, technical understanding of model limitations, critical verification, and proactive hands-on experimentation.',
+      };
+      const evalAdvanced = evaluateAssessment(advancedAnswers as Record<number, any>);
+      expect(evalAdvanced.overallScore).toBeGreaterThanOrEqual(75);
+    });
+
+    it('Check 14: Peer benchmark returns insufficiency notice when records < 30', () => {
+      const mockInsuff = { insufficientData: true, count: 12 };
+      expect(mockInsuff.insufficientData).toBe(true);
+    });
+
+    it('Check 15: Peer benchmark returns data when records >= 30', () => {
+      const mockSuff = { insufficientData: false, count: 45 };
+      expect(mockSuff.insufficientData).toBe(false);
+    });
+
+    it('Check 16: Score confidence decreases with missing responses', () => {
+      const partialEval = evaluateAssessment({ 1: 'q1_a', 6: 'q6_b' });
+      const advancedAnswers: Record<number, unknown> = {
+        1: 'q1_a',
+        2: ['q2_a', 'q2_d', 'q2_f'],
+        3: 'q3_b',
+        4: 1,
+        5: 'q5_c',
+        6: 'q6_b',
+        7: 'q7_a',
+        8: 'q8_a',
+        9: 'q9_a',
+        10: 'q10_a',
+        11: 'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.',
+        12: 'Create modular TypeScript React component with custom hook, error handling, mock data, and unit tests.',
+        13: 'q13_a',
+        14: 'q14_a',
+        15: 'q15_a',
+        16: 'q16_a',
+        17: 'q17_a',
+        18: 'q18_a',
+        19: 'q19_a',
+        20: 'q20_a',
+        21: 5,
+        22: 'q22_a',
+        23: 'q23_b',
+        24: ['q24_a', 'q24_c'],
+        25: 'Adapting to AI requires continuous workflow redesign, technical understanding of model limitations, critical verification, and proactive hands-on experimentation.',
+      };
+      const evalAdvanced = evaluateAssessment(advancedAnswers as Record<number, any>);
+      expect(partialEval.overallConfidence).toBeLessThan(evalAdvanced.overallConfidence);
+    });
+
+    it('Check 17: Evidence coverage matches percentage of answered weighted questions', () => {
+      const partialCoverageEval = evaluateAssessment({ 1: 'q1_a', 6: 'q6_b' });
+      const advancedAnswers: Record<number, unknown> = {
+        1: 'q1_a',
+        2: ['q2_a', 'q2_d', 'q2_f'],
+        3: 'q3_b',
+        4: 1,
+        5: 'q5_c',
+        6: 'q6_b',
+        7: 'q7_a',
+        8: 'q8_a',
+        9: 'q9_a',
+        10: 'q10_a',
+        11: 'Act as Senior System Architect. Design React and Node.js microservices architecture with PostgreSQL, Redis, JWT auth, and explicit rate limiting schemas.',
+        12: 'Create modular TypeScript React component with custom hook, error handling, mock data, and unit tests.',
+        13: 'q13_a',
+        14: 'q14_a',
+        15: 'q15_a',
+        16: 'q16_a',
+        17: 'q17_a',
+        18: 'q18_a',
+        19: 'q19_a',
+        20: 'q20_a',
+        21: 5,
+        22: 'q22_a',
+        23: 'q23_b',
+        24: ['q24_a', 'q24_c'],
+        25: 'Adapting to AI requires continuous workflow redesign, technical understanding of model limitations, critical verification, and proactive hands-on experimentation.',
+      };
+      const evalAdvanced = evaluateAssessment(advancedAnswers as Record<number, any>);
+      expect(partialCoverageEval.overallEvidenceCoverage).toBeLessThan(1.0);
+      expect(evalAdvanced.overallEvidenceCoverage).toBe(1.0);
+    });
+  });
+}

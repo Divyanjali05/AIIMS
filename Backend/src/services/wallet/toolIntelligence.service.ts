@@ -1,10 +1,9 @@
-import { ToolSourceService, SourceItem } from './toolSource.service';
+import { ToolSourceService } from './toolSource.service';
 import { ToolAssessmentService, StructuredAssessment } from './toolAssessment.service';
 import { ToolVerificationService } from './toolVerification.service';
 import { ToolEvidenceService } from './toolEvidence.service';
 import { ToolChangeDetectionService } from './toolChangeDetection.service';
 import { ToolCatalogService } from './toolCatalog.service';
-import { AITool } from '../../types';
 
 export interface IntelligenceRunStatus {
   lastRunTimestamp: string;
@@ -32,7 +31,7 @@ export class ToolIntelligenceService {
     unchangedToolsSkipped: 1,
     evidenceItemsRecorded: 8,
     failedSources: [],
-    status: 'COMPLETED'
+    status: 'COMPLETED',
   };
 
   private static isRunning = false;
@@ -65,13 +64,21 @@ export class ToolIntelligenceService {
 
       for (const item of sourceItems) {
         const existingTool = ToolCatalogService.getCatalog().find(
-          t => t.officialWebsite === item.url || t.id === `tool-${item.id}` || t.name.toLowerCase() === item.title.toLowerCase()
+          (t) =>
+            t.officialWebsite === item.url ||
+            t.id === `tool-${item.id}` ||
+            t.name.toLowerCase() === item.title.toLowerCase()
         );
 
         // 2. Hash check for selective change re-assessment (Cost optimization)
         const toolIdForHash = existingTool?.id || `tool-${item.id}`;
-        if (existingTool && ToolChangeDetectionService.isSourceUnchanged(toolIdForHash, item.hash)) {
-          console.log(`[ToolIntelligence] Source hash unchanged for "${existingTool.name}". Skipping deep AI re-assessment.`);
+        if (
+          existingTool &&
+          ToolChangeDetectionService.isSourceUnchanged(toolIdForHash, item.hash)
+        ) {
+          console.log(
+            `[ToolIntelligence] Source hash unchanged for "${existingTool.name}". Skipping deep AI re-assessment.`
+          );
           skippedCount++;
           continue;
         }
@@ -81,26 +88,39 @@ export class ToolIntelligenceService {
 
         // 4. Reject irrelevant non-tool news candidates
         if (!assessment.classification.isRelevant) {
-          console.log(`[ToolIntelligence] Candidate "${item.title}" classified as ${assessment.classification.itemType}. Skipping catalog promotion.`);
+          console.log(
+            `[ToolIntelligence] Candidate "${item.title}" classified as ${assessment.classification.itemType}. Skipping catalog promotion.`
+          );
           continue;
         }
 
         // 5. Source Priority Verification & Conflict Resolution
-        const verification = ToolVerificationService.verifyCandidate(assessment, item, existingTool);
+        const verification = ToolVerificationService.verifyCandidate(
+          assessment,
+          item,
+          existingTool
+        );
         const verifiedTool = verification.tool;
 
         // 6. Record Supporting Evidence Claims
-        const recordedEvidence = await ToolEvidenceService.recordEvidence(verifiedTool.id, verification.evidenceItems);
+        const recordedEvidence = await ToolEvidenceService.recordEvidence(
+          verifiedTool.id,
+          verification.evidenceItems
+        );
         totalEvidenceRecorded += recordedEvidence.length;
 
         // 7. Change Detection & Version History Recording
         if (existingTool) {
           ToolChangeDetectionService.detectToolChanges(existingTool, verifiedTool, item.url);
           updatedToolsCount++;
-          console.log(`[ToolIntelligence] Updated verified tool: ${verifiedTool.name} (Status: RECENTLY_UPDATED)`);
+          console.log(
+            `[ToolIntelligence] Updated verified tool: ${verifiedTool.name} (Status: RECENTLY_UPDATED)`
+          );
         } else {
           newToolsCount++;
-          console.log(`[ToolIntelligence] Discovered verified new tool: ${verifiedTool.name} (Status: NEW)`);
+          console.log(
+            `[ToolIntelligence] Discovered verified new tool: ${verifiedTool.name} (Status: NEW)`
+          );
         }
 
         // 8. Update Source Content Hash Cache
@@ -119,11 +139,13 @@ export class ToolIntelligenceService {
         unchangedToolsSkipped: skippedCount,
         evidenceItemsRecorded: totalEvidenceRecorded,
         failedSources,
-        status: 'COMPLETED'
+        status: 'COMPLETED',
       };
 
       console.log(`[ToolIntelligence] Intelligence Pass Completed.`);
-      console.log(`[ToolIntelligence] Processed: ${sourceItems.length} | New: ${newToolsCount} | Updated: ${updatedToolsCount} | Skipped: ${skippedCount} | Evidence: ${totalEvidenceRecorded}`);
+      console.log(
+        `[ToolIntelligence] Processed: ${sourceItems.length} | New: ${newToolsCount} | Updated: ${updatedToolsCount} | Skipped: ${skippedCount} | Evidence: ${totalEvidenceRecorded}`
+      );
     } catch (err: any) {
       this.runStatus.status = 'FAILED';
       console.error('[ToolIntelligence] Intelligence pipeline error:', err.message);

@@ -1,19 +1,41 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  AlertCircle, CheckCircle, ArrowLeft, ArrowRight, Check,
-  Building2, GraduationCap, Sparkles, User, Eye, EyeOff,
-  Search, ChevronDown, ChevronUp, Plus, Loader2, Sun, Moon
+  AlertCircle,
+  CheckCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  GraduationCap,
+  Sparkles,
+  User,
+  Eye,
+  EyeOff,
+  Search,
+  Plus,
+  Loader2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
 import {
-  STREAMS, TECH_SUB_CATEGORIES, NON_TECH_SUB_CATEGORIES,
-  EDUCATION_LEVELS, PROGRAMS, SPECIALIZATIONS,
-  AI_FAMILIARITY_OPTIONS, AI_USAGE_CONTEXTS, PRIMARY_GOAL_OPTIONS,
-  Stream, EducationLevel,
-  getProgramsForStreamAndLevel, getSpecializationsForProgram, getYearsForLevel,
-  getAdmissionYears, getExpectedGraduationYears
+  STREAMS,
+  TECH_SUB_CATEGORIES,
+  NON_TECH_SUB_CATEGORIES,
+  EDUCATION_LEVELS,
+  PROGRAMS,
+  SPECIALIZATIONS,
+  AI_FAMILIARITY_OPTIONS,
+  AI_USAGE_CONTEXTS,
+  PRIMARY_GOAL_OPTIONS,
+  Stream,
+  EducationLevel,
+  getProgramsForStreamAndLevel,
+  getSpecializationsForProgram,
+  getYearsForLevel,
+  getAdmissionYears,
+  getExpectedGraduationYears,
 } from '../../config/academicTaxonomy';
 import { apiClient } from '../../api/client';
 
@@ -49,7 +71,7 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   boxSizing: 'border-box',
   outline: 'none',
-  transition: 'border-color 0.2s, box-shadow 0.2s'
+  transition: 'border-color 0.2s, box-shadow 0.2s',
 };
 
 const labelStyle: React.CSSProperties = {
@@ -57,19 +79,19 @@ const labelStyle: React.CSSProperties = {
   fontSize: '13px',
   fontWeight: 650,
   color: 'var(--aiims-text-secondary, #334155)',
-  marginBottom: '6px'
+  marginBottom: '6px',
 };
 
 const fieldGroupStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '4px'
+  gap: '4px',
 };
 
 export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   onSuccess,
   onNavigateToLogin,
-  onNavigateToHome
+  onNavigateToHome,
 }) => {
   const { register } = useLearner();
   const { isDarkMode, toggleTheme } = useTheme();
@@ -117,14 +139,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [expectedGraduationYear, setExpectedGraduationYear] = useState<number | ''>('');
 
   // Derived lists
-  const subCategories = stream ? (stream === 'TECH' ? TECH_SUB_CATEGORIES : NON_TECH_SUB_CATEGORIES) : [];
-  const availablePrograms = (stream && educationLevel)
-    ? getProgramsForStreamAndLevel(stream as Stream, educationLevel as EducationLevel)
+  const subCategories = stream
+    ? stream === 'TECH'
+      ? TECH_SUB_CATEGORIES
+      : NON_TECH_SUB_CATEGORIES
     : [];
-  const availableSpecializations = (programId && stream)
-    ? getSpecializationsForProgram(programId, stream as Stream)
-    : [];
-  const availableYears = educationLevel ? getYearsForLevel(educationLevel as EducationLevel) : [1, 2, 3, 4];
+  const availablePrograms =
+    stream && educationLevel
+      ? getProgramsForStreamAndLevel(stream as Stream, educationLevel as EducationLevel)
+      : [];
+  const availableSpecializations =
+    programId && stream ? getSpecializationsForProgram(programId, stream as Stream) : [];
+  const availableYears = educationLevel
+    ? getYearsForLevel(educationLevel as EducationLevel)
+    : [1, 2, 3, 4];
 
   // Reset downstream when stream/level changes
   useEffect(() => {
@@ -149,16 +177,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     if (instituteQuery.length < 2) {
       // Load initial list
       setIsLoadingInstitutes(true);
-      apiClient.searchInstitutes('', 20)
-        .then(res => setInstituteOptions(res.institutes || []))
+      apiClient
+        .searchInstitutes('', 20)
+        .then((res) => setInstituteOptions(res.institutes || []))
         .catch(() => {})
         .finally(() => setIsLoadingInstitutes(false));
       return;
     }
     instituteSearchTimeout.current = setTimeout(() => {
       setIsLoadingInstitutes(true);
-      apiClient.searchInstitutes(instituteQuery, 20)
-        .then(res => setInstituteOptions(res.institutes || []))
+      apiClient
+        .searchInstitutes(instituteQuery, 20)
+        .then((res) => setInstituteOptions(res.institutes || []))
         .catch(() => {})
         .finally(() => setIsLoadingInstitutes(false));
     }, 300);
@@ -170,15 +200,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [primaryGoal, setPrimaryGoal] = useState('');
 
   const toggleUsageContext = (val: string) => {
-    setAiUsageContexts(prev =>
-      prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
+    setAiUsageContexts((prev) =>
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
     );
   };
 
   // ── Step validation ───────────────────────────────────────────────────────
   const validateStep1 = (): string | null => {
     if (!name.trim() || name.trim().length < 2) return 'Please enter your full name.';
-    if (!email.trim() || !email.includes('@') || !email.includes('.')) return 'Enter a valid email address.';
+    if (!email.trim() || !email.includes('@') || !email.includes('.'))
+      return 'Enter a valid email address.';
     if (!password || password.length < 8) return 'Password must be at least 8 characters long.';
     if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.';
     if (!/[0-9]/.test(password)) return 'Password must include at least one number.';
@@ -231,8 +262,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       return;
     }
 
-    const selectedProgram = PROGRAMS.find(p => p.id === programId);
-    const selectedSpec = SPECIALIZATIONS.find(s => s.id === specializationId);
+    const selectedProgram = PROGRAMS.find((p) => p.id === programId);
+    const selectedSpec = SPECIALIZATIONS.find((s) => s.id === specializationId);
 
     const payload: RegistrationPayload = {
       name: name.trim(),
@@ -253,7 +284,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       expectedGraduationYear: Number(expectedGraduationYear),
       aiFamiliarity,
       aiUsageContexts,
-      primaryGoal
+      primaryGoal,
     };
 
     setIsLoading(true);
@@ -265,8 +296,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         setErrorMessage(res.error || 'Registration failed. Please try again.');
         if (res.field) setErrorField(res.field);
         // Navigate back to the relevant step if error is field-specific
-        if (res.field && ['name', 'email', 'password', 'confirmPassword'].includes(res.field)) setStep(1);
-        else if (res.field && ['stream', 'educationLevel', 'programId', 'specializationId', 'yearOfStudy', 'admissionYear'].includes(res.field)) setStep(2);
+        if (res.field && ['name', 'email', 'password', 'confirmPassword'].includes(res.field))
+          setStep(1);
+        else if (
+          res.field &&
+          [
+            'stream',
+            'educationLevel',
+            'programId',
+            'specializationId',
+            'yearOfStudy',
+            'admissionYear',
+          ].includes(res.field)
+        )
+          setStep(2);
       }
     } finally {
       setIsLoading(false);
@@ -289,7 +332,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px'
+    gap: '8px',
   };
 
   const btnSecondary: React.CSSProperties = {
@@ -307,7 +350,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px'
+    gap: '8px',
   };
 
   const selectStyle: React.CSSProperties = {
@@ -317,26 +360,28 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     backgroundRepeat: 'no-repeat',
     backgroundPosition: 'right 12px center',
     paddingRight: '36px',
-    cursor: 'pointer'
+    cursor: 'pointer',
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      width: '100%',
-      backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
-      backgroundImage: isDarkMode
-        ? 'radial-gradient(circle at 50% 15%, rgba(139, 92, 246, 0.14) 0%, transparent 60%)'
-        : 'radial-gradient(circle at 50% 15%, rgba(109, 93, 251, 0.08) 0%, transparent 60%)',
-      fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
-      color: 'var(--aiims-text-primary, #0F172A)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '32px 16px 64px',
-      boxSizing: 'border-box',
-      position: 'relative'
-    }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        width: '100%',
+        backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
+        backgroundImage: isDarkMode
+          ? 'radial-gradient(circle at 50% 15%, rgba(139, 92, 246, 0.14) 0%, transparent 60%)'
+          : 'radial-gradient(circle at 50% 15%, rgba(109, 93, 251, 0.08) 0%, transparent 60%)',
+        fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
+        color: 'var(--aiims-text-primary, #0F172A)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '32px 16px 64px',
+        boxSizing: 'border-box',
+        position: 'relative',
+      }}
+    >
       {/* Logged-out Theme Toggle */}
       <button
         id="register-theme-toggle-btn"
@@ -359,7 +404,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           color: isDarkMode ? '#fbbf24' : '#4f46e5',
           boxShadow: 'var(--aiims-shadow-card, 0 2px 8px rgba(0,0,0,0.06))',
           transition: 'all 0.2s ease',
-          zIndex: 50
+          zIndex: 50,
         }}
       >
         {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
@@ -373,6 +418,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           border-color: #5B4BFF !important;
           box-shadow: 0 0 0 3px rgba(91, 75, 255, 0.12) !important;
           outline: none;
+        }
+        .reg-select option {
+          background-color: var(--aiims-bg-card, #ffffff);
+          color: var(--aiims-text-primary, #0F172A);
         }
         .reg-pill {
           padding: 8px 14px;
@@ -394,7 +443,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         .reg-pill.selected {
           border-color: #5B4BFF;
           background: rgba(91,75,255,0.12);
-          color: #4338CA;
+          color: var(--aiims-primary-text, #4338CA);
         }
         .reg-stream-card {
           padding: 16px;
@@ -444,7 +493,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
         .institute-item:last-child { border-bottom: none; }
         .institute-item:hover { background: var(--aiims-bg-card-hover, #F8FAFC); }
-        .institute-item.selected { background: rgba(91,75,255,0.12); color: #4338CA; font-weight: 600; }
+        .institute-item.selected { background: rgba(91,75,255,0.12); color: var(--aiims-primary-text, #4338CA); font-weight: 600; }
+        .reg-btn-primary:hover:not(:disabled) {
+          background: #4338CA !important;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 14px rgba(91, 75, 255, 0.4);
+        }
+        .reg-btn-secondary:hover:not(:disabled) {
+          background: var(--aiims-bg-card-hover, #F8FAFC) !important;
+          transform: translateY(-1px);
+        }
       `}</style>
 
       {/* Logo */}
@@ -453,7 +511,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       </div>
 
       {/* Step Indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0', marginBottom: '28px', maxWidth: '480px', width: '100%' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0',
+          marginBottom: '28px',
+          maxWidth: '480px',
+          width: '100%',
+        }}
+      >
         {STEP_LABELS.map((label, i) => {
           const stepNum = (i + 1) as Step;
           const isActive = step === stepNum;
@@ -462,34 +529,68 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
           return (
             <React.Fragment key={stepNum}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                <div style={{
-                  width: '36px', height: '36px',
-                  borderRadius: '50%',
-                  background: isComplete ? '#10B981' : isActive ? '#5B4BFF' : '#E2E8F0',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.3s',
-                  marginBottom: '4px'
-                }}>
-                  {isComplete
-                    ? <Check size={16} color="#fff" />
-                    : <StepIcon size={16} color={isActive ? '#fff' : '#94A3B8'} />
-                  }
+              <div
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}
+              >
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: isComplete
+                      ? '#10B981'
+                      : isActive
+                        ? '#5B4BFF'
+                        : isDarkMode
+                          ? 'var(--aiims-border-card, #202b4d)'
+                          : '#E2E8F0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s',
+                    marginBottom: '4px',
+                  }}
+                >
+                  {isComplete ? (
+                    <Check size={16} color="#fff" />
+                  ) : (
+                    <StepIcon
+                      size={16}
+                      color={isActive ? '#fff' : isDarkMode ? '#64748B' : '#94A3B8'}
+                    />
+                  )}
                 </div>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: isActive ? 700 : 500,
-                  color: isActive ? '#5B4BFF' : isComplete ? '#10B981' : '#94A3B8'
-                }}>{label}</span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: isActive ? 700 : 500,
+                    color: isActive
+                      ? '#5B4BFF'
+                      : isComplete
+                        ? '#10B981'
+                        : isDarkMode
+                          ? '#64748B'
+                          : '#94A3B8',
+                  }}
+                >
+                  {label}
+                </span>
               </div>
               {i < STEP_LABELS.length - 1 && (
-                <div style={{
-                  flex: 1,
-                  height: '2px',
-                  background: step > i + 1 ? '#10B981' : '#E2E8F0',
-                  marginBottom: '20px',
-                  transition: 'all 0.3s'
-                }} />
+                <div
+                  style={{
+                    flex: 1,
+                    height: '2px',
+                    background:
+                      step > i + 1
+                        ? '#10B981'
+                        : isDarkMode
+                          ? 'var(--aiims-border-card, #202b4d)'
+                          : '#E2E8F0',
+                    marginBottom: '20px',
+                    transition: 'all 0.3s',
+                  }}
+                />
               )}
             </React.Fragment>
           );
@@ -497,25 +598,41 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       </div>
 
       {/* Card */}
-      <div style={{
-        maxWidth: '520px',
-        width: '100%',
-        backgroundColor: 'var(--aiims-bg-card, #ffffff)',
-        borderRadius: '20px',
-        border: '1px solid var(--aiims-border-card, #E2E8F0)',
-        padding: '36px 32px',
-        boxShadow: 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0,0,0,0.06))',
-        boxSizing: 'border-box'
-      }}>
+      <div
+        style={{
+          maxWidth: '520px',
+          width: '100%',
+          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          borderRadius: '20px',
+          border: '1px solid var(--aiims-border-card, #E2E8F0)',
+          padding: '36px 32px',
+          boxShadow: isDarkMode
+            ? '0 20px 40px -15px rgba(0,0,0,0.5)'
+            : 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0,0,0,0.06))',
+          boxSizing: 'border-box',
+        }}
+      >
         {/* Error Banner */}
         {errorMessage && (
-          <div style={{
-            background: '#FEF2F2', border: '1px solid #FCA5A5',
-            color: '#991B1B', padding: '12px 14px', borderRadius: '10px',
-            fontSize: '13px', fontWeight: 600, marginBottom: '20px',
-            display: 'flex', alignItems: 'flex-start', gap: '10px'
-          }}>
-            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '1px', color: '#DC2626' }} />
+          <div
+            style={{
+              background: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+              border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
+              color: isDarkMode ? '#FCA5A5' : '#991B1B',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+            }}
+          >
+            <AlertCircle
+              size={16}
+              style={{ flexShrink: 0, marginTop: '1px', color: isDarkMode ? '#EF4444' : '#DC2626' }}
+            />
             <span>{errorMessage}</span>
           </div>
         )}
@@ -524,10 +641,24 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 1 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+              <h2
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading, #0F172A)',
+                  letterSpacing: '-0.4px',
+                  margin: '0 0 4px',
+                }}
+              >
                 Create your AIIMS account
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--aiims-text-secondary, #64748B)',
+                  margin: 0,
+                }}
+              >
                 Your journey into AI intelligence starts here.
               </p>
             </div>
@@ -540,10 +671,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   id="reg-name"
                   className="reg-input"
                   type="text"
-                  style={{ ...inputStyle, borderColor: errorField === 'name' ? '#F87171' : '#E2E8F0' }}
+                  style={{
+                    ...inputStyle,
+                    borderColor:
+                      errorField === 'name'
+                        ? '#F87171'
+                        : isDarkMode
+                          ? 'var(--aiims-input-border, #2c3b63)'
+                          : '#E2E8F0',
+                  }}
                   placeholder="Jane Doe"
                   value={name}
-                  onChange={e => setName(e.target.value)}
+                  onChange={(e) => setName(e.target.value)}
                   disabled={isLoading}
                 />
               </div>
@@ -555,10 +694,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   id="reg-email"
                   className="reg-input"
                   type="email"
-                  style={{ ...inputStyle, borderColor: errorField === 'email' ? '#F87171' : '#E2E8F0' }}
+                  style={{
+                    ...inputStyle,
+                    borderColor:
+                      errorField === 'email'
+                        ? '#F87171'
+                        : isDarkMode
+                          ? 'var(--aiims-input-border, #2c3b63)'
+                          : '#E2E8F0',
+                  }}
                   placeholder="you@example.com"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
                 />
               </div>
@@ -571,14 +718,40 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     id="reg-password"
                     className="reg-input"
                     type={showPassword ? 'text' : 'password'}
-                    style={{ ...inputStyle, paddingRight: '42px', borderColor: errorField === 'password' ? '#F87171' : '#E2E8F0' }}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: '42px',
+                      borderColor:
+                        errorField === 'password'
+                          ? '#F87171'
+                          : isDarkMode
+                            ? 'var(--aiims-input-border, #2c3b63)'
+                            : '#E2E8F0',
+                    }}
                     placeholder="Min 8 chars, 1 uppercase, 1 number"
                     value={password}
-                    onChange={e => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94A3B8',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -586,16 +759,28 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 {password && (
                   <div style={{ marginTop: '6px' }}>
                     <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      {[1, 2, 3, 4].map(s => (
-                        <div key={s} style={{
-                          flex: 1, height: '3px', borderRadius: '4px',
-                          background: s <= passwordStrength.score ? passwordStrength.color : '#E2E8F0',
-                          transition: 'all 0.2s'
-                        }} />
+                      {[1, 2, 3, 4].map((s) => (
+                        <div
+                          key={s}
+                          style={{
+                            flex: 1,
+                            height: '3px',
+                            borderRadius: '4px',
+                            background:
+                              s <= passwordStrength.score
+                                ? passwordStrength.color
+                                : isDarkMode
+                                  ? 'var(--aiims-border-card, #202b4d)'
+                                  : '#E2E8F0',
+                            transition: 'all 0.2s',
+                          }}
+                        />
                       ))}
                     </div>
                     {passwordStrength.label && (
-                      <span style={{ fontSize: '11px', color: passwordStrength.color, fontWeight: 600 }}>
+                      <span
+                        style={{ fontSize: '11px', color: passwordStrength.color, fontWeight: 600 }}
+                      >
                         {passwordStrength.label} password
                       </span>
                     )}
@@ -612,18 +797,41 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     className="reg-input"
                     type={showConfirmPassword ? 'text' : 'password'}
                     style={{
-                      ...inputStyle, paddingRight: '42px',
-                      borderColor: confirmPassword && confirmPassword !== password ? '#F87171'
-                        : confirmPassword && confirmPassword === password ? '#10B981'
-                        : '#E2E8F0'
+                      ...inputStyle,
+                      paddingRight: '42px',
+                      borderColor:
+                        confirmPassword && confirmPassword !== password
+                          ? '#F87171'
+                          : confirmPassword && confirmPassword === password
+                            ? '#10B981'
+                            : isDarkMode
+                              ? 'var(--aiims-input-border, #2c3b63)'
+                              : '#E2E8F0',
                     }}
                     placeholder="Re-enter password"
                     value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     disabled={isLoading}
                   />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#94A3B8',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
@@ -636,21 +844,43 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 2 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+              <h2
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading, #0F172A)',
+                  letterSpacing: '-0.4px',
+                  margin: '0 0 4px',
+                }}
+              >
                 Your Academic Identity
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--aiims-text-secondary, #64748B)',
+                  margin: 0,
+                }}
+              >
                 This powers accurate peer benchmarks and ensures your learning context is correct.
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
               {/* Institute Search */}
               <div style={{ ...fieldGroupStyle, position: 'relative' }}>
                 <label style={labelStyle}>College / University</label>
                 <div style={{ position: 'relative' }}>
-                  <Search size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+                  <Search
+                    size={15}
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      color: '#94A3B8',
+                    }}
+                  />
                   <input
                     id="reg-institute"
                     className="reg-input"
@@ -658,7 +888,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     style={{ ...inputStyle, paddingLeft: '36px', paddingRight: '36px' }}
                     placeholder="Search your college or university..."
                     value={selectedInstitute ? selectedInstitute.name : instituteQuery}
-                    onChange={e => {
+                    onChange={(e) => {
                       setInstituteQuery(e.target.value);
                       setSelectedInstitute(null);
                       setInstituteDropdownOpen(true);
@@ -666,13 +896,36 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     onFocus={() => setInstituteDropdownOpen(true)}
                     onBlur={() => setTimeout(() => setInstituteDropdownOpen(false), 200)}
                   />
-                  {isLoadingInstitutes && <Loader2 size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', animation: 'spin 1s linear infinite' }} />}
-                  {selectedInstitute && <Check size={15} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#10B981' }} />}
+                  {isLoadingInstitutes && (
+                    <Loader2
+                      size={15}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#94A3B8',
+                        animation: 'spin 1s linear infinite',
+                      }}
+                    />
+                  )}
+                  {selectedInstitute && (
+                    <Check
+                      size={15}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#10B981',
+                      }}
+                    />
+                  )}
                 </div>
 
                 {instituteDropdownOpen && (
                   <div className="institute-dropdown">
-                    {instituteOptions.map(inst => (
+                    {instituteOptions.map((inst) => (
                       <div
                         key={inst._id}
                         className={`institute-item ${selectedInstitute?._id === inst._id ? 'selected' : ''}`}
@@ -682,8 +935,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                           setInstituteDropdownOpen(false);
                         }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--aiims-text-primary, #0F172A)' }}>{inst.name}</div>
-                        {inst.city && <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>{inst.city}</div>}
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            color: 'var(--aiims-text-primary, #0F172A)',
+                          }}
+                        >
+                          {inst.name}
+                        </div>
+                        {inst.city && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>
+                            {inst.city}
+                          </div>
+                        )}
                       </div>
                     ))}
                     <div
@@ -701,15 +966,31 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 )}
 
                 {showRequestInstitute && (
-                  <div style={{ marginTop: '8px', padding: '12px', background: 'var(--aiims-bg-subtle, #F8FAFC)', border: '1px solid var(--aiims-border-subtle, #E2E8F0)', borderRadius: '10px' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748B)', margin: '0 0 8px' }}>Type your institution name and we'll add it:</p>
+                  <div
+                    style={{
+                      marginTop: '8px',
+                      padding: '12px',
+                      background: 'var(--aiims-bg-subtle, #F8FAFC)',
+                      border: '1px solid var(--aiims-border-subtle, #E2E8F0)',
+                      borderRadius: '10px',
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--aiims-text-secondary, #64748B)',
+                        margin: '0 0 8px',
+                      }}
+                    >
+                      Type your institution name and we'll add it:
+                    </p>
                     <input
                       className="reg-input"
                       type="text"
                       style={{ ...inputStyle, fontSize: '13px' }}
                       placeholder="Your college/university name"
                       value={instituteQuery}
-                      onChange={e => setInstituteQuery(e.target.value)}
+                      onChange={(e) => setInstituteQuery(e.target.value)}
                     />
                     <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                       <button
@@ -717,17 +998,26 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                         style={{ ...btnPrimary, fontSize: '12px', padding: '8px 12px' }}
                         onClick={() => {
                           if (instituteQuery.trim()) {
-                            setSelectedInstitute({ _id: `custom-${Date.now()}`, name: instituteQuery.trim() });
+                            setSelectedInstitute({
+                              _id: `custom-${Date.now()}`,
+                              name: instituteQuery.trim(),
+                            });
                             setShowRequestInstitute(false);
-                            apiClient.requestInstitute({ name: instituteQuery.trim() }).catch(() => {});
+                            apiClient
+                              .requestInstitute({ name: instituteQuery.trim() })
+                              .catch(() => {});
                           }
                         }}
-                      >Use This Name</button>
+                      >
+                        Use This Name
+                      </button>
                       <button
                         type="button"
                         style={{ ...btnSecondary, fontSize: '12px', padding: '8px 12px' }}
                         onClick={() => setShowRequestInstitute(false)}
-                      >Cancel</button>
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 )}
@@ -735,17 +1025,41 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* Stream Selection */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Stream <span style={{ color: '#EF4444' }}>*</span></label>
+                <label style={labelStyle}>
+                  Stream <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {STREAMS.map(s => (
+                  {STREAMS.map((s) => (
                     <button
                       key={s.value}
                       type="button"
                       className={`reg-stream-card ${stream === s.value ? 'selected' : ''}`}
                       onClick={() => setStream(s.value)}
                     >
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: stream === s.value ? 'var(--aiims-accent-primary, #4338CA)' : 'var(--aiims-text-primary, #0F172A)', marginBottom: '2px' }}>{s.label}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #64748B)', lineHeight: 1.4 }}>{s.description}</div>
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color:
+                            stream === s.value
+                              ? isDarkMode
+                                ? '#A5B4FC'
+                                : '#4338CA'
+                              : 'var(--aiims-text-primary, #0F172A)',
+                          marginBottom: '2px',
+                        }}
+                      >
+                        {s.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--aiims-text-muted, #64748B)',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {s.description}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -760,11 +1074,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     className="reg-select"
                     style={selectStyle}
                     value={streamSubCategory}
-                    onChange={e => setStreamSubCategory(e.target.value)}
+                    onChange={(e) => setStreamSubCategory(e.target.value)}
                   >
                     <option value="">Select department...</option>
-                    {subCategories.map(sc => (
-                      <option key={sc.value} value={sc.value}>{sc.label}</option>
+                    {subCategories.map((sc) => (
+                      <option key={sc.value} value={sc.value}>
+                        {sc.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -772,17 +1088,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* Education Level */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Education Level <span style={{ color: '#EF4444' }}>*</span></label>
+                <label style={labelStyle}>
+                  Education Level <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <select
                   id="reg-education-level"
                   className="reg-select"
                   style={selectStyle}
                   value={educationLevel}
-                  onChange={e => setEducationLevel(e.target.value as EducationLevel)}
+                  onChange={(e) => setEducationLevel(e.target.value as EducationLevel)}
                 >
                   <option value="">Select level...</option>
-                  {EDUCATION_LEVELS.map(l => (
-                    <option key={l.value} value={l.value}>{l.label}</option>
+                  {EDUCATION_LEVELS.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -790,17 +1110,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               {/* Program */}
               {educationLevel && stream && (
                 <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>Program / Degree <span style={{ color: '#EF4444' }}>*</span></label>
+                  <label style={labelStyle}>
+                    Program / Degree <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <select
                     id="reg-program"
                     className="reg-select"
                     style={selectStyle}
                     value={programId}
-                    onChange={e => setProgramId(e.target.value)}
+                    onChange={(e) => setProgramId(e.target.value)}
                   >
                     <option value="">Select program...</option>
-                    {availablePrograms.map(p => (
-                      <option key={p.id} value={p.id}>{p.label}</option>
+                    {availablePrograms.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -809,17 +1133,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               {/* Specialization */}
               {programId && availableSpecializations.length > 0 && (
                 <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>Specialization / Branch <span style={{ color: '#EF4444' }}>*</span></label>
+                  <label style={labelStyle}>
+                    Specialization / Branch <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <select
                     id="reg-specialization"
                     className="reg-select"
                     style={selectStyle}
                     value={specializationId}
-                    onChange={e => setSpecializationId(e.target.value)}
+                    onChange={(e) => setSpecializationId(e.target.value)}
                   >
                     <option value="">Select specialization...</option>
-                    {availableSpecializations.map(s => (
-                      <option key={s.id} value={s.id}>{s.label}</option>
+                    {availableSpecializations.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -829,24 +1157,57 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               {educationLevel && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                   <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>Current Year <span style={{ color: '#EF4444' }}>*</span></label>
-                    <select className="reg-select" style={{ ...selectStyle, fontSize: '13px' }} value={yearOfStudy} onChange={e => setYearOfStudy(Number(e.target.value))}>
+                    <label style={{ ...labelStyle, fontSize: '12px' }}>
+                      Current Year <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      className="reg-select"
+                      style={{ ...selectStyle, fontSize: '13px' }}
+                      value={yearOfStudy}
+                      onChange={(e) => setYearOfStudy(Number(e.target.value))}
+                    >
                       <option value="">Year</option>
-                      {availableYears.map(y => <option key={y} value={y}>Year {y}</option>)}
+                      {availableYears.map((y) => (
+                        <option key={y} value={y}>
+                          Year {y}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>Admitted <span style={{ color: '#EF4444' }}>*</span></label>
-                    <select className="reg-select" style={{ ...selectStyle, fontSize: '13px' }} value={admissionYear} onChange={e => setAdmissionYear(Number(e.target.value))}>
+                    <label style={{ ...labelStyle, fontSize: '12px' }}>
+                      Admitted <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      className="reg-select"
+                      style={{ ...selectStyle, fontSize: '13px' }}
+                      value={admissionYear}
+                      onChange={(e) => setAdmissionYear(Number(e.target.value))}
+                    >
                       <option value="">Year</option>
-                      {getAdmissionYears().map(y => <option key={y} value={y}>{y}</option>)}
+                      {getAdmissionYears().map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>Graduating <span style={{ color: '#EF4444' }}>*</span></label>
-                    <select className="reg-select" style={{ ...selectStyle, fontSize: '13px' }} value={expectedGraduationYear} onChange={e => setExpectedGraduationYear(Number(e.target.value))}>
+                    <label style={{ ...labelStyle, fontSize: '12px' }}>
+                      Graduating <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      className="reg-select"
+                      style={{ ...selectStyle, fontSize: '13px' }}
+                      value={expectedGraduationYear}
+                      onChange={(e) => setExpectedGraduationYear(Number(e.target.value))}
+                    >
                       <option value="">Year</option>
-                      {getExpectedGraduationYears().map(y => <option key={y} value={y}>{y}</option>)}
+                      {getExpectedGraduationYears().map((y) => (
+                        <option key={y} value={y}>
+                          {y}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -859,21 +1220,37 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {step === 3 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '22px', fontWeight: 800, color: 'var(--aiims-text-heading, #0F172A)', letterSpacing: '-0.4px', margin: '0 0 4px' }}>
+              <h2
+                style={{
+                  fontSize: '22px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading, #0F172A)',
+                  letterSpacing: '-0.4px',
+                  margin: '0 0 4px',
+                }}
+              >
                 Your AI Profile
               </h2>
-              <p style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}>
-                This personalizes your learning journey. It does <strong>not</strong> affect your capability score.
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--aiims-text-secondary, #64748B)',
+                  margin: 0,
+                }}
+              >
+                This personalizes your learning journey. It does <strong>not</strong> affect your
+                capability score.
               </p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-
               {/* AI Familiarity */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>How familiar are you with AI tools? <span style={{ color: '#EF4444' }}>*</span></label>
+                <label style={labelStyle}>
+                  How familiar are you with AI tools? <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {AI_FAMILIARITY_OPTIONS.map(opt => (
+                  {AI_FAMILIARITY_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
@@ -881,28 +1258,73 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       style={{
                         padding: '12px 14px',
                         borderRadius: '10px',
-                        border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'var(--aiims-border-card, #E2E8F0)'}`,
-                        background: aiFamiliarity === opt.value ? 'var(--aiims-accent-glow, rgba(91,75,255,0.07))' : 'var(--aiims-bg-card, #fff)',
+                        border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #202b4d)' : 'var(--aiims-border-card, #E2E8F0)'}`,
+                        background:
+                          aiFamiliarity === opt.value
+                            ? isDarkMode
+                              ? 'rgba(91,75,255,0.15)'
+                              : 'var(--aiims-accent-glow, rgba(91,75,255,0.07))'
+                            : 'var(--aiims-bg-card, #fff)',
                         cursor: 'pointer',
                         textAlign: 'left',
                         fontFamily: 'inherit',
                         transition: 'all 0.15s',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px'
+                        gap: '10px',
                       }}
                     >
-                      <div style={{
-                        width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                        border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'var(--aiims-border-card, #CBD5E1)'}`,
-                        background: aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : 'transparent',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}>
-                        {aiFamiliarity === opt.value && <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#fff' }} />}
+                      <div
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #2c3b63)' : '#CBD5E1'}`,
+                          background:
+                            aiFamiliarity === opt.value
+                              ? 'var(--aiims-accent-primary, #5B4BFF)'
+                              : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {aiFamiliarity === opt.value && (
+                          <div
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: '#fff',
+                            }}
+                          />
+                        )}
                       </div>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #4338CA)' : 'var(--aiims-text-primary, #0F172A)' }}>{opt.label}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted, #94A3B8)', marginTop: '1px' }}>{opt.description}</div>
+                        <div
+                          style={{
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            color:
+                              aiFamiliarity === opt.value
+                                ? isDarkMode
+                                  ? '#A5B4FC'
+                                  : '#4338CA'
+                                : 'var(--aiims-text-primary, #0F172A)',
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--aiims-text-muted, #94A3B8)',
+                            marginTop: '1px',
+                          }}
+                        >
+                          {opt.description}
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -911,16 +1333,23 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* AI Usage Contexts */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>How do you use (or plan to use) AI? <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>Select all that apply</span></label>
+                <label style={labelStyle}>
+                  How do you use (or plan to use) AI?{' '}
+                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                    Select all that apply
+                  </span>
+                </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {AI_USAGE_CONTEXTS.map(ctx => (
+                  {AI_USAGE_CONTEXTS.map((ctx) => (
                     <button
                       key={ctx.value}
                       type="button"
                       className={`reg-pill ${aiUsageContexts.includes(ctx.value) ? 'selected' : ''}`}
                       onClick={() => toggleUsageContext(ctx.value)}
                     >
-                      {aiUsageContexts.includes(ctx.value) && <Check size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                      {aiUsageContexts.includes(ctx.value) && (
+                        <Check size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                      )}
                       {ctx.label}
                     </button>
                   ))}
@@ -929,27 +1358,40 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* Primary Goal */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span></label>
+                <label style={labelStyle}>
+                  What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span>
+                </label>
                 <select
                   id="reg-primary-goal"
                   className="reg-select"
                   style={selectStyle}
                   value={primaryGoal}
-                  onChange={e => setPrimaryGoal(e.target.value)}
+                  onChange={(e) => setPrimaryGoal(e.target.value)}
                 >
                   <option value="">Select your main goal...</option>
-                  {PRIMARY_GOAL_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {PRIMARY_GOAL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               </div>
 
               {/* Important note about AI context vs capability */}
-              <div style={{
-                padding: '12px 14px', background: '#F0F9FF', border: '1px solid #BAE6FD',
-                borderRadius: '10px', fontSize: '12px', color: '#0369A1', lineHeight: 1.5
-              }}>
-                <strong>Note:</strong> Your AI Profile is for personalization only. Your actual capability score is measured exclusively through the AIIMS Assessment — not by what you say here.
+              <div
+                style={{
+                  padding: '12px 14px',
+                  background: isDarkMode ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF',
+                  border: isDarkMode ? '1px solid rgba(14, 165, 233, 0.35)' : '1px solid #BAE6FD',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  color: isDarkMode ? '#7DD3FC' : '#0369A1',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Note:</strong> Your AI Profile is for personalization only. Your actual
+                capability score is measured exclusively through the AIIMS Assessment — not by what
+                you say here.
               </div>
             </div>
           </div>
@@ -958,36 +1400,73 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {/* ─── Navigation Buttons ──────────────────────────────────────────── */}
         <div style={{ marginTop: '28px', display: 'flex', gap: '12px' }}>
           {step > 1 && (
-            <button type="button" style={{ ...btnSecondary, flex: '0 0 auto', width: 'auto', padding: '12px 20px' }} onClick={handlePrevStep} disabled={isLoading}>
+            <button
+              type="button"
+              className="reg-btn-secondary"
+              style={{ ...btnSecondary, flex: '0 0 auto', width: 'auto', padding: '12px 20px' }}
+              onClick={handlePrevStep}
+              disabled={isLoading}
+            >
               <ArrowLeft size={16} /> Back
             </button>
           )}
 
           {step < 3 ? (
-            <button type="button" style={btnPrimary} onClick={handleNextStep} disabled={isLoading}>
+            <button
+              type="button"
+              className="reg-btn-primary"
+              style={btnPrimary}
+              onClick={handleNextStep}
+              disabled={isLoading}
+            >
               Continue <ArrowRight size={16} />
             </button>
           ) : (
             <button
               type="button"
+              className="reg-btn-primary"
               style={{ ...btnPrimary, background: isLoading ? '#A5B4FC' : '#5B4BFF' }}
               onClick={handleSubmit}
               disabled={isLoading}
             >
               {isLoading ? (
-                <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Creating Account...</>
+                <>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Creating
+                  Account...
+                </>
               ) : (
-                <><CheckCircle size={16} /> Create My Account</>
+                <>
+                  <CheckCircle size={16} /> Create My Account
+                </>
               )}
             </button>
           )}
         </div>
 
         {/* Sign in link */}
-        <div style={{ marginTop: '20px', textAlign: 'center', fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)' }}>
+        <div
+          style={{
+            marginTop: '20px',
+            textAlign: 'center',
+            fontSize: '14px',
+            color: 'var(--aiims-text-secondary, #64748B)',
+          }}
+        >
           Already have an account?{' '}
-          <button type="button" onClick={onNavigateToLogin}
-            style={{ background: 'none', border: 'none', color: '#5B4BFF', fontWeight: 700, cursor: 'pointer', padding: 0, fontSize: 'inherit', fontFamily: 'inherit' }}>
+          <button
+            type="button"
+            onClick={onNavigateToLogin}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#5B4BFF',
+              fontWeight: 700,
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: 'inherit',
+              fontFamily: 'inherit',
+            }}
+          >
             Sign In
           </button>
         </div>

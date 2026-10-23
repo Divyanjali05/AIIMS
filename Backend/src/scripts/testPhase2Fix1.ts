@@ -30,12 +30,14 @@ import { User } from '../models/User.model';
 import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
 import { ToolSourceService } from '../services/wallet/toolSource.service';
 import { ToolVerificationService } from '../services/wallet/toolVerification.service';
-import { ToolAssessmentService, StructuredAssessment } from '../services/wallet/toolAssessment.service';
+import { StructuredAssessment } from '../services/wallet/toolAssessment.service';
 import { ToolMatchingService } from '../services/wallet/toolMatching.service';
 import { ToolRankingService } from '../services/wallet/toolRanking.service';
-import { SearchIntentService } from '../services/wallet/searchIntent.service';
 import { RequirementUnderstandingService } from '../services/wallet/requirementUnderstanding.service';
-import { AnthropicProvider, DeterministicFallbackProvider, getAIProvider } from '../services/wallet/aiProvider.service';
+import {
+  AnthropicProvider,
+  DeterministicFallbackProvider,
+} from '../services/wallet/aiProvider.service';
 import { AITool } from '../types';
 
 let passed = 0;
@@ -70,7 +72,9 @@ async function runTests(): Promise<void> {
     await ToolCatalogService.cleanInvalidDiscoveryRecords();
     await ToolCatalogService.syncFromDatabase();
   } catch (err: any) {
-    console.warn(`⚠️  MongoDB Atlas offline notice (${err.message}). Running catalog verification in offline mode.\n`);
+    console.warn(
+      `⚠️  MongoDB Atlas offline notice (${err.message}). Running catalog verification in offline mode.\n`
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -87,12 +91,17 @@ async function runTests(): Promise<void> {
       domains: ['Software & Technology'],
       subdomains: ['AI Tools'],
       tasks: [],
-      capabilities: [] // No capabilities evidenced
+      capabilities: [], // No capabilities evidenced
     },
-    pricing: { type: 'UNKNOWN', freeTierAvailable: false, freeTrialAvailable: false, summary: 'Unverified' },
+    pricing: {
+      type: 'UNKNOWN',
+      freeTierAvailable: false,
+      freeTrialAvailable: false,
+      summary: 'Unverified',
+    },
     evidence: [],
     confidence: 0.1,
-    needsVerification: true
+    needsVerification: true,
   };
 
   const unverifiedSourceItem = {
@@ -105,10 +114,13 @@ async function runTests(): Promise<void> {
     url: 'https://mysterybot-test.example.com',
     content: 'Just a raw unverified snippet',
     publishedAt: new Date().toISOString(),
-    hash: 'hash-test-unverified'
+    hash: 'hash-test-unverified',
   };
 
-  const unverifiedResult = ToolVerificationService.verifyCandidate(unverifiedAssessment, unverifiedSourceItem);
+  const unverifiedResult = ToolVerificationService.verifyCandidate(
+    unverifiedAssessment,
+    unverifiedSourceItem
+  );
   assert(
     'A.1: Unverified candidate receives UNVERIFIED status',
     unverifiedResult.verificationStatus === 'UNVERIFIED',
@@ -126,22 +138,39 @@ async function runTests(): Promise<void> {
   console.log('\n── TEST B: Verified Candidate Eligibility ────────────────────');
   const verifiedAssessment: StructuredAssessment = {
     classification: { itemType: 'AI_TOOL', isRelevant: true },
-    identity: { name: 'Nova Research Assistant', provider: 'NovaCorp', officialWebsite: 'https://novaresearch.ai' },
-    description: { short: 'Verified PDF analysis and document synthesis tool', long: 'Full verified research platform' },
+    identity: {
+      name: 'Nova Research Assistant',
+      provider: 'NovaCorp',
+      officialWebsite: 'https://novaresearch.ai',
+    },
+    description: {
+      short: 'Verified PDF analysis and document synthesis tool',
+      long: 'Full verified research platform',
+    },
     taxonomy: {
       category: 'Research & RAG',
       categories: ['Research & RAG'],
       domains: ['Research & Knowledge'],
       subdomains: ['Document RAG'],
       tasks: ['Document Analysis', 'PDF Summarization'],
-      capabilities: ['Document Analysis', 'PDF Summarization']
+      capabilities: ['Document Analysis', 'PDF Summarization'],
     },
-    pricing: { type: 'FREEMIUM', freeTierAvailable: true, freeTrialAvailable: false, summary: 'Free tier available' },
+    pricing: {
+      type: 'FREEMIUM',
+      freeTierAvailable: true,
+      freeTrialAvailable: false,
+      summary: 'Free tier available',
+    },
     evidence: [
-      { claim: 'Official release', value: 'Verified', sourceUrl: 'https://novaresearch.ai', confidence: 0.95 }
+      {
+        claim: 'Official release',
+        value: 'Verified',
+        sourceUrl: 'https://novaresearch.ai',
+        confidence: 0.95,
+      },
     ],
-    confidence: 0.90,
-    needsVerification: false
+    confidence: 0.9,
+    needsVerification: false,
   };
 
   const officialSourceItem = {
@@ -154,10 +183,13 @@ async function runTests(): Promise<void> {
     url: 'https://novaresearch.ai',
     content: 'NovaCorp launches Nova Research Assistant for PDF analysis and RAG.',
     publishedAt: new Date().toISOString(),
-    hash: 'hash-test-official'
+    hash: 'hash-test-official',
   };
 
-  const verifiedResult = ToolVerificationService.verifyCandidate(verifiedAssessment, officialSourceItem);
+  const verifiedResult = ToolVerificationService.verifyCandidate(
+    verifiedAssessment,
+    officialSourceItem
+  );
   assert(
     'B.1: Candidate with sufficient evidence and official source receives VERIFIED status',
     verifiedResult.verificationStatus === 'VERIFIED',
@@ -179,8 +211,15 @@ async function runTests(): Promise<void> {
   if (existingSeedTool) {
     const updatedMetadataAssessment: StructuredAssessment = {
       ...verifiedAssessment,
-      identity: { name: existingSeedTool.name, provider: existingSeedTool.provider, officialWebsite: existingSeedTool.officialWebsite },
-      description: { short: 'Updated description for NotebookLM', long: existingSeedTool.description }
+      identity: {
+        name: existingSeedTool.name,
+        provider: existingSeedTool.provider,
+        officialWebsite: existingSeedTool.officialWebsite,
+      },
+      description: {
+        short: 'Updated description for NotebookLM',
+        long: existingSeedTool.description,
+      },
     };
 
     const updateResult = ToolVerificationService.verifyCandidate(
@@ -191,7 +230,8 @@ async function runTests(): Promise<void> {
 
     assert(
       'C.1: Seed tool keeps VERIFIED / VERIFIED_SEED status upon update',
-      updateResult.verificationStatus === 'VERIFIED' || updateResult.verificationStatus === 'VERIFIED_SEED',
+      updateResult.verificationStatus === 'VERIFIED' ||
+        updateResult.verificationStatus === 'VERIFIED_SEED',
       `Got ${updateResult.verificationStatus}`
     );
     assert(
@@ -204,7 +244,7 @@ async function runTests(): Promise<void> {
     const inactiveTool: AITool = {
       ...existingSeedTool,
       id: 'tool-test-inactive',
-      activeStatus: false
+      activeStatus: false,
     };
 
     const inactiveUpdateResult = ToolVerificationService.verifyCandidate(
@@ -224,8 +264,8 @@ async function runTests(): Promise<void> {
   // -------------------------------------------------------------------------
   console.log('\n── TEST D: Invalid Source Disabling & No Mock Fabrication ────');
   const sources = ToolSourceService.getSources();
-  const anthropicSource = sources.find(s => s.id === 'source-anthropic');
-  const indicSource = sources.find(s => s.id === 'source-indic-ai');
+  const anthropicSource = sources.find((s) => s.id === 'source-anthropic');
+  const indicSource = sources.find((s) => s.id === 'source-indic-ai');
 
   assert(
     'D.1: Nonexistent Anthropic GitHub feed source is disabled',
@@ -234,7 +274,8 @@ async function runTests(): Promise<void> {
   );
   assert(
     'D.2: Disabled Anthropic source has explicit documented reason',
-    !!anthropicSource?.disabledReason && anthropicSource.disabledReason.includes('Nonexistent GitHub repository')
+    !!anthropicSource?.disabledReason &&
+      anthropicSource.disabledReason.includes('Nonexistent GitHub repository')
   );
   assert(
     'D.3: Fake Astra example.com source is disabled',
@@ -243,11 +284,16 @@ async function runTests(): Promise<void> {
   );
 
   const { items: collected } = await ToolSourceService.collectSources();
-  const hasAstraFake = collected.some(item => item.url.includes('astra-ai.example.com') || item.title.includes('Astra AI'));
-  const hasClaudeFake = collected.some(item => item.id === 'source-anthropic-fb-0');
+  const hasAstraFake = collected.some(
+    (item) => item.url.includes('astra-ai.example.com') || item.title.includes('Astra AI')
+  );
+  const hasClaudeFake = collected.some((item) => item.id === 'source-anthropic-fb-0');
 
   assert('D.4: Source collection does NOT fabricate fake Astra tool', !hasAstraFake);
-  assert('D.5: Source collection does NOT fabricate fake Claude tool from broken feed', !hasClaudeFake);
+  assert(
+    'D.5: Source collection does NOT fabricate fake Claude tool from broken feed',
+    !hasClaudeFake
+  );
 
   // -------------------------------------------------------------------------
   // TEST E: External source failure does not destroy existing valid data
@@ -256,9 +302,15 @@ async function runTests(): Promise<void> {
   const countBefore = ToolCatalogService.getCatalog().length;
   // Simulate collecting sources when some fail
   const collectResult = await ToolSourceService.collectSources();
-  assert('E.1: Source collector continues operational state and returns array', Array.isArray(collectResult.items));
+  assert(
+    'E.1: Source collector continues operational state and returns array',
+    Array.isArray(collectResult.items)
+  );
   const countAfter = ToolCatalogService.getCatalog().length;
-  assert('E.2: Existing catalog count is NOT wiped out or destroyed on network fetch pass', countAfter >= countBefore);
+  assert(
+    'E.2: Existing catalog count is NOT wiped out or destroyed on network fetch pass',
+    countAfter >= countBefore
+  );
 
   // -------------------------------------------------------------------------
   // TEST F: Duplicate candidates do not create duplicate records
@@ -268,16 +320,16 @@ async function runTests(): Promise<void> {
     ...verifiedResult.tool,
     id: 'tool-test-dedup-a',
     name: 'Dedup Tool Test',
-    officialWebsite: 'https://deduptest.ai'
+    officialWebsite: 'https://deduptest.ai',
   };
 
   await ToolCatalogService.upsertTool(testToolA);
-  const count1 = ToolCatalogService.getCatalog().filter(t => t.id === 'tool-test-dedup-a').length;
+  const count1 = ToolCatalogService.getCatalog().filter((t) => t.id === 'tool-test-dedup-a').length;
   assert('F.1: First upsert stores candidate', count1 === 1);
 
   // Upserting again with same ID updates in place without duplicating
   await ToolCatalogService.upsertTool({ ...testToolA, description: 'Updated description' });
-  const count2 = ToolCatalogService.getCatalog().filter(t => t.id === 'tool-test-dedup-a').length;
+  const count2 = ToolCatalogService.getCatalog().filter((t) => t.id === 'tool-test-dedup-a').length;
   assert('F.2: Subsequent upsert does not create duplicate record', count2 === 1);
 
   // Clean up test tool
@@ -290,16 +342,26 @@ async function runTests(): Promise<void> {
   const pdfQuery = 'I want to analyze a 100-page PDF.';
   const searchResult = ToolMatchingService.searchTools(pdfQuery);
 
-  assert('G.1: PDF query parsed with Document Understanding intent', searchResult.intent.primaryGoal.includes('Document'));
+  assert(
+    'G.1: PDF query parsed with Document Understanding intent',
+    searchResult.intent.primaryGoal.includes('Document')
+  );
   assert(
     'G.2: Required capabilities include document_analysis or pdf_summarization',
-    searchResult.intent.requiredCapabilities.includes('document_analysis') || searchResult.intent.requiredCapabilities.includes('pdf_summarization')
+    searchResult.intent.requiredCapabilities.includes('document_analysis') ||
+      searchResult.intent.requiredCapabilities.includes('pdf_summarization')
   );
 
   // Ensure no coding assistant or irrelevant tool received a strong match
-  const cursorMatch = searchResult.matches.find(m => m.tool.id === 'tool-cursor' || m.tool.name.toLowerCase().includes('cursor'));
-  const copilotMatch = searchResult.matches.find(m => m.tool.id === 'tool-copilot' || m.tool.name.toLowerCase().includes('copilot'));
-  const vscodeMatch = searchResult.matches.find(m => m.tool.id.includes('vscode') || m.tool.name.toLowerCase().includes('vscode'));
+  const cursorMatch = searchResult.matches.find(
+    (m) => m.tool.id === 'tool-cursor' || m.tool.name.toLowerCase().includes('cursor')
+  );
+  const copilotMatch = searchResult.matches.find(
+    (m) => m.tool.id === 'tool-copilot' || m.tool.name.toLowerCase().includes('copilot')
+  );
+  const vscodeMatch = searchResult.matches.find(
+    (m) => m.tool.id.includes('vscode') || m.tool.name.toLowerCase().includes('vscode')
+  );
 
   assert('G.3: Cursor IDE is NOT recommended for PDF analysis', !cursorMatch);
   assert('G.4: GitHub Copilot is NOT recommended for PDF analysis', !copilotMatch);
@@ -318,10 +380,13 @@ async function runTests(): Promise<void> {
   }
 
   // Google NotebookLM should be recognized as a valid match
-  const notebookMatch = searchResult.matches.find(m => m.tool.id === 'tool-notebooklm');
+  const notebookMatch = searchResult.matches.find((m) => m.tool.id === 'tool-notebooklm');
   assert('G.7: Google NotebookLM is recommended for PDF analysis', !!notebookMatch);
   if (notebookMatch) {
-    assert('G.8: Google NotebookLM has matchedCapabilities', notebookMatch.matchedCapabilities.length > 0);
+    assert(
+      'G.8: Google NotebookLM has matchedCapabilities',
+      notebookMatch.matchedCapabilities.length > 0
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -332,8 +397,15 @@ async function runTests(): Promise<void> {
     const dbDocCount = await AIToolModel.countDocuments();
     const catalogCount = ToolCatalogService.getCatalog().length;
     assert('H.1: MongoDB contains tools collection', dbDocCount > 0, `dbDocCount=${dbDocCount}`);
-    assert('H.2: ToolCatalogService synchronized with MongoDB', catalogCount === dbDocCount, `catalogCount=${catalogCount}, dbDocCount=${dbDocCount}`);
-    assert('H.3: Service is NOT in degraded mode when DB connected', !ToolCatalogService.isDegradedMode());
+    assert(
+      'H.2: ToolCatalogService synchronized with MongoDB',
+      catalogCount === dbDocCount,
+      `catalogCount=${catalogCount}, dbDocCount=${dbDocCount}`
+    );
+    assert(
+      'H.3: Service is NOT in degraded mode when DB connected',
+      !ToolCatalogService.isDegradedMode()
+    );
 
     // -------------------------------------------------------------------------
     // TEST I: Personal wallet selections remain user-specific
@@ -341,20 +413,28 @@ async function runTests(): Promise<void> {
     console.log('\n── TEST I: User-Specific Wallet Isolation ────────────────────');
     const testUserId = `test-user-${Date.now()}`;
     const testUserEmail = `${testUserId}@example.com`;
-    const testUser = await User.create({
+    await User.create({
       name: 'Test Wallet User',
       email: testUserEmail,
       password: 'password123',
       aiWallet: {
         userTools: [
-          { toolId: 'tool-notebooklm', familiarity: 'practicing', primaryCategory: 'Research & RAG', addedAt: '2026-10-09' }
+          {
+            toolId: 'tool-notebooklm',
+            familiarity: 'practicing',
+            primaryCategory: 'Research & RAG',
+            addedAt: '2026-10-09',
+          },
         ],
-        dismissedRecommendations: []
-      }
+        dismissedRecommendations: [],
+      },
     });
 
     const fetchedUser = await User.findOne({ email: testUserEmail }).lean();
-    assert('I.1: User document stores personal aiWallet tool kit', fetchedUser?.aiWallet?.userTools?.length === 1);
+    assert(
+      'I.1: User document stores personal aiWallet tool kit',
+      fetchedUser?.aiWallet?.userTools?.length === 1
+    );
     assert(
       'I.2: Personal tool matches user-added selection',
       fetchedUser?.aiWallet?.userTools?.[0]?.toolId === 'tool-notebooklm'
@@ -364,8 +444,16 @@ async function runTests(): Promise<void> {
     await User.deleteOne({ email: testUserEmail });
   } else {
     const catalogCount = ToolCatalogService.getCatalog().length;
-    assert('H.1: ToolCatalog contains tools in offline mode', catalogCount > 0, `catalogCount=${catalogCount}`);
-    assert('H.2: ToolCatalogService loaded verified tools', catalogCount >= 10, `catalogCount=${catalogCount}`);
+    assert(
+      'H.1: ToolCatalog contains tools in offline mode',
+      catalogCount > 0,
+      `catalogCount=${catalogCount}`
+    );
+    assert(
+      'H.2: ToolCatalogService loaded verified tools',
+      catalogCount >= 10,
+      `catalogCount=${catalogCount}`
+    );
     assert('H.3: Service runs in offline/in-memory mode', true);
 
     console.log('\n── TEST I: User-Specific Wallet Isolation (In-Memory) ────────');
@@ -402,7 +490,8 @@ async function runTests(): Promise<void> {
   );
   assert(
     'J.5: Explicit error message explains unconfigured key',
-    !!mockAssessmentResult.errorMessage && mockAssessmentResult.errorMessage.includes('Anthropic API key is unconfigured')
+    !!mockAssessmentResult.errorMessage &&
+      mockAssessmentResult.errorMessage.includes('Anthropic API key is unconfigured')
   );
 
   // Deterministic fallback does not fabricate Task Execution
@@ -434,7 +523,7 @@ async function runTests(): Promise<void> {
   }
 }
 
-runTests().catch(err => {
+runTests().catch((err) => {
   console.error('Fatal test error:', err);
   process.exit(1);
 });
