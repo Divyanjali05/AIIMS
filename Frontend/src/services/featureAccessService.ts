@@ -48,56 +48,66 @@ export const UNRESOLVED_UNLOCK_CONDITIONS = [
     level: 'Level 2',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Remains visible and safely locked until Owner confirms Plan Subscription vs. Milestone progression.'
+    rule: 'Remains visible and safely locked until Owner confirms Plan Subscription vs. Milestone progression.',
   },
   {
     featureId: 'investigation',
     level: 'Level 2',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Activity-gated workspace linked to AI Radar signals; safely locked pending Level 2 entitlement.'
+    rule: 'Activity-gated workspace linked to AI Radar signals; safely locked pending Level 2 entitlement.',
   },
   {
     featureId: 'relevance',
     level: 'Level 2',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Impact analysis workspace connecting signals to focus; safely locked pending Level 2 entitlement.'
+    rule: 'Impact analysis workspace connecting signals to focus; safely locked pending Level 2 entitlement.',
   },
   {
     featureId: 'solver',
     level: 'Level 3',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Level 3 Specialist workflow generator; safely locked pending Level 3 entitlement.'
+    rule: 'Level 3 Specialist workflow generator; safely locked pending Level 3 entitlement.',
   },
   {
     featureId: 'build',
     level: 'Level 3',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Level 3 Specialist project builder; safely locked pending Level 3 entitlement.'
+    rule: 'Level 3 Specialist project builder; safely locked pending Level 3 entitlement.',
   },
   {
     featureId: 'mentor',
     level: 'Level 4',
     decisionRef: 'Decision 1 & 2',
     status: 'Unresolved',
-    rule: 'Level 4 Mastery/Enterprise coaching environment; safely locked pending Level 4 entitlement.'
-  }
+    rule: 'Level 4 Mastery/Enterprise coaching environment; safely locked pending Level 4 entitlement.',
+  },
 ];
 
 /**
  * Normalizes tab names and paths into canonical FeatureId.
  */
 export function normalizeFeatureId(tabOrPath: string): FeatureId {
-  const clean = tabOrPath.toLowerCase().replace(/^\/+|\/+$/g, '').trim();
+  const clean = tabOrPath
+    .toLowerCase()
+    .replace(/^\/+|\/+$/g, '')
+    .trim();
   if (!clean || clean === 'index.html' || clean === 'home') return 'home';
   if (clean === 'problem-solver' || clean === 'solver') return 'solver';
   if (clean === 'projects' || clean === 'build') return 'build';
   if (clean === 'profile' || clean === 'settings') return 'settings';
-  if (clean === 'wallet' || clean === 'ai-wallet' || clean === 'aiwallet' || clean === 'discover') return 'wallet';
-  if (clean === 'profile-analysis' || clean === 'analysis' || clean === 'my-profile' || clean === 'my-ai-profile') return 'analysis';
+  if (clean === 'wallet' || clean === 'ai-wallet' || clean === 'aiwallet' || clean === 'discover')
+    return 'wallet';
+  if (
+    clean === 'profile-analysis' ||
+    clean === 'analysis' ||
+    clean === 'my-profile' ||
+    clean === 'my-ai-profile'
+  )
+    return 'analysis';
   if (clean === 'improve' || clean === 'mentor' || clean === 'mentor-workspace') return 'mentor';
   if (clean === 'ai-radar' || clean === 'radar') return 'radar';
   if (clean === 'ai-relevance' || clean === 'relevance') return 'relevance';
@@ -116,9 +126,14 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
   const featureId = normalizeFeatureId(rawFeatureId);
 
   const isAssessmentCompleted = state?.assessment?.status === 'completed';
-  const isAnalysisViewed = state?.analysis?.status === 'viewed' || state?.analysis?.status === 'unlocked';
-  const isClarityCompleted = (state?.clarity?.completedTopics?.length || 0) > 0 || state?.clarity?.status === 'completed';
-  const isClarityActive = isClarityCompleted || state?.clarity?.status === 'in_progress' || !!state?.clarity?.selectedTopic;
+  const isAnalysisViewed =
+    state?.analysis?.status === 'viewed' || state?.analysis?.status === 'unlocked';
+  const isClarityCompleted =
+    (state?.clarity?.completedTopics?.length || 0) > 0 || state?.clarity?.status === 'completed';
+  const isClarityActive =
+    isClarityCompleted ||
+    state?.clarity?.status === 'in_progress' ||
+    !!state?.clarity?.selectedTopic;
   const isFocusSelected = !!state?.focus?.selectedTrack || state?.focus?.status === 'active';
 
   switch (featureId) {
@@ -128,7 +143,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Home',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'assessment':
@@ -137,7 +152,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Baseline Assessment',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'analysis':
@@ -147,7 +162,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           name: 'My AI Profile',
           level: 'Level 1',
           visible: true,
-          unlocked: true
+          unlocked: true,
         };
       }
       return {
@@ -159,7 +174,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         reason: 'My AI Profile unlocks after you complete your baseline assessment.',
         unlockAction: 'Start Baseline Assessment',
         targetTab: 'assessment',
-        requiredConditions: ['Baseline Assessment completed']
+        requiredConditions: ['Baseline Assessment completed'],
       };
 
     case 'wallet':
@@ -169,7 +184,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'AI Wallet',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'clarity':
@@ -183,7 +198,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           reason: 'Clarity unlocks after your assessment profile is analyzed.',
           unlockAction: 'Complete Baseline Assessment',
           targetTab: 'assessment',
-          requiredConditions: ['Baseline Assessment completed', 'My AI Profile reviewed']
+          requiredConditions: ['Baseline Assessment completed', 'My AI Profile reviewed'],
         };
       }
       if (!isAnalysisViewed) {
@@ -196,7 +211,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           reason: 'Clarity unlocks after you review your AI capability profile.',
           unlockAction: 'View My AI Profile',
           targetTab: 'analysis',
-          requiredConditions: ['My AI Profile reviewed']
+          requiredConditions: ['My AI Profile reviewed'],
         };
       }
       return {
@@ -204,7 +219,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Clarity',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'focus':
@@ -218,7 +233,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           reason: 'Focus unlocks after completing the baseline assessment and exploring Clarity.',
           unlockAction: 'Complete Baseline Assessment',
           targetTab: 'assessment',
-          requiredConditions: ['Baseline Assessment completed', 'Clarity activity completed']
+          requiredConditions: ['Baseline Assessment completed', 'Clarity activity completed'],
         };
       }
       if (!isAnalysisViewed) {
@@ -231,7 +246,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           reason: 'Focus unlocks after reviewing your profile and exploring Clarity.',
           unlockAction: 'View My AI Profile',
           targetTab: 'analysis',
-          requiredConditions: ['My AI Profile reviewed', 'Clarity activity completed']
+          requiredConditions: ['My AI Profile reviewed', 'Clarity activity completed'],
         };
       }
       if (!isClarityCompleted && !isClarityActive && state?.focus?.status === 'locked') {
@@ -244,7 +259,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
           reason: 'Focus unlocks after you explore Clarity.',
           unlockAction: 'Explore Clarity',
           targetTab: 'clarity',
-          requiredConditions: ['Clarity activity completed']
+          requiredConditions: ['Clarity activity completed'],
         };
       }
       return {
@@ -252,7 +267,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Focus',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'radar':
@@ -266,7 +281,9 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         reason: 'AI Radar is locked for now. It will unlock based on your learning activities.',
         unlockAction: isFocusSelected ? 'Explore AI Wallet' : 'Choose Focus Track',
         targetTab: isFocusSelected ? 'wallet' : 'focus',
-        requiredConditions: ['Level 2 Practitioner Plan or Focus Track Milestone (Pending Owner Confirmation)']
+        requiredConditions: [
+          'Level 2 Practitioner Plan or Focus Track Milestone (Pending Owner Confirmation)',
+        ],
       };
 
     case 'investigation':
@@ -277,10 +294,11 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         visible: true,
         unlocked: false,
         isUnresolved: true,
-        reason: 'Signal Investigation is locked for now. It will unlock based on your learning activities.',
+        reason:
+          'Signal Investigation is locked for now. It will unlock based on your learning activities.',
         unlockAction: 'Explore AI Radar',
         targetTab: 'radar',
-        requiredConditions: ['AI Radar signal selected']
+        requiredConditions: ['AI Radar signal selected'],
       };
 
     case 'relevance':
@@ -294,7 +312,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         reason: 'AI Relevance is locked for now. It will unlock based on your learning activities.',
         unlockAction: 'Explore AI Radar',
         targetTab: 'radar',
-        requiredConditions: ['Signal Investigation completed']
+        requiredConditions: ['Signal Investigation completed'],
       };
 
     case 'solver':
@@ -305,10 +323,11 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         visible: true,
         unlocked: false,
         isUnresolved: true,
-        reason: 'Problem Solver is locked for now. It will unlock based on your learning activities.',
+        reason:
+          'Problem Solver is locked for now. It will unlock based on your learning activities.',
         unlockAction: 'Advance through Level 2',
         targetTab: 'home',
-        requiredConditions: ['Level 3 Specialist Entitlement (Pending Owner Confirmation)']
+        requiredConditions: ['Level 3 Specialist Entitlement (Pending Owner Confirmation)'],
       };
 
     case 'build':
@@ -322,7 +341,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         reason: 'Projects is locked for now. It will unlock based on your learning activities.',
         unlockAction: 'Solve a Workflow',
         targetTab: 'solver',
-        requiredConditions: ['Workflow created in Problem Solver']
+        requiredConditions: ['Workflow created in Problem Solver'],
       };
 
     case 'mentor':
@@ -333,10 +352,11 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         visible: true,
         unlocked: false,
         isUnresolved: true,
-        reason: 'Mentor Workspace is locked for now. It will unlock based on your learning activities.',
+        reason:
+          'Mentor Workspace is locked for now. It will unlock based on your learning activities.',
         unlockAction: 'Advance through Level 3',
         targetTab: 'home',
-        requiredConditions: ['Level 4 Mastery Entitlement (Pending Owner Confirmation)']
+        requiredConditions: ['Level 4 Mastery Entitlement (Pending Owner Confirmation)'],
       };
 
     case 'insights':
@@ -344,21 +364,21 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         return {
           featureId: 'insights',
           name: 'Growth Insights',
-          level: 'Other',
+          level: 'Level 1',
           visible: true,
-          unlocked: true
+          unlocked: true,
         };
       }
       return {
         featureId: 'insights',
         name: 'Growth Insights',
-        level: 'Other',
+        level: 'Level 1',
         visible: true,
         unlocked: false,
         reason: 'Growth Insights unlock after you complete your baseline assessment.',
         unlockAction: 'Complete Baseline Assessment',
         targetTab: 'assessment',
-        requiredConditions: ['Baseline Assessment completed']
+        requiredConditions: ['Baseline Assessment completed'],
       };
 
     case 'credits':
@@ -367,7 +387,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Credits & Progress',
         level: 'Other',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'settings':
@@ -376,7 +396,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Settings',
         level: 'Other',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     case 'journey':
@@ -385,7 +405,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'AI Journey',
         level: 'Other',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
 
     default:
@@ -394,7 +414,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         name: 'Home',
         level: 'Level 1',
         visible: true,
-        unlocked: true
+        unlocked: true,
       };
   }
 }
@@ -419,7 +439,7 @@ export function getAllFeatureAccess(state: LearnerState): Record<FeatureId, Feat
     'credits',
     'insights',
     'settings',
-    'journey'
+    'journey',
   ];
 
   const result = {} as Record<FeatureId, FeatureAccess>;

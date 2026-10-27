@@ -3,11 +3,12 @@ name: AIIMS CI
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
     branches:
       - main
   workflow_dispatch:
+
 
 permissions:
   contents: read
@@ -126,7 +127,7 @@ jobs:
           JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
           MONGODB_URI: mongodb://localhost:27017/aiims_ci_test
         run: |
-          npx ts-node src/server.ts &
+          node dist/server.js &
           SERVER_PID=$!
           echo "Waiting for background server to become healthy on port 5001..."
           for i in $(seq 1 30); do

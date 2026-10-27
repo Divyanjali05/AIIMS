@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LearnerProvider, useLearner } from './context/LearnerContext';
 import { Header } from './components/common/Header';
 import { Sidebar } from './components/common/Sidebar';
+import { BottomNav } from './components/common/BottomNav';
 import { HomeScreen } from './screens/home/HomeScreen';
 import { JourneyScreen } from './screens/journey/JourneyScreen';
 import { AssessmentScreen } from './screens/assessment/AssessmentScreen';
@@ -30,8 +31,20 @@ import {
   Briefcase,
   GraduationCap,
   Wifi,
+  Trash2,
+  AlertTriangle,
+  FileText,
+  Shield,
+  RefreshCw,
+  Mail,
+  Loader2,
+  X,
 } from 'lucide-react';
-import { getApiBaseUrl } from './api/client';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
+import { getApiBaseUrl, apiClient } from './api/client';
+import { SUPPORT_EMAIL } from './config/appConfig';
+import { LegalScreen } from './screens/legal/LegalScreen';
 
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { DiscoverScreen } from './screens/discover/DiscoverScreen';
@@ -41,32 +54,47 @@ import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LockedInterfaceScreen } from './components/common/LockedInterfaceScreen';
 import { getFeatureAccess } from './services/featureAccessService';
-
-// Interfaces locked for now — unlocking logic is managed centrally by featureAccessService
-export const LOCKED_INTERFACES = [
-  'radar',
-  'investigation',
-  'relevance',
-  'solver',
-  'build',
-  'mentor',
-];
+import { StaffHeader } from './components/staff/StaffHeader';
+import { StaffLoginScreen } from './screens/staff/StaffLoginScreen';
+import { EvaluatorQueueScreen } from './screens/staff/EvaluatorQueueScreen';
+import { EvaluationReviewScreen } from './screens/staff/EvaluationReviewScreen';
+import { AdminDashboardScreen } from './screens/staff/AdminDashboardScreen';
 
 const mapPathToTab = (path: string): string => {
   const cleanPath = path.toLowerCase().replace(/^\/+|\/+$/g, '');
   if (!cleanPath || cleanPath === 'index.html') return 'home';
+  if (cleanPath === 'privacy') return 'privacy';
+  if (cleanPath === 'terms') return 'terms';
+  if (cleanPath === 'refunds') return 'refunds';
+  if (cleanPath.startsWith('staff/review/')) return cleanPath;
+  if (cleanPath === 'staff/login') return 'staff/login';
+  if (cleanPath === 'staff/queue') return 'staff/queue';
+  if (cleanPath === 'staff/admin') return 'staff/admin';
+  if (cleanPath === 'staff') return 'staff';
   if (cleanPath === 'problem-solver' || cleanPath === 'solver') return 'solver';
   if (cleanPath === 'profile' || cleanPath === 'settings') return 'settings';
   if (cleanPath === 'wallet' || cleanPath === 'ai-wallet' || cleanPath === 'aiwallet')
     return 'wallet';
+  if (cleanPath === 'improve' || cleanPath === 'mentor' || cleanPath === 'mentor-workspace')
+    return 'mentor';
+  if (cleanPath === 'investigation' || cleanPath === 'signal-investigation') return 'investigation';
+  if (cleanPath === 'insights' || cleanPath === 'growth-insights') return 'insights';
   if (cleanPath === 'hero' || cleanPath === 'preview-hero') return 'hero';
   return cleanPath;
 };
 
 const mapTabToPath = (tab: string): string => {
+  if (tab === 'privacy') return '/privacy';
+  if (tab === 'terms') return '/terms';
+  if (tab === 'refunds') return '/refunds';
+  if (tab.startsWith('staff/')) return `/${tab}`;
+  if (tab === 'staff') return '/staff/queue';
   if (tab === 'home') return '/home';
   if (tab === 'solver') return '/problem-solver';
   if (tab === 'settings') return '/profile';
+  if (tab === 'mentor') return '/improve';
+  if (tab === 'investigation') return '/investigation';
+  if (tab === 'insights') return '/growth-insights';
   if (tab === 'hero') return '/hero';
   return `/${tab}`;
 };
@@ -78,7 +106,18 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTabState] = useState<string>(() => {
     const initialPath = window.location.pathname;
     const tabFromPath = mapPathToTab(initialPath);
-    const publicPaths = ['', '/', '/login', '/register', '/index.html'];
+    const publicPaths = [
+      '',
+      '/',
+      '/login',
+      '/register',
+      '/index.html',
+      '/hero',
+      '/preview-hero',
+      '/privacy',
+      '/terms',
+      '/refunds',
+    ];
     if (!publicPaths.includes(initialPath.toLowerCase())) {
       return tabFromPath;
     }
@@ -135,25 +174,70 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const handleLocationSync = () => {
       const currentPath = window.location.pathname.toLowerCase();
-      const publicPaths = ['/', '/hero', '/preview-hero', '/login', '/register', '/index.html'];
+      const publicPaths = [
+        '/',
+        '/hero',
+        '/preview-hero',
+        '/login',
+        '/register',
+        '/index.html',
+        '/staff/login',
+        '/privacy',
+        '/terms',
+        '/refunds',
+      ];
 
       if (!isAuthenticated) {
-        if (!publicPaths.includes(currentPath)) {
+        if (currentPath.startsWith('/staff')) {
+          if (currentPath !== '/staff/login') {
+            window.history.replaceState(null, '', '/staff/login');
+            setActiveTabState('staff/login');
+          }
+        } else if (!publicPaths.includes(currentPath)) {
           // Unauthenticated attempt to access protected route -> save intended route & redirect to /login
           const attemptedTab = mapPathToTab(currentPath);
           setIntendedRoute(attemptedTab);
           window.history.replaceState(null, '', '/login');
         }
       } else {
-        // Authenticated user accessing auth routes or root -> redirect to dashboard
+        const userRole = state?.profile?.role || 'learner';
+
+        // 1. Learner opened /staff/* -> redirect away to /home immediately (show nothing role-specific)
+        if (userRole === 'learner' && currentPath.startsWith('/staff')) {
+          window.history.replaceState(null, '', '/home');
+          setActiveTabState('home');
+          return;
+        }
+
+        // 2. Evaluator opened /staff/admin -> redirect to /staff/queue
+        if (userRole === 'evaluator' && currentPath === '/staff/admin') {
+          window.history.replaceState(null, '', '/staff/queue');
+          setActiveTabState('staff/queue');
+          return;
+        }
+
+        // 3. Authenticated user accessing auth routes or staff login
         if (['/', '/login', '/register', '/index.html'].includes(currentPath)) {
           const targetTab =
-            intendedRouteRef.current ||
-            (activeTabRef.current === 'hero' ? 'hero' : activeTabRef.current || 'home');
+            userRole === 'admin'
+              ? 'staff/admin'
+              : userRole === 'evaluator'
+                ? 'staff/queue'
+                : intendedRouteRef.current ||
+                  (activeTabRef.current === 'hero' ? 'hero' : activeTabRef.current || 'home');
           const targetPath = mapTabToPath(targetTab);
           window.history.replaceState(null, '', targetPath);
           setActiveTabState(targetTab);
           setIntendedRoute(null);
+        } else if (currentPath === '/staff/login' || currentPath === '/staff') {
+          const targetPath =
+            userRole === 'admin'
+              ? '/staff/admin'
+              : userRole === 'evaluator'
+                ? '/staff/queue'
+                : '/home';
+          window.history.replaceState(null, '', targetPath);
+          setActiveTabState(mapPathToTab(targetPath));
         } else {
           const pathTab = mapPathToTab(currentPath);
           setActiveTabState(pathTab);
@@ -164,16 +248,108 @@ const AppContent: React.FC = () => {
     handleLocationSync();
     window.addEventListener('popstate', handleLocationSync);
     return () => window.removeEventListener('popstate', handleLocationSync);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, state?.profile?.role]);
 
   const handleStartInvestigation = (signal: RadarSignal) => {
     setSelectedSignal(signal);
     setActiveTab('investigation');
   };
 
-  // Handle Unauthenticated State (Public Home, Hero, Register, Login)
+  // Tab history stack to support back navigation through visited tabs
+  const tabHistoryRef = useRef<string[]>([activeTab]);
+  useEffect(() => {
+    const stack = tabHistoryRef.current;
+    if (stack[stack.length - 1] !== activeTab) {
+      stack.push(activeTab);
+    }
+  }, [activeTab]);
+
+  const isMobileMenuOpenRef = useRef(isMobileMenuOpen);
+  isMobileMenuOpenRef.current = isMobileMenuOpen;
+  const selectedSignalRef = useRef(selectedSignal);
+  selectedSignalRef.current = selectedSignal;
+
+  // Android Hardware Back Button wiring (Capacitor)
+  // - Closes drawers/modals first
+  // - Returns to previous screen in history
+  // - Exits app only from the home screen
+  useEffect(() => {
+    let removeListener: (() => void) | null = null;
+
+    const setupListener = async () => {
+      try {
+        if (!Capacitor.isNativePlatform()) return;
+
+        const listenerHandle = await CapApp.addListener('backButton', ({ canGoBack }) => {
+          // 1. Close mobile drawer menu if open
+          if (isMobileMenuOpenRef.current) {
+            setIsMobileMenuOpen(false);
+            return;
+          }
+
+          // 2. Close active modal/signal investigation if open
+          if (selectedSignalRef.current) {
+            setSelectedSignal(null);
+            return;
+          }
+
+          // 3. Check current route / tab
+          const currentTab = activeTabRef.current;
+          const isAtHomeScreen = currentTab === 'home' || currentTab === 'hero';
+
+          if (isAtHomeScreen) {
+            // Exit app only from the home screen
+            CapApp.exitApp();
+            return;
+          }
+
+          // 4. Return to previous screen
+          const stack = tabHistoryRef.current;
+          if (stack.length > 1) {
+            stack.pop(); // remove current
+            const previousTab = stack[stack.length - 1] || 'home';
+            setActiveTab(previousTab);
+          } else if (canGoBack && window.history.length > 1) {
+            window.history.back();
+          } else {
+            setActiveTab('home');
+          }
+        });
+
+        removeListener = () => {
+          listenerHandle.remove();
+        };
+      } catch (err) {
+        console.warn('[Capacitor] Failed to wire Android back button:', err);
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      if (removeListener) {
+        removeListener();
+      }
+    };
+  }, []);
+
+  // Handle Unauthenticated State (Public Home, Hero, Register, Login, Staff Login)
   if (!isAuthenticated) {
     const currentPath = window.location.pathname.toLowerCase();
+
+    // Dedicated Staff Login Route
+    if (currentPath.startsWith('/staff')) {
+      return (
+        <StaffLoginScreen
+          onSuccess={(role) => {
+            const target = role === 'admin' ? '/staff/admin' : '/staff/queue';
+            window.history.pushState(null, '', target);
+            setActiveTabState(mapPathToTab(target));
+          }}
+        />
+      );
+    }
+
     let initialMode: 'home' | 'login' | 'register' = 'home';
     if (currentPath === '/register') initialMode = 'register';
     else if (currentPath === '/login') initialMode = 'login';
@@ -195,6 +371,80 @@ const AppContent: React.FC = () => {
           setIntendedRoute(null);
         }}
       />
+    );
+  }
+
+  const userRole = state?.profile?.role || 'learner';
+  const currentPath = window.location.pathname.toLowerCase();
+
+  // STAFF PORTAL WORKSPACE (for Evaluator & Admin users accessing /staff/*)
+  if ((userRole === 'evaluator' || userRole === 'admin') && currentPath.startsWith('/staff')) {
+    const rawPath = window.location.pathname;
+    const reviewId = currentPath.startsWith('/staff/review/')
+      ? rawPath.replace(/^\/staff\/review\/?/i, '').split('/')[0]
+      : '';
+
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: 'var(--aiims-bg-page, #f8f7fd)',
+          color: 'var(--aiims-text-primary, #0f172a)',
+          fontFamily: "'Nunito', -apple-system, sans-serif",
+        }}
+      >
+        <StaffHeader
+          currentPath={currentPath}
+          onNavigate={(path) => {
+            window.history.pushState(null, '', path);
+            setActiveTabState(mapPathToTab(path));
+          }}
+        />
+
+        <main
+          style={{
+            minHeight: 'calc(100vh - 64px)',
+            paddingBottom: 'calc(32px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          {currentPath.startsWith('/staff/queue') && (
+            <EvaluatorQueueScreen
+              onSelectSubmission={(id) => {
+                const target = `/staff/review/${id}`;
+                window.history.pushState(null, '', target);
+                setActiveTabState(mapPathToTab(target));
+              }}
+              onNavigate={(path) => {
+                window.history.pushState(null, '', path);
+                setActiveTabState(mapPathToTab(path));
+              }}
+            />
+          )}
+
+          {currentPath.startsWith('/staff/review') && (
+            <EvaluationReviewScreen
+              submissionId={reviewId}
+              onBackToQueue={() => {
+                window.history.pushState(null, '', '/staff/queue');
+                setActiveTabState('staff/queue');
+              }}
+            />
+          )}
+
+          {currentPath.startsWith('/staff/admin') &&
+            (userRole === 'admin' ? (
+              <AdminDashboardScreen />
+            ) : (
+              <EvaluatorQueueScreen
+                onSelectSubmission={(id) => {
+                  const target = `/staff/review/${id}`;
+                  window.history.pushState(null, '', target);
+                  setActiveTabState(mapPathToTab(target));
+                }}
+              />
+            ))}
+        </main>
+      </div>
     );
   }
 
@@ -355,7 +605,17 @@ const AppContent: React.FC = () => {
                     />
                   )}
 
-                  {activeTab === 'settings' && <SettingsView />}
+                  {activeTab === 'settings' && <SettingsView onNavigateTab={setActiveTab} />}
+
+                  {(activeTab === 'privacy' ||
+                    activeTab === 'terms' ||
+                    activeTab === 'refunds') && (
+                    <LegalScreen
+                      initialTab={activeTab as 'privacy' | 'terms' | 'refunds'}
+                      onNavigate={(tab) => setActiveTab(tab)}
+                      onBack={() => setActiveTab(isAuthenticated ? 'settings' : 'home')}
+                    />
+                  )}
 
                   {![
                     'home',
@@ -376,20 +636,142 @@ const AppContent: React.FC = () => {
                     'insights',
                     'settings',
                     'hero',
+                    'privacy',
+                    'terms',
+                    'refunds',
                   ].includes(activeTab) && <HomeScreen setActiveTab={setActiveTab} />}
+
+                  {/* Persistent Web Footer */}
+                  <footer
+                    style={{
+                      marginTop: '48px',
+                      paddingTop: '20px',
+                      paddingBottom: '20px',
+                      borderTop: '1px solid var(--aiims-border-subtle, #E2E8F0)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '12px',
+                      fontSize: '12px',
+                      color: 'var(--aiims-text-muted, #94A3B8)',
+                    }}
+                  >
+                    <div>
+                      © {new Date().getFullYear()} AIIMS · AI Capability Diagnostic & Mentoring
+                      Platform
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '14px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('privacy')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          fontSize: 'inherit',
+                          padding: 0,
+                          fontWeight: 500,
+                        }}
+                      >
+                        Privacy Policy
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('terms')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          fontSize: 'inherit',
+                          padding: 0,
+                          fontWeight: 500,
+                        }}
+                      >
+                        Terms of Service
+                      </button>
+                      <span>•</span>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('refunds')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          fontSize: 'inherit',
+                          padding: 0,
+                          fontWeight: 500,
+                        }}
+                      >
+                        Refunds
+                      </button>
+                      <span>•</span>
+                      <a
+                        href={`mailto:${SUPPORT_EMAIL}`}
+                        style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                      >
+                        Support ({SUPPORT_EMAIL})
+                      </a>
+                    </div>
+                  </footer>
                 </div>
               );
             })()}
           </ErrorBoundary>
         </main>
       </div>
+
+      {/* Fixed Mobile Bottom Navigation Bar (< 768px with safe-area support) */}
+      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>
   );
 };
 
-const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+  onNavigateTab?: (tab: string) => void;
+}
+
+const SettingsView: React.FC<SettingsViewProps> = ({ onNavigateTab }) => {
   const { state, setAudienceMode, updateFocusSessionConfig, logout } = useLearner();
   const { theme, setTheme, isDarkMode } = useTheme();
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmationInput, setDeleteConfirmationInput] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmationInput.trim() !== 'DELETE') return;
+    setIsDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await apiClient.deleteAccount('DELETE');
+      if (res && res.success) {
+        try {
+          localStorage.clear();
+        } catch {}
+        await logout();
+        window.location.href = '/login';
+      } else {
+        setDeleteError(res?.error || 'Failed to delete account. Please try again.');
+      }
+    } catch {
+      setDeleteError('An unexpected network error occurred while deleting account.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const currentAudience = state.aiWallet?.audienceMode || 'student';
   const soundEnabled = state.focus?.sessionConfig?.soundEnabled ?? true;
@@ -1165,6 +1547,451 @@ const SettingsView: React.FC = () => {
           </div>
         </div>
       </Surface>
+
+      {/* 6. LEGAL & PLATFORM POLICIES (App Store & Play Store Required) */}
+      <Surface variant="bordered" radius="lg" padding="lg">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <Shield size={18} style={{ color: 'var(--aiims-primary)' }} />
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+            Legal Documents & Platform Policies
+          </div>
+        </div>
+        <p style={{ fontSize: '13px', color: 'var(--aiims-text-secondary)', margin: '0 0 16px' }}>
+          Review public policy documents, terms of service, and support channels for AIIMS.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              onNavigateTab ? onNavigateTab('privacy') : (window.location.href = '/privacy')
+            }
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--aiims-border-subtle)',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Shield size={18} color="var(--aiims-primary)" />
+            <div>
+              <div
+                style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}
+              >
+                Privacy Policy
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                Data safety & retention
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onNavigateTab ? onNavigateTab('terms') : (window.location.href = '/terms')
+            }
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--aiims-border-subtle)',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <FileText size={18} color="var(--aiims-primary)" />
+            <div>
+              <div
+                style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}
+              >
+                Terms of Service
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                Platform terms of use
+              </div>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              onNavigateTab ? onNavigateTab('refunds') : (window.location.href = '/refunds')
+            }
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--aiims-border-subtle)',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <RefreshCw size={18} color="var(--aiims-primary)" />
+            <div>
+              <div
+                style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}
+              >
+                Refunds & Credits
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                Credit rules & disputes
+              </div>
+            </div>
+          </button>
+
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            style={{
+              padding: '14px 16px',
+              borderRadius: '10px',
+              border: '1px solid var(--aiims-border-subtle)',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              textDecoration: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Mail size={18} color="var(--aiims-primary)" />
+            <div>
+              <div
+                style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}
+              >
+                Support Contact
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                {SUPPORT_EMAIL}
+              </div>
+            </div>
+          </a>
+        </div>
+      </Surface>
+
+      {/* 7. DANGER ZONE: IN-APP ACCOUNT DELETION */}
+      <Surface
+        variant="bordered"
+        radius="lg"
+        padding="lg"
+        style={{
+          borderColor: 'rgba(239, 68, 68, 0.3)',
+          backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.04)' : '#FEF2F2',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+          <AlertTriangle size={20} color="#DC2626" />
+          <div style={{ fontSize: '16px', fontWeight: 800, color: '#DC2626' }}>
+            Danger Zone: Delete My Account
+          </div>
+        </div>
+        <p
+          style={{
+            fontSize: '13px',
+            color: 'var(--aiims-text-secondary)',
+            margin: '0 0 16px',
+            lineHeight: 1.55,
+          }}
+        >
+          Permanently delete your AIIMS account, profile data, assessment answers, clarity
+          reflections, and task submissions. In compliance with store privacy guidelines, personal
+          data is permanently purged. Non-personal credit ledger transaction entries are anonymized
+          to maintain accounting totals. This action is immediate and cannot be undone.
+        </p>
+
+        <button
+          id="delete-account-trigger-btn"
+          type="button"
+          onClick={() => {
+            setDeleteConfirmationInput('');
+            setDeleteError('');
+            setIsDeleteModalOpen(true);
+          }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            borderRadius: '10px',
+            border: '1px solid #DC2626',
+            backgroundColor: '#DC2626',
+            color: '#FFFFFF',
+            fontSize: '13px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'opacity 0.2s ease',
+          }}
+        >
+          <Trash2 size={16} /> Delete my account
+        </button>
+      </Surface>
+
+      {/* Account Deletion Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--aiims-bg-card, #FFFFFF)',
+              borderRadius: '18px',
+              border: '1px solid var(--aiims-border-card, #E2E8F0)',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              position: 'relative',
+              boxSizing: 'border-box',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+              aria-label="Close modal"
+              style={{
+                position: 'absolute',
+                top: '18px',
+                right: '18px',
+                background: 'none',
+                border: 'none',
+                color: 'var(--aiims-text-muted, #94A3B8)',
+                cursor: 'pointer',
+                padding: '4px',
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}
+            >
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  backgroundColor: '#FEE2E2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#DC2626',
+                }}
+              >
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading, #0F172A)',
+                  }}
+                >
+                  Confirm Account Deletion
+                </h3>
+                <span style={{ fontSize: '12px', color: '#DC2626', fontWeight: 700 }}>
+                  Irreversible Action
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: '13.5px',
+                color: 'var(--aiims-text-secondary, #64748B)',
+                lineHeight: 1.55,
+                marginBottom: '18px',
+              }}
+            >
+              <p style={{ margin: '0 0 10px' }}>
+                You are about to permanently delete your AIIMS account (
+                <strong style={{ color: 'var(--aiims-text-heading)' }}>
+                  {state.profile.email}
+                </strong>
+                ).
+              </p>
+              <div
+                style={{
+                  backgroundColor: 'var(--aiims-bg-subtle, #F8F9FE)',
+                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--aiims-border-subtle, #E2E8F0)',
+                  fontSize: '12.5px',
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  What happens when you delete your account:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <li>All profile data, academic details, and personal tokens are purged.</li>
+                  <li>
+                    Assessment answers, clarity reflections, and submission content are removed.
+                  </li>
+                  <li>You will be logged out and cannot sign in with this account again.</li>
+                  <li>
+                    Non-personal transaction records needed for ledger reconciliation are kept in
+                    anonymized form.
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                htmlFor="delete-confirm-input"
+                style={{
+                  display: 'block',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  color: 'var(--aiims-text-heading, #0F172A)',
+                  marginBottom: '8px',
+                }}
+              >
+                To confirm, type <span style={{ color: '#DC2626', fontWeight: 900 }}>DELETE</span>{' '}
+                below:
+              </label>
+              <input
+                id="delete-confirm-input"
+                type="text"
+                value={deleteConfirmationInput}
+                onChange={(e) => setDeleteConfirmationInput(e.target.value)}
+                placeholder="Type DELETE"
+                disabled={isDeleting}
+                style={{
+                  width: '100%',
+                  padding: '11px 14px',
+                  borderRadius: '10px',
+                  border:
+                    deleteConfirmationInput === 'DELETE'
+                      ? '2px solid #DC2626'
+                      : '1px solid var(--aiims-border-card, #E2E8F0)',
+                  backgroundColor: 'var(--aiims-bg-card, #FFFFFF)',
+                  color: 'var(--aiims-text-heading, #0F172A)',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: '#FEE2E2',
+                  color: '#DC2626',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  marginBottom: '16px',
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid var(--aiims-border-card, #E2E8F0)',
+                  backgroundColor: 'var(--aiims-bg-card, #FFFFFF)',
+                  color: 'var(--aiims-text-secondary, #64748B)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                id="confirm-delete-account-btn"
+                type="button"
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmationInput.trim() !== 'DELETE' || isDeleting}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor:
+                    deleteConfirmationInput.trim() === 'DELETE' ? '#DC2626' : '#94A3B8',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor:
+                    deleteConfirmationInput.trim() === 'DELETE' && !isDeleting
+                      ? 'pointer'
+                      : 'not-allowed',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'background-color 0.15s ease',
+                }}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
+                    Deleting Account...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={16} /> Permanently Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

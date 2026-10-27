@@ -80,6 +80,31 @@ export class CreditsLedgerService {
   }
 
   /**
+   * Anonymizes all credit ledger entries for a user, stripping any identifying metadata
+   * while preserving transaction types, amounts, and balance progression for audit trail consistency.
+   */
+  public async anonymizeUserLedger(userId: string): Promise<void> {
+    if (!userId) return;
+
+    if (mongoose.connection.readyState === 1) {
+      await CreditLedger.updateMany(
+        { userId },
+        {
+          $set: {
+            metadata: {},
+          },
+        }
+      );
+    }
+
+    for (const entry of memoryLedgerStore) {
+      if (entry.userId === userId) {
+        entry.metadata = {};
+      }
+    }
+  }
+
+  /**
    * Executes a credit transaction with atomic balance checking and duplicate-request protection
    */
   public async executeTransaction(params: ExecuteTransactionParams): Promise<TransactionResult> {
@@ -153,6 +178,27 @@ export class CreditsLedgerService {
       if (user) {
         const balanceBefore = user.aiimsCredits ?? 0;
 
+        let session: mongoose.ClientSession | null = null;
+        let useReplicaTransaction = false;
+        try {
+          session = await mongoose.startSession();
+          session.startTransaction();
+          useReplicaTransaction = true;
+        } catch {
+          if (session) {
+            try {
+              await session.endSession();
+            } catch {}
+            session = null;
+          }
+          useReplicaTransaction = false;
+        }
+
+        const updateOpts =
+          useReplicaTransaction && session
+            ? { session, returnDocument: 'after' as const }
+            : { returnDocument: 'after' as const };
+
         // 2c. Atomic conditional balance update
         let updatedUser: IUser | null = null;
         const txId = `tx-ledger-${Date.now()}-${randomUUID().substring(0, 8)}`;
@@ -160,6 +206,10 @@ export class CreditsLedgerService {
 
         if (type === 'SPEND') {
           if (balanceBefore < numAmount) {
+            if (useReplicaTransaction && session) {
+              await session.abortTransaction();
+              await session.endSession();
+            }
             return {
               success: false,
               code: 'INSUFFICIENT_CREDITS',
@@ -196,10 +246,14 @@ export class CreditsLedgerService {
                 },
               },
             },
-            { returnDocument: 'after' }
+            updateOpts
           );
 
           if (!updatedUser) {
+            if (useReplicaTransaction && session) {
+              await session.abortTransaction();
+              await session.endSession();
+            }
             const freshUser = await User.findById(user._id);
             const freshBal = freshUser?.aiimsCredits ?? balanceBefore;
             return {
@@ -241,10 +295,14 @@ export class CreditsLedgerService {
                 },
               },
             },
-            { returnDocument: 'after' }
+            updateOpts
           );
 
           if (!updatedUser && sourceId) {
+            if (useReplicaTransaction && session) {
+              await session.abortTransaction();
+              await session.endSession();
+            }
             // Concurrently already awarded under this sourceId
             const freshUser = await User.findById(user._id);
             const freshBal = freshUser?.aiimsCredits ?? balanceBefore;
@@ -274,7 +332,7 @@ export class CreditsLedgerService {
 
         // 2d. Record in CreditLedger collection
         try {
-          const ledgerEntry = await CreditLedger.create({
+          const ledgerDoc = {
             id: txId,
             userId,
             type,
@@ -286,10 +344,20 @@ export class CreditsLedgerService {
             source,
             sourceId,
             idempotencyKey,
-            status: 'COMPLETED',
+            status: 'COMPLETED' as const,
             relatedTaskId,
             metadata: this.sanitizeMetadata(metadata),
-          });
+          };
+
+          let ledgerEntry: any;
+          if (useReplicaTransaction && session) {
+            const createdDocs = await CreditLedger.create([ledgerDoc], { session });
+            ledgerEntry = createdDocs[0];
+            await session.commitTransaction();
+            await session.endSession();
+          } else {
+            ledgerEntry = await CreditLedger.create(ledgerDoc);
+          }
 
           return {
             success: true,
@@ -299,6 +367,13 @@ export class CreditsLedgerService {
             transaction: ledgerEntry.toJSON ? ledgerEntry.toJSON() : ledgerEntry,
           };
         } catch (err: unknown) {
+          if (useReplicaTransaction && session) {
+            try {
+              await session.abortTransaction();
+              await session.endSession();
+            } catch {}
+          }
+
           // In case of unique index violation on { userId, idempotencyKey }
           const isDuplicateKey =
             err &&
@@ -306,17 +381,19 @@ export class CreditsLedgerService {
             'code' in err &&
             (err as { code: number }).code === 11000;
           if (isDuplicateKey && idempotencyKey) {
-            // Revert speculative balance mutation and legacy transaction entry
-            if (type === 'SPEND') {
-              await User.findByIdAndUpdate(user._id, {
-                $inc: { aiimsCredits: numAmount },
-                $pull: { transactions: { id: txId } },
-              });
-            } else {
-              await User.findByIdAndUpdate(user._id, {
-                $inc: { aiimsCredits: -numAmount },
-                $pull: { transactions: { id: txId } },
-              });
+            // Revert speculative balance mutation if transaction was not used
+            if (!useReplicaTransaction) {
+              if (type === 'SPEND') {
+                await User.findByIdAndUpdate(user._id, {
+                  $inc: { aiimsCredits: numAmount },
+                  $pull: { transactions: { id: txId } },
+                });
+              } else {
+                await User.findByIdAndUpdate(user._id, {
+                  $inc: { aiimsCredits: -numAmount },
+                  $pull: { transactions: { id: txId } },
+                });
+              }
             }
 
             const existingTx = await CreditLedger.findOne({ userId, idempotencyKey });
@@ -331,24 +408,32 @@ export class CreditsLedgerService {
               };
             }
           }
-          console.error('[CreditsLedgerService] Failed to record ledger entry:', err);
+
+          // Non-duplicate error: revert speculative balance mutation and legacy transaction entry
+          if (!useReplicaTransaction) {
+            if (type === 'SPEND') {
+              await User.findByIdAndUpdate(user._id, {
+                $inc: { aiimsCredits: numAmount },
+                $pull: { transactions: { id: txId } },
+              });
+            } else {
+              await User.findByIdAndUpdate(user._id, {
+                $inc: { aiimsCredits: -numAmount },
+                $pull: { transactions: { id: txId } },
+              });
+            }
+          }
+
+          console.error(
+            '[CreditsLedgerService] Failed to record ledger entry; balance unchanged:',
+            err
+          );
           return {
-            success: true,
-            balance: balanceAfter,
+            success: false,
+            error: 'Failed to record credit ledger entry; balance unchanged',
+            balance: balanceBefore,
             previousBalance: balanceBefore,
-            newBalance: balanceAfter,
-            transaction: {
-              id: txId,
-              userId,
-              type,
-              category,
-              amount: numAmount,
-              balanceBefore,
-              balanceAfter,
-              reason,
-              source,
-              status: 'COMPLETED',
-            },
+            newBalance: balanceBefore,
           };
         }
       }

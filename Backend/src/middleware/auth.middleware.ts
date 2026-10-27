@@ -2,13 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
+import { User, IUser, UserRole } from '../models/User.model';
 import { mockUser } from '../models/aiims.models';
 import { registeredUsers } from '../models/userStore';
 
 export interface AuthenticatedRequest extends Request {
   user?: IUser;
   userEmail?: string;
+  /** True when this request was authenticated via httpOnly cookie (not Bearer header) */
+  cookieAuthenticated?: boolean;
 }
 
 export interface JwtPayload {
@@ -18,9 +20,41 @@ export interface JwtPayload {
   exp?: number;
 }
 
+/** Stateless changing methods that require CSRF origin check when authenticated via cookie. */
+const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 /**
- * Extracts and verifies JWT from Bearer Authorization header,
- * and attaches authenticated student document to req.user.
+ * CSRF protection for cookie-authenticated state-changing requests.
+ * Verifies that the Origin or Referer header matches an allowed origin.
+ * Requests authenticated via Bearer header are exempt (mobile clients, CORS handles that).
+ */
+const passesOriginCheck = (req: Request): boolean => {
+  if (!STATE_CHANGING_METHODS.has(req.method)) return true;
+
+  const origin = req.headers['origin'] as string | undefined;
+  const referer = req.headers['referer'] as string | undefined;
+
+  let candidate: string | undefined = origin;
+  if (!candidate && referer) {
+    try {
+      candidate = new URL(referer).origin;
+    } catch {
+      return false;
+    }
+  }
+  if (!candidate) return false; // no valid origin on a mutation = reject
+
+  return config.allowedOrigins.some(
+    (allowed) => candidate === allowed || candidate.startsWith(allowed)
+  );
+};
+
+/**
+ * Extracts and verifies JWT from:
+ *   1. httpOnly cookie `aiims_token` (web)
+ *   2. Authorization: Bearer <token> header (mobile)
+ * Attaches authenticated student document to req.user.
+ * For cookie-authenticated state-changing requests enforces Origin/Referer CSRF check.
  */
 export const authenticateStudent = async (
   req: AuthenticatedRequest,
@@ -28,17 +62,34 @@ export const authenticateStudent = async (
   next: NextFunction
 ) => {
   try {
+    // 1. Try Bearer header first (mobile / API clients)
     const authHeader = req.headers.authorization || (req.headers['x-auth-token'] as string);
-    if (!authHeader) {
-      return next();
+    let token: string | undefined;
+    let fromCookie = false;
+
+    if (authHeader) {
+      token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
     }
 
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
+    // 2. Fall back to httpOnly cookie (web clients)
+    if (!token && req.cookies?.aiims_token) {
+      token = req.cookies.aiims_token as string;
+      fromCookie = true;
+    }
+
     if (!token) {
       return next();
     }
 
-    // Verify token signature and expiration cryptographically
+    // 3. CSRF guard: cookie-authenticated state-changing requests must have a valid Origin/Referer
+    if (fromCookie && STATE_CHANGING_METHODS.has(req.method) && !passesOriginCheck(req)) {
+      return res.status(403).json({
+        error: 'CSRF check failed: request origin is not allowed.',
+        code: 'CSRF_FORBIDDEN',
+      });
+    }
+
+    // 4. Verify token signature and expiration cryptographically
     const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
     if (!decoded || !decoded.email) {
       return next();
@@ -46,6 +97,7 @@ export const authenticateStudent = async (
 
     const email = decoded.email.toLowerCase().trim();
     req.userEmail = email;
+    req.cookieAuthenticated = fromCookie;
 
     let dbUser: IUser | null = null;
 
@@ -208,4 +260,38 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
     });
   }
   next();
+};
+
+/**
+ * Role-based access control guard middleware.
+ * Returns 401 if unauthenticated.
+ * Returns 403 if authenticated user's role is not within the permitted roles or if account is disabled.
+ */
+export const requireRole = (...roles: UserRole[]) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Invalid or expired session. Please sign in again.',
+        code: 'UNAUTHORIZED',
+      });
+    }
+
+    const userRole = (req.user.role as UserRole) || 'learner';
+
+    if (!roles.includes(userRole)) {
+      return res.status(403).json({
+        error: `Access denied. Role '${userRole}' is not authorized to access this resource. Required: ${roles.join(' or ')}.`,
+        code: 'FORBIDDEN',
+      });
+    }
+
+    if (req.user.isActive === false) {
+      return res.status(403).json({
+        error: 'Access denied. This account has been disabled.',
+        code: 'ACCOUNT_DISABLED',
+      });
+    }
+
+    next();
+  };
 };

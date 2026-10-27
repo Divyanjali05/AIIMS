@@ -7,6 +7,9 @@ import clarityRoutes from './clarity.routes';
 import investigationRoutes from './investigation.routes';
 import learnerRoutes from './learner.routes';
 import aiWalletRoutes from './aiWallet.routes';
+import submissionRoutes from './submission.routes';
+import evaluatorRoutes from './evaluator.routes';
+import adminRoutes from './admin.routes';
 
 export { CREDIT_RULES } from '../config/credits.config';
 export { registeredUsers } from '../controllers/auth.controller';
@@ -24,5 +27,8 @@ router.use(clarityRoutes);
 router.use(investigationRoutes);
 router.use(learnerRoutes);
 router.use(aiWalletRoutes);
+router.use(submissionRoutes);
+router.use(evaluatorRoutes);
+router.use(adminRoutes);
 
 export default router;

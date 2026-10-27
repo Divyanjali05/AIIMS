@@ -29,7 +29,7 @@ const createMockLearnerState = (overrides?: Partial<LearnerState>): LearnerState
     targetGoal: 'Explore AI Architectures & Intelligence',
     stage: 'Knowing',
     xpPoints: 100,
-    aiimsCredits: 100,
+    aiimsCredits: 500,
   },
   assessment: {
     status: 'not_started',
@@ -81,7 +81,7 @@ const createMockLearnerState = (overrides?: Partial<LearnerState>): LearnerState
     status: 'locked',
   },
   credits: {
-    balance: 100,
+    balance: 500,
     transactions: [],
     claimedActions: [],
   },
@@ -363,6 +363,45 @@ export function runFeatureAccessTestSuite(): {
   assert(
     '8B: Unresolved conditions reference Owner Decisions 1 & 2',
     UNRESOLVED_UNLOCK_CONDITIONS.every((u) => u.decisionRef.includes('Decision 1'))
+  );
+
+  // ---------------------------------------------------------------------------
+  // 9. Levels 1 to 4 Navigation & Growth Insights / Investigation / Improve
+  // ---------------------------------------------------------------------------
+  const insightsLocked = getFeatureAccess('insights', freshState);
+  assert(
+    '9A: Growth Insights is Level 1 and locked when assessment is incomplete',
+    insightsLocked.level === 'Level 1' && insightsLocked.unlocked === false
+  );
+  assert(
+    '9B: Growth Insights has clear next action pointing to baseline assessment',
+    insightsLocked.targetTab === 'assessment' && Boolean(insightsLocked.unlockAction)
+  );
+
+  const insightsUnlocked = getFeatureAccess('insights', assessmentDoneState);
+  assert(
+    '9C: Growth Insights unlocks when assessment is completed',
+    insightsUnlocked.level === 'Level 1' && insightsUnlocked.unlocked === true
+  );
+
+  const investigationAccess = getFeatureAccess('investigation', freshState);
+  assert(
+    '9D: Signal Investigation is Level 2 and locked for now',
+    investigationAccess.level === 'Level 2' && investigationAccess.unlocked === false
+  );
+  assert(
+    '9E: Signal Investigation has clear unlock reason and next step pointing to radar',
+    investigationAccess.targetTab === 'radar' && typeof investigationAccess.reason === 'string'
+  );
+
+  const mentorAccess = getFeatureAccess('mentor', freshState);
+  assert(
+    '9F: Improve (Mentor) is Level 4 and locked for now',
+    mentorAccess.level === 'Level 4' && mentorAccess.unlocked === false
+  );
+  assert(
+    '9G: Improve (Mentor) has clear unlock reason and next action',
+    Boolean(mentorAccess.unlockAction) && typeof mentorAccess.reason === 'string'
   );
 
   return { passedCount, failedCount, results };
@@ -703,6 +742,68 @@ if (typeof describe === 'function') {
         expect(
           UNRESOLVED_UNLOCK_CONDITIONS.every((u) => u.decisionRef.includes('Decision 1'))
         ).toBe(true);
+      });
+    });
+
+    describe('9. Levels 1 to 4 Navigation & Growth Insights / Investigation / Improve', () => {
+      const freshState = createMockLearnerState();
+      const assessmentDoneState = createMockLearnerState({
+        assessment: {
+          status: 'completed',
+          answers: { 1: 'a' },
+          currentQuestionIndex: 24,
+          completedAt: '18 Oct 2026',
+          rewardClaimed: true,
+          scores: {
+            usageFrequency: 80,
+            evaluationCapability: 85,
+            workflowDesign: 70,
+            strategicVision: 75,
+            mentorshipReadiness: 65,
+          },
+        },
+      });
+
+      it('9A: Growth Insights is Level 1 and locked when assessment is incomplete', () => {
+        const insightsLocked = getFeatureAccess('insights', freshState);
+        expect(insightsLocked.level).toBe('Level 1');
+        expect(insightsLocked.unlocked).toBe(false);
+      });
+
+      it('9B: Growth Insights has clear next action pointing to baseline assessment', () => {
+        const insightsLocked = getFeatureAccess('insights', freshState);
+        expect(insightsLocked.targetTab).toBe('assessment');
+        expect(Boolean(insightsLocked.unlockAction)).toBe(true);
+      });
+
+      it('9C: Growth Insights unlocks when assessment is completed', () => {
+        const insightsUnlocked = getFeatureAccess('insights', assessmentDoneState);
+        expect(insightsUnlocked.level).toBe('Level 1');
+        expect(insightsUnlocked.unlocked).toBe(true);
+      });
+
+      it('9D: Signal Investigation is Level 2 and locked for now', () => {
+        const investigationAccess = getFeatureAccess('investigation', freshState);
+        expect(investigationAccess.level).toBe('Level 2');
+        expect(investigationAccess.unlocked).toBe(false);
+      });
+
+      it('9E: Signal Investigation has clear unlock reason and next step pointing to radar', () => {
+        const investigationAccess = getFeatureAccess('investigation', freshState);
+        expect(investigationAccess.targetTab).toBe('radar');
+        expect(typeof investigationAccess.reason).toBe('string');
+      });
+
+      it('9F: Improve (Mentor) is Level 4 and locked for now', () => {
+        const mentorAccess = getFeatureAccess('mentor', freshState);
+        expect(mentorAccess.level).toBe('Level 4');
+        expect(mentorAccess.unlocked).toBe(false);
+      });
+
+      it('9G: Improve (Mentor) has clear unlock reason and next action', () => {
+        const mentorAccess = getFeatureAccess('mentor', freshState);
+        expect(Boolean(mentorAccess.unlockAction)).toBe(true);
+        expect(typeof mentorAccess.reason).toBe('string');
       });
     });
   });

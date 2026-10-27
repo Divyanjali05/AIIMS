@@ -7,7 +7,9 @@ dist/
 .env.local
 !.env.example
 !Backend/.env.example
+!Frontend/.env.example
 !**/.env.example
+
 
 # Private Keys, Certificates & Credentials
 *.pem

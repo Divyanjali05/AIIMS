@@ -332,13 +332,16 @@ export const Header: React.FC<HeaderProps> = ({
       <header
         className="aiims-header-container"
         style={{
-          height: 'var(--aiims-header-height, 60px)',
+          height: 'var(--aiims-header-height, calc(60px + env(safe-area-inset-top, 0px)))',
           backgroundColor: 'var(--aiims-bg-card, #ffffff)',
           borderBottom: '1px solid var(--aiims-border-card, #ede9fe)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 20px',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          paddingBottom: 0,
+          paddingLeft: '20px',
+          paddingRight: '20px',
           position: 'sticky',
           top: 0,
           zIndex: 100,

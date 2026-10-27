@@ -9,7 +9,7 @@ interface Hero2DFallbackProps {
 
 export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
   onExploreClick,
-  prefersReducedMotion = false
+  prefersReducedMotion = false,
 }) => {
   const { isDarkMode } = useTheme();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -52,7 +52,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
         vy: (Math.random() - 0.5) * 0.4,
         radius: Math.random() * 2 + 1,
         color: colors[i % colors.length],
-        alpha: Math.random() * 0.5 + 0.3
+        alpha: Math.random() * 0.5 + 0.3,
       });
     }
 
@@ -70,8 +70,14 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
         height * 0.5,
         width * 0.48
       );
-      ambientGrad.addColorStop(0, isDarkMode ? 'rgba(139, 92, 246, 0.16)' : 'rgba(124, 58, 237, 0.12)');
-      ambientGrad.addColorStop(0.5, isDarkMode ? 'rgba(34, 211, 238, 0.08)' : 'rgba(8, 145, 178, 0.06)');
+      ambientGrad.addColorStop(
+        0,
+        isDarkMode ? 'rgba(139, 92, 246, 0.16)' : 'rgba(124, 58, 237, 0.12)'
+      );
+      ambientGrad.addColorStop(
+        0.5,
+        isDarkMode ? 'rgba(34, 211, 238, 0.08)' : 'rgba(8, 145, 178, 0.06)'
+      );
       ambientGrad.addColorStop(1, isDarkMode ? 'rgba(8, 11, 22, 0)' : 'rgba(248, 249, 254, 0)');
       ctx.fillStyle = ambientGrad;
       ctx.fillRect(0, 0, width, height);
@@ -160,7 +166,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
         height: '100%',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
       }}
     >
       <canvas
@@ -172,7 +178,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
-          borderRadius: '24px'
+          borderRadius: '24px',
         }}
       />
       {/* 2D Neural Core Object */}
@@ -188,7 +194,7 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           cursor: onExploreClick ? 'pointer' : 'default',
-          zIndex: 2
+          zIndex: 2,
         }}
         onClick={onExploreClick}
       >
@@ -197,11 +203,12 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
             width: '100px',
             height: '100px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(139, 92, 246, 0.3) 70%, transparent 100%)',
+            background:
+              'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(139, 92, 246, 0.3) 70%, transparent 100%)',
             filter: 'blur(2px)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
           }}
         >
           <Brain size={44} color="#080B16" />
@@ -219,12 +226,14 @@ export const Hero2DFallback: React.FC<Hero2DFallbackProps> = ({
             fontWeight: 800,
             color: isDarkMode ? '#22D3EE' : '#0891B2',
             letterSpacing: '0.8px',
-            boxShadow: isDarkMode ? '0 4px 12px rgba(34, 211, 238, 0.3)' : '0 4px 12px rgba(8, 145, 178, 0.2)',
+            boxShadow: isDarkMode
+              ? '0 4px 12px rgba(34, 211, 238, 0.3)'
+              : '0 4px 12px rgba(8, 145, 178, 0.2)',
             textTransform: 'uppercase',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
           }}
         >
-          AINOVA CORE
+          AIIMS CORE
         </div>
       </div>
     </div>

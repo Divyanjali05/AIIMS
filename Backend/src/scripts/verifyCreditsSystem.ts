@@ -44,7 +44,7 @@ async function run() {
 
   const regRes = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Client': 'mobile' },
     body: JSON.stringify({
       name: 'Credit Verification User',
       email: testEmail,
@@ -58,8 +58,8 @@ async function run() {
       specializationName: 'Artificial Intelligence & Machine Learning',
       yearOfStudy: 3,
       admissionYear: 2023,
-      expectedGraduationYear: 2027
-    })
+      expectedGraduationYear: 2027,
+    }),
   });
 
   const regData = await regRes.json();
@@ -72,7 +72,7 @@ async function run() {
   userId = regData.user.id || regData.user._id;
   const authHeaders = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
+    Authorization: `Bearer ${token}`,
   };
 
   console.log(`👤 Created test user: ${testEmail} (ID: ${userId})`);
@@ -88,9 +88,34 @@ async function run() {
 
   record(
     'Initial Balance Verification',
-    initialBalance === 100 && initialXP === 100,
-    `Initial DB balance: ${initialBalance} AC, ${initialXP} XP (Expected: 100 AC, 100 XP)`
+    initialBalance === 500 && initialXP === 100,
+    `Initial DB balance: ${initialBalance} AC, ${initialXP} XP (Expected: 500 AC, 100 XP)`
   );
+
+  // Unlock assessment & analysis prerequisites so Clarity & Investigation endpoints can process credit rewards
+  if (isDbConnected) {
+    await User.updateOne(
+      { email: testEmail },
+      {
+        $set: {
+          'assessment.status': 'completed',
+          'analysis.status': 'unlocked',
+          'investigation.status': 'unlocked',
+        },
+      }
+    );
+  }
+  await fetch(`${API_BASE}/learner/state`, {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({
+      state: {
+        assessment: { status: 'completed' },
+        analysis: { status: 'unlocked' },
+        investigation: { status: 'unlocked' },
+      },
+    }),
+  });
 
   // ── TEST 1: Clarity Task Reward (+15 AC, +50 XP) ──
   const taskRes1 = await fetch(`${API_BASE}/clarity/save-task-score`, {
@@ -100,8 +125,8 @@ async function run() {
       topic: 'Checking AI',
       difficulty: 'easy',
       taskId: 'task-easy',
-      score: 92
-    })
+      score: 92,
+    }),
   });
   const taskData1 = await taskRes1.json();
 
@@ -111,9 +136,9 @@ async function run() {
 
   const passTask1 =
     taskData1.awarded === true &&
-    taskData1.totalCredits === 115 &&
+    taskData1.totalCredits === 515 &&
     taskData1.totalXP === 150 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 115 && dbUser?.xpPoints === 150));
+    (!isDbConnected || (dbUser?.aiimsCredits === 515 && dbUser?.xpPoints === 150));
 
   record(
     'Clarity Task Reward (+15 AC, +50 XP)',
@@ -129,8 +154,8 @@ async function run() {
       topic: 'Checking AI',
       difficulty: 'easy',
       taskId: 'task-easy',
-      score: 95
-    })
+      score: 95,
+    }),
   });
   const taskData2 = await taskRes2.json();
 
@@ -141,8 +166,8 @@ async function run() {
   const passTask2 =
     taskData2.awarded === false &&
     taskData2.rewardCredits === 0 &&
-    taskData2.totalCredits === 115 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 115);
+    taskData2.totalCredits === 515 &&
+    (!isDbConnected || dbUser?.aiimsCredits === 515);
 
   record(
     'Clarity Task Sequential Idempotency',
@@ -161,14 +186,14 @@ async function run() {
           topic: 'Checking AI',
           difficulty: 'medium',
           taskId: 'task-medium',
-          score: 88
-        })
-      }).then(r => r.json())
+          score: 88,
+        }),
+      }).then((r) => r.json())
     )
   );
 
-  const awardedCountTask = concurrentTasks.filter(r => r.awarded === true).length;
-  const blockedCountTask = concurrentTasks.filter(r => r.awarded === false).length;
+  const awardedCountTask = concurrentTasks.filter((r) => r.awarded === true).length;
+  const blockedCountTask = concurrentTasks.filter((r) => r.awarded === false).length;
 
   if (isDbConnected) {
     dbUser = await User.findOne({ email: testEmail });
@@ -177,12 +202,12 @@ async function run() {
   const passTaskConcurrent =
     awardedCountTask === 1 &&
     blockedCountTask === 4 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 130);
+    (!isDbConnected || dbUser?.aiimsCredits === 530);
 
   record(
     'Clarity Task Atomic Concurrency (5 concurrent calls)',
     passTaskConcurrent,
-    `Exactly 1 awarded (${awardedCountTask}), 4 blocked (${blockedCountTask}), DB balance: ${dbUser?.aiimsCredits ?? 'N/A'} (Expected: 130)`
+    `Exactly 1 awarded (${awardedCountTask}), 4 blocked (${blockedCountTask}), DB balance: ${dbUser?.aiimsCredits ?? 'N/A'} (Expected: 530)`
   );
 
   // ── TEST 4: Signal Investigation Reward (+30 AC, +100 XP) ──
@@ -191,8 +216,8 @@ async function run() {
     headers: authHeaders,
     body: JSON.stringify({
       signalId: 'sig-verify-1',
-      personalInterpretation: 'First deep investigation on multi-agent consensus.'
-    })
+      personalInterpretation: 'First deep investigation on multi-agent consensus.',
+    }),
   });
   const invData1 = await invRes1.json();
 
@@ -203,8 +228,8 @@ async function run() {
   const passInv1 =
     invData1.awarded === true &&
     invData1.creditsEarned === 30 &&
-    invData1.newBalance === 160 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 160 && dbUser?.xpPoints === 300));
+    invData1.newBalance === 560 &&
+    (!isDbConnected || (dbUser?.aiimsCredits === 560 && dbUser?.xpPoints === 300));
 
   record(
     'Signal Investigation Reward (+30 AC, +100 XP)',
@@ -218,8 +243,8 @@ async function run() {
     headers: authHeaders,
     body: JSON.stringify({
       signalId: 'sig-verify-1',
-      personalInterpretation: 'Updated reflection notes.'
-    })
+      personalInterpretation: 'Updated reflection notes.',
+    }),
   });
   const invData2 = await invRes2.json();
 
@@ -230,8 +255,8 @@ async function run() {
   const passInv2 =
     invData2.awarded === false &&
     invData2.creditsEarned === 0 &&
-    invData2.newBalance === 160 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 160);
+    invData2.newBalance === 560 &&
+    (!isDbConnected || dbUser?.aiimsCredits === 560);
 
   record(
     'Signal Investigation Sequential Idempotency',
@@ -247,14 +272,14 @@ async function run() {
         headers: authHeaders,
         body: JSON.stringify({
           signalId: 'sig-concurrent-2',
-          personalInterpretation: 'Concurrent reflection test.'
-        })
-      }).then(r => r.json())
+          personalInterpretation: 'Concurrent reflection test.',
+        }),
+      }).then((r) => r.json())
     )
   );
 
-  const awardedCountInv = concurrentInvs.filter(r => r.awarded === true).length;
-  const blockedCountInv = concurrentInvs.filter(r => r.awarded === false).length;
+  const awardedCountInv = concurrentInvs.filter((r) => r.awarded === true).length;
+  const blockedCountInv = concurrentInvs.filter((r) => r.awarded === false).length;
 
   if (isDbConnected) {
     dbUser = await User.findOne({ email: testEmail });
@@ -263,19 +288,19 @@ async function run() {
   const passInvConcurrent =
     awardedCountInv === 1 &&
     blockedCountInv === 4 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 190);
+    (!isDbConnected || dbUser?.aiimsCredits === 590);
 
   record(
     'Signal Investigation Atomic Concurrency (5 concurrent calls)',
     passInvConcurrent,
-    `Exactly 1 awarded (${awardedCountInv}), 4 blocked (${blockedCountInv}), DB balance: ${dbUser?.aiimsCredits ?? 'N/A'} (Expected: 190)`
+    `Exactly 1 awarded (${awardedCountInv}), 4 blocked (${blockedCountInv}), DB balance: ${dbUser?.aiimsCredits ?? 'N/A'} (Expected: 590)`
   );
 
   // ── TEST 7: Quest Level Reward (+10 AC, +50 XP) ──
   const levelRes1 = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({ levelId: 1 })
+    body: JSON.stringify({ levelId: 1 }),
   });
   const levelData1 = await levelRes1.json();
 
@@ -286,8 +311,8 @@ async function run() {
   const passLevel1 =
     levelData1.awarded === true &&
     levelData1.amount === 10 &&
-    levelData1.newBalance === 200 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 200 && dbUser?.xpPoints === 450));
+    levelData1.newBalance === 600 &&
+    (!isDbConnected || (dbUser?.aiimsCredits === 600 && dbUser?.xpPoints === 450));
 
   record(
     'Quest Level Reward (+10 AC, +50 XP)',
@@ -299,7 +324,7 @@ async function run() {
   const levelRes2 = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({ levelId: 1 })
+    body: JSON.stringify({ levelId: 1 }),
   });
   const levelData2 = await levelRes2.json();
 
@@ -310,8 +335,8 @@ async function run() {
   const passLevel2 =
     levelData2.awarded === false &&
     levelData2.amount === 0 &&
-    levelData2.currentBalance === 200 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 200);
+    levelData2.currentBalance === 600 &&
+    (!isDbConnected || dbUser?.aiimsCredits === 600);
 
   record(
     'Quest Level Idempotency',
@@ -324,8 +349,8 @@ async function run() {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
-      answers: { 1: 3, 2: 4, 3: 5, 4: 2, 5: 3 }
-    })
+      answers: { 1: 3, 2: 4, 3: 5, 4: 2, 5: 3 },
+    }),
   });
   const assessData1 = await assessRes1.json();
 
@@ -335,8 +360,9 @@ async function run() {
 
   const passAssess1 =
     assessData1.earnedCredits === 50 &&
-    assessData1.updatedBalance === 250 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 250 && dbUser?.assessment?.rewardClaimed === true));
+    assessData1.updatedBalance === 650 &&
+    (!isDbConnected ||
+      (dbUser?.aiimsCredits === 650 && dbUser?.assessment?.rewardClaimed === true));
 
   record(
     'Assessment Completion Reward (+50 AC, +100 XP)',
@@ -349,8 +375,8 @@ async function run() {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
-      answers: { 1: 4, 2: 4, 3: 5, 4: 2, 5: 3 }
-    })
+      answers: { 1: 4, 2: 4, 3: 5, 4: 2, 5: 3 },
+    }),
   });
   const assessData2 = await assessRes2.json();
 
@@ -360,8 +386,8 @@ async function run() {
 
   const passAssess2 =
     assessData2.earnedCredits === 0 &&
-    assessData2.updatedBalance === 250 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 250);
+    assessData2.updatedBalance === 650 &&
+    (!isDbConnected || dbUser?.aiimsCredits === 650);
 
   record(
     'Assessment Completion Idempotency',
@@ -375,8 +401,8 @@ async function run() {
     headers: authHeaders,
     body: JSON.stringify({
       amount: 40,
-      description: 'Mentorship Sprint Session'
-    })
+      description: 'Mentorship Sprint Session',
+    }),
   });
   const investData1 = await investRes1.json();
 
@@ -385,8 +411,7 @@ async function run() {
   }
 
   const passInvest1 =
-    investData1.balance === 210 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 210);
+    investData1.balance === 610 && (!isDbConnected || dbUser?.aiimsCredits === 610);
 
   record(
     'Credit Spend / Investment (-40 AC)',
@@ -399,18 +424,16 @@ async function run() {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
-      amount: 500,
-      description: 'Overdraft Attempt'
-    })
+      amount: 5000,
+      description: 'Overdraft Attempt',
+    }),
   });
 
   if (isDbConnected) {
     dbUser = await User.findOne({ email: testEmail });
   }
 
-  const passInvest2 =
-    investRes2.status === 400 &&
-    (!isDbConnected || dbUser?.aiimsCredits === 210);
+  const passInvest2 = investRes2.status === 400 && (!isDbConnected || dbUser?.aiimsCredits === 610);
 
   record(
     'Overdraft Protection (Balance < Spend)',
@@ -420,13 +443,13 @@ async function run() {
 
   // ── TEST 10: State Synchronization & Protection Against Tampering ──
   const stateRes1 = await fetch(`${API_BASE}/learner/state`, {
-    headers: authHeaders
+    headers: authHeaders,
   });
   const stateData1 = await stateRes1.json();
 
   const syncPass =
-    stateData1.state?.profile?.aiimsCredits === 210 &&
-    stateData1.state?.credits?.balance === 210 &&
+    stateData1.state?.profile?.aiimsCredits === 610 &&
+    stateData1.state?.credits?.balance === 610 &&
     stateData1.state?.credits?.claimedActions?.length > 0;
 
   record(
@@ -444,13 +467,13 @@ async function run() {
         profile: {
           name: 'Hacked User',
           aiimsCredits: 999999,
-          xpPoints: 999999
+          xpPoints: 999999,
         },
         credits: {
-          transactions: []
-        }
-      }
-    })
+          transactions: [],
+        },
+      },
+    }),
   });
   const tamperData = await tamperRes.json();
 
@@ -459,9 +482,9 @@ async function run() {
   }
 
   const tamperBlocked =
-    tamperData.state?.profile?.aiimsCredits === 210 &&
-    tamperData.state?.credits?.balance === 210 &&
-    (!isDbConnected || (dbUser?.aiimsCredits === 210 && (dbUser?.transactions?.length ?? 0) > 0));
+    tamperData.state?.profile?.aiimsCredits === 610 &&
+    tamperData.state?.credits?.balance === 610 &&
+    (!isDbConnected || (dbUser?.aiimsCredits === 610 && (dbUser?.transactions?.length ?? 0) > 0));
 
   record(
     'Protection Against PUT /learner/state Balance Overwrite',
@@ -475,15 +498,15 @@ async function run() {
   if (isDbConnected && dbUser) {
     const txs = dbUser.transactions;
     // Calculate net from transactions: if welcome grant transaction is present in ledger, accumulate from 0
-    const hasWelcomeTx = txs.some(t => t.sourceId === 'WELCOME_BONUS');
-    let calculated = hasWelcomeTx ? 0 : 100;
+    const hasWelcomeTx = txs.some((t) => t.sourceId === 'WELCOME_BONUS');
+    let calculated = hasWelcomeTx ? 0 : 500;
     for (let i = txs.length - 1; i >= 0; i--) {
       const tx = txs[i];
       if (tx.type === 'EARN') calculated += tx.amount;
       else if (tx.type === 'SPEND') calculated -= tx.amount;
     }
-    ledgerPass = calculated === dbUser.aiimsCredits && dbUser.aiimsCredits === 210;
-    ledgerDetails = `Reconciled initial 100 + tx delta = ${calculated} AC, matches DB aiimsCredits: ${dbUser.aiimsCredits} AC (${txs.length} total transactions)`;
+    ledgerPass = calculated === dbUser.aiimsCredits && dbUser.aiimsCredits === 610;
+    ledgerDetails = `Reconciled initial 500 + tx delta = ${calculated} AC, matches DB aiimsCredits: ${dbUser.aiimsCredits} AC (${txs.length} total transactions)`;
   } else {
     ledgerDetails = 'Ledger verified against response state history.';
   }
@@ -494,25 +517,23 @@ async function run() {
   const unauthRes = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ levelId: 1 })
+    body: JSON.stringify({ levelId: 1 }),
   });
 
   const invalidTaskRes = await fetch(`${API_BASE}/clarity/save-task-score`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({}) // missing required fields
+    body: JSON.stringify({}), // missing required fields
   });
 
   const invalidInvestRes = await fetch(`${API_BASE}/credits/invest`, {
     method: 'POST',
     headers: authHeaders,
-    body: JSON.stringify({ amount: -20 })
+    body: JSON.stringify({ amount: -20 }),
   });
 
   const edgeCasesPass =
-    unauthRes.status === 401 &&
-    invalidTaskRes.status === 400 &&
-    invalidInvestRes.status === 400;
+    unauthRes.status === 401 && invalidTaskRes.status === 400 && invalidInvestRes.status === 400;
 
   record(
     'Input Validation & Security Edge Cases',
@@ -533,14 +554,16 @@ async function run() {
   }
 
   console.log('\n====================================================');
-  console.log(`VERIFICATION SUMMARY: ${reports.filter(r => r.passed).length}/${reports.length} TESTS PASSED`);
+  console.log(
+    `VERIFICATION SUMMARY: ${reports.filter((r) => r.passed).length}/${reports.length} TESTS PASSED`
+  );
   console.log('====================================================\n');
 
-  const allPassed = reports.every(r => r.passed);
+  const allPassed = reports.every((r) => r.passed);
   process.exit(allPassed ? 0 : 1);
 }
 
-run().catch(err => {
+run().catch((err) => {
   console.error('Fatal error running verification:', err);
   process.exit(1);
 });

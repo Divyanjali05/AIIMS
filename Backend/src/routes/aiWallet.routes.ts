@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { aiExecutionRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   searchTools,
   getCatalog,
@@ -25,7 +26,7 @@ import {
   registerAdminSource,
   getAdminCandidates,
   verifyCandidate,
-  getAdminDashboard
+  getAdminDashboard,
 } from '../controllers/aiWallet.controller';
 
 const router = Router();
@@ -37,7 +38,7 @@ router.get('/wallet/tools/:id', getToolById);
 router.get('/wallet/taxonomy', getTaxonomy);
 router.post('/wallet/compare', compareTools);
 router.get('/wallet/gaps', getGaps);
-router.post('/wallet/discover/trigger', requireAuth, triggerDiscovery);
+router.post('/wallet/discover/trigger', requireAuth, aiExecutionRateLimiter, triggerDiscovery);
 router.get('/wallet/tools/new', getNewTools);
 router.get('/wallet/tools/recently-updated', getRecentlyUpdatedTools);
 router.get('/wallet/tools/:id/evidence', getToolEvidence);

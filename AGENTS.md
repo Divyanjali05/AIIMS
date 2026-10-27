@@ -88,8 +88,10 @@ Always pause and request explicit user confirmation before:
 
 ## Modular Rules Directory Reference
 For detailed domain-specific standards, refer to `.agents/rules/`:
+- `00-prompt-0-core-rules.md`
 - `01-inspection-and-context.md`
 - `02-architecture-and-reuse.md`
 - `03-domain-contracts-and-security.md`
 - `04-testing-and-verification.md`
 - `05-safety-diffs-and-reporting.md`
+

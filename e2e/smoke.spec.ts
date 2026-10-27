@@ -10,7 +10,7 @@ const mockLearnerState = {
     targetGoal: 'Explore AI Architectures & Intelligence',
     stage: 'Knowing',
     xpPoints: 100,
-    aiimsCredits: 100
+    aiimsCredits: 500
   },
   assessment: {
     status: 'not_started',
@@ -27,7 +27,7 @@ const mockLearnerState = {
     }
   },
   credits: {
-    balance: 100,
+    balance: 500,
     transactions: [],
     claimedActions: []
   },
@@ -214,6 +214,18 @@ test.describe('AIIMS E2E Smoke Tests', () => {
       });
     });
 
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          user: mockLearnerState.profile,
+          state: mockLearnerState
+        })
+      });
+    });
+
     await page.route('**/api/users/profile', async (route) => {
       await route.fulfill({
         status: 200,
@@ -222,9 +234,8 @@ test.describe('AIIMS E2E Smoke Tests', () => {
       });
     });
 
-    // Inject authenticated state into localStorage before scripts execute
+    // Inject authenticated state into localStorage before scripts execute (no token in localStorage)
     await page.addInitScript((state) => {
-      window.localStorage.setItem('aiims_auth_token', 'mock-valid-e2e-token');
       window.localStorage.setItem('aiims_learner_state_v3', JSON.stringify(state));
       window.localStorage.setItem('aiims_active_tab', 'assessment');
     }, mockLearnerState);
@@ -287,6 +298,18 @@ test.describe('AIIMS E2E Smoke Tests', () => {
       });
     });
 
+    await page.route('**/api/auth/me', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          user: mockLearnerState.profile,
+          state: mockLearnerState
+        })
+      });
+    });
+
     await page.route('**/api/wallet/**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -295,9 +318,8 @@ test.describe('AIIMS E2E Smoke Tests', () => {
       });
     });
 
-    // Inject authenticated state
+    // Inject authenticated state (no token in localStorage)
     await page.addInitScript((state) => {
-      window.localStorage.setItem('aiims_auth_token', 'mock-valid-e2e-token');
       window.localStorage.setItem('aiims_learner_state_v3', JSON.stringify(state));
       window.localStorage.setItem('aiims_active_tab', 'credits');
     }, mockLearnerState);

@@ -2,11 +2,23 @@
 
 # 1. AIIMS Security Guard: Enforce Gitleaks secret detection before any commit
 if ! command -v gitleaks >/dev/null 2>&1; then
-    if [ -d "$LOCALAPPDATA/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe" ]; then
-        PATH="$PATH:$LOCALAPPDATA/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe"
-    elif [ -d "/c/Users/divya/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe" ]; then
-        PATH="$PATH:/c/Users/divya/AppData/Local/Microsoft/WinGet/Packages/Gitleaks.Gitleaks_Microsoft.Winget.Source_8wekyb3d8bbwe"
-    fi
+    # Dynamically locate Gitleaks across common installation paths on macOS, Linux, and Windows
+    for candidate_dir in \
+        "/opt/homebrew/bin" \
+        "/usr/local/bin" \
+        "$HOME/.local/bin" \
+        "$HOME/bin" \
+        "$LOCALAPPDATA/Microsoft/WinGet/Packages/Gitleaks.Gitleaks"* \
+        "$LOCALAPPDATA/Programs/gitleaks" \
+        "$USERPROFILE/scoop/shims" \
+        "$ALLUSERSPROFILE/chocolatey/bin"; do
+        if [ -d "$candidate_dir" ]; then
+            PATH="$PATH:$candidate_dir"
+            if command -v gitleaks >/dev/null 2>&1; then
+                break
+            fi
+        fi
+    done
 fi
 
 if command -v gitleaks >/dev/null 2>&1; then

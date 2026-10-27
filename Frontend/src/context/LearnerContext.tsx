@@ -12,7 +12,7 @@ import {
   ActiveFocusSessionState,
   FocusSessionRecord,
 } from '../types';
-import { apiClient, getApiBaseUrl } from '../api/client';
+import { apiClient, apiFetch, getApiBaseUrl, setAuthToken } from '../api/client';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 import { playSessionCompleteSound, playBreakCompleteSound } from '../utils/focusAudio';
 import { sendFocusNotification } from '../utils/focusNotifications';
@@ -155,11 +155,11 @@ const initialLearnerState: LearnerState = {
     id: '',
     name: '',
     email: '',
-    role: 'STUDENT',
+    role: 'learner',
     targetGoal: 'Explore AI Architectures & Intelligence',
     stage: 'Knowing',
     xpPoints: 0,
-    aiimsCredits: 100,
+    aiimsCredits: 500,
   },
   academicProfile: undefined,
   assessment: {
@@ -222,12 +222,12 @@ const initialLearnerState: LearnerState = {
     status: 'locked',
   },
   credits: {
-    balance: 100,
+    balance: 500,
     transactions: [
       {
         id: 'tx-welcome-01',
         description: 'Account Welcome Bonus',
-        amount: 100,
+        amount: 500,
         type: 'EARN',
         timestamp: 'Just now',
         actionKey: 'WELCOME_BONUS',
@@ -369,7 +369,18 @@ interface LearnerContextType {
     } | null
   ) => void;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  isAuthLoading: boolean;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<{
+    success: boolean;
+    user?: any;
+    error?: string;
+    totpRequired?: boolean;
+    userId?: string;
+    role?: string;
+  }>;
   register: (
     data: RegistrationPayload
   ) => Promise<{ success: boolean; error?: string; field?: string }>;
@@ -384,42 +395,36 @@ const LearnerContext = createContext<LearnerContextType | undefined>(undefined);
 const LOCAL_STORAGE_KEY = 'aiims_learner_state_v3';
 
 export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('aiims_auth_token');
-  });
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   const [state, setState] = useState<LearnerState>(() => {
     try {
-      // Try to load user-scoped state first (post-login state)
-      const token = localStorage.getItem('aiims_auth_token');
-      if (token) {
-        // We decode userId from the token to scope the key
-        // But since we can't safely decode here without importing jwt, use email-scoped or v3 key
-        const scopedByEmail = Object.keys(localStorage).find(
-          (k) => k.startsWith('aiims_learner_state_') && !k.endsWith('_v3') && !k.endsWith('_v4')
-        );
-        if (scopedByEmail) {
-          const scoped = localStorage.getItem(scopedByEmail);
-          if (scoped) {
-            const parsed = JSON.parse(scoped);
-            const resolvedMode = resolveAudienceMode(
-              parsed.aiWallet?.audienceMode,
-              parsed.academicProfile?.primaryGoal || parsed.profile?.targetGoal
-            );
-            return {
-              ...initialLearnerState,
-              ...parsed,
-              focus: {
-                ...initialLearnerState.focus,
-                ...(parsed.focus || {}),
-              },
-              aiWallet: {
-                ...initialLearnerState.aiWallet,
-                ...(parsed.aiWallet || {}),
-                audienceMode: resolvedMode,
-              },
-            };
-          }
+      // Try to load cached user-scoped state first
+      const scopedByEmail = Object.keys(localStorage).find(
+        (k) => k.startsWith('aiims_learner_state_') && !k.endsWith('_v3') && !k.endsWith('_v4')
+      );
+      if (scopedByEmail) {
+        const scoped = localStorage.getItem(scopedByEmail);
+        if (scoped) {
+          const parsed = JSON.parse(scoped);
+          const resolvedMode = resolveAudienceMode(
+            parsed.aiWallet?.audienceMode,
+            parsed.academicProfile?.primaryGoal || parsed.profile?.targetGoal
+          );
+          return {
+            ...initialLearnerState,
+            ...parsed,
+            focus: {
+              ...initialLearnerState.focus,
+              ...(parsed.focus || {}),
+            },
+            aiWallet: {
+              ...initialLearnerState.aiWallet,
+              ...(parsed.aiWallet || {}),
+              audienceMode: resolvedMode,
+            },
+          };
         }
       }
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -452,29 +457,54 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return initialLearnerState;
   });
 
-  // Hydrate live state from MongoDB Atlas on mount if authenticated
+  // Restore session on mount via /auth/me endpoint using httpOnly cookie or mobile bearer token
   useEffect(() => {
-    const token = localStorage.getItem('aiims_auth_token');
-    if (token) {
-      apiClient
-        .getLearnerState()
-        .then((res) => {
-          if (res?.success && res?.state) {
-            const loaded = res.state;
-            if (loaded.profile && loaded.credits) {
-              // Ensure display balance is strictly locked to authoritative profile balance
-              loaded.credits.balance = loaded.profile.aiimsCredits;
+    let isMounted = true;
+    apiClient
+      .getMe()
+      .then(async (res) => {
+        if (!isMounted) return;
+        if (res?.user || res?.id || res?.email) {
+          setIsAuthenticated(true);
+          try {
+            const stateRes = await apiClient.getLearnerState();
+            if (isMounted && stateRes?.success && stateRes?.state) {
+              const loaded = stateRes.state;
+              if (loaded.profile && loaded.credits) {
+                loaded.credits.balance = loaded.profile.aiimsCredits;
+              }
+              setState(loaded);
+            } else if (isMounted && res.state) {
+              setState(res.state);
             }
-            setState(loaded);
-            setIsAuthenticated(true);
-          } else if (res?.code === 'UNAUTHORIZED') {
-            logout();
+          } catch (stateErr) {
+            console.warn(
+              'Network issue fetching live state, preserving restored session:',
+              stateErr
+            );
+            if (isMounted && res.state) {
+              setState(res.state);
+            }
           }
-        })
-        .catch((err) => {
-          console.warn('Network issue fetching live state, preserving local session:', err);
-        });
-    }
+        } else {
+          setIsAuthenticated(false);
+        }
+      })
+      .catch((err) => {
+        console.warn('Session check failed or unauthenticated:', err);
+        if (isMounted) {
+          setIsAuthenticated(false);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsAuthLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Sync state to scoped localStorage and MongoDB Atlas on updates
@@ -1673,9 +1703,16 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const login = async (
     email: string,
     password: string
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{
+    success: boolean;
+    user?: any;
+    error?: string;
+    totpRequired?: boolean;
+    userId?: string;
+    role?: string;
+  }> => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/auth/login`, {
+      const res = await apiFetch(`${getApiBaseUrl()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -1684,8 +1721,15 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (!res.ok) {
         return { success: false, error: data.error || 'Email or password is incorrect.' };
       }
-      localStorage.setItem('aiims_auth_token', data.token);
+      // Staff accounts with 2FA enabled — return challenge without setting session
+      if (data.totpRequired) {
+        return { success: true, totpRequired: true, userId: data.userId, role: data.role };
+      }
+      if (data.token) {
+        setAuthToken(data.token);
+      }
       setIsAuthenticated(true);
+      const userObj = data.user || data.state?.profile;
       if (data.state) {
         setState(data.state);
       } else if (data.user) {
@@ -1697,7 +1741,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           },
         }));
       }
-      return { success: true };
+      return { success: true, user: userObj };
     } catch {
       return { success: false, error: "We couldn't sign you in right now. Please try again." };
     }
@@ -1707,7 +1751,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     payload: RegistrationPayload
   ): Promise<{ success: boolean; error?: string; field?: string }> => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/auth/register`, {
+      const res = await apiFetch(`${getApiBaseUrl()}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1720,7 +1764,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           field: resData.field,
         };
       }
-      localStorage.setItem('aiims_auth_token', resData.token);
+      if (resData.token) {
+        setAuthToken(resData.token);
+      }
       setIsAuthenticated(true);
       const defaultMode: AudienceMode =
         payload.primaryGoal === 'ENTREPRENEURSHIP' ? 'entrepreneur' : 'student';
@@ -1754,7 +1800,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const logout = () => {
-    localStorage.removeItem('aiims_auth_token');
+    apiClient.logout().catch((err) => {
+      console.warn('Backend logout warning:', err);
+    });
+    setAuthToken(null);
     setIsAuthenticated(false);
     setState(initialLearnerState);
     if (window.location.pathname !== '/') {
@@ -1922,6 +1971,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       value={{
         state,
         isAuthenticated,
+        isAuthLoading,
         login,
         register,
         logout,

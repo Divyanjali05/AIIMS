@@ -15,12 +15,14 @@ import {
   ShieldCheck,
   FileCode,
   HelpCircle,
+  Send,
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { apiClient } from '../../api/client';
 import { useLearner } from '../../context/LearnerContext';
+import { LearnerSubmissionsSection } from '../../components/clarity/LearnerSubmissionsSection';
 
 export interface ClarityAITask {
   id: string;
@@ -443,6 +445,34 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
   const [executionTime, setExecutionTime] = useState<number | null>(null);
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [_saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+  // Task submission for evaluator review state
+  const [isSubmittingForReview, setIsSubmittingForReview] = useState<boolean>(false);
+  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState<string | null>(null);
+  const [refreshSubmissionsKey, setRefreshSubmissionsKey] = useState<number>(0);
+
+  const handleSubmitForReview = async () => {
+    if (!promptText.trim()) return;
+    setIsSubmittingForReview(true);
+    setReviewSubmitSuccess(null);
+    try {
+      const res = await apiClient.submitTask({
+        taskId: currentTask.id,
+        taskTitle: `${topicName}: ${currentTask.title}`,
+        answerContent: promptText.trim(),
+      });
+      if (res && res.success) {
+        setReviewSubmitSuccess(
+          'Task submitted for mentor review! Check status below in My Submissions.'
+        );
+        setRefreshSubmissionsKey((k) => k + 1);
+      }
+    } catch (err: any) {
+      console.warn('Submission failed:', err);
+    } finally {
+      setIsSubmittingForReview(false);
+    }
+  };
 
   // Sync state when switching task difficulty tabs
   useEffect(() => {
@@ -1109,18 +1139,57 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
                 )}
               </div>
 
-              <Button
-                variant="green"
-                size="lg"
-                onClick={handleRunAITask}
-                disabled={isRunningAI || !promptText.trim()}
-                icon={
-                  isRunningAI ? <Sparkles size={16} className="animate-spin" /> : <Play size={16} />
-                }
-              >
-                {isRunningAI ? 'Executing with AI Model...' : '▶ Run Prompt with AI & See Output'}
-              </Button>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <Button
+                  variant="green"
+                  size="lg"
+                  onClick={handleRunAITask}
+                  disabled={isRunningAI || !promptText.trim()}
+                  icon={
+                    isRunningAI ? (
+                      <Sparkles size={16} className="animate-spin" />
+                    ) : (
+                      <Play size={16} />
+                    )
+                  }
+                >
+                  {isRunningAI ? 'Executing with AI Model...' : '▶ Run Prompt with AI & See Output'}
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={handleSubmitForReview}
+                  disabled={isSubmittingForReview || !promptText.trim()}
+                  icon={
+                    isSubmittingForReview ? (
+                      <RotateCcw size={16} className="animate-spin" />
+                    ) : (
+                      <Send size={16} />
+                    )
+                  }
+                >
+                  {isSubmittingForReview
+                    ? 'Submitting to Evaluator...'
+                    : 'Submit for Evaluator Review'}
+                </Button>
+              </div>
             </div>
+            {reviewSubmitSuccess && (
+              <div
+                style={{
+                  marginTop: '10px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: 'var(--aiims-mint-subtle, #d1fae5)',
+                  color: 'var(--aiims-mint-text, #065f46)',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              >
+                ✓ {reviewSubmitSuccess}
+              </div>
+            )}
           </Surface>
 
           {/* 3. LIVE AI OUTPUT TERMINAL (SEEING OUTPUT HERE ITSELF) */}
@@ -1556,6 +1625,13 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
               </div>
             </Surface>
           )}
+
+          {/* 5. MY SUBMISSIONS & EVALUATOR FEEDBACK SECTION */}
+          <LearnerSubmissionsSection
+            currentTaskId={currentTask.id}
+            currentTaskTitle={currentTask.title}
+            onRefreshTrigger={refreshSubmissionsKey}
+          />
         </div>
       )}
     </div>

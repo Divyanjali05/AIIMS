@@ -147,8 +147,8 @@ async function run() {
   const balanceAData = await balanceACheck.json();
 
   const test2Pass =
-    balanceAData.balance === 100 && // Learner A balance untouched!
-    crossUserData.balance === 85; // Deducted from Learner B, NOT Learner A
+    balanceAData.balance === 500 && // Learner A balance untouched!
+    crossUserData.balance === 485; // Deducted from Learner B (500 - 15 = 485), NOT Learner A
 
   record(
     2,
@@ -179,12 +179,12 @@ async function run() {
   const freshBalAData = await freshBalA.json();
 
   const test3Pass =
-    freshBalAData.balance === 100 && tamperData.state?.profile?.aiimsCredits === 100;
+    freshBalAData.balance === 500 && tamperData.state?.profile?.aiimsCredits === 500;
   record(
     3,
     'Client Balance Tamper Resistance',
     test3Pass,
-    `Submitted 999,999 credits via state sync. Server balance remains strictly 100 AC (tamper ignored)`
+    `Submitted 999,999 credits via state sync. Server balance remains strictly 500 AC (tamper ignored)`
   );
 
   // ── TEST 4: Insufficient credits prevent a deduction (No Negative Balance) ──
@@ -192,7 +192,7 @@ async function run() {
     method: 'POST',
     headers: authHeadersA,
     body: JSON.stringify({
-      amount: 500, // Available is 100
+      amount: 1000, // Available is 500
       description: 'Overdraft test',
     }),
   });
@@ -200,7 +200,7 @@ async function run() {
   const postOverdraftBal = await fetch(`${API_BASE}/credits/balance`, { headers: authHeadersA });
   const postOverdraftBalData = await postOverdraftBal.json();
 
-  const test4Pass = overdraftRes.status === 400 && postOverdraftBalData.balance === 100;
+  const test4Pass = overdraftRes.status === 400 && postOverdraftBalData.balance === 500;
 
   record(
     4,
@@ -210,14 +210,14 @@ async function run() {
   );
 
   // ── TEST 5: Concurrent deductions cannot overspend the balance ──
-  // Learner A has 100 AC. We fire 10 concurrent requests of 20 AC each (Total = 200 AC).
-  // Exactly 5 must succeed (100 AC spent), 5 must fail with 400/402. Final balance must be 0 AC.
+  // Learner A has 500 AC. We fire 10 concurrent requests of 100 AC each (Total = 1000 AC).
+  // Exactly 5 must succeed (500 AC spent), 5 must fail with 400. Final balance must be 0 AC.
   const concurrentPromises = Array.from({ length: 10 }).map((_, idx) =>
     fetch(`${API_BASE}/credits/invest`, {
       method: 'POST',
       headers: authHeadersA,
       body: JSON.stringify({
-        amount: 20,
+        amount: 100,
         description: `Concurrent spend request #${idx + 1}`,
       }),
     })
@@ -236,7 +236,7 @@ async function run() {
     5,
     'Atomic Concurrent Deduction Protection',
     test5Pass,
-    `Fired 10 concurrent x 20 AC requests against 100 AC balance: ${successCount} succeeded, ${failureCount} rejected. Final balance: ${postConcurrentBalData.balance} AC`
+    `Fired 10 concurrent x 100 AC requests against 500 AC balance: ${successCount} succeeded, ${failureCount} rejected. Final balance: ${postConcurrentBalData.balance} AC`
   );
 
   // ── TEST 6: Repeated idempotency keys do not duplicate charges ──

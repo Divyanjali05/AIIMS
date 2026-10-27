@@ -2,12 +2,16 @@ import path from 'path';
 import fs from 'fs';
 import express, { Request, Response, NextFunction } from 'express';
 import cors, { CorsOptions } from 'cors';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
-import { config } from './config/env';
+import { config, validateStartupConfig } from './config/env';
 import apiRoutes from './routes/api.routes';
 import { ToolDiscoveryService } from './services/wallet/toolDiscovery.service';
 import { ToolCatalogService } from './services/wallet/toolCatalog.service';
+import { logger, requestLogger } from './utils/logger';
+import { sentryErrorHandler } from './utils/sentry';
+import { syncAllDatabaseIndexes } from './services/databaseIndex.service';
 
 export const app = express();
 
@@ -16,7 +20,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false, // Avoid blocking external fonts, assets, and frontend SPA resources
     crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allows /api/mascot and JSON API consumption
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
   })
 );
 
@@ -36,9 +40,16 @@ const corsOptions: CorsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-Client',
+  ],
   exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Retry-After'],
-  optionsSuccessStatus: 204
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
@@ -46,45 +57,59 @@ app.options('*', cors(corsOptions));
 
 // Safe CORS error response handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  if (err && err.message && typeof err.message === 'string' && err.message.startsWith('CORS blocked:')) {
+  if (
+    err &&
+    err.message &&
+    typeof err.message === 'string' &&
+    err.message.startsWith('CORS blocked:')
+  ) {
     return res.status(403).json({
       error: 'Access denied by CORS policy',
-      code: 'CORS_FORBIDDEN'
+      code: 'CORS_FORBIDDEN',
     });
   }
   next(err);
 });
 
-app.use(express.json());
+app.use(requestLogger);
+app.use(cookieParser());
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// 3. Health Check with Database Status
-app.get('/health', (req: Request, res: Response) => {
+// 3. Health & Readiness Endpoints
+const handleHealthCheck = (req: Request, res: Response) => {
   const isDbConnected = mongoose.connection.readyState === 1;
-  res.json({
+  res.status(200).json({
     status: 'ok',
     service: 'AIIMS Backend API',
     version: '1.0.0',
     environment: config.nodeEnv,
     database: {
       connected: isDbConnected,
-      mode: isDbConnected ? 'mongodb' : 'fallback'
-    }
+      mode: isDbConnected ? 'mongodb' : 'fallback',
+    },
   });
-});
+};
 
-app.get('/api/health', (req: Request, res: Response) => {
+const handleReadinessCheck = (req: Request, res: Response) => {
   const isDbConnected = mongoose.connection.readyState === 1;
-  res.json({
-    status: 'ok',
-    service: 'AIIMS Backend API',
-    version: '1.0.0',
-    environment: config.nodeEnv,
-    database: {
-      connected: isDbConnected,
-      mode: isDbConnected ? 'mongodb' : 'fallback'
-    }
-  });
-});
+  if (isDbConnected) {
+    res.status(200).json({
+      status: 'ready',
+      database: 'connected',
+    });
+  } else {
+    res.status(503).json({
+      status: 'not_ready',
+      database: 'disconnected',
+    });
+  }
+};
+
+app.get('/health', handleHealthCheck);
+app.get('/api/health', handleHealthCheck);
+app.get('/ready', handleReadinessCheck);
+app.get('/api/ready', handleReadinessCheck);
 
 // 4. Serve 3D Learner Mascot Image safely
 app.get('/api/mascot', (req: Request, res: Response) => {
@@ -97,6 +122,9 @@ app.get('/api/mascot', (req: Request, res: Response) => {
 
 // 5. Main API Router
 app.use('/api', apiRoutes);
+
+// Optional Sentry Error Monitoring Hook
+app.use(sentryErrorHandler);
 
 // 6. Database Connection Lifecycle with Bounded Retries & Timeout
 export interface DatabaseConnectionStatus {
@@ -111,37 +139,58 @@ export async function initDatabase(
 ): Promise<DatabaseConnectionStatus> {
   if (!config.mongodbUri) {
     if (config.nodeEnv === 'production') {
-      throw new Error('FATAL: MONGODB_URI is required in production environment.');
+      throw new Error(
+        'FATAL: Configuration error for variable MONGODB_URI: variable is missing in production.'
+      );
     }
-    console.log('ℹ️  [DB] No MONGODB_URI configured. Running in in-memory development fallback mode.');
+    logger.info(
+      '[Database] No MONGODB_URI configured. Running in in-memory development fallback mode.'
+    );
     return { connected: false, mode: 'fallback' };
   }
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`📡 [DB] Connecting to MongoDB Atlas (attempt ${attempt}/${maxRetries})...`);
+      if (config.nodeEnv !== 'production') {
+        console.log(`📡 [DB] Connecting to MongoDB Atlas (attempt ${attempt}/${maxRetries})...`);
+      } else {
+        logger.info(`[Database] Connecting to MongoDB (attempt ${attempt}/${maxRetries})...`);
+      }
+
       await mongoose.connect(config.mongodbUri, {
         serverSelectionTimeoutMS: timeoutMs,
-        connectTimeoutMS: timeoutMs
+        connectTimeoutMS: timeoutMs,
       });
-      console.log('🌿 Connected to MongoDB Atlas successfully!');
+
+      if (config.nodeEnv !== 'production') {
+        console.log('🌿 Connected to MongoDB Atlas successfully!');
+      } else {
+        logger.info('[Database] Connected to MongoDB successfully.');
+      }
+
+      // Synchronize database indexes at deploy/startup before traffic
+      try {
+        await syncAllDatabaseIndexes();
+      } catch (indexErr: any) {
+        logger.warn(`[Database] Index synchronization notice: ${indexErr.message}`);
+      }
 
       try {
         await ToolCatalogService.cleanInvalidDiscoveryRecords();
         await ToolCatalogService.syncFromDatabase();
       } catch (syncErr: any) {
-        console.warn('⚠️  [DB] Catalog sync notice:', syncErr.message);
+        logger.warn(`[Database] Catalog sync notice: ${syncErr.message}`);
       }
       return { connected: true, mode: 'mongodb' };
     } catch (err: any) {
-      console.warn(`⚠️  [DB] Connection attempt ${attempt} failed: ${err.message}`);
+      logger.warn(`[Database] Connection attempt ${attempt} failed: ${err.message}`);
       if (attempt < maxRetries) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } else {
         if (config.nodeEnv === 'production') {
           throw new Error(`FATAL: Database connection failed in production: ${err.message}`);
         }
-        console.warn('⚠️  [DB] Falling back to in-memory mode for offline development.');
+        logger.warn('[Database] Falling back to in-memory mode for offline development.');
         return { connected: false, mode: 'fallback', warning: err.message };
       }
     }
@@ -152,15 +201,30 @@ export async function initDatabase(
 
 // 7. Structured Server Startup Function
 export async function startServer() {
+  // Validate production configuration before attempting startup
+  validateStartupConfig();
+
   const dbStatus = await initDatabase();
 
   const server = app.listen(config.port, '0.0.0.0', () => {
-    console.log(`=================================================`);
-    console.log(`🚀 AIIMS Backend API running on port ${config.port} (0.0.0.0)`);
-    console.log(`📡 Database Mode: ${dbStatus.connected ? 'MongoDB Atlas (Connected)' : 'In-Memory Development Fallback'}`);
-    console.log(`🛡️  Security Headers: Helmet active`);
-    console.log(`🔒 CORS Origin Policy: ${allowedOrigins.join(', ')}`);
-    console.log(`=================================================`);
+    if (config.nodeEnv === 'production') {
+      logger.info('AIIMS Backend API running', {
+        port: config.port,
+        host: '0.0.0.0',
+        databaseMode: dbStatus.connected ? 'mongodb' : 'fallback',
+        environment: 'production',
+        helmet: 'active',
+      });
+    } else {
+      console.log(`=================================================`);
+      console.log(`🚀 AIIMS Backend API running on port ${config.port} (0.0.0.0)`);
+      console.log(
+        `📡 Database Mode: ${dbStatus.connected ? 'MongoDB Atlas (Connected)' : 'In-Memory Development Fallback'}`
+      );
+      console.log(`🛡️  Security Headers: Helmet active`);
+      console.log(`🔒 CORS Origin Policy: ${allowedOrigins.join(', ')}`);
+      console.log(`=================================================`);
+    }
 
     // Start daily AI tool discovery worker scheduler
     ToolDiscoveryService.startDiscoveryScheduler();
@@ -172,8 +236,7 @@ export async function startServer() {
 // Automatically start when executed directly
 if (require.main === module) {
   startServer().catch((err) => {
-    console.error('❌ Server fatal startup failure:', err.message);
+    logger.error('Server fatal startup failure', err);
     process.exit(1);
   });
 }
-

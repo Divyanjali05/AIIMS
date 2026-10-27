@@ -19,6 +19,7 @@ import {
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
+import { SUPPORT_EMAIL } from '../../config/appConfig';
 import {
   STREAMS,
   TECH_SUB_CATEGORIES,
@@ -1469,6 +1470,73 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           >
             Sign In
           </button>
+        </div>
+
+        {/* Store-Required Legal & Support Links */}
+        <div
+          style={{
+            marginTop: '28px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--aiims-border-subtle, #E2E8F0)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            fontSize: '12px',
+            color: 'var(--aiims-text-muted, #94A3B8)',
+            flexWrap: 'wrap',
+          }}
+        >
+          <a
+            href="/privacy"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState(null, '', '/privacy');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            style={{ color: 'inherit', textDecoration: 'none' }}
+            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+          >
+            Privacy Policy
+          </a>
+          <span>•</span>
+          <a
+            href="/terms"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState(null, '', '/terms');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            style={{ color: 'inherit', textDecoration: 'none' }}
+            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+          >
+            Terms of Service
+          </a>
+          <span>•</span>
+          <a
+            href="/refunds"
+            onClick={(e) => {
+              e.preventDefault();
+              window.history.pushState(null, '', '/refunds');
+              window.dispatchEvent(new PopStateEvent('popstate'));
+            }}
+            style={{ color: 'inherit', textDecoration: 'none' }}
+            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+          >
+            Refunds
+          </a>
+          <span>•</span>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            style={{ color: 'inherit', textDecoration: 'none' }}
+            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
+            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+          >
+            Support
+          </a>
         </div>
       </div>
     </div>

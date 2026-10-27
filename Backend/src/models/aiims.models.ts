@@ -1,14 +1,23 @@
-import { UserProfile, DimensionScore, CapabilityGap, FocusArea, RadarSignal, CreditTransaction, AITool, UserToolItem } from '../types';
+import {
+  UserProfile,
+  DimensionScore,
+  CapabilityGap,
+  FocusArea,
+  RadarSignal,
+  CreditTransaction,
+  AITool,
+  UserToolItem,
+} from '../types';
 
 export const mockUser: UserProfile = {
   id: 'usr-101',
   name: 'Divya',
   email: 'divya@example.com',
-  role: 'AI Product Lead / Engineer',
+  role: 'learner',
   targetGoal: 'Master Agentic Workflows & Multi-Modal AI Deployment',
   stage: 'Recognising',
   xpPoints: 1250,
-  aiimsCredits: 420 // Initial Account Balance
+  aiimsCredits: 420, // Initial Account Balance
 };
 
 // Track level completions that have already received credit rewards (prevents duplicate rewards)
@@ -20,7 +29,7 @@ export const mockDimensionScores: DimensionScore[] = [
   { dimension: 'Agentic Workflows', score: 62, benchmark: 78 },
   { dimension: 'AI Ethics & Alignment', score: 70, benchmark: 72 },
   { dimension: 'ML Fundamentals', score: 65, benchmark: 70 },
-  { dimension: 'Tool Integration', score: 78, benchmark: 74 }
+  { dimension: 'Tool Integration', score: 78, benchmark: 74 },
 ];
 
 export const mockCapabilityGaps: CapabilityGap[] = [
@@ -29,18 +38,21 @@ export const mockCapabilityGaps: CapabilityGap[] = [
     capabilityArea: 'Agentic Workflow Orchestration',
     currentLevel: 62,
     targetLevel: 85,
-    aiInterpretation: 'Learner exhibits strong prompt design but struggles with multi-agent state persistence and tool execution loops.',
-    isOverridden: false
+    aiInterpretation:
+      'Learner exhibits strong prompt design but struggles with multi-agent state persistence and tool execution loops.',
+    isOverridden: false,
   },
   {
     id: 'gap-2',
     capabilityArea: 'ML Foundation Model Fine-Tuning',
     currentLevel: 65,
     targetLevel: 80,
-    aiInterpretation: 'Basic intuition of RAG pipelines present, but lacks hands-on experience with LoRA adapter tuning.',
-    mentorOverride: 'Mentor Note: Focus on RAG evaluation metrics (Ragas framework) before deep-diving into parameter fine-tuning.',
-    isOverridden: true
-  }
+    aiInterpretation:
+      'Basic intuition of RAG pipelines present, but lacks hands-on experience with LoRA adapter tuning.',
+    mentorOverride:
+      'Mentor Note: Focus on RAG evaluation metrics (Ragas framework) before deep-diving into parameter fine-tuning.',
+    isOverridden: true,
+  },
 ];
 
 export const mockFocusAreas: FocusArea[] = [
@@ -48,9 +60,10 @@ export const mockFocusAreas: FocusArea[] = [
     id: 'focus-1',
     title: 'Master Multi-Agent Routing (LangGraph / Autogen)',
     priority: 'High',
-    aiReasoning: 'Critical gap identified in agentic state persistence. Closing this increases overall capability by 22%.',
+    aiReasoning:
+      'Critical gap identified in agentic state persistence. Closing this increases overall capability by 22%.',
     estimatedCredits: 50,
-    status: 'In Progress'
+    status: 'In Progress',
   },
   {
     id: 'focus-2',
@@ -58,126 +71,188 @@ export const mockFocusAreas: FocusArea[] = [
     priority: 'High',
     aiReasoning: 'Aligns directly with target goal of enterprise-grade RAG deployment.',
     estimatedCredits: 40,
-    status: 'Pending'
-  }
+    status: 'Pending',
+  },
 ];
 
 export const mockRadarSignals: RadarSignal[] = [
   {
     id: 'sig-1',
     title: 'Claude 3.5 Sonnet & Computer Use OS Automation',
-    summary: 'AI models can now interact directly with desktop OS environments via screenshot visual grounding and native mouse/keyboard emulation loops.',
+    summary:
+      'AI models can now interact directly with desktop OS environments via screenshot visual grounding and native mouse/keyboard emulation loops.',
     category: 'Agentic AI',
     impactLevel: 'Critical',
     publishedAt: 'September 2026',
     source: 'Anthropic Technical Release Bulletin',
-    capabilities: ['Visual Screenshot Grounding', 'OS GUI Control', 'Multi-step Desktop Navigation', 'System Call Execution'],
-    affectedDomains: ['QA Engineering', 'Workflow Automation', 'Software Development', 'Product Design'],
-    recommendedTasks: ['Automated desktop GUI testing', 'Cross-application workflow execution', 'Multi-app data migration'],
+    capabilities: [
+      'Visual Screenshot Grounding',
+      'OS GUI Control',
+      'Multi-step Desktop Navigation',
+      'System Call Execution',
+    ],
+    affectedDomains: [
+      'QA Engineering',
+      'Workflow Automation',
+      'Software Development',
+      'Product Design',
+    ],
+    recommendedTasks: [
+      'Automated desktop GUI testing',
+      'Cross-application workflow execution',
+      'Multi-app data migration',
+    ],
     relatedTools: ['tool-claude', 'tool-make'],
     investigationAvailable: true,
     tags: ['agentic-ai', 'computer-use', 'gui-automation'],
     active: true,
     scaffold: {
-      yesterday: 'AI models responded purely via text/JSON APIs requiring human developers to bind custom tool handlers.',
-      today: 'Models interpret visual screenshots directly and execute native mouse/keyboard desktop GUI actions.',
+      yesterday:
+        'AI models responded purely via text/JSON APIs requiring human developers to bind custom tool handlers.',
+      today:
+        'Models interpret visual screenshots directly and execute native mouse/keyboard desktop GUI actions.',
       whatChanged: 'Transition from API-only function calling to direct OS GUI interaction loops.',
-      whosAffected: 'QA Automation Engineers, Software Developers, Workflow Automation Specialists.'
+      whosAffected:
+        'QA Automation Engineers, Software Developers, Workflow Automation Specialists.',
     },
-    isFollowed: true
+    isFollowed: true,
   },
   {
     id: 'sig-2',
     title: 'Autonomous Coding Agents & SWE-Bench Benchmark Shifts',
-    summary: 'Agentic coding platforms autonomously plan repository-wide diffs, execute shell build loops, and resolve failing unit test tracebacks.',
+    summary:
+      'Agentic coding platforms autonomously plan repository-wide diffs, execute shell build loops, and resolve failing unit test tracebacks.',
     category: 'Coding',
     impactLevel: 'High',
     publishedAt: 'September 2026',
     source: 'SWE-Bench Benchmark & ArXiv',
-    capabilities: ['Workspace-wide File Indexing', 'Multi-file Agent Composer', 'Terminal Error Debugging', 'Automated Unit Test Fixing'],
+    capabilities: [
+      'Workspace-wide File Indexing',
+      'Multi-file Agent Composer',
+      'Terminal Error Debugging',
+      'Automated Unit Test Fixing',
+    ],
     affectedDomains: ['Fullstack Engineering', 'DevOps', 'Technical Product Management'],
-    recommendedTasks: ['End-to-end bug resolution', 'Multi-file architectural refactoring', 'Test coverage augmentation'],
+    recommendedTasks: [
+      'End-to-end bug resolution',
+      'Multi-file architectural refactoring',
+      'Test coverage augmentation',
+    ],
     relatedTools: ['tool-cursor', 'tool-copilot'],
     investigationAvailable: true,
     tags: ['coding-agents', 'swe-bench', 'repository-refactoring'],
     active: true,
     scaffold: {
       yesterday: 'Copilot auto-completed code snippet-by-snippet inline inside single files.',
-      today: 'Agents ingest full GitHub repositories, draft multi-file diffs, and iterate against terminal outputs.',
+      today:
+        'Agents ingest full GitHub repositories, draft multi-file diffs, and iterate against terminal outputs.',
       whatChanged: 'Shift from single-line code completion to end-to-end task execution loops.',
-      whosAffected: 'Fullstack Engineers, DevOps Engineers, Technical Product Managers.'
+      whosAffected: 'Fullstack Engineers, DevOps Engineers, Technical Product Managers.',
     },
-    isFollowed: false
+    isFollowed: false,
   },
   {
     id: 'sig-3',
     title: 'Context Windows Reach 2M Tokens with Needle-in-a-Haystack Recall',
-    summary: 'Large language models now ingest 100+ page documents, hour-long video streams, and full codebases without context loss.',
+    summary:
+      'Large language models now ingest 100+ page documents, hour-long video streams, and full codebases without context loss.',
     category: 'New Models',
     impactLevel: 'High',
     publishedAt: 'August 2026',
     source: 'Google DeepMind Technical Report',
-    capabilities: ['2M Context Ingestion', 'Native Video/Audio Understanding', 'Zero-loss Information Retrieval'],
+    capabilities: [
+      '2M Context Ingestion',
+      'Native Video/Audio Understanding',
+      'Zero-loss Information Retrieval',
+    ],
     affectedDomains: ['Academic Research', 'Legal & Compliance', 'Data Architecture'],
-    recommendedTasks: ['Analyzing long-form video lectures', 'Cross-referencing massive slide decks', 'Deep legal doc analysis'],
+    recommendedTasks: [
+      'Analyzing long-form video lectures',
+      'Cross-referencing massive slide decks',
+      'Deep legal doc analysis',
+    ],
     relatedTools: ['tool-gemini-pro', 'tool-claude'],
     investigationAvailable: true,
     tags: ['2m-context', 'long-form-reasoning', 'multimodal'],
     active: true,
     scaffold: {
-      yesterday: 'Document chunking and vector truncation was mandatory to fit inside 8K-32K token windows.',
-      today: 'Native 2M token context windows process full repositories and hour-long media files with zero loss.',
+      yesterday:
+        'Document chunking and vector truncation was mandatory to fit inside 8K-32K token windows.',
+      today:
+        'Native 2M token context windows process full repositories and hour-long media files with zero loss.',
       whatChanged: 'Attention mechanism scale allows instant full-codebase context inclusion.',
-      whosAffected: 'Technical Architects, Researchers, Legal Analysts.'
+      whosAffected: 'Technical Architects, Researchers, Legal Analysts.',
     },
-    isFollowed: false
+    isFollowed: false,
   },
   {
     id: 'sig-4',
     title: 'Live Web Citation Engines & Verifiable RAG Synthesis',
-    summary: 'Search-grounded models synthesize real-time web retrieval with explicit source citation mapping to prevent hallucination.',
+    summary:
+      'Search-grounded models synthesize real-time web retrieval with explicit source citation mapping to prevent hallucination.',
     category: 'Research',
     impactLevel: 'Medium',
     publishedAt: 'August 2026',
     source: 'AI Industry Benchmark Bulletin',
-    capabilities: ['Live Web Index Retrieval', 'Explicit URL Citation Mapping', 'Academic Literature Synthesis'],
+    capabilities: [
+      'Live Web Index Retrieval',
+      'Explicit URL Citation Mapping',
+      'Academic Literature Synthesis',
+    ],
     affectedDomains: ['Market Research', 'Journalism', 'Competitive Intelligence'],
-    recommendedTasks: ['Fact-checking current developments', 'Market trend synthesis', 'Academic paper discovery'],
+    recommendedTasks: [
+      'Fact-checking current developments',
+      'Market trend synthesis',
+      'Academic paper discovery',
+    ],
     relatedTools: ['tool-perplexity', 'tool-notebooklm'],
     investigationAvailable: true,
     tags: ['live-web-search', 'citations', 'rag-synthesis'],
     active: true,
     scaffold: {
-      yesterday: 'LLM training cutoffs produced hallucinations on current news and recent technical releases.',
-      today: 'Real-time retrieval engines search the live web and attach verifiable URLs to every claim.',
+      yesterday:
+        'LLM training cutoffs produced hallucinations on current news and recent technical releases.',
+      today:
+        'Real-time retrieval engines search the live web and attach verifiable URLs to every claim.',
       whatChanged: 'Transition from static model parameters to dynamic live web RAG pipelines.',
-      whosAffected: 'Market Researchers, Analysts, Fact Checkers.'
+      whosAffected: 'Market Researchers, Analysts, Fact Checkers.',
     },
-    isFollowed: true
+    isFollowed: true,
   },
   {
     id: 'sig-5',
     title: 'No-Code Visual AI Workflow Automation Node Systems',
-    summary: 'Visual drag-and-drop automation builders integrate multi-agent nodes with webhooks and enterprise cloud services.',
+    summary:
+      'Visual drag-and-drop automation builders integrate multi-agent nodes with webhooks and enterprise cloud services.',
     category: 'Automation',
     impactLevel: 'Medium',
     publishedAt: 'July 2026',
     source: 'Enterprise Automation Report',
-    capabilities: ['Visual Drag-and-Drop Workflow Canvas', 'AI Agent Node Integration', 'Webhook Triggers'],
+    capabilities: [
+      'Visual Drag-and-Drop Workflow Canvas',
+      'AI Agent Node Integration',
+      'Webhook Triggers',
+    ],
     affectedDomains: ['Business Operations', 'Sales Engineering', 'Marketing Operations'],
-    recommendedTasks: ['Automating lead routing', 'Cross-app sync pipelines', 'Autonomous email processing'],
+    recommendedTasks: [
+      'Automating lead routing',
+      'Cross-app sync pipelines',
+      'Autonomous email processing',
+    ],
     relatedTools: ['tool-make'],
     investigationAvailable: true,
     tags: ['no-code', 'workflow-automation', 'agent-nodes'],
     active: true,
     scaffold: {
-      yesterday: 'Integrating AI required writing custom backend python scripts and managing OAuth infrastructure.',
-      today: 'Visual drag-and-drop canvases connect 1,500+ SaaS apps directly into AI decision nodes.',
+      yesterday:
+        'Integrating AI required writing custom backend python scripts and managing OAuth infrastructure.',
+      today:
+        'Visual drag-and-drop canvases connect 1,500+ SaaS apps directly into AI decision nodes.',
       whatChanged: 'Democratization of agentic pipelines from code-only to visual node builders.',
-      whosAffected: 'Operations Leads, Automation Engineers, Product Managers.'
+      whosAffected: 'Operations Leads, Automation Engineers, Product Managers.',
     },
-    isFollowed: false
-  }
+    isFollowed: false,
+  },
 ];
 
 export const mockTransactions: CreditTransaction[] = [
@@ -190,8 +265,8 @@ export const mockTransactions: CreditTransaction[] = [
     description: 'Investigated Computer Use Signal',
     timestamp: '2026-09-15 14:15',
     previousBalance: 390,
-    newBalance: 420
-  }
+    newBalance: 420,
+  },
 ];
 
 const createSeedTool = (raw: any): AITool => ({
@@ -217,7 +292,7 @@ const createSeedTool = (raw: any): AITool => ({
     freeTierAvailable: true,
     freeTrialAvailable: false,
     verified: true,
-    lastVerifiedAt: new Date().toISOString()
+    lastVerifiedAt: new Date().toISOString(),
   },
   pricing: raw.pricing || 'Freemium available',
   firstSeenAt: raw.firstSeenAt || '2024-01-01T00:00:00.000Z',
@@ -237,19 +312,40 @@ const createSeedTool = (raw: any): AITool => ({
   radarTopics: raw.radarTopics || [],
   relatedTools: raw.relatedTools || [],
   alternatives: raw.alternatives || [],
-  familiarityGuidance: raw.familiarityGuidance || {}
+  familiarityGuidance: raw.familiarityGuidance || {},
 });
 
 const rawMockCatalog: any[] = [
   {
     id: 'tool-chatgpt',
     name: 'ChatGPT (GPT-4o)',
-    description: 'Versatile conversational AI model optimized for general reasoning, brainstorming, coding snippets, and broad task execution.',
+    description:
+      'Versatile conversational AI model optimized for general reasoning, brainstorming, coding snippets, and broad task execution.',
     category: 'Reasoning & Writing',
-    capabilities: ['General Reasoning', 'Creative Writing', 'Code Generation', 'Web Browsing', 'Voice Interaction'],
-    useCases: ['Drafting documentation', 'General problem solving', 'Quick syntax lookup', 'Interactive Q&A'],
-    strengths: ['High general knowledge', 'Extensive ecosystem & custom GPTs', 'Fast response times', 'Voice integration'],
-    limitations: ['200k context limit on standard web', 'Strict safety alignment can cause refusals', 'Occasional hallucination on niche libraries'],
+    capabilities: [
+      'General Reasoning',
+      'Creative Writing',
+      'Code Generation',
+      'Web Browsing',
+      'Voice Interaction',
+    ],
+    useCases: [
+      'Drafting documentation',
+      'General problem solving',
+      'Quick syntax lookup',
+      'Interactive Q&A',
+    ],
+    strengths: [
+      'High general knowledge',
+      'Extensive ecosystem & custom GPTs',
+      'Fast response times',
+      'Voice integration',
+    ],
+    limitations: [
+      '200k context limit on standard web',
+      'Strict safety alignment can cause refusals',
+      'Occasional hallucination on niche libraries',
+    ],
     taskMappings: ['long-form document reasoning', 'brainstorming', 'general assistance'],
     websiteUrl: 'https://chatgpt.com',
     activeStatus: true,
@@ -259,7 +355,11 @@ const rawMockCatalog: any[] = [
     relevantRoles: ['AI Product Lead', 'Generalist', 'Writer', 'Engineer'],
     skillLevel: 'Beginner-Advanced',
     focusTracks: ['AI Workflow Design', 'Prompt Engineering', 'Productivity'],
-    clarityTopics: ['Automate repetitive workflows', 'Draft documentation', 'General problem solving'],
+    clarityTopics: [
+      'Automate repetitive workflows',
+      'Draft documentation',
+      'General problem solving',
+    ],
     radarTopics: ['New Models', 'Multimodal', 'Productivity'],
     relatedTools: ['tool-claude', 'tool-gemini-pro'],
     alternatives: ['tool-claude'],
@@ -268,19 +368,45 @@ const rawMockCatalog: any[] = [
       exploring: 'Focus on prompt framing & interactive Q&A.',
       practicing: 'Apply to structured documentation and multi-turn problem solving.',
       proficient: 'Leverage custom GPTs, API integrations, and code snippet generation.',
-      mastered: 'Evaluate advanced LLM routing and zero-shot reasoning limits.'
-    }
+      mastered: 'Evaluate advanced LLM routing and zero-shot reasoning limits.',
+    },
   },
   {
     id: 'tool-claude',
     name: 'Claude 3.5 Sonnet',
-    description: 'Advanced reasoning model with 200k context window, exceptional technical writing, code architecture, and Computer Use OS automation.',
+    description:
+      'Advanced reasoning model with 200k context window, exceptional technical writing, code architecture, and Computer Use OS automation.',
     category: 'Reasoning & Writing',
-    capabilities: ['Extended Context Processing', 'Complex Technical Reasoning', 'Artifact Rendering', 'Computer Use OS Control', 'System Prompt Following'],
-    useCases: ['Analyzing 100+ page documents', 'Complex multi-file refactoring', 'Nuanced editorial writing', 'GUI automation'],
-    strengths: ['Superior long-form coherence', 'Minimal fluff/hallucination', 'Artifacts live preview canvas', 'Precise instruction following'],
-    limitations: ['Strict rate limits on free tier', 'No native live web browsing on standard interface', 'Slightly higher latency on mega contexts'],
-    taskMappings: ['long-form document reasoning', 'architecture design', 'technical writing', 'deep analysis'],
+    capabilities: [
+      'Extended Context Processing',
+      'Complex Technical Reasoning',
+      'Artifact Rendering',
+      'Computer Use OS Control',
+      'System Prompt Following',
+    ],
+    useCases: [
+      'Analyzing 100+ page documents',
+      'Complex multi-file refactoring',
+      'Nuanced editorial writing',
+      'GUI automation',
+    ],
+    strengths: [
+      'Superior long-form coherence',
+      'Minimal fluff/hallucination',
+      'Artifacts live preview canvas',
+      'Precise instruction following',
+    ],
+    limitations: [
+      'Strict rate limits on free tier',
+      'No native live web browsing on standard interface',
+      'Slightly higher latency on mega contexts',
+    ],
+    taskMappings: [
+      'long-form document reasoning',
+      'architecture design',
+      'technical writing',
+      'deep analysis',
+    ],
     websiteUrl: 'https://claude.ai',
     activeStatus: true,
     iconName: 'Sparkles',
@@ -289,7 +415,11 @@ const rawMockCatalog: any[] = [
     relevantRoles: ['Software Engineer', 'AI Product Lead', 'Workflow Specialist'],
     skillLevel: 'Intermediate-Advanced',
     focusTracks: ['Agentic Coding', 'AI Workflow Design', 'Research & RAG'],
-    clarityTopics: ['Automate repetitive workflows', 'Long-form document reasoning', 'Build AI-powered applications'],
+    clarityTopics: [
+      'Automate repetitive workflows',
+      'Long-form document reasoning',
+      'Build AI-powered applications',
+    ],
     radarTopics: ['Computer Use', 'Agentic AI', 'Context Windows', 'sig-1'],
     relatedTools: ['tool-chatgpt', 'tool-cursor'],
     alternatives: ['tool-chatgpt'],
@@ -298,18 +428,35 @@ const rawMockCatalog: any[] = [
       exploring: 'Explore Artifacts canvas and long document ingestion.',
       practicing: 'Apply to multi-file architecture design and technical writing.',
       proficient: 'Leverage Computer Use OS automation and system prompt controls.',
-      mastered: 'Design autonomous desktop execution loops and custom tooling.'
-    }
+      mastered: 'Design autonomous desktop execution loops and custom tooling.',
+    },
   },
   {
     id: 'tool-cursor',
     name: 'Cursor IDE',
-    description: 'AI-first code editor built on VS Code with workspace-wide semantic search, composer agentic edits, and inline code generation.',
+    description:
+      'AI-first code editor built on VS Code with workspace-wide semantic search, composer agentic edits, and inline code generation.',
     category: 'Agentic Coding',
-    capabilities: ['Workspace-wide Indexing', 'Multi-file Agent Composer', 'Terminal Error Debugging', 'Custom .cursorrules'],
-    useCases: ['End-to-end feature implementation', 'Repository-wide refactoring', 'Bug fixing from terminal tracebacks'],
-    strengths: ['Native VS Code keybindings & extension compatibility', 'Fast codebase indexing', 'Seamless agentic diff previews'],
-    limitations: ['Requires API keys or monthly subscription', 'Requires initial indexing step on large mono-repos'],
+    capabilities: [
+      'Workspace-wide Indexing',
+      'Multi-file Agent Composer',
+      'Terminal Error Debugging',
+      'Custom .cursorrules',
+    ],
+    useCases: [
+      'End-to-end feature implementation',
+      'Repository-wide refactoring',
+      'Bug fixing from terminal tracebacks',
+    ],
+    strengths: [
+      'Native VS Code keybindings & extension compatibility',
+      'Fast codebase indexing',
+      'Seamless agentic diff previews',
+    ],
+    limitations: [
+      'Requires API keys or monthly subscription',
+      'Requires initial indexing step on large mono-repos',
+    ],
     taskMappings: ['agentic coding', 'repository refactoring', 'automated debugging'],
     websiteUrl: 'https://cursor.com',
     activeStatus: true,
@@ -328,18 +475,34 @@ const rawMockCatalog: any[] = [
       exploring: 'Practice inline edits and single-file chat guidance.',
       practicing: 'Apply multi-file Composer agent for end-to-end features.',
       proficient: 'Configure custom .cursorrules and automated terminal fix loops.',
-      mastered: 'Master autonomous repository-wide refactoring workflows.'
-    }
+      mastered: 'Master autonomous repository-wide refactoring workflows.',
+    },
   },
   {
     id: 'tool-copilot',
     name: 'GitHub Copilot',
-    description: 'IDE auto-completion assistant and workspace chat assistant integrated directly into major code editors.',
+    description:
+      'IDE auto-completion assistant and workspace chat assistant integrated directly into major code editors.',
     category: 'Agentic Coding',
-    capabilities: ['Real-time Auto-complete', 'IDE Inline Chat', 'Pull Request Summarization', 'CLI Command Help'],
-    useCases: ['Boilerplate code typing', 'Inline line completions', 'Function docstring generation'],
-    strengths: ['Tight integration with GitHub & VS Code', 'Zero latency inline suggestions', 'Enterprise compliance governance'],
-    limitations: ['Less context-aware than multi-file composer editors for full repository changes'],
+    capabilities: [
+      'Real-time Auto-complete',
+      'IDE Inline Chat',
+      'Pull Request Summarization',
+      'CLI Command Help',
+    ],
+    useCases: [
+      'Boilerplate code typing',
+      'Inline line completions',
+      'Function docstring generation',
+    ],
+    strengths: [
+      'Tight integration with GitHub & VS Code',
+      'Zero latency inline suggestions',
+      'Enterprise compliance governance',
+    ],
+    limitations: [
+      'Less context-aware than multi-file composer editors for full repository changes',
+    ],
     taskMappings: ['code completion', 'inline suggestion', 'developer productivity'],
     websiteUrl: 'https://github.com/features/copilot',
     activeStatus: true,
@@ -358,18 +521,31 @@ const rawMockCatalog: any[] = [
       exploring: 'Use inline auto-complete for function signatures.',
       practicing: 'Apply inline chat and PR summarization in daily development.',
       proficient: 'Integrate CLI command help and enterprise knowledge bases.',
-      mastered: 'Optimize IDE developer productivity telemetry and custom rules.'
-    }
+      mastered: 'Optimize IDE developer productivity telemetry and custom rules.',
+    },
   },
   {
     id: 'tool-perplexity',
     name: 'Perplexity AI',
-    description: 'AI search engine combining real-time web retrieval, explicit citation mapping, and structured synthesis pages.',
+    description:
+      'AI search engine combining real-time web retrieval, explicit citation mapping, and structured synthesis pages.',
     category: 'Research & RAG',
-    capabilities: ['Live Web Citation Synthesis', 'Academic Paper Search', 'Pro Search Deep Reasoning', 'Collections Knowledge Hub'],
+    capabilities: [
+      'Live Web Citation Synthesis',
+      'Academic Paper Search',
+      'Pro Search Deep Reasoning',
+      'Collections Knowledge Hub',
+    ],
     useCases: ['Market research', 'Fact checking current news', 'Academic literature synthesis'],
-    strengths: ['Verifiable source URLs for every claim', 'Live multi-source synthesis', 'Clean markdown citations'],
-    limitations: ['Not optimized for private repo code generation', 'Relying heavily on web indexing accuracy'],
+    strengths: [
+      'Verifiable source URLs for every claim',
+      'Live multi-source synthesis',
+      'Clean markdown citations',
+    ],
+    limitations: [
+      'Not optimized for private repo code generation',
+      'Relying heavily on web indexing accuracy',
+    ],
     taskMappings: ['web research', 'fact verification', 'market analysis'],
     websiteUrl: 'https://perplexity.ai',
     activeStatus: true,
@@ -388,18 +564,35 @@ const rawMockCatalog: any[] = [
       exploring: 'Perform search-grounded research queries with citations.',
       practicing: 'Apply Pro Search for structured market intelligence.',
       proficient: 'Build Collections knowledge hubs and verify academic papers.',
-      mastered: 'Design automated real-time retrieval & fact verification pipelines.'
-    }
+      mastered: 'Design automated real-time retrieval & fact verification pipelines.',
+    },
   },
   {
     id: 'tool-notebooklm',
     name: 'Google NotebookLM',
-    description: 'Personalized AI research assistant grounded strictly in your uploaded PDF, audio, document, and slide sources with Audio Overview generation.',
+    description:
+      'Personalized AI research assistant grounded strictly in your uploaded PDF, audio, document, and slide sources with Audio Overview generation.',
     category: 'Research & RAG',
-    capabilities: ['Strict Source-grounded Q&A', 'Audio Overview Podcast Synthesis', 'Multi-document Cross Indexing', 'Citation Highlighting'],
-    useCases: ['Studying complex textbooks', 'Synthesizing internal company docs', 'Generating podcast-style summaries'],
-    strengths: ['Zero hallucination outside uploaded sources', 'Automatic podcast-style audio discussions', 'Free Google integration'],
-    limitations: ['Cannot query external web outside provided sources', 'Limit on total document size per notebook'],
+    capabilities: [
+      'Strict Source-grounded Q&A',
+      'Audio Overview Podcast Synthesis',
+      'Multi-document Cross Indexing',
+      'Citation Highlighting',
+    ],
+    useCases: [
+      'Studying complex textbooks',
+      'Synthesizing internal company docs',
+      'Generating podcast-style summaries',
+    ],
+    strengths: [
+      'Zero hallucination outside uploaded sources',
+      'Automatic podcast-style audio discussions',
+      'Free Google integration',
+    ],
+    limitations: [
+      'Cannot query external web outside provided sources',
+      'Limit on total document size per notebook',
+    ],
     taskMappings: ['document RAG', 'textbook study', 'grounded research'],
     websiteUrl: 'https://notebooklm.google.com',
     activeStatus: true,
@@ -418,18 +611,35 @@ const rawMockCatalog: any[] = [
       exploring: 'Upload PDF source material and ask grounded questions.',
       practicing: 'Synthesize multi-document research notes and Audio Overviews.',
       proficient: 'Analyze complex legal & technical domain source material.',
-      mastered: 'Build zero-hallucination study and research synthesis spaces.'
-    }
+      mastered: 'Build zero-hallucination study and research synthesis spaces.',
+    },
   },
   {
     id: 'tool-gemini-pro',
     name: 'Gemini 1.5 Pro',
-    description: 'Google multi-modal model with 2M token context window capable of ingesting full video streams, hour-long audio, and large repositories.',
+    description:
+      'Google multi-modal model with 2M token context window capable of ingesting full video streams, hour-long audio, and large repositories.',
     category: 'Multi-Modal',
-    capabilities: ['2M Context Window', 'Native Native Video & Audio Ingestion', 'Google Workspace Integration', 'Multi-modal Code Synthesis'],
-    useCases: ['Analyzing 1-hour video lectures', 'Cross-referencing massive slide decks', 'Deep multi-modal analysis'],
-    strengths: ['Unmatched context window size', 'Direct YouTube and Drive integration', 'Strong multi-modal reasoning'],
-    limitations: ['Web interface can feel cluttered', 'Response times scale with massive video files'],
+    capabilities: [
+      '2M Context Window',
+      'Native Native Video & Audio Ingestion',
+      'Google Workspace Integration',
+      'Multi-modal Code Synthesis',
+    ],
+    useCases: [
+      'Analyzing 1-hour video lectures',
+      'Cross-referencing massive slide decks',
+      'Deep multi-modal analysis',
+    ],
+    strengths: [
+      'Unmatched context window size',
+      'Direct YouTube and Drive integration',
+      'Strong multi-modal reasoning',
+    ],
+    limitations: [
+      'Web interface can feel cluttered',
+      'Response times scale with massive video files',
+    ],
     taskMappings: ['multi-modal analysis', 'video comprehension', 'large context processing'],
     websiteUrl: 'https://gemini.google.com',
     activeStatus: true,
@@ -448,15 +658,21 @@ const rawMockCatalog: any[] = [
       exploring: 'Test long context uploads up to 2M tokens.',
       practicing: 'Ingest native video/audio streams and long codebases.',
       proficient: 'Connect Google Workspace integrations and multi-modal synthesis.',
-      mastered: 'Architect mega-context ingestion and multimodal data pipelines.'
-    }
+      mastered: 'Architect mega-context ingestion and multimodal data pipelines.',
+    },
   },
   {
     id: 'tool-midjourney',
     name: 'Midjourney v6',
-    description: 'State-of-the-art generative image model famous for photorealistic detail, artistic control, and stylization.',
+    description:
+      'State-of-the-art generative image model famous for photorealistic detail, artistic control, and stylization.',
     category: 'Image & Vision',
-    capabilities: ['Photorealistic Rendering', 'Style Transfer & Inpainting', 'Aspect Ratio Control', 'Character Consistency'],
+    capabilities: [
+      'Photorealistic Rendering',
+      'Style Transfer & Inpainting',
+      'Aspect Ratio Control',
+      'Character Consistency',
+    ],
     useCases: ['Marketing visual creation', 'UI mockup imagery', 'Concept art generation'],
     strengths: ['Unrivaled aesthetic quality', 'Detailed texture and lighting control'],
     limitations: ['Discord interface workflow', 'Subscription required with no free tier'],
@@ -478,17 +694,31 @@ const rawMockCatalog: any[] = [
       exploring: 'Experiment with basic prompt structures and stylization.',
       practicing: 'Apply aspect ratio controls, inpainting, and style references.',
       proficient: 'Maintain consistent character models across marketing suites.',
-      mastered: 'Direct complex visual concept production and artistic direction.'
-    }
+      mastered: 'Direct complex visual concept production and artistic direction.',
+    },
   },
   {
     id: 'tool-julius',
     name: 'Julius AI',
-    description: 'Data science AI assistant that executes Python code in sandboxed environments to analyze CSVs, create charts, and build statistical models.',
+    description:
+      'Data science AI assistant that executes Python code in sandboxed environments to analyze CSVs, create charts, and build statistical models.',
     category: 'Data Analysis',
-    capabilities: ['Automated Python Sandbox Execution', 'Interactive Chart Rendering', 'Statistical Hypothesis Testing', 'Data Cleaning'],
-    useCases: ['Exploratory data analysis', 'Creating publication-ready charts', 'Statistical regression modeling'],
-    strengths: ['Executes actual Python data code', 'Exports downloadable clean datasets & plots', 'Supports Excel & SQL'],
+    capabilities: [
+      'Automated Python Sandbox Execution',
+      'Interactive Chart Rendering',
+      'Statistical Hypothesis Testing',
+      'Data Cleaning',
+    ],
+    useCases: [
+      'Exploratory data analysis',
+      'Creating publication-ready charts',
+      'Statistical regression modeling',
+    ],
+    strengths: [
+      'Executes actual Python data code',
+      'Exports downloadable clean datasets & plots',
+      'Supports Excel & SQL',
+    ],
     limitations: ['Requires data privacy consideration for sensitive enterprise databases'],
     taskMappings: ['data analysis', 'chart visualization', 'python execution'],
     websiteUrl: 'https://julius.ai',
@@ -508,18 +738,31 @@ const rawMockCatalog: any[] = [
       exploring: 'Upload CSV datasets and ask basic data summaries.',
       practicing: 'Execute Python sandbox code for interactive charts.',
       proficient: 'Perform statistical regression and automated data cleaning.',
-      mastered: 'Build full data science notebook execution pipelines.'
-    }
+      mastered: 'Build full data science notebook execution pipelines.',
+    },
   },
   {
     id: 'tool-gamma',
     name: 'Gamma App',
-    description: 'AI presentation deck and web page generator that transforms text prompts or outlines into beautifully styled slide decks.',
+    description:
+      'AI presentation deck and web page generator that transforms text prompts or outlines into beautifully styled slide decks.',
     category: 'Presentation',
-    capabilities: ['Instant Slide Deck Generation', 'Interactive Web Cards', 'Brand Theme Customization', 'AI Slide Editing'],
+    capabilities: [
+      'Instant Slide Deck Generation',
+      'Interactive Web Cards',
+      'Brand Theme Customization',
+      'AI Slide Editing',
+    ],
     useCases: ['Pitch deck creation', 'Lecture presentations', 'Project status updates'],
-    strengths: ['Saves hours of PowerPoint formatting', 'Modern responsive layouts', 'Interactive embed support'],
-    limitations: ['Free tier adds Gamma watermark', 'Custom corporate template support requires paid tiers'],
+    strengths: [
+      'Saves hours of PowerPoint formatting',
+      'Modern responsive layouts',
+      'Interactive embed support',
+    ],
+    limitations: [
+      'Free tier adds Gamma watermark',
+      'Custom corporate template support requires paid tiers',
+    ],
     taskMappings: ['presentation design', 'pitch decks', 'slide generation'],
     websiteUrl: 'https://gamma.app',
     activeStatus: true,
@@ -538,15 +781,21 @@ const rawMockCatalog: any[] = [
       exploring: 'Generate initial slide deck outlines from prompt topics.',
       practicing: 'Customize brand themes and interactive web cards.',
       proficient: 'Design comprehensive pitch decks and lecture presentations.',
-      mastered: 'Establish automated document-to-presentation workflows.'
-    }
+      mastered: 'Establish automated document-to-presentation workflows.',
+    },
   },
   {
     id: 'tool-runway',
     name: 'Runway Gen-3',
-    description: 'AI video generation and visual effects platform for turning text prompts and static images into cinematic video clips.',
+    description:
+      'AI video generation and visual effects platform for turning text prompts and static images into cinematic video clips.',
     category: 'Video',
-    capabilities: ['Text-to-Video', 'Image-to-Video Motion', 'Camera Movement Control', 'Video Inpainting'],
+    capabilities: [
+      'Text-to-Video',
+      'Image-to-Video Motion',
+      'Camera Movement Control',
+      'Video Inpainting',
+    ],
     useCases: ['Product video teasers', 'Social media animations', 'Visual storytelling'],
     strengths: ['High cinematic fidelity', 'Fine control over camera motion'],
     limitations: ['Generation credits exhaust quickly', 'Rerolls required for perfect physics'],
@@ -568,17 +817,30 @@ const rawMockCatalog: any[] = [
       exploring: 'Generate short text-to-video motion clips.',
       practicing: 'Apply image-to-video motion and camera movement controls.',
       proficient: 'Execute video inpainting and cinematic sequence editing.',
-      mastered: 'Produce full commercial video teasers and motion graphics.'
-    }
+      mastered: 'Produce full commercial video teasers and motion graphics.',
+    },
   },
   {
     id: 'tool-make',
     name: 'Make.com AI',
-    description: 'Visual workflow automation platform connecting 1,500+ apps with AI modules for automated webhooks and data pipelines.',
+    description:
+      'Visual workflow automation platform connecting 1,500+ apps with AI modules for automated webhooks and data pipelines.',
     category: 'Automation',
-    capabilities: ['No-Code Workflow Builder', 'AI Agent Node Integration', 'Webhook Triggers', 'Data Mapping & Transformation'],
-    useCases: ['Automating lead routing', 'Cross-app sync pipelines', 'Autonomous email processing'],
-    strengths: ['Visual drag-and-drop workflow canvas', 'Supports complex branching logic & error handling'],
+    capabilities: [
+      'No-Code Workflow Builder',
+      'AI Agent Node Integration',
+      'Webhook Triggers',
+      'Data Mapping & Transformation',
+    ],
+    useCases: [
+      'Automating lead routing',
+      'Cross-app sync pipelines',
+      'Autonomous email processing',
+    ],
+    strengths: [
+      'Visual drag-and-drop workflow canvas',
+      'Supports complex branching logic & error handling',
+    ],
     limitations: ['Learning curve for advanced data mapping formulas'],
     taskMappings: ['workflow automation', 'app integration', 'no-code pipelines'],
     websiteUrl: 'https://make.com',
@@ -589,7 +851,11 @@ const rawMockCatalog: any[] = [
     relevantRoles: ['Operations Lead', 'Automation Specialist', 'Product Manager'],
     skillLevel: 'Intermediate-Advanced',
     focusTracks: ['AI Workflow Design', 'Automation', 'No-Code Pipelines'],
-    clarityTopics: ['Automate repetitive workflows', 'Cross-App Workflow Automation', 'Webhook Integration'],
+    clarityTopics: [
+      'Automate repetitive workflows',
+      'Cross-App Workflow Automation',
+      'Webhook Integration',
+    ],
     radarTopics: ['Automation', 'Workflow', 'Agentic AI', 'sig-5'],
     relatedTools: ['tool-cursor'],
     alternatives: [],
@@ -598,9 +864,9 @@ const rawMockCatalog: any[] = [
       exploring: 'Build simple 2-node webhook integration scenarios.',
       practicing: 'Connect AI decision nodes with multi-app data mapping.',
       proficient: 'Implement complex branching logic and error handling loops.',
-      mastered: 'Architect enterprise no-code automation infrastructure.'
-    }
-  }
+      mastered: 'Architect enterprise no-code automation infrastructure.',
+    },
+  },
 ];
 
 export const mockToolCatalog: AITool[] = rawMockCatalog.map(createSeedTool);
@@ -610,9 +876,10 @@ export const mockUserTools: UserToolItem[] = [
     toolId: 'tool-chatgpt',
     addedAt: '2026-08-10',
     familiarity: 'proficient',
-    userNotes: 'Used daily for quick prompt queries, document drafting, and general coding assistance.',
+    userNotes:
+      'Used daily for quick prompt queries, document drafting, and general coding assistance.',
     primaryCategory: 'Reasoning & Writing',
-    customTags: ['daily-driver', 'writing']
+    customTags: ['daily-driver', 'writing'],
   },
   {
     toolId: 'tool-copilot',
@@ -620,8 +887,8 @@ export const mockUserTools: UserToolItem[] = [
     familiarity: 'practicing',
     userNotes: 'Used in VS Code for autocomplete and inline function generation.',
     primaryCategory: 'Agentic Coding',
-    customTags: ['coding', 'ide']
-  }
+    customTags: ['coding', 'ide'],
+  },
 ];
 
 export const mockLearnerFullState: any = {
@@ -637,48 +904,47 @@ export const mockLearnerFullState: any = {
       evaluationCapability: 0,
       workflowDesign: 0,
       strategicVision: 0,
-      mentorshipReadiness: 0
-    }
+      mentorshipReadiness: 0,
+    },
   },
   analysis: {
     status: 'locked',
     topCapability: 'AI Evaluation & Critical Assessment',
-    growthArea: 'AI Workflow Design'
+    growthArea: 'AI Workflow Design',
   },
   clarity: {
     status: 'locked',
     selectedAreas: [],
     selectedTopic: null,
     completedTopics: [],
-    reflections: {}
+    reflections: {},
   },
   focus: {
     status: 'locked',
     selectedTrack: null,
     history: [],
-    activatedAt: null
+    activatedAt: null,
   },
   radar: {
     status: 'available',
-    investigatedSignalIds: []
+    investigatedSignalIds: [],
   },
   investigation: {
     status: 'locked',
     selectedSignalId: null,
-    userNotes: {}
+    userNotes: {},
   },
   relevance: {
-    status: 'locked'
+    status: 'locked',
   },
   credits: {
     balance: 420,
     transactions: mockTransactions,
-    claimedActions: []
+    claimedActions: [],
   },
   notifications: [],
   aiWallet: {
     userTools: mockUserTools,
-    dismissedRecommendations: []
-  }
+    dismissedRecommendations: [],
+  },
 };
-
