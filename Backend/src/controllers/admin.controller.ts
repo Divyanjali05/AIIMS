@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { User, IUser } from '../models/User.model';
+import { User } from '../models/User.model';
 import { Task, defaultTasks } from '../models/Task.model';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { AuditLog, memoryAuditLogs, writeAuditLog } from '../models/AuditLog.model';
