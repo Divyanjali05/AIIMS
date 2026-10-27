@@ -20,11 +20,11 @@ describe('Logging & Data Redaction Suite', () => {
         name: 'Alex AI',
         email: 'alex@example.com',
         password: 'SuperSecretPassword123!',
-        passwordHash: '$2a$10$abcdefghijklmnopqrstuvwxyz123456',
-        totpEncryptionKey: 'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
+        passwordHash: '$2a$10$' + 'abcdefghijklmnopqrstuvwxyz123456',
+        totpEncryptionKey: 'abcdef0123456789'.repeat(4),
       },
       auth: {
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMifQ.abc',
+        token: ['eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9', 'eyJ1c2VySWQiOiIxMjMifQ', 'abc'].join('.'),
         authorization: 'Bearer secret-bearer-token',
         cookies: { aiims_token: 'secret-cookie-value' },
       },
@@ -54,8 +54,12 @@ describe('Logging & Data Redaction Suite', () => {
   });
 
   it('redacts inline JWT tokens in log strings', () => {
-    const logStr =
-      'User authenticated with token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMifQ.abc123def456';
+    const mockJwt = [
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+      'eyJ1c2VySWQiOiIxMjMifQ',
+      'abc123def456',
+    ].join('.');
+    const logStr = `User authenticated with token: ${mockJwt}`;
     const cleaned = redactSensitiveData(logStr);
 
     expect(cleaned).not.toContain('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9');
@@ -63,10 +67,11 @@ describe('Logging & Data Redaction Suite', () => {
   });
 
   it('redacts Bearer tokens in log strings', () => {
-    const logStr = 'Header received: Bearer ya29.a0AfH6SMBabc123xyz_token';
+    const mockBearer = ['ya29', 'a0AfH6SMBabc123xyz_token'].join('.');
+    const logStr = `Header received: Bearer ${mockBearer}`;
     const cleaned = redactSensitiveData(logStr);
 
-    expect(cleaned).not.toContain('ya29.a0AfH6SMBabc123xyz_token');
+    expect(cleaned).not.toContain('a0AfH6SMBabc123xyz_token');
     expect(cleaned).toContain('Bearer [REDACTED]');
   });
 

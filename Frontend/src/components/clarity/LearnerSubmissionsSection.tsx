@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  FileText,
   Clock,
   CheckCircle2,
   AlertCircle,
   RotateCcw,
-  Star,
   Send,
   MessageSquare,
-  Sparkles,
   RefreshCw,
   ChevronDown,
   ChevronUp,
@@ -26,8 +23,8 @@ interface LearnerSubmissionsSectionProps {
 }
 
 export const LearnerSubmissionsSection: React.FC<LearnerSubmissionsSectionProps> = ({
-  currentTaskId,
-  currentTaskTitle,
+  currentTaskId: _currentTaskId,
+  currentTaskTitle: _currentTaskTitle,
   onRefreshTrigger,
 }) => {
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
@@ -48,8 +45,9 @@ export const LearnerSubmissionsSection: React.FC<LearnerSubmissionsSectionProps>
       if (res && res.success && Array.isArray(res.submissions)) {
         setSubmissions(res.submissions);
       }
-    } catch (err: any) {
-      console.warn('Failed to fetch learner submissions:', err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('Failed to fetch learner submissions:', msg);
     } finally {
       setLoading(false);
     }
@@ -90,8 +88,9 @@ export const LearnerSubmissionsSection: React.FC<LearnerSubmissionsSectionProps>
       } else {
         setErrorMessage(res?.error || 'Failed to submit revision.');
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to submit revision.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit revision.';
+      setErrorMessage(msg);
     } finally {
       setActionLoading(false);
     }

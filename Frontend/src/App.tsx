@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { getApiBaseUrl, apiClient } from './api/client';
+import { apiClient } from './api/client';
 import { SUPPORT_EMAIL } from './config/appConfig';
 import { LegalScreen } from './screens/legal/LegalScreen';
 

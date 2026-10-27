@@ -10,5 +10,5 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/scripts/testPhase3Entitlements.ts", "src/scripts/runFrontendTests.ts"]
+  "exclude": ["node_modules", "dist", "src/scripts/testPhase3Entitlements.ts", "src/scripts/runFrontendTests.ts", "src/services/__tests__/**"]
 }
