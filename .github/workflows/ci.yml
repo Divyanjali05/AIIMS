@@ -130,7 +130,7 @@ jobs:
           NODE_ENV: test
           PORT: 5001
           JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
-          MONGODB_URI: mongodb://localhost:27017/aiims_ci_test
+          MONGODB_URI: mongodb://localhost:27017/aiims_ci_test?retryWrites=false
         run: |
           node dist/server.js &
           SERVER_PID=$!

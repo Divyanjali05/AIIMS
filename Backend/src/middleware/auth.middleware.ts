@@ -44,9 +44,7 @@ const passesOriginCheck = (req: Request): boolean => {
   }
   if (!candidate) return false; // no valid origin on a mutation = reject
 
-  return config.allowedOrigins.some(
-    (allowed) => candidate === allowed || candidate.startsWith(allowed)
-  );
+  return config.allowedOrigins.includes(candidate);
 };
 
 /**

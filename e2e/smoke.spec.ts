@@ -328,8 +328,8 @@ test.describe('AIIMS E2E Smoke Tests', () => {
     await page.goto('/credits');
 
     // Verify Header and Balance card
-    await expect(page.getByText(/YOUR AIIMS CREDITS & LEDGER/i)).toBeVisible();
-    await expect(page.getByText(/AUTHORITATIVE SERVER-VERIFIED BALANCE/i)).toBeVisible();
+    await expect(page.getByText(/Credits Ledger & XP Recognition/i)).toBeVisible();
+    await expect(page.getByText(/SPENDABLE UTILITY BALANCE/i)).toBeVisible();
 
     // Verify filter tabs are rendered
     const allFilter = page.getByRole('button', { name: /all/i }).first();

@@ -1,15 +1,5 @@
 import React, { useRef } from 'react';
-import {
-  Sparkles,
-  ArrowRight,
-  Compass,
-  ShieldCheck,
-  Cpu,
-  CheckCircle2,
-  LogIn,
-  Sun,
-  Moon,
-} from 'lucide-react';
+import { Sparkles, ArrowRight, Compass, ShieldCheck, Cpu, CheckCircle2, LogIn } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
@@ -24,7 +14,7 @@ interface PublicHeroScreenProps {
 }
 
 export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourney, onSignIn }) => {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode } = useTheme();
   const universeSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToUniverse = () => {

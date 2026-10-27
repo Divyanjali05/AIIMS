@@ -181,9 +181,21 @@ export class CreditsLedgerService {
         let session: mongoose.ClientSession | null = null;
         let useReplicaTransaction = false;
         try {
-          session = await mongoose.startSession();
-          session.startTransaction();
-          useReplicaTransaction = true;
+          const client = (
+            mongoose.connection as unknown as {
+              client?: { topology?: { description?: { type?: string } } };
+            }
+          )?.client;
+          const topologyType = client?.topology?.description?.type;
+          const isReplicaOrSharded =
+            typeof topologyType === 'string' &&
+            (topologyType.includes('Replica') || topologyType === 'Sharded');
+
+          if (isReplicaOrSharded) {
+            session = await mongoose.startSession();
+            session.startTransaction();
+            useReplicaTransaction = true;
+          }
         } catch {
           if (session) {
             try {
@@ -194,15 +206,46 @@ export class CreditsLedgerService {
           useReplicaTransaction = false;
         }
 
-        const updateOpts =
-          useReplicaTransaction && session
-            ? { session, returnDocument: 'after' as const }
-            : { returnDocument: 'after' as const };
-
         // 2c. Atomic conditional balance update
         let updatedUser: IUser | null = null;
         const txId = `tx-ledger-${Date.now()}-${randomUUID().substring(0, 8)}`;
         const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+
+        const executeUserUpdate = async (
+          filter: Record<string, unknown>,
+          updatePayload: Record<string, unknown>
+        ): Promise<IUser | null> => {
+          if (useReplicaTransaction && session) {
+            try {
+              return await User.findOneAndUpdate(filter, updatePayload, {
+                session,
+                returnDocument: 'after' as const,
+              });
+            } catch (txErr: unknown) {
+              const msg = txErr instanceof Error ? txErr.message : String(txErr);
+              if (
+                msg.includes('retryable') ||
+                msg.includes('replica') ||
+                msg.includes('Transaction') ||
+                msg.includes('standalone')
+              ) {
+                try {
+                  await session.abortTransaction();
+                  await session.endSession();
+                } catch {}
+                session = null;
+                useReplicaTransaction = false;
+                return await User.findOneAndUpdate(filter, updatePayload, {
+                  returnDocument: 'after' as const,
+                });
+              }
+              throw txErr;
+            }
+          }
+          return await User.findOneAndUpdate(filter, updatePayload, {
+            returnDocument: 'after' as const,
+          });
+        };
 
         if (type === 'SPEND') {
           if (balanceBefore < numAmount) {
@@ -232,7 +275,7 @@ export class CreditsLedgerService {
           };
 
           // Conditional atomic update: only succeeds if balance is still >= numAmount
-          updatedUser = await User.findOneAndUpdate(
+          updatedUser = await executeUserUpdate(
             {
               _id: user._id,
               aiimsCredits: { $gte: numAmount },
@@ -245,8 +288,7 @@ export class CreditsLedgerService {
                   $position: 0,
                 },
               },
-            },
-            updateOpts
+            }
           );
 
           if (!updatedUser) {
@@ -284,19 +326,15 @@ export class CreditsLedgerService {
             earnFilter['transactions.sourceId'] = { $ne: sourceId };
           }
 
-          updatedUser = await User.findOneAndUpdate(
-            earnFilter,
-            {
-              $inc: { aiimsCredits: numAmount },
-              $push: {
-                transactions: {
-                  $each: [legacyTx],
-                  $position: 0,
-                },
+          updatedUser = await executeUserUpdate(earnFilter, {
+            $inc: { aiimsCredits: numAmount },
+            $push: {
+              transactions: {
+                $each: [legacyTx],
+                $position: 0,
               },
             },
-            updateOpts
-          );
+          });
 
           if (!updatedUser && sourceId) {
             if (useReplicaTransaction && session) {
@@ -351,10 +389,30 @@ export class CreditsLedgerService {
 
           let ledgerEntry: any;
           if (useReplicaTransaction && session) {
-            const createdDocs = await CreditLedger.create([ledgerDoc], { session });
-            ledgerEntry = createdDocs[0];
-            await session.commitTransaction();
-            await session.endSession();
+            try {
+              const createdDocs = await CreditLedger.create([ledgerDoc], { session });
+              ledgerEntry = createdDocs[0];
+              await session.commitTransaction();
+              await session.endSession();
+            } catch (ledgerTxErr: unknown) {
+              const msg = ledgerTxErr instanceof Error ? ledgerTxErr.message : String(ledgerTxErr);
+              if (
+                msg.includes('retryable') ||
+                msg.includes('replica') ||
+                msg.includes('Transaction') ||
+                msg.includes('standalone')
+              ) {
+                try {
+                  await session.abortTransaction();
+                  await session.endSession();
+                } catch {}
+                session = null;
+                useReplicaTransaction = false;
+                ledgerEntry = await CreditLedger.create(ledgerDoc);
+              } else {
+                throw ledgerTxErr;
+              }
+            }
           } else {
             ledgerEntry = await CreditLedger.create(ledgerDoc);
           }
