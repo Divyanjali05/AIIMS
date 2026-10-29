@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { Submission, ISubmission, memorySubmissions } from '../models/Submission.model';
+import { Submission, memorySubmissions } from '../models/Submission.model';
 import { Task, defaultTasks } from '../models/Task.model';
 
 /**

@@ -105,9 +105,24 @@ export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 class Logger {
   private isProduction = process.env.NODE_ENV === 'production';
 
+  /**
+   * Neutralizes carriage returns and newlines to prevent log injection / log forging (CWE-117).
+   */
+  private sanitizeForLog(val: unknown): string {
+    if (typeof val !== 'string') {
+      try {
+        return JSON.stringify(val);
+      } catch {
+        return String(val);
+      }
+    }
+    return val.replace(/[\r\n]+/g, ' ');
+  }
+
   private formatMessage(level: LogLevel, message: string, meta?: any): string {
     const timestamp = new Date().toISOString();
-    const sanitizedMsg = typeof message === 'string' ? redactSensitiveData(message) : message;
+    const redacted = typeof message === 'string' ? redactSensitiveData(message) : message;
+    const sanitizedMsg = this.sanitizeForLog(redacted);
 
     if (this.isProduction) {
       const entry: Record<string, any> = {
@@ -121,7 +136,10 @@ class Logger {
       return JSON.stringify(entry);
     }
 
-    const metaStr = meta !== undefined ? ` ${JSON.stringify(redactSensitiveData(meta))}` : '';
+    const metaStr =
+      meta !== undefined
+        ? ` ${this.sanitizeForLog(JSON.stringify(redactSensitiveData(meta)))}`
+        : '';
     return `[${timestamp}] [${level.toUpperCase()}] ${sanitizedMsg}${metaStr}`;
   }
 

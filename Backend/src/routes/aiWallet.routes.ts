@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { aiExecutionRateLimiter } from '../middleware/rateLimit.middleware';
+import { aiExecutionRateLimiter, generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   searchTools,
   getCatalog,
@@ -30,6 +30,8 @@ import {
 } from '../controllers/aiWallet.controller';
 
 const router = Router();
+
+router.use(generalApiRateLimiter);
 
 // Wallet routes
 router.post('/wallet/search', searchTools);

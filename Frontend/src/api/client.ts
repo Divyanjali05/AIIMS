@@ -66,9 +66,19 @@ export const getAuthHeaders = (): Record<string, string> => {
 };
 
 /**
+ * Reads a cookie value by name in browser environments.
+ */
+export const getCookie = (name: string): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
+/**
  * Universal authenticated fetch:
  * - Always sends `credentials: 'include'` so httpOnly cookies are transmitted automatically on Web.
  * - Merges mobile Bearer token & X-Client header when on native mobile platforms.
+ * - Automatically attaches X-CSRF-Token on state-changing browser mutations.
  */
 export const apiFetch = async (input: string, init: RequestInit = {}): Promise<Response> => {
   const authHeaders = getAuthHeaders();
@@ -76,6 +86,14 @@ export const apiFetch = async (input: string, init: RequestInit = {}): Promise<R
     ...authHeaders,
     ...((init.headers as Record<string, string>) || {}),
   };
+
+  const method = (init.method || 'GET').toUpperCase();
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !isMobileClient()) {
+    const csrfToken = getCookie('aiims_csrf');
+    if (csrfToken && !mergedHeaders['X-CSRF-Token'] && !mergedHeaders['x-csrf-token']) {
+      mergedHeaders['X-CSRF-Token'] = csrfToken;
+    }
+  }
 
   return fetch(input, {
     credentials: 'include',

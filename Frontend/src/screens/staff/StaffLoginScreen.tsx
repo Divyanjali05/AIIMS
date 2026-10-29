@@ -11,7 +11,6 @@ import {
   Key,
   CheckCircle,
   Copy,
-  RefreshCw,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';

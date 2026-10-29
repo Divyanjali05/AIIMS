@@ -5,7 +5,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  ArrowLeft,
   ClipboardList,
   LayoutDashboard,
 } from 'lucide-react';

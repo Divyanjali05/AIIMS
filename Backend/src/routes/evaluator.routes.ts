@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import { evaluatorRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   getEvaluationQueue,
   claimSubmission,
@@ -7,6 +8,9 @@ import {
 } from '../controllers/evaluator.controller';
 
 const router = Router();
+
+// Rate limit all evaluator endpoints
+router.use('/evaluator', evaluatorRateLimiter);
 
 // Evaluator endpoints (guarded by requireRole('evaluator', 'admin'))
 router.get('/evaluator/queue', requireAuth, requireRole('evaluator', 'admin'), getEvaluationQueue);

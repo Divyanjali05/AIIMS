@@ -7,7 +7,7 @@ import { User } from '../models/User.model';
 import { Task, defaultTasks } from '../models/Task.model';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { AuditLog, memoryAuditLogs, writeAuditLog } from '../models/AuditLog.model';
-import { registeredUsers } from '../models/userStore';
+import { registeredUsers, isSafeKey } from '../models/userStore';
 
 /**
  * Format milliseconds into human-readable duration.
@@ -105,7 +105,10 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
     });
   }
 
-  // Fallback memory store
+  // Fallback memory store with safe key guard against prototype pollution
+  if (!isSafeKey(normalizedEmail)) {
+    return res.status(400).json({ error: 'Invalid evaluator email address.' });
+  }
   if (registeredUsers[normalizedEmail]) {
     return res.status(400).json({ error: 'A user with this email already exists.' });
   }

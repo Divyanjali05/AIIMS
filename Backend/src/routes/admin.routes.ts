@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import { adminRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   createEvaluator,
   updateEvaluatorStatus,
@@ -13,6 +14,9 @@ import {
 } from '../controllers/admin.controller';
 
 const router = Router();
+
+// Rate limit all admin routes
+router.use('/admin', adminRateLimiter);
 
 // Admin Evaluator Management
 router.post('/admin/evaluators', requireAuth, requireRole('admin'), createEvaluator);

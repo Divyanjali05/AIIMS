@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { aiExecutionRateLimiter } from '../middleware/rateLimit.middleware';
+import { aiExecutionRateLimiter, generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   requireInvestigationUnlocked,
   requireRelevanceUnlocked,
@@ -17,6 +17,9 @@ import {
 } from '../controllers/investigation.controller';
 
 const router = Router();
+
+router.use('/focus', generalApiRateLimiter);
+router.use('/radar', generalApiRateLimiter);
 
 router.get('/focus/areas', getFocusAreas);
 router.post('/focus/override', overrideFocus);

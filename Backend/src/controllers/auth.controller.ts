@@ -10,9 +10,11 @@ import { mockUser } from '../models/aiims.models';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { writeAuditLog } from '../models/AuditLog.model';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { formatUserState, STARTING_CREDITS, CREDIT_RULES } from '../config/credits.config';
+import { formatUserState, STARTING_CREDITS } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { PROGRAMS, validateAcademicCombination } from '../config/academicTaxonomy';
+
+import { generateCsrfToken } from '../middleware/csrf.middleware';
 
 /** 7-day cookie / token lifetime */
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -28,8 +30,9 @@ export const generateAuthToken = (userId: string, email: string): string => {
 
 /**
  * Sets the auth JWT as an httpOnly, Secure (in production), SameSite=Lax cookie.
+ * Also issues a Double-Submit CSRF cookie for client-side state-changing requests.
  */
-const setAuthCookie = (res: Response, token: string): void => {
+const setAuthCookie = (res: Response, token: string, req?: Request): void => {
   res.cookie('aiims_token', token, {
     httpOnly: true,
     secure: config.nodeEnv === 'production',
@@ -37,6 +40,11 @@ const setAuthCookie = (res: Response, token: string): void => {
     maxAge: COOKIE_MAX_AGE_MS,
     path: '/',
   });
+  if (req) {
+    try {
+      generateCsrfToken(req, res);
+    } catch {}
+  }
 };
 
 /**
@@ -46,7 +54,7 @@ const setAuthCookie = (res: Response, token: string): void => {
 const isMobileClient = (req: Request): boolean =>
   (req.headers['x-client'] as string | undefined)?.toLowerCase() === 'mobile';
 
-import { registeredUsers } from '../models/userStore';
+import { registeredUsers, isSafeKey } from '../models/userStore';
 export { registeredUsers };
 
 export const login = async (req: Request, res: Response) => {
@@ -78,7 +86,7 @@ export const login = async (req: Request, res: Response) => {
             });
           }
           const token = generateAuthToken(String(dbUser._id), dbUser.email);
-          setAuthCookie(res, token);
+          setAuthCookie(res, token, req);
           const userState = formatUserState(dbUser);
           return res.json({
             ...(mobile ? { token } : {}),
@@ -110,7 +118,7 @@ export const login = async (req: Request, res: Response) => {
   }
 
   const token = generateAuthToken(user.id || `usr-${normalizedEmail}`, user.email);
-  setAuthCookie(res, token);
+  setAuthCookie(res, token, req);
   return res.json({
     ...(mobile ? { token } : {}),
     user: {
@@ -277,7 +285,7 @@ export const register = async (req: Request, res: Response) => {
 
     newUser.aiimsCredits = welcomeResult?.balance ?? STARTING_CREDITS;
     const token = generateAuthToken(stableId, normalizedEmail);
-    setAuthCookie(res, token);
+    setAuthCookie(res, token, req);
     const baseState = formatUserState(new User(newUser) as IUser);
     return res.status(201).json({
       ...(isMobileClient(req) ? { token } : {}),
@@ -399,7 +407,7 @@ export const register = async (req: Request, res: Response) => {
     const studentProfile = await StudentProfile.create(profileData);
 
     const token = generateAuthToken(String(finalDbUser._id), finalDbUser.email);
-    setAuthCookie(res, token);
+    setAuthCookie(res, token, req);
     const userState = formatUserState(finalDbUser);
 
     return res.status(201).json({
@@ -494,6 +502,12 @@ export const logout = (_req: Request, res: Response) => {
     sameSite: 'lax',
     path: '/',
   });
+  res.clearCookie('aiims_csrf', {
+    httpOnly: false,
+    secure: config.nodeEnv === 'production',
+    sameSite: 'lax',
+    path: '/',
+  });
   return res.json({ success: true, message: 'Signed out successfully.' });
 };
 
@@ -550,16 +564,24 @@ export const setPassword = async (req: Request, res: Response) => {
   }
 
   const normalizedEmail = (email || '').toLowerCase().trim();
+  if (!isSafeKey(normalizedEmail)) {
+    return res.status(400).json({ error: 'Invalid email address.' });
+  }
+
   let user: IUser | null = null;
 
   if (mongoose.connection.readyState === 1) {
     if (inviteToken) {
+      if (typeof inviteToken !== 'string' || !inviteToken.trim()) {
+        return res.status(400).json({ error: 'Invalid invite token.' });
+      }
+      const cleanToken = inviteToken.trim();
       user = await User.findOne({
         email: normalizedEmail,
-        inviteToken,
+        inviteToken: cleanToken,
         inviteTokenExpires: { $gt: new Date() },
       });
-    } else if (currentPassword) {
+    } else if (currentPassword && typeof currentPassword === 'string') {
       user = await User.findOne({ email: normalizedEmail });
       if (user && !(await user.comparePassword(currentPassword))) {
         return res.status(401).json({ error: 'Current password is incorrect.' });
@@ -567,13 +589,17 @@ export const setPassword = async (req: Request, res: Response) => {
     }
   }
 
-  // Fallback memory user
+  // Fallback memory user with prototype pollution guards
   let memoryUser: any = null;
-  if (!user && registeredUsers[normalizedEmail]) {
+  if (!user && isSafeKey(normalizedEmail) && registeredUsers[normalizedEmail]) {
     memoryUser = registeredUsers[normalizedEmail];
-    if (inviteToken && memoryUser.inviteToken === inviteToken) {
+    if (
+      inviteToken &&
+      typeof inviteToken === 'string' &&
+      memoryUser.inviteToken === inviteToken.trim()
+    ) {
       // Valid memory invite token
-    } else if (currentPassword) {
+    } else if (currentPassword && typeof currentPassword === 'string') {
       const match = memoryUser.password?.startsWith('$2')
         ? await bcrypt.compare(currentPassword, memoryUser.password)
         : memoryUser.password === currentPassword;
@@ -595,7 +621,7 @@ export const setPassword = async (req: Request, res: Response) => {
     user.inviteToken = undefined;
     user.inviteTokenExpires = undefined;
     await user.save();
-  } else if (memoryUser) {
+  } else if (memoryUser && typeof memoryUser === 'object' && memoryUser !== Object.prototype) {
     memoryUser.password = hashedPassword;
     memoryUser.mustChangePassword = false;
     memoryUser.inviteToken = undefined;
@@ -606,7 +632,7 @@ export const setPassword = async (req: Request, res: Response) => {
     String(user?._id || memoryUser?.id || memoryUser?._id),
     normalizedEmail
   );
-  setAuthCookie(res, token);
+  setAuthCookie(res, token, req);
 
   return res.json({
     success: true,
@@ -762,14 +788,20 @@ export const totpVerifySetup = async (req: AuthenticatedRequest, res: Response) 
  * and the server has returned `{ totpRequired: true, userId }`.
  */
 export const totpVerifyLogin = async (req: Request, res: Response) => {
-  const { userId, code, isBackupCode } = req.body;
-  if (!userId || !code) {
-    return res.status(400).json({ error: 'userId and code are required.' });
+  const { userId, code } = req.body;
+  if (!userId || typeof userId !== 'string' || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: 'Valid userId is required.' });
   }
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Valid code is required.' });
+  }
+
+  const safeUserId = new mongoose.Types.ObjectId(userId);
+  const trimmedCode = code.trim();
 
   let dbUser: IUser | null = null;
   if (mongoose.connection.readyState === 1) {
-    dbUser = await User.findById(userId);
+    dbUser = await User.findById(safeUserId);
   }
 
   if (!dbUser) {
@@ -802,16 +834,21 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
   let verified = false;
   let usedBackupCode = false;
 
-  if (isBackupCode) {
-    const idx = findMatchingBackupCodeIndex(code, dbUser.totp.backupCodeHashes);
-    if (idx !== -1) {
-      // Consume the backup code (remove it from the array)
-      dbUser.totp.backupCodeHashes.splice(idx, 1);
-      verified = true;
-      usedBackupCode = true;
-    }
-  } else {
-    verified = await verifyTotpCode(code, plainSecret);
+  // Cryptographic verification: check backup codes array or TOTP code
+  const backupHashes = Array.isArray(dbUser.totp.backupCodeHashes)
+    ? dbUser.totp.backupCodeHashes
+    : [];
+  const backupIdx =
+    backupHashes.length > 0 ? findMatchingBackupCodeIndex(trimmedCode, backupHashes) : -1;
+
+  if (backupIdx !== -1) {
+    // Consume the backup code (remove it from the array)
+    backupHashes.splice(backupIdx, 1);
+    dbUser.totp.backupCodeHashes = backupHashes;
+    verified = true;
+    usedBackupCode = true;
+  } else if (plainSecret) {
+    verified = await verifyTotpCode(trimmedCode, plainSecret);
   }
 
   if (!verified) {
@@ -819,7 +856,7 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
     const lockout =
       newFailCount >= TOTP_MAX_ATTEMPTS ? new Date(Date.now() + TOTP_LOCKOUT_MS) : undefined;
 
-    await User.findByIdAndUpdate(userId, {
+    await User.findByIdAndUpdate(safeUserId, {
       $set: {
         'totp.failedAttempts': newFailCount,
         ...(lockout ? { 'totp.lockedUntil': lockout } : {}),
@@ -840,7 +877,7 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
   }
 
   // Reset rate-limit counters and persist backup code consumption
-  await User.findByIdAndUpdate(userId, {
+  await User.findByIdAndUpdate(safeUserId, {
     $set: {
       'totp.failedAttempts': 0,
       'totp.lockedUntil': null,
@@ -851,7 +888,7 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
   // Issue the real JWT now that both factors are verified
   const token = generateAuthToken(String(dbUser._id), dbUser.email);
   const mobile = isMobileClient(req);
-  setAuthCookie(res, token);
+  setAuthCookie(res, token, req);
   const userState = formatUserState(dbUser);
 
   return res.json({
@@ -953,9 +990,15 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
       },
     });
 
-    // 5. Invalidate tokens and clear auth cookie
+    // 5. Invalidate tokens and clear auth and csrf cookies
     res.clearCookie('aiims_token', {
       httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    res.clearCookie('aiims_csrf', {
+      httpOnly: false,
       secure: config.nodeEnv === 'production',
       sameSite: 'lax',
       path: '/',

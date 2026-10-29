@@ -90,6 +90,20 @@ beforeAll(async () => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   } as any;
+
+  // Seed a test admin user in memory
+  registeredUsers['admin@aiims.edu'] = {
+    _id: '65d000000000000000000001',
+    id: '65d000000000000000000001',
+    email: 'admin@aiims.edu',
+    name: 'Security Test Admin',
+    passwordHash: 'dummy-hash',
+    role: 'admin',
+    aiimsCredits: 1000,
+    xpPoints: 500,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as any;
 });
 
 afterAll(async () => {
@@ -97,6 +111,7 @@ afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
   delete registeredUsers['security.learner@example.com'];
+  delete registeredUsers['admin@aiims.edu'];
 });
 
 describe('AIIMS Security Test Suite', () => {
@@ -334,6 +349,94 @@ describe('AIIMS Security Test Suite', () => {
       // Should not be rejected by CSRF guard (status is 201 Created or 200 OK)
       expect(res.status).toBe(201);
       expect(res.body.code).not.toBe('CSRF_FORBIDDEN');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 5. Database Query Security & NoSQL Injection Guards
+  // ---------------------------------------------------------------------------
+  describe('5. Database Query Security & NoSQL Injection Guards', () => {
+    it('5A: Malicious object inviteToken ({ "$ne": null }) is rejected with HTTP 400', async () => {
+      const res = await makeRequest('/api/auth/set-password', {
+        method: 'POST',
+        body: {
+          email: 'test@example.com',
+          inviteToken: { $ne: null },
+          newPassword: 'StrongPassword123!',
+        },
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/token/i);
+    });
+
+    it('5B: Non-ObjectId userId ({ "$ne": null }) in TOTP verify is rejected with HTTP 400', async () => {
+      const res = await makeRequest('/api/auth/totp/verify', {
+        method: 'POST',
+        body: {
+          userId: { $ne: null },
+          code: '123456',
+        },
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Valid userId is required/i);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. Prototype Pollution & Remote Property Injection Guards
+  // ---------------------------------------------------------------------------
+  describe('6. Prototype Pollution & Remote Property Injection Guards', () => {
+    it('6A: setPassword with email "__proto__" is rejected with HTTP 400 without polluting Object.prototype', async () => {
+      const beforePollution = (Object.prototype as any).polluted;
+      const res = await makeRequest('/api/auth/set-password', {
+        method: 'POST',
+        body: {
+          email: '__proto__',
+          newPassword: 'StrongPassword123!',
+        },
+      });
+      expect(res.status).toBe(400);
+      expect((Object.prototype as any).polluted).toBe(beforePollution);
+      expect((Object.prototype as any).polluted).toBeUndefined();
+    });
+
+    it('6B: createEvaluator with email "__proto__" is rejected with HTTP 400 without polluting Object.prototype', async () => {
+      const adminToken = generateToken({
+        userId: '65d000000000000000000001',
+        email: 'admin@aiims.edu',
+        role: 'admin',
+      });
+
+      const res = await makeRequest('/api/admin/evaluators', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: {
+          name: 'Hacker Evaluator',
+          email: '__proto__',
+        },
+      });
+      expect(res.status).toBe(400);
+      expect((Object.prototype as any).polluted).toBeUndefined();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 7. CSRF Token Endpoint & Double-Submit Token Flow
+  // ---------------------------------------------------------------------------
+  describe('7. CSRF Token Endpoint & Double-Submit Token Flow', () => {
+    it('7A: GET /api/csrf-token returns fresh token and sets aiims_csrf cookie', async () => {
+      const res = await makeRequest('/api/csrf-token', {
+        method: 'GET',
+      });
+      expect(res.status).toBe(200);
+      expect(typeof res.body.csrfToken).toBe('string');
+      expect(res.body.csrfToken.length).toBeGreaterThan(10);
+
+      const setCookie = res.headers.get('set-cookie');
+      expect(setCookie).toBeTruthy();
+      expect(setCookie).toContain('aiims_csrf=');
     });
   });
 });

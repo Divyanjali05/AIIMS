@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import { validateBody } from '../middleware/validate.middleware';
 import { submitAssessmentSchema } from '../schemas/assessment.schema';
 import {
@@ -12,6 +13,8 @@ import {
 } from '../controllers/assessment.controller';
 
 const router = Router();
+
+router.use(generalApiRateLimiter);
 
 // Assessment routes
 router.get('/assessments/questions', getQuestions);

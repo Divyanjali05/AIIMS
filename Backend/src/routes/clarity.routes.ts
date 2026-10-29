@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
-import { aiExecutionRateLimiter } from '../middleware/rateLimit.middleware';
+import { aiExecutionRateLimiter, clarityRateLimiter } from '../middleware/rateLimit.middleware';
 import { requireClarityUnlocked } from '../middleware/featureLock.middleware';
 import {
   getGaps,
@@ -12,6 +12,9 @@ import {
 } from '../controllers/clarity.controller';
 
 const router = Router();
+
+// Rate limit clarity operations
+router.use('/clarity', clarityRateLimiter);
 
 router.get('/clarity/gaps', getGaps);
 router.post('/clarity/mentor-override', requireAuth, requireClarityUnlocked, mentorOverride);
