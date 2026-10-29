@@ -144,30 +144,30 @@ class Logger {
   }
 
   info(message: string, meta?: any): void {
-    const output = this.formatMessage('info', message, meta).replace(/[\r\n]+/g, ' ');
-    console.log(output);
+    const clean = String(message).replace(/\n|\r/g, ' ');
+    console.log(this.formatMessage('info', clean, meta).replace(/\n|\r/g, ' '));
   }
 
   warn(message: string, meta?: any): void {
-    const output = this.formatMessage('warn', message, meta).replace(/[\r\n]+/g, ' ');
-    console.warn(output);
+    const clean = String(message).replace(/\n|\r/g, ' ');
+    console.warn(this.formatMessage('warn', clean, meta).replace(/\n|\r/g, ' '));
   }
 
   error(message: string, error?: any, meta?: any): void {
+    const clean = String(message).replace(/\n|\r/g, ' ');
     const combinedMeta = {
       ...(meta || {}),
       ...(error instanceof Error
         ? {
-            errorName: error.name,
-            errorMessage: error.message,
+            errorName: error.name.replace(/\n|\r/g, ' '),
+            errorMessage: error.message.replace(/\n|\r/g, ' '),
             stack: this.isProduction ? undefined : error.stack,
           }
         : error
-          ? { rawError: String(error) }
+          ? { rawError: String(error).replace(/\n|\r/g, ' ') }
           : {}),
     };
-    const output = this.formatMessage('error', message, combinedMeta).replace(/[\r\n]+/g, ' ');
-    console.error(output);
+    console.error(this.formatMessage('error', clean, combinedMeta).replace(/\n|\r/g, ' '));
   }
 
   debug(message: string, meta?: any): void {
@@ -175,8 +175,8 @@ class Logger {
     if (this.isProduction) {
       return;
     }
-    const output = this.formatMessage('debug', message, meta).replace(/[\r\n]+/g, ' ');
-    console.log(output);
+    const clean = String(message).replace(/\n|\r/g, ' ');
+    console.log(this.formatMessage('debug', clean, meta).replace(/\n|\r/g, ' '));
   }
 }
 
@@ -189,10 +189,12 @@ export const logger = new Logger();
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const start = Date.now();
-  const { method, originalUrl } = req;
+  const { method } = req;
+  const rawUrl = req.originalUrl || '';
+  const cleanOriginalUrl = rawUrl.replace(/\n|\r/g, '');
 
   // Sanitize query string if it contains sensitive tokens
-  const sanitizedUrl = originalUrl.replace(
+  const sanitizedUrl = cleanOriginalUrl.replace(
     /([?&](?:token|key|secret|password)=)[^&]+/gi,
     '$1[REDACTED]'
   );

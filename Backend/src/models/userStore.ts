@@ -16,6 +16,19 @@ export function isSafeKey(key: unknown): key is string {
 // In-memory registered user store with null prototype to prevent prototype pollution
 export const registeredUsers: Record<string, any> = Object.create(null);
 
+export function saveRegisteredUser(email: string, user: any): void {
+  if (!isSafeKey(email)) return;
+  const safeKey = '$' + email.toLowerCase().trim();
+  registeredUsers[safeKey] = user;
+  registeredUsers[email.toLowerCase().trim()] = user;
+}
+
+export function getRegisteredUser(email: string): any {
+  if (!email || typeof email !== 'string') return undefined;
+  const clean = email.toLowerCase().trim();
+  return registeredUsers['$' + clean] || registeredUsers[clean];
+}
+
 registeredUsers[mockUser.email.toLowerCase()] = {
   ...mockUser,
   _id: mockUser.id || 'usr-mock-001',

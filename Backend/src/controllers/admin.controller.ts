@@ -7,7 +7,7 @@ import { User } from '../models/User.model';
 import { Task, defaultTasks } from '../models/Task.model';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { AuditLog, memoryAuditLogs, writeAuditLog } from '../models/AuditLog.model';
-import { registeredUsers, isSafeKey } from '../models/userStore';
+import { registeredUsers, isSafeKey, saveRegisteredUser } from '../models/userStore';
 
 /**
  * Format milliseconds into human-readable duration.
@@ -132,12 +132,7 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
     aiimsCredits: 0,
     transactions: [],
   };
-  Object.defineProperty(registeredUsers, normalizedEmail, {
-    value: memoryEvaluator,
-    writable: true,
-    enumerable: true,
-    configurable: true,
-  });
+  saveRegisteredUser(normalizedEmail, memoryEvaluator);
 
   await writeAuditLog({
     actor: admin._id || admin.id,

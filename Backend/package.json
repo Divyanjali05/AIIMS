@@ -33,6 +33,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",
     "@google/generative-ai": "^0.24.1",
+    "@types/lusca": "^1.7.5",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -42,6 +43,7 @@
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
+    "lusca": "^1.7.0",
     "mongoose": "^9.10.1",
     "otplib": "^13.5.0",
     "qrcode": "^1.5.4",

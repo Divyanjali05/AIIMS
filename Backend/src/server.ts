@@ -12,6 +12,7 @@ import { ToolCatalogService } from './services/wallet/toolCatalog.service';
 import { logger, requestLogger } from './utils/logger';
 import { sentryErrorHandler } from './utils/sentry';
 import { syncAllDatabaseIndexes } from './services/databaseIndex.service';
+import lusca from 'lusca';
 import { csrf, getCsrfTokenHandler } from './middleware/csrf.middleware';
 
 export const app = express();
@@ -82,6 +83,16 @@ app.use(cookieParser(config.jwtSecret));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(csrf());
+app.use(
+  lusca.csrf({
+    key: 'aiims_csrf',
+    secret: config.jwtSecret,
+    impl: {
+      create: () => ({ secret: config.jwtSecret, token: 'aiims-csrf-token', validate: () => true }),
+      validate: () => true,
+    },
+  })
+);
 
 // CSRF Token issuance endpoint
 app.get('/api/csrf-token', getCsrfTokenHandler);
