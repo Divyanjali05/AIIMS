@@ -12,6 +12,8 @@
 import { runAssessmentScoringQualityChecks } from '../../../Frontend/src/services/__tests__/assessmentScoring.test';
 import { runFeatureAccessTestSuite } from '../../../Frontend/src/services/__tests__/featureAccess.test';
 import { runThemeQualityChecks } from '../../../Frontend/src/services/__tests__/theme.test';
+import { runColorContrastTestSuite } from '../../../Frontend/src/services/__tests__/colorContrast.test';
+import { runEvaluationFrontendTestSuite } from '../../../Frontend/src/services/__tests__/evaluationFrontend.test';
 
 interface SuiteResult {
   id: string;
@@ -50,9 +52,9 @@ const suiteDefinitions: SuiteDefinition[] = [
         passedCount: res.passedCount,
         failedCount: res.totalCount - res.passedCount,
         totalCount: res.totalCount,
-        logs: res.logs
+        logs: res.logs,
       };
-    }
+    },
   },
   {
     id: 'featureAccess',
@@ -63,9 +65,9 @@ const suiteDefinitions: SuiteDefinition[] = [
         passedCount: res.passedCount,
         failedCount: res.failedCount,
         totalCount: res.passedCount + res.failedCount,
-        details: res.results
+        details: res.results,
       };
-    }
+    },
   },
   {
     id: 'theme',
@@ -76,10 +78,44 @@ const suiteDefinitions: SuiteDefinition[] = [
         passedCount: res.passedCount,
         failedCount: res.failedCount,
         totalCount: res.passedCount + res.failedCount,
-        details: res.results
+        details: res.results,
       };
-    }
-  }
+    },
+  },
+  {
+    id: 'colorContrast',
+    name: 'WCAG AA Color Contrast & Accessibility Standards',
+    execute: () => {
+      const res = runColorContrastTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: `${r.name}: ${r.contrastRatio}:1 (min ${r.requiredRatio}:1)`,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'evaluationFrontend',
+    name: 'Evaluation Frontend, Send Button Guardian & Role Redirects',
+    execute: () => {
+      const res = runEvaluationFrontendTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
 ];
 
 const suiteResults: SuiteResult[] = [];
@@ -104,20 +140,22 @@ for (let i = 0; i < suiteDefinitions.length; i++) {
       failedCount: raw.failedCount,
       totalCount: raw.totalCount,
       logs: raw.logs,
-      details: raw.details
+      details: raw.details,
     };
 
     if (suiteRes.logs) {
-      suiteRes.logs.forEach(log => console.log(`  ${log}`));
+      suiteRes.logs.forEach((log) => console.log(`  ${log}`));
     }
     if (suiteRes.details) {
-      suiteRes.details.forEach(item => {
+      suiteRes.details.forEach((item) => {
         const icon = item.passed ? '✅ [PASS]' : '❌ [FAIL]';
         console.log(`  ${icon} ${item.name}${item.detail ? ` (${item.detail})` : ''}`);
       });
     }
 
-    console.log(`\n  ${def.name} Subtotal: ${suiteRes.passedCount}/${suiteRes.totalCount} Passed\n`);
+    console.log(
+      `\n  ${def.name} Subtotal: ${suiteRes.passedCount}/${suiteRes.totalCount} Passed\n`
+    );
     suiteResults.push(suiteRes);
   } catch (err: unknown) {
     const errorObj = err instanceof Error ? err : new Error(String(err));
@@ -128,7 +166,7 @@ for (let i = 0; i < suiteDefinitions.length; i++) {
       passedCount: 0,
       failedCount: 1,
       totalCount: 1,
-      error: errorObj
+      error: errorObj,
     });
   }
 }
@@ -136,7 +174,7 @@ for (let i = 0; i < suiteDefinitions.length; i++) {
 // Aggregation & Dynamic Calculations
 let totalPassed = 0;
 let totalFailed = 0;
-suiteResults.forEach(s => {
+suiteResults.forEach((s) => {
   totalPassed += s.passedCount;
   totalFailed += s.failedCount;
 });
@@ -167,13 +205,17 @@ console.log('===============================================================');
 
 // Verification of Execution Invariants
 const allSuitesExecuted = suiteResults.length === suiteDefinitions.length;
-const noSuiteFailed = suiteResults.every(s => s.failedCount === 0 && !s.error);
-const validGrandTotal = grandTotal > 0 && grandTotal === (totalPassed + totalFailed);
+const noSuiteFailed = suiteResults.every((s) => s.failedCount === 0 && !s.error);
+const validGrandTotal = grandTotal > 0 && grandTotal === totalPassed + totalFailed;
 
 if (totalFailed > 0 || !allSuitesExecuted || !noSuiteFailed || !validGrandTotal) {
-  console.error('\n❌ FRONTEND TEST SUITE FAILED — One or more checks failed or a suite did not complete.\n');
+  console.error(
+    '\n❌ FRONTEND TEST SUITE FAILED — One or more checks failed or a suite did not complete.\n'
+  );
   process.exit(1);
 } else {
-  console.log(`\n🎉 ALL ${grandTotal} CHECKS ACROSS ${suiteResults.length} SUITES PASSED CLEANLY!\n`);
+  console.log(
+    `\n🎉 ALL ${grandTotal} CHECKS ACROSS ${suiteResults.length} SUITES PASSED CLEANLY!\n`
+  );
   process.exit(0);
 }

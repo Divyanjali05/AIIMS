@@ -1,25 +1,31 @@
-import { IUser } from '../models/User.model';
+import type { IUser } from '../models/User.model';
+
+export const STARTING_CREDITS = 500;
 
 /**
  * CREDIT_RULES — single source of truth for all reward/cost values.
  * Change values here; do NOT scatter hardcoded amounts through route handlers.
  */
 export const CREDIT_RULES = {
-  ASSESSMENT_COMPLETION:  { credits: 50,  xp: 100 },
-  LEVEL_QUEST_COMPLETION: { credits: 10,  xp: 50  },
-  SIGNAL_INVESTIGATION:   { credits: 30,  xp: 100 },
-  CLARITY_TASK_EASY:      { credits: 15,  xp: 50  },
-  CLARITY_TASK_MEDIUM:    { credits: 15,  xp: 50  },
-  CLARITY_TASK_ADVANCED:  { credits: 15,  xp: 50  },
-  WELCOME_BONUS:          { credits: 100, xp: 0   }
+  ASSESSMENT_COMPLETION: { credits: 50, xp: 100 },
+  LEVEL_QUEST_COMPLETION: { credits: 10, xp: 50 },
+  SIGNAL_INVESTIGATION: { credits: 30, xp: 100 },
+  CLARITY_TASK_EASY: { credits: 15, xp: 50 },
+  CLARITY_TASK_MEDIUM: { credits: 15, xp: 50 },
+  CLARITY_TASK_ADVANCED: { credits: 15, xp: 50 },
+  WELCOME_BONUS: { credits: STARTING_CREDITS, xp: 0 },
 } as const;
 
 /**
  * Generates a deterministic idempotency key for a clarity task reward.
  * The key format ensures the same task for the same user only ever awards once.
  */
-export const clarityTaskRewardKey = (userId: string, topic: string, difficulty: string, taskId: string): string =>
-  `clarity::${userId}::${topic}::${difficulty}::${taskId}`;
+export const clarityTaskRewardKey = (
+  userId: string,
+  topic: string,
+  difficulty: string,
+  taskId: string
+): string => `clarity::${userId}::${topic}::${difficulty}::${taskId}`;
 
 /**
  * Formats a MongoDB User document into a client-ready state payload
@@ -61,7 +67,7 @@ export const formatUserState = (dbUser: IUser) => {
       targetGoal: dbUser.targetGoal,
       stage: dbUser.stage,
       xpPoints: dbUser.xpPoints,
-      aiimsCredits: dbUser.aiimsCredits
+      aiimsCredits: dbUser.aiimsCredits,
     },
     assessment: dbUser.assessment || {
       status: 'not_started',
@@ -69,12 +75,18 @@ export const formatUserState = (dbUser: IUser) => {
       currentQuestionIndex: 0,
       completedAt: null,
       rewardClaimed: false,
-      scores: { usageFrequency: 0, evaluationCapability: 0, workflowDesign: 0, strategicVision: 0, mentorshipReadiness: 0 }
+      scores: {
+        usageFrequency: 0,
+        evaluationCapability: 0,
+        workflowDesign: 0,
+        strategicVision: 0,
+        mentorshipReadiness: 0,
+      },
     },
     analysis: dbUser.analysis || {
       status: 'locked',
       topCapability: 'AI Evaluation & Critical Assessment',
-      growthArea: 'AI Workflow Design'
+      growthArea: 'AI Workflow Design',
     },
     clarity: {
       status: dbUser.clarity?.status || 'locked',
@@ -82,43 +94,51 @@ export const formatUserState = (dbUser: IUser) => {
       selectedTopic: dbUser.clarity?.selectedTopic || null,
       completedTopics: dbUser.clarity?.completedTopics || [],
       reflections: dbUser.clarity?.reflections || {},
-      taskScores: (dbUser.clarity as any)?.taskScores || {}
+      taskScores: (dbUser.clarity as unknown as Record<string, unknown>)?.taskScores || {},
     },
     focus: {
       status: dbUser.focus?.status || 'locked',
       selectedTrack: dbUser.focus?.selectedTrack || null,
       history: dbUser.focus?.history || [],
       activatedAt: dbUser.focus?.activatedAt || null,
-      sessionHistory: (dbUser.focus as any)?.sessionHistory || [],
-      activeSession: (dbUser.focus as any)?.activeSession || null,
-      sessionConfig: (dbUser.focus as any)?.sessionConfig || null
+      sessionHistory: (dbUser.focus as unknown as Record<string, unknown>)?.sessionHistory || [],
+      activeSession: (dbUser.focus as unknown as Record<string, unknown>)?.activeSession || null,
+      sessionConfig: (dbUser.focus as unknown as Record<string, unknown>)?.sessionConfig || null,
     },
     radar: {
       status: dbUser.radar?.status || 'locked',
       investigatedSignalIds: dbUser.radar?.investigatedSignalIds || [],
       followedSignalIds: dbUser.radar?.followedSignalIds || [],
-      savedSignalIds: (dbUser.radar as any)?.savedSignalIds || [],
-      dismissedSignalIds: (dbUser.radar as any)?.dismissedSignalIds || [],
-      lastViewedRadar: (dbUser.radar as any)?.lastViewedRadar || null,
-      radarProgress: (dbUser.radar as any)?.radarProgress || 0
+      savedSignalIds: (dbUser.radar as unknown as Record<string, unknown>)?.savedSignalIds || [],
+      dismissedSignalIds:
+        (dbUser.radar as unknown as Record<string, unknown>)?.dismissedSignalIds || [],
+      lastViewedRadar:
+        (dbUser.radar as unknown as Record<string, unknown>)?.lastViewedRadar || null,
+      radarProgress: (dbUser.radar as unknown as Record<string, unknown>)?.radarProgress || 0,
     },
     investigation: dbUser.investigation || {
       status: 'locked',
       selectedSignalId: null,
-      userNotes: {}
+      userNotes: {},
     },
-    solver: (dbUser as any)?.solver || { latestWorkflow: null, history: [] },
-    build: (dbUser as any)?.build || { projects: [], activeProjectId: null },
+    solver: (dbUser as unknown as Record<string, unknown>)?.solver || {
+      latestWorkflow: null,
+      history: [],
+    },
+    build: (dbUser as unknown as Record<string, unknown>)?.build || {
+      projects: [],
+      activeProjectId: null,
+    },
     relevance: { status: 'locked' },
     credits: {
       balance: dbUser.aiimsCredits,
       transactions: dbUser.transactions || [],
-      claimedActions: Array.from(claimedSet)
+      claimedActions: Array.from(claimedSet),
     },
     notifications: dbUser.notifications || [],
     aiWallet: dbUser.aiWallet || {
       userTools: [],
-      dismissedRecommendations: []
-    }
+      dismissedRecommendations: [],
+    },
   };
 };

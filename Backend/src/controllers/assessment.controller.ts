@@ -2,7 +2,12 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
 import { User } from '../models/User.model';
-import { mockUser, mockDimensionScores, mockLearnerFullState, mockTransactions } from '../models/aiims.models';
+import {
+  mockUser,
+  mockDimensionScores,
+  mockLearnerFullState,
+  mockTransactions,
+} from '../models/aiims.models';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { evaluateAssessment } from '../services/assessmentScoring';
 import { CREDIT_RULES, formatUserState } from '../config/credits.config';
@@ -20,17 +25,25 @@ export const getQuestions = (req: Request, res: Response) => {
       id: 'q1',
       dimension: 'Prompt Engineering',
       type: 'mcq',
-      prompt: 'Which prompting technique best mitigates hallucination in complex multi-step reasoning?',
-      options: ['Few-Shot Prompting', 'Chain-of-Thought (CoT)', 'Zero-Shot Direct', 'System Prompt Overriding'],
-      correctOptionIndex: 1
+      prompt:
+        'Which prompting technique best mitigates hallucination in complex multi-step reasoning?',
+      options: [
+        'Few-Shot Prompting',
+        'Chain-of-Thought (CoT)',
+        'Zero-Shot Direct',
+        'System Prompt Overriding',
+      ],
+      correctOptionIndex: 1,
     },
     {
       id: 'q2',
       dimension: 'Agentic Workflows',
       type: 'open_ended',
-      prompt: 'Describe how you would design state persistence and fallback handling for an autonomous research agent when an external tool API fails.',
-      rubric: 'Evaluates understanding of agentic retry loops, exponential backoff, state checkpointing, and graceful degraded response.'
-    }
+      prompt:
+        'Describe how you would design state persistence and fallback handling for an autonomous research agent when an external tool API fails.',
+      rubric:
+        'Evaluates understanding of agentic retry loops, exponential backoff, state checkpointing, and graceful degraded response.',
+    },
   ]);
 };
 
@@ -95,7 +108,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       const updatedUser = await User.findOneAndUpdate(
         {
           _id: req.user._id,
-          'assessment.rewardClaimed': { $ne: true }
+          'assessment.rewardClaimed': { $ne: true },
         },
         {
           $inc: { xpPoints: xpReward },
@@ -111,8 +124,8 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
             'analysis.status': 'unlocked',
             'analysis.topCapability': evaluationResult.strongestSkill.name,
             'analysis.growthArea': evaluationResult.roomToGrow.name,
-            'analysis.unlockedAt': req.user.analysis?.unlockedAt || new Date().toISOString()
-          }
+            'analysis.unlockedAt': req.user.analysis?.unlockedAt || new Date().toISOString(),
+          },
         },
         { returnDocument: 'after' }
       );
@@ -128,7 +141,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           reason: `Completed Baseline Diagnostic Assessment (+${creditReward} AC)`,
           source: 'ASSESSMENT',
           sourceId: 'DIAGNOSTIC_ASSESSMENT',
-          idempotencyKey: `assessment::${userId}::completed`
+          idempotencyKey: `assessment::${userId}::completed`,
         });
 
         const latestUser = await User.findById(req.user._id);
@@ -144,7 +157,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           topCapability: evaluationResult.strongestSkill.name,
           growthArea: evaluationResult.roomToGrow.name,
           updatedBalance: newBal,
-          updatedScores: req.user.assessment?.scores || updatedUser.assessment.scores
+          updatedScores: req.user.assessment?.scores || updatedUser.assessment.scores,
         });
       } else {
         // Already claimed: update answers & scores atomically without re-awarding credits
@@ -159,8 +172,8 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
               'assessment.evaluationResult': evaluationResult,
               'analysis.status': 'unlocked',
               'analysis.topCapability': evaluationResult.strongestSkill.name,
-              'analysis.growthArea': evaluationResult.roomToGrow.name
-            }
+              'analysis.growthArea': evaluationResult.roomToGrow.name,
+            },
           }
         );
         const latestUser = await User.findById(req.user._id);
@@ -173,12 +186,13 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           topCapability: evaluationResult.strongestSkill.name,
           growthArea: evaluationResult.roomToGrow.name,
           updatedBalance: currentBal,
-          updatedScores: evaluationResult.legacyScores
+          updatedScores: evaluationResult.legacyScores,
         });
       }
     }
 
-    const alreadyClaimed = req.user.assessment?.rewardClaimed || req.user.assessment?.status === 'completed';
+    const alreadyClaimed =
+      req.user.assessment?.rewardClaimed || req.user.assessment?.status === 'completed';
     const previousBalance = req.user.aiimsCredits || 0;
     let earnedCredits = 0;
 
@@ -186,24 +200,27 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       const userId = String(req.user._id || req.user.id);
       const actionKey = `assessment::${userId}::diagnostic`;
 
-      const ledgerResult = await creditsLedgerService.executeTransaction({
-        userId,
-        type: 'EARN',
-        category: 'REWARD',
-        amount: creditReward,
-        reason: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
-        source: 'ASSESSMENT',
-        sourceId: 'DIAGNOSTIC_ASSESSMENT',
-        idempotencyKey: actionKey
-      }).catch((e) => {
-        console.warn('[Assessment] Ledger offline write notice:', e.message);
-        return null;
-      });
+      const ledgerResult = await creditsLedgerService
+        .executeTransaction({
+          userId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: creditReward,
+          reason: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
+          source: 'ASSESSMENT',
+          sourceId: 'DIAGNOSTIC_ASSESSMENT',
+          idempotencyKey: actionKey,
+        })
+        .catch((e) => {
+          console.warn('[Assessment] Ledger offline write notice:', e.message);
+          return null;
+        });
 
       if (ledgerResult && ledgerResult.duplicate) {
         earnedCredits = 0;
-      } else {
-        req.user.aiimsCredits = ledgerResult?.newBalance ?? (previousBalance + creditReward);
+      } else if (ledgerResult && ledgerResult.success) {
+        req.user.aiimsCredits =
+          ledgerResult.newBalance ?? ledgerResult.balance ?? previousBalance + creditReward;
         req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
         earnedCredits = creditReward;
 
@@ -217,7 +234,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
           description: 'Completed Discover Your AI Capability Diagnostic (+50 AC)',
           timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
           previousBalance,
-          newBalance: req.user.aiimsCredits
+          newBalance: req.user.aiimsCredits,
         };
 
         req.user.transactions = req.user.transactions || [];
@@ -239,14 +256,14 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       completedAt: req.user.assessment?.completedAt || new Date().toISOString(),
       rewardClaimed: true,
       scores: evaluationResult.legacyScores,
-      evaluationResult
+      evaluationResult,
     };
 
     req.user.analysis = {
       status: 'unlocked',
       topCapability: evaluationResult.strongestSkill.name,
       growthArea: evaluationResult.roomToGrow.name,
-      unlockedAt: req.user.analysis?.unlockedAt || new Date().toISOString()
+      unlockedAt: req.user.analysis?.unlockedAt || new Date().toISOString(),
     };
 
     if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
@@ -257,14 +274,16 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     }
 
     return res.json({
-      message: alreadyClaimed ? 'Assessment updated (reward already claimed)' : 'Assessment completed and saved to MongoDB Atlas!',
+      message: alreadyClaimed
+        ? 'Assessment updated (reward already claimed)'
+        : 'Assessment completed and saved to MongoDB Atlas!',
       earnedCredits,
       evaluationResult,
       scores: evaluationResult.legacyScores,
       topCapability: evaluationResult.strongestSkill.name,
       growthArea: evaluationResult.roomToGrow.name,
       updatedBalance: req.user.aiimsCredits,
-      updatedScores: req.user.assessment.scores
+      updatedScores: req.user.assessment.scores,
     });
   }
 
@@ -282,7 +301,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     type: 'EARN',
     amount: creditReward,
     description: 'Completed Discover Your AI Profile Diagnostic (+50 AC)',
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
   });
 
   res.json({
@@ -290,7 +309,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     earnedCredits: creditReward,
     evaluationResult,
     updatedBalance: mockUser.aiimsCredits,
-    updatedScores: mockDimensionScores
+    updatedScores: mockDimensionScores,
   });
 };
 
@@ -305,14 +324,15 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
       available: false,
       totalComparableRecords: 0,
       minRequiredRecords: MIN_REQUIRED_RECORDS,
-      message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+      message:
+        'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.',
     });
   }
 
   try {
     const completedUsers = await User.find({
       'assessment.status': 'completed',
-      'assessment.evaluationResult.scoringVersion': '3.0.0-evidence-based'
+      'assessment.evaluationResult.scoringVersion': '3.0.0-evidence-based',
     }).select('assessment.evaluationResult');
 
     if (completedUsers.length < MIN_REQUIRED_RECORDS) {
@@ -320,7 +340,8 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
         available: false,
         totalComparableRecords: completedUsers.length,
         minRequiredRecords: MIN_REQUIRED_RECORDS,
-        message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+        message:
+          'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.',
       });
     }
 
@@ -340,7 +361,9 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
         const solScore = evalRes.capabilities.solvingWithAI?.score || 0;
         const chkScore = evalRes.capabilities.checkingAI?.score || 0;
         const adpScore = evalRes.capabilities.adaptingToAI?.score || 0;
-        const ovScore = evalRes.overallScore || Math.round((uScore + undScore + solScore + chkScore + adpScore) / 5);
+        const ovScore =
+          evalRes.overallScore ||
+          Math.round((uScore + undScore + solScore + chkScore + adpScore) / 5);
 
         sumUsingAI += uScore;
         sumUnderstandingAI += undScore;
@@ -358,7 +381,7 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
       understandingAI: Math.round(sumUnderstandingAI / count),
       solvingWithAI: Math.round(sumSolvingWithAI / count),
       checkingAI: Math.round(sumCheckingAI / count),
-      adaptingToAI: Math.round(sumAdaptingToAI / count)
+      adaptingToAI: Math.round(sumAdaptingToAI / count),
     };
     const peerOverallAverage = Math.round(sumOverall / count);
 
@@ -367,7 +390,10 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
       const userOverall = req.user.assessment.evaluationResult.overallScore;
       const lowerCount = allOverallScores.filter((s) => s < userOverall).length;
       const equalCount = allOverallScores.filter((s) => s === userOverall).length;
-      userPercentile = Math.min(99, Math.max(1, Math.round(((lowerCount + 0.5 * equalCount) / count) * 100)));
+      userPercentile = Math.min(
+        99,
+        Math.max(1, Math.round(((lowerCount + 0.5 * equalCount) / count) * 100))
+      );
     }
 
     return res.json({
@@ -376,7 +402,7 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
       minRequiredRecords: MIN_REQUIRED_RECORDS,
       benchmarks,
       peerOverallAverage,
-      userPercentile
+      userPercentile,
     });
   } catch (err) {
     console.error('Failed to compute peer benchmarks:', err);
@@ -384,7 +410,8 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
       available: false,
       totalComparableRecords: 0,
       minRequiredRecords: MIN_REQUIRED_RECORDS,
-      message: 'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'
+      message:
+        'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.',
     });
   }
 };
@@ -394,19 +421,41 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
  */
 export const getIndividualAnalysis = (req: AuthenticatedRequest, res: Response) => {
   const profile = req.user ? formatUserState(req.user).profile : mockUser;
-  const scores = req.user?.assessment?.scores ? [
-    { dimension: 'Generative AI Tech', score: req.user.assessment.scores.usageFrequency ?? 0, benchmark: 75 },
-    { dimension: 'Prompt Engineering', score: req.user.assessment.scores.evaluationCapability ?? 0, benchmark: 80 },
-    { dimension: 'Agentic Workflows', score: req.user.assessment.scores.workflowDesign ?? 0, benchmark: 78 },
-    { dimension: 'AI Ethics & Alignment', score: req.user.assessment.scores.strategicVision ?? 0, benchmark: 72 },
-    { dimension: 'Tool Integration', score: req.user.assessment.scores.mentorshipReadiness ?? 0, benchmark: 74 }
-  ] : mockDimensionScores;
+  const scores = req.user?.assessment?.scores
+    ? [
+        {
+          dimension: 'Generative AI Tech',
+          score: req.user.assessment.scores.usageFrequency ?? 0,
+          benchmark: 75,
+        },
+        {
+          dimension: 'Prompt Engineering',
+          score: req.user.assessment.scores.evaluationCapability ?? 0,
+          benchmark: 80,
+        },
+        {
+          dimension: 'Agentic Workflows',
+          score: req.user.assessment.scores.workflowDesign ?? 0,
+          benchmark: 78,
+        },
+        {
+          dimension: 'AI Ethics & Alignment',
+          score: req.user.assessment.scores.strategicVision ?? 0,
+          benchmark: 72,
+        },
+        {
+          dimension: 'Tool Integration',
+          score: req.user.assessment.scores.mentorshipReadiness ?? 0,
+          benchmark: 74,
+        },
+      ]
+    : mockDimensionScores;
 
   res.json({
     learner: profile,
     scores,
     strengths: ['Prompt Engineering (88%)', 'Generative AI Tech (82%)'],
-    gaps: ['Agentic Workflows (62%)', 'ML Fundamentals (65%)']
+    gaps: ['Agentic Workflows (62%)', 'ML Fundamentals (65%)'],
   });
 };
 
@@ -417,7 +466,7 @@ export const getComparativeAnalysis = (req: Request, res: Response) => {
   res.json({
     scores: mockDimensionScores,
     cohortPercentile: 78,
-    peerAverage: 72.5
+    peerAverage: 72.5,
   });
 };
 
@@ -429,6 +478,6 @@ export const getOverallAnalysis = (req: Request, res: Response) => {
     totalStudents: 1240,
     cohortAverage: 71.4,
     topDimension: 'Prompt Engineering',
-    biggestKnowledgeGap: 'Agentic Workflows'
+    biggestKnowledgeGap: 'Agentic Workflows',
   });
 };

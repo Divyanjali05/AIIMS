@@ -76,7 +76,7 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        userSelect: 'none'
+        userSelect: 'none',
       }}
     >
       {/* 3D Scene or 2D Fallback */}
@@ -122,7 +122,7 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
           width: '100%',
           height: '100%',
           pointerEvents: 'none',
-          zIndex: 10
+          zIndex: 10,
         }}
       >
         {/* Core Tag */}
@@ -140,16 +140,18 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
             fontWeight: 800,
             color: isDarkMode ? '#22D3EE' : '#0891B2',
             letterSpacing: '0.8px',
-            boxShadow: isDarkMode ? '0 4px 14px rgba(34, 211, 238, 0.35)' : '0 4px 14px rgba(8, 145, 178, 0.2)',
+            boxShadow: isDarkMode
+              ? '0 4px 14px rgba(34, 211, 238, 0.35)'
+              : '0 4px 14px rgba(8, 145, 178, 0.2)',
             textTransform: 'uppercase',
             pointerEvents: 'auto',
             cursor: onExploreClick ? 'pointer' : 'default',
             backdropFilter: 'blur(8px)',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
           }}
           onClick={onExploreClick}
         >
-          AINOVA QUANTUM CORE
+          AIIMS QUANTUM CORE
         </div>
 
         {/* FLOATING CARD 1: Diagnostic Assessment (Top Left) */}
@@ -161,7 +163,9 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
             left: '12px',
             backgroundColor: isDarkMode ? 'rgba(16, 22, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(16px)',
-            border: isDarkMode ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(124, 58, 237, 0.25)',
+            border: isDarkMode
+              ? '1px solid rgba(139, 92, 246, 0.35)'
+              : '1px solid rgba(124, 58, 237, 0.25)',
             borderRadius: '16px',
             padding: '12px 16px',
             display: 'flex',
@@ -172,7 +176,8 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               : '0 10px 25px rgba(124, 58, 237, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
             pointerEvents: 'auto',
             animation: prefersReducedMotion ? 'none' : 'floatSlow1 5.2s ease-in-out infinite',
-            transition: 'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease'
+            transition:
+              'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
           }}
         >
           <div
@@ -184,16 +189,29 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isDarkMode ? '#A855F7' : '#7C3AED'
+              color: isDarkMode ? '#A855F7' : '#7C3AED',
             }}
           >
             <Sparkles size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: isDarkMode ? '#A855F7' : '#7C3AED', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: isDarkMode ? '#A855F7' : '#7C3AED',
+                textTransform: 'uppercase',
+              }}
+            >
               Capability Radar
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: isDarkMode ? '#F8FAFC' : '#0F172A' }}>
+            <div
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: isDarkMode ? '#F8FAFC' : '#0F172A',
+              }}
+            >
               5-Dimension Diagnostic
             </div>
           </div>
@@ -208,7 +226,9 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
             left: '18px',
             backgroundColor: isDarkMode ? 'rgba(16, 22, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(16px)',
-            border: isDarkMode ? '1px solid rgba(34, 211, 238, 0.35)' : '1px solid rgba(8, 145, 178, 0.25)',
+            border: isDarkMode
+              ? '1px solid rgba(34, 211, 238, 0.35)'
+              : '1px solid rgba(8, 145, 178, 0.25)',
             borderRadius: '16px',
             padding: '12px 16px',
             display: 'flex',
@@ -219,7 +239,8 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               : '0 10px 25px rgba(8, 145, 178, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
             pointerEvents: 'auto',
             animation: prefersReducedMotion ? 'none' : 'floatSlow2 5.8s ease-in-out infinite',
-            transition: 'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease'
+            transition:
+              'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
           }}
         >
           <div
@@ -231,16 +252,29 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isDarkMode ? '#22D3EE' : '#0891B2'
+              color: isDarkMode ? '#22D3EE' : '#0891B2',
             }}
           >
             <Cpu size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: isDarkMode ? '#22D3EE' : '#0891B2', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: isDarkMode ? '#22D3EE' : '#0891B2',
+                textTransform: 'uppercase',
+              }}
+            >
               AI Task Lab
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: isDarkMode ? '#F8FAFC' : '#0F172A' }}>
+            <div
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: isDarkMode ? '#F8FAFC' : '#0F172A',
+              }}
+            >
               Claude & Gemini Rubric
             </div>
           </div>
@@ -255,7 +289,9 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
             right: '10px',
             backgroundColor: isDarkMode ? 'rgba(16, 22, 42, 0.82)' : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(16px)',
-            border: isDarkMode ? '1px solid rgba(52, 211, 153, 0.35)' : '1px solid rgba(16, 185, 129, 0.25)',
+            border: isDarkMode
+              ? '1px solid rgba(52, 211, 153, 0.35)'
+              : '1px solid rgba(16, 185, 129, 0.25)',
             borderRadius: '16px',
             padding: '12px 16px',
             display: 'flex',
@@ -265,8 +301,11 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               ? '0 12px 30px rgba(0, 0, 0, 0.45), 0 0 15px rgba(52, 211, 153, 0.15)'
               : '0 10px 25px rgba(16, 185, 129, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04)',
             pointerEvents: 'auto',
-            animation: prefersReducedMotion ? 'none' : 'floatSlow1 4.9s ease-in-out infinite reverse',
-            transition: 'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease'
+            animation: prefersReducedMotion
+              ? 'none'
+              : 'floatSlow1 4.9s ease-in-out infinite reverse',
+            transition:
+              'background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease',
           }}
         >
           <div
@@ -278,16 +317,29 @@ export const Hero3DVisual: React.FC<Hero3DVisualProps> = ({ onExploreClick }) =>
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: isDarkMode ? '#34D399' : '#059669'
+              color: isDarkMode ? '#34D399' : '#059669',
             }}
           >
             <Radar size={18} />
           </div>
           <div>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: isDarkMode ? '#34D399' : '#059669', textTransform: 'uppercase' }}>
+            <div
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: isDarkMode ? '#34D399' : '#059669',
+                textTransform: 'uppercase',
+              }}
+            >
               Market Signals
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: isDarkMode ? '#F8FAFC' : '#0F172A' }}>
+            <div
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                color: isDarkMode ? '#F8FAFC' : '#0F172A',
+              }}
+            >
               Real-time Shifts & Tools
             </div>
           </div>

@@ -37,7 +37,7 @@
   /* Layout Standards */
   --aiims-sidebar-width: 250px;
   --aiims-sidebar-collapsed-width: 68px;
-  --aiims-header-height: 60px;
+  --aiims-header-height: calc(60px + env(safe-area-inset-top, 0px));
   --aiims-content-max-width-expanded: 1120px;
   --aiims-content-max-width-collapsed: 1300px;
   --aiims-content-max-width: var(--aiims-content-max-width-expanded);
@@ -97,6 +97,57 @@
   --aiims-card-peach-bg: #fff7ed;
   --aiims-card-peach-border: #ffedd5;
   --aiims-card-peach-text: #7c2d12;
+
+  /* 5 Core Vibrant Design Tokens: Sky, Mint, Sunshine, Coral, Lavender */
+  --aiims-token-sky-bg: #f0f9ff;
+  --aiims-token-sky-border: #bae6fd;
+  --aiims-token-sky-accent: #0284c7;
+  --aiims-token-sky-text: #0369a1;
+
+  --aiims-token-mint-bg: #ecfdf5;
+  --aiims-token-mint-border: #a7f3d0;
+  --aiims-token-mint-accent: #059669;
+  --aiims-token-mint-text: #047857;
+
+  --aiims-token-sunshine-bg: #fefce8;
+  --aiims-token-sunshine-border: #fde047;
+  --aiims-token-sunshine-accent: #d97706;
+  --aiims-token-sunshine-text: #854d0e;
+
+  --aiims-token-coral-bg: #fff1f2;
+  --aiims-token-coral-border: #fecdd3;
+  --aiims-token-coral-accent: #e11d48;
+  --aiims-token-coral-text: #be123c;
+
+  --aiims-token-lavender-bg: #f5f3ff;
+  --aiims-token-lavender-border: #ddd6fe;
+  --aiims-token-lavender-accent: #7c3aed;
+  --aiims-token-lavender-text: #5b21b6;
+
+  /* Level Distinct Colors (Levels 1 to 4) */
+  --aiims-level-1-accent: #7c3aed;
+  --aiims-level-1-bg: #f5f3ff;
+  --aiims-level-1-border: #ddd6fe;
+  --aiims-level-1-text: #5b21b6;
+  --aiims-level-1-gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+
+  --aiims-level-2-accent: #0284c7;
+  --aiims-level-2-bg: #f0f9ff;
+  --aiims-level-2-border: #bae6fd;
+  --aiims-level-2-text: #0369a1;
+  --aiims-level-2-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+
+  --aiims-level-3-accent: #059669;
+  --aiims-level-3-bg: #ecfdf5;
+  --aiims-level-3-border: #a7f3d0;
+  --aiims-level-3-text: #047857;
+  --aiims-level-3-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+
+  --aiims-level-4-accent: #e11d48;
+  --aiims-level-4-bg: #fff1f2;
+  --aiims-level-4-border: #fecdd3;
+  --aiims-level-4-text: #be123c;
+  --aiims-level-4-gradient: linear-gradient(135deg, #e11d48 0%, #fb7185 100%);
 
   /* Backward Compatibility Aliases */
   --aiims-tint-emerald-bg: var(--aiims-card-mint-bg);
@@ -173,6 +224,57 @@
   --aiims-card-peach-bg: rgba(249, 115, 22, 0.15);
   --aiims-card-peach-border: rgba(249, 115, 22, 0.35);
   --aiims-card-peach-text: #fdba74;
+
+  /* 5 Core Vibrant Design Tokens (Dark Mode) */
+  --aiims-token-sky-bg: rgba(14, 165, 233, 0.15);
+  --aiims-token-sky-border: rgba(14, 165, 233, 0.35);
+  --aiims-token-sky-accent: #38bdf8;
+  --aiims-token-sky-text: #7dd3fc;
+
+  --aiims-token-mint-bg: rgba(16, 185, 129, 0.15);
+  --aiims-token-mint-border: rgba(16, 185, 129, 0.35);
+  --aiims-token-mint-accent: #34d399;
+  --aiims-token-mint-text: #6ee7b7;
+
+  --aiims-token-sunshine-bg: rgba(245, 158, 11, 0.15);
+  --aiims-token-sunshine-border: rgba(245, 158, 11, 0.35);
+  --aiims-token-sunshine-accent: #fbbf24;
+  --aiims-token-sunshine-text: #fcd34d;
+
+  --aiims-token-coral-bg: rgba(244, 63, 94, 0.15);
+  --aiims-token-coral-border: rgba(244, 63, 94, 0.35);
+  --aiims-token-coral-accent: #fb7185;
+  --aiims-token-coral-text: #fda4af;
+
+  --aiims-token-lavender-bg: rgba(139, 92, 246, 0.15);
+  --aiims-token-lavender-border: rgba(139, 92, 246, 0.35);
+  --aiims-token-lavender-accent: #a78bfa;
+  --aiims-token-lavender-text: #c4b5fd;
+
+  /* Level Distinct Colors (Dark Mode) */
+  --aiims-level-1-accent: #a78bfa;
+  --aiims-level-1-bg: rgba(139, 92, 246, 0.15);
+  --aiims-level-1-border: rgba(139, 92, 246, 0.35);
+  --aiims-level-1-text: #c4b5fd;
+  --aiims-level-1-gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+
+  --aiims-level-2-accent: #38bdf8;
+  --aiims-level-2-bg: rgba(14, 165, 233, 0.15);
+  --aiims-level-2-border: rgba(14, 165, 233, 0.35);
+  --aiims-level-2-text: #7dd3fc;
+  --aiims-level-2-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+
+  --aiims-level-3-accent: #34d399;
+  --aiims-level-3-bg: rgba(16, 185, 129, 0.15);
+  --aiims-level-3-border: rgba(16, 185, 129, 0.35);
+  --aiims-level-3-text: #6ee7b7;
+  --aiims-level-3-gradient: linear-gradient(135deg, #059669 0%, #10b981 100%);
+
+  --aiims-level-4-accent: #fb7185;
+  --aiims-level-4-bg: rgba(244, 63, 94, 0.15);
+  --aiims-level-4-border: rgba(244, 63, 94, 0.35);
+  --aiims-level-4-text: #fda4af;
+  --aiims-level-4-gradient: linear-gradient(135deg, #e11d48 0%, #fb7185 100%);
 
   /* Backward Compatibility Aliases */
   --aiims-tint-emerald-bg: var(--aiims-card-mint-bg);
@@ -434,9 +536,9 @@ body {
     gap: 12px !important;
   }
 
-  /* Canvas Padding Phone */
+  /* Canvas Padding Phone (respects bottom nav + safe-area-inset-bottom) */
   .aiims-main-canvas {
-    padding: 16px 14px 40px 14px !important;
+    padding: 16px 14px calc(68px + env(safe-area-inset-bottom, 12px)) 14px !important;
   }
 
   /* Header adjustments on Phone */
@@ -504,6 +606,69 @@ body {
 
   .aiims-drawer-backdrop {
     display: none !important;
+  }
+
+  .aiims-mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION (< 768px)
+   ============================================================ */
+
+.aiims-mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .aiims-mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background-color: var(--aiims-bg-card, #ffffff);
+    border-top: 1px solid var(--aiims-border-card, #ede9fe);
+    box-shadow: 0 -4px 16px rgba(99, 102, 241, 0.08);
+    z-index: 9990;
+    align-items: center;
+    justify-content: space-around;
+    box-sizing: border-box;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .aiims-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px 0;
+    color: var(--aiims-text-muted, #94a3b8);
+    font-size: 11px;
+    font-weight: 700;
+    font-family: inherit;
+    transition:
+      color 0.15s ease,
+      transform 0.15s ease;
+    text-decoration: none;
+  }
+
+  .aiims-bottom-nav-item.active {
+    color: var(--aiims-primary, #6366f1);
+  }
+
+  .aiims-bottom-nav-item:active {
+    transform: scale(0.95);
   }
 }
 
@@ -664,8 +829,8 @@ body {
 
 /* Mobile & Android Safe-Area Insets (notch, status bar, gesture pill) */
 body {
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-top: 0;
+  padding-bottom: 0;
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
   -webkit-tap-highlight-color: transparent;

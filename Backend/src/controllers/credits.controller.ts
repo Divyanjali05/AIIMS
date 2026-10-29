@@ -198,7 +198,15 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    req.user.aiimsCredits = result.balance || (req.user.aiimsCredits || 0) + rewardAmount;
+    if (!result.success) {
+      return res.status(400).json({
+        error: result.error || 'Failed to award quest level credits',
+        code: result.code || 'TRANSACTION_FAILED',
+        currentBalance: result.balance ?? req.user.aiimsCredits,
+      });
+    }
+
+    req.user.aiimsCredits = result.balance ?? (req.user.aiimsCredits || 0);
     req.user.xpPoints = (req.user.xpPoints || 0) + xpAmount;
 
     return res.json({

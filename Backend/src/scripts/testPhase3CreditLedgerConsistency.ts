@@ -17,6 +17,7 @@
  */
 
 import mongoose from 'mongoose';
+import { User } from '../models/User.model';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { registeredUsers } from '../controllers/auth.controller';
 
@@ -41,7 +42,9 @@ async function runTests(): Promise<void> {
   console.log('==================================================================\n');
 
   const isDbConnected = mongoose.connection.readyState === 1;
-  console.log(`📡 Database mode: ${isDbConnected ? 'MongoDB Connected' : 'In-Memory / Isolated Mode'}\n`);
+  console.log(
+    `📡 Database mode: ${isDbConnected ? 'MongoDB Connected' : 'In-Memory / Isolated Mode'}\n`
+  );
 
   const testUserId = `test-user-${Date.now()}`;
   const userEmail = `auditor.${Date.now()}@example.com`;
@@ -52,12 +55,12 @@ async function runTests(): Promise<void> {
     id: testUserId,
     name: 'Audit User',
     email: userEmail,
-    role: 'STUDENT',
-    aiimsCredits: 100,
+    role: 'learner',
+    aiimsCredits: 500,
     xpPoints: 100,
     transactions: [],
     radar: { investigatedSignalIds: [] },
-    assessment: { rewardClaimed: false }
+    assessment: { rewardClaimed: false },
   };
   registeredUsers[userEmail] = testUser;
 
@@ -68,7 +71,7 @@ async function runTests(): Promise<void> {
 
   // 1.1 Initial balance check
   const bal0 = await creditsLedgerService.getBalance(testUserId);
-  assert('1.1: Initial baseline balance is 100 AC', bal0 === 100, `Got ${bal0}`);
+  assert('1.1: Initial baseline balance is 500 AC', bal0 === 500, `Got ${bal0}`);
 
   // 1.2 Single EARN reward (+50 AC)
   const earnKey1 = `test::earn::${Date.now()}::1`;
@@ -80,12 +83,12 @@ async function runTests(): Promise<void> {
     reason: 'Initial Diagnostic Assessment Reward (+50 AC)',
     source: 'ASSESSMENT',
     sourceId: 'DIAGNOSTIC_ASSESSMENT',
-    idempotencyKey: earnKey1
+    idempotencyKey: earnKey1,
   });
 
   assert(
-    '1.2: Reward EARN grants exactly 50 AC once (100 -> 150)',
-    earnRes1.success === true && earnRes1.balance === 150 && !earnRes1.duplicate,
+    '1.2: Reward EARN grants exactly 50 AC once (500 -> 550)',
+    earnRes1.success === true && earnRes1.balance === 550 && !earnRes1.duplicate,
     `Success=${earnRes1.success}, Balance=${earnRes1.balance}`
   );
 
@@ -98,12 +101,12 @@ async function runTests(): Promise<void> {
     reason: 'Initial Diagnostic Assessment Reward (+50 AC)',
     source: 'ASSESSMENT',
     sourceId: 'DIAGNOSTIC_ASSESSMENT',
-    idempotencyKey: earnKey1
+    idempotencyKey: earnKey1,
   });
 
   assert(
-    '1.3: Sequential duplicate idempotencyKey returns duplicate: true and leaves balance at 150',
-    earnResDup.success === true && earnResDup.duplicate === true && earnResDup.balance === 150,
+    '1.3: Sequential duplicate idempotencyKey returns duplicate: true and leaves balance at 550',
+    earnResDup.success === true && earnResDup.duplicate === true && earnResDup.balance === 550,
     `Duplicate=${earnResDup.duplicate}, Balance=${earnResDup.balance}`
   );
 
@@ -116,7 +119,7 @@ async function runTests(): Promise<void> {
     reason: 'Malicious amount change attempt',
     source: 'ASSESSMENT',
     sourceId: 'DIAGNOSTIC_ASSESSMENT',
-    idempotencyKey: earnKey1
+    idempotencyKey: earnKey1,
   });
 
   assert(
@@ -127,8 +130,8 @@ async function runTests(): Promise<void> {
 
   const balAfterConflict = await creditsLedgerService.getBalance(testUserId);
   assert(
-    '1.5: Balance untouched after conflicting idempotency attempt (remains 150)',
-    balAfterConflict === 150,
+    '1.5: Balance untouched after conflicting idempotency attempt (remains 550)',
+    balAfterConflict === 550,
     `Got ${balAfterConflict}`
   );
 
@@ -147,7 +150,7 @@ async function runTests(): Promise<void> {
       reason: 'Concurrent Clarity Task (+15 AC)',
       source: 'CLARITY_TASK',
       sourceId: 'TASK_CONCURRENT',
-      idempotencyKey: concurrentKey
+      idempotencyKey: concurrentKey,
     }),
     creditsLedgerService.executeTransaction({
       userId: testUserId,
@@ -157,8 +160,8 @@ async function runTests(): Promise<void> {
       reason: 'Concurrent Clarity Task (+15 AC)',
       source: 'CLARITY_TASK',
       sourceId: 'TASK_CONCURRENT',
-      idempotencyKey: concurrentKey
-    })
+      idempotencyKey: concurrentKey,
+    }),
   ]);
 
   const exactlyOneWinner = Boolean(c1.duplicate ? !c2.duplicate : c2.duplicate);
@@ -171,9 +174,9 @@ async function runTests(): Promise<void> {
   );
 
   assert(
-    '2.2: Concurrent reward increments balance by exactly 15 AC once (150 -> 165)',
-    balAfterConcurrent === 165,
-    `Expected 165, got ${balAfterConcurrent}`
+    '2.2: Concurrent reward increments balance by exactly 15 AC once (550 -> 565)',
+    balAfterConcurrent === 565,
+    `Expected 565, got ${balAfterConcurrent}`
   );
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -191,12 +194,12 @@ async function runTests(): Promise<void> {
     reason: 'Clarity AI Task Deduction (-25 AC)',
     source: 'CLARITY',
     sourceId: 'RUN_1',
-    idempotencyKey: spendKey
+    idempotencyKey: spendKey,
   });
 
   assert(
-    '3.1: Valid SPEND reduces balance accurately (165 -> 140)',
-    spendRes1.success === true && spendRes1.balance === 140,
+    '3.1: Valid SPEND reduces balance accurately (565 -> 540)',
+    spendRes1.success === true && spendRes1.balance === 540,
     `Success=${spendRes1.success}, Balance=${spendRes1.balance}`
   );
 
@@ -210,7 +213,7 @@ async function runTests(): Promise<void> {
     reason: 'Attempted overdraft investment',
     source: 'MENTOR',
     sourceId: 'OVERDRAFT',
-    idempotencyKey: overdraftKey
+    idempotencyKey: overdraftKey,
   });
 
   assert(
@@ -221,8 +224,8 @@ async function runTests(): Promise<void> {
 
   const balAfterOverdraft = await creditsLedgerService.getBalance(testUserId);
   assert(
-    '3.3: Balance untouched after overdraft failure (remains 140)',
-    balAfterOverdraft === 140,
+    '3.3: Balance untouched after overdraft failure (remains 540)',
+    balAfterOverdraft === 540,
     `Got ${balAfterOverdraft}`
   );
 
@@ -237,7 +240,7 @@ async function runTests(): Promise<void> {
     category: 'REWARD',
     amount: 0,
     reason: 'Zero amount test',
-    source: 'TEST'
+    source: 'TEST',
   });
   assert('4.1: Zero amount transaction rejected', zeroRes.success === false);
 
@@ -247,7 +250,7 @@ async function runTests(): Promise<void> {
     category: 'REWARD',
     amount: -50,
     reason: 'Negative amount test',
-    source: 'TEST'
+    source: 'TEST',
   });
   assert('4.2: Negative amount transaction rejected', negRes.success === false);
 
@@ -257,7 +260,7 @@ async function runTests(): Promise<void> {
     category: 'REWARD',
     amount: 10,
     reason: 'Invalid type test',
-    source: 'TEST'
+    source: 'TEST',
   });
   assert('4.3: Invalid transaction type rejected', invalidTypeRes.success === false);
 
@@ -275,7 +278,7 @@ async function runTests(): Promise<void> {
     `Found ${userLedgerEntries.length} entries`
   );
 
-  // Reconcile: starting balance 100 + sum(EARN) - sum(SPEND) === current balance
+  // Reconcile: starting balance 500 + sum(EARN) - sum(SPEND) === current balance
   let netDelta = 0;
   for (const entry of userLedgerEntries) {
     if (entry.type === 'EARN' || entry.type === 'REFUND') {
@@ -287,9 +290,158 @@ async function runTests(): Promise<void> {
 
   const finalBal = await creditsLedgerService.getBalance(testUserId);
   assert(
-    '5.2: Reconciled ledger net delta equals balance change (100 + 40 = 140)',
-    100 + netDelta === finalBal && finalBal === 140,
-    `Initial 100 + NetDelta ${netDelta} = ${100 + netDelta}, Final Balance = ${finalBal}`
+    '5.2: Reconciled ledger net delta equals balance change (500 + 40 = 540)',
+    500 + netDelta === finalBal && finalBal === 540,
+    `Initial 500 + NetDelta ${netDelta} = ${500 + netDelta}, Final Balance = ${finalBal}`
+  );
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // TEST GROUP 6: Mandatory Verification Requirements
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log('\n─── GROUP 6: Mandatory Credit Grant & Safety Requirements ───');
+
+  // 6.1: New user shows 500 in the wallet and has one ledger row
+  const newUserId = `test-new-user-${Date.now()}`;
+  const newUserEmail = `newuser.${Date.now()}@example.com`;
+  if (isDbConnected) {
+    await User.create({
+      name: 'New Registered Learner',
+      email: newUserEmail,
+      password: 'HashedPassword123!',
+      role: 'learner',
+      college: 'AIIMS Institute',
+      targetGoal: 'Master AI',
+      stage: 'Knowing',
+      xpPoints: 100,
+      aiimsCredits: 0,
+    });
+  } else {
+    registeredUsers[newUserEmail] = {
+      _id: newUserId,
+      id: newUserId,
+      name: 'New Registered Learner',
+      email: newUserEmail,
+      role: 'learner',
+      aiimsCredits: 0,
+      xpPoints: 100,
+      transactions: [],
+    };
+  }
+
+  // Authoritative welcome grant transaction
+  const welcomeGrantResult = await creditsLedgerService.executeTransaction({
+    userId: newUserId,
+    type: 'EARN',
+    category: 'REWARD',
+    amount: 500,
+    reason: 'Welcome Learning Grant (+500 AC)',
+    source: 'SYSTEM',
+    sourceId: 'WELCOME_BONUS',
+    idempotencyKey: `welcome::${newUserId}`,
+  });
+
+  const walletSummary = await creditsLedgerService.getLedgerHistory(newUserId);
+  assert(
+    '6.1: New user shows 500 in the wallet and has exactly one ledger row',
+    welcomeGrantResult.success === true &&
+      walletSummary.balance === 500 &&
+      walletSummary.transactions.length === 1 &&
+      walletSummary.transactions[0].amount === 500 &&
+      walletSummary.transactions[0].sourceId === 'WELCOME_BONUS',
+    `Balance=${walletSummary.balance}, rows=${walletSummary.transactions.length}, tx=${JSON.stringify(walletSummary.transactions[0])}`
+  );
+
+  // 6.2: 10 parallel identical reward requests grant exactly one reward
+  const tenKey = `reward::parallel::${Date.now()}::${newUserId}`;
+  const tenRewardPromises = Array.from({ length: 10 }).map(() =>
+    creditsLedgerService.executeTransaction({
+      userId: newUserId,
+      type: 'EARN',
+      category: 'REWARD',
+      amount: 25,
+      reason: '10 Parallel Reward Test (+25 AC)',
+      source: 'TEST',
+      sourceId: 'TEST_PARALLEL_REWARD',
+      idempotencyKey: tenKey,
+    })
+  );
+
+  const tenRewardResults = await Promise.all(tenRewardPromises);
+  const tenSuccessCount = tenRewardResults.filter((r) => r.success && !r.duplicate).length;
+  const tenDuplicateCount = tenRewardResults.filter((r) => r.duplicate).length;
+  const balAfterTen = await creditsLedgerService.getBalance(newUserId);
+
+  assert(
+    '6.2: 10 parallel identical reward requests grant exactly one reward (500 -> 525)',
+    tenSuccessCount === 1 && tenDuplicateCount === 9 && balAfterTen === 525,
+    `success=${tenSuccessCount}, duplicate=${tenDuplicateCount}, balance=${balAfterTen}`
+  );
+
+  // 6.3: Spending more than the balance is refused and the balance is unchanged
+  const excessiveSpendRes = await creditsLedgerService.executeTransaction({
+    userId: newUserId,
+    type: 'SPEND',
+    category: 'INVESTMENT',
+    amount: 1000, // Available is 525
+    reason: 'Excessive spend attempt',
+    source: 'TEST',
+    sourceId: 'EXCESSIVE_SPEND',
+    idempotencyKey: `excess::${Date.now()}`,
+  });
+
+  const balAfterExcessive = await creditsLedgerService.getBalance(newUserId);
+  assert(
+    '6.3: Spending more than the balance is refused and balance is unchanged (remains 525)',
+    excessiveSpendRes.success === false &&
+      excessiveSpendRes.code === 'INSUFFICIENT_CREDITS' &&
+      balAfterExcessive === 525,
+    `success=${excessiveSpendRes.success}, code=${excessiveSpendRes.code}, balance=${balAfterExcessive}`
+  );
+
+  // 6.4: Repeating the same idempotency key does not double grant
+  const repeatRewardKey = `reward::repeat::${Date.now()}::${newUserId}`;
+  const grant1 = await creditsLedgerService.executeTransaction({
+    userId: newUserId,
+    type: 'EARN',
+    category: 'REWARD',
+    amount: 50,
+    reason: 'First Grant (+50 AC)',
+    source: 'TEST',
+    sourceId: 'REPEAT_TEST',
+    idempotencyKey: repeatRewardKey,
+  });
+
+  const grant2 = await creditsLedgerService.executeTransaction({
+    userId: newUserId,
+    type: 'EARN',
+    category: 'REWARD',
+    amount: 50,
+    reason: 'First Grant (+50 AC)',
+    source: 'TEST',
+    sourceId: 'REPEAT_TEST',
+    idempotencyKey: repeatRewardKey,
+  });
+
+  const grant3 = await creditsLedgerService.executeTransaction({
+    userId: newUserId,
+    type: 'EARN',
+    category: 'REWARD',
+    amount: 50,
+    reason: 'First Grant (+50 AC)',
+    source: 'TEST',
+    sourceId: 'REPEAT_TEST',
+    idempotencyKey: repeatRewardKey,
+  });
+
+  const balAfterRepeats = await creditsLedgerService.getBalance(newUserId);
+  assert(
+    '6.4: Repeating the same idempotency key does not double grant (525 + 50 = 575)',
+    grant1.success === true &&
+      !grant1.duplicate &&
+      grant2.duplicate === true &&
+      grant3.duplicate === true &&
+      balAfterRepeats === 575,
+    `grant1.dup=${grant1.duplicate}, grant2.dup=${grant2.duplicate}, grant3.dup=${grant3.duplicate}, balance=${balAfterRepeats}`
   );
 
   // ──────────────────────────────────────────────────────────────────────────

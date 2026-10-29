@@ -71,3 +71,11 @@ export const updateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+
+export const deleteAccountSchema = z.object({
+  confirmation: z.literal('DELETE', {
+    message: 'Please type the word DELETE to confirm account deletion.',
+  }),
+});
+
+export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;

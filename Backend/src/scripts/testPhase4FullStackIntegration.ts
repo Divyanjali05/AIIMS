@@ -235,9 +235,9 @@ async function runSuite() {
         Boolean(resSuccessReg.body?.token)
     );
     assert(
-      '1.9: New registered user receives starting balance of 100 AC',
-      resSuccessReg.body?.state?.profile?.aiimsCredits === 100 ||
-        resSuccessReg.body?.user?.aiimsCredits === 100
+      '1.9: New registered user receives starting balance of 500 AC',
+      resSuccessReg.body?.state?.profile?.aiimsCredits === 500 ||
+        resSuccessReg.body?.user?.aiimsCredits === 500
     );
 
     // 1.10 Duplicate Email Registration Rejected
@@ -335,7 +335,7 @@ async function runSuite() {
     });
     assert(
       '3.1: /api/credits/balance returns valid initial balance',
-      resBalance.status === 200 && resBalance.body?.balance >= 100
+      resBalance.status === 200 && resBalance.body?.balance >= 500
     );
 
     // 3.2 Clarity Task Reward Execution (+15 AC)

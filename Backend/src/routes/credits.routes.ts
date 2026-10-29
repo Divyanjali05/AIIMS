@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import { validateBody, validateQuery } from '../middleware/validate.middleware';
 import {
   awardLevelSchema,
@@ -16,6 +17,8 @@ import {
 } from '../controllers/credits.controller';
 
 const router = Router();
+
+router.use(generalApiRateLimiter);
 
 router.get('/credits/wallet', requireAuth, getWallet);
 router.get('/credits/ledger', requireAuth, validateQuery(ledgerQuerySchema), getLedger);

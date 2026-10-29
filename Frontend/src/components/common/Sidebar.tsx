@@ -19,6 +19,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   ArrowRight,
+  Search,
+  TrendingUp,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { getFeatureAccess } from '../../services/featureAccessService';
@@ -40,6 +42,8 @@ interface NavItem {
   locked: boolean;
   badge?: string;
   lockMsg?: string;
+  unlockAction?: string;
+  targetTab?: string;
 }
 
 interface NavGroup {
@@ -59,7 +63,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [lockedModal, setLockedModal] = useState<{
     title: string;
     message: string;
+    unlockAction: string;
     targetTab: string;
+    featureTab: string;
   } | null>(null);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
@@ -76,7 +82,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       locked: !access.unlocked,
       badge: customBadge,
       lockMsg: access.reason,
+      unlockAction: access.unlockAction,
+      targetTab: access.targetTab,
     };
+  };
+
+  const getGroupLevelColor = (
+    groupName: string
+  ): { accent: string; bg: string; text: string } | null => {
+    if (groupName.includes('LEVEL 1'))
+      return { accent: '#7c3aed', bg: 'rgba(124, 58, 237, 0.1)', text: '#5b21b6' };
+    if (groupName.includes('LEVEL 2'))
+      return { accent: '#0284c7', bg: 'rgba(2, 132, 199, 0.1)', text: '#0369a1' };
+    if (groupName.includes('LEVEL 3'))
+      return { accent: '#059669', bg: 'rgba(5, 150, 105, 0.1)', text: '#047857' };
+    if (groupName.includes('LEVEL 4'))
+      return { accent: '#e11d48', bg: 'rgba(225, 29, 72, 0.1)', text: '#be123c' };
+    return null;
   };
 
   const navGroups: NavGroup[] = [
@@ -88,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      group: 'UNDERSTAND',
+      group: 'LEVEL 1: UNDERSTAND & DEVELOP',
       items: [
         createNavItem(
           'assessment',
@@ -97,34 +119,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isAssessmentDone ? '✓' : 'Start'
         ),
         createNavItem('analysis', 'My AI Profile', BarChart3),
-      ],
-    },
-    {
-      group: 'DEVELOP',
-      items: [
+        createNavItem('insights', 'Growth Insights', TrendingUp),
         createNavItem('wallet', 'AI Wallet', Wallet),
         createNavItem('clarity', 'Clarity', Compass),
         createNavItem('focus', 'Focus', Target),
       ],
     },
     {
-      group: 'DISCOVER',
+      group: 'LEVEL 2: DISCOVER & INVESTIGATE',
       items: [
         createNavItem('radar', 'AI Radar', Radar),
+        createNavItem('investigation', 'Investigation', Search),
         createNavItem('relevance', 'AI Relevance', Sparkles),
       ],
     },
     {
-      group: 'BUILD',
+      group: 'LEVEL 3: BUILD & SOLVE',
       items: [
         createNavItem('solver', 'Problem Solver', Wrench),
         createNavItem('build', 'Projects', Layers),
       ],
     },
     {
-      group: 'SUPPORT',
+      group: 'LEVEL 4: IMPROVE & MASTER',
+      items: [createNavItem('mentor', 'Improve', MessageCircle)],
+    },
+    {
+      group: 'ACCOUNT',
       items: [
-        createNavItem('mentor', 'Mentor Workspace', MessageCircle),
         createNavItem(
           'credits',
           'Credits & Progress',
@@ -142,7 +164,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         title: item.label,
         message:
           item.lockMsg || 'This workspace is locked pending prerequisite milestone completion.',
-        targetTab: item.id,
+        unlockAction: item.unlockAction || 'Complete Prerequisite',
+        targetTab: item.targetTab || 'home',
+        featureTab: item.id,
       });
     } else {
       setActiveTab(item.id);
@@ -171,254 +195,304 @@ export const Sidebar: React.FC<SidebarProps> = ({
           paddingRight: collapsed ? '0' : '4px',
         }}
       >
-        {navGroups.map((group, groupIdx) => (
-          <div key={group.group}>
-            {/* Section Heading or Divider */}
-            {collapsed ? (
-              groupIdx > 0 ? (
+        {navGroups.map((group, groupIdx) => {
+          const levelColor = getGroupLevelColor(group.group);
+
+          return (
+            <div key={group.group}>
+              {/* Section Heading or Divider */}
+              {collapsed ? (
+                groupIdx > 0 ? (
+                  <div
+                    style={{
+                      height: '1px',
+                      backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
+                      margin: '4px 10px 8px 10px',
+                    }}
+                  />
+                ) : null
+              ) : (
                 <div
                   style={{
-                    height: '1px',
-                    backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
-                    margin: '4px 10px 8px 10px',
+                    fontSize: '10.5px',
+                    fontWeight: 800,
+                    color: levelColor ? levelColor.accent : 'var(--aiims-text-muted, #64748b)',
+                    letterSpacing: '0.8px',
+                    padding: '0 10px',
+                    marginBottom: '5px',
+                    textTransform: 'uppercase',
+                    userSelect: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
-                />
-              ) : null
-            ) : (
-              <div
-                style={{
-                  fontSize: '10.5px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-muted, #64748b)',
-                  letterSpacing: '0.8px',
-                  padding: '0 10px',
-                  marginBottom: '5px',
-                  textTransform: 'uppercase',
-                  userSelect: 'none',
-                }}
-              >
-                {group.group}
-              </div>
-            )}
-
-            {/* Nav Items List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-
-                return (
-                  <div
-                    key={item.id}
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => setHoveredItemId(item.id)}
-                    onMouseLeave={() => setHoveredItemId(null)}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleNavClick(item)}
-                      aria-label={item.label}
-                      title={
-                        !collapsed
-                          ? item.locked && item.lockMsg
-                            ? item.lockMsg
-                            : undefined
-                          : undefined
-                      }
+                >
+                  {levelColor && (
+                    <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: collapsed ? 'center' : 'space-between',
-                        width: '100%',
-                        padding: collapsed ? '9px 0' : '8px 10px',
-                        border: 'none',
-                        borderRadius: '8px',
-                        backgroundColor: isActive
-                          ? 'var(--aiims-accent-glow, rgba(99, 102, 241, 0.12))'
-                          : 'transparent',
-                        color: isActive
-                          ? 'var(--aiims-primary, #6366f1)'
-                          : item.locked
-                            ? 'var(--aiims-text-muted, #94a3b8)'
-                            : 'var(--aiims-text-secondary, #334155)',
-                        fontWeight: isActive ? 700 : 600,
-                        fontSize: '13px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.15s ease, color 0.15s ease',
-                        textAlign: 'left',
-                        boxSizing: 'border-box',
-                        position: 'relative',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        backgroundColor: levelColor.accent,
                       }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor =
-                            'var(--aiims-bg-card-hover, #f8f7fd)';
-                          e.currentTarget.style.color = 'var(--aiims-text-heading, #0f172a)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                          e.currentTarget.style.color = item.locked
-                            ? 'var(--aiims-text-muted, #94a3b8)'
-                            : 'var(--aiims-text-secondary, #334155)';
-                        }
-                      }}
-                    >
-                      {/* Left highlight indicator line for active item */}
-                      {isActive && (
-                        <div
-                          style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: '6px',
-                            bottom: '6px',
-                            width: '3px',
-                            borderRadius: '0 3px 3px 0',
-                            backgroundColor: 'var(--aiims-primary, #6366f1)',
-                          }}
-                        />
-                      )}
+                    />
+                  )}
+                  <span>{group.group}</span>
+                </div>
+              )}
 
-                      <div
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}
+              {/* Nav Items List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      style={{ position: 'relative' }}
+                      onMouseEnter={() => setHoveredItemId(item.id)}
+                      onMouseLeave={() => setHoveredItemId(null)}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleNavClick(item)}
+                        aria-label={item.label}
+                        title={
+                          !collapsed
+                            ? item.locked && item.lockMsg
+                              ? item.lockMsg
+                              : undefined
+                            : undefined
+                        }
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: collapsed ? 'center' : 'space-between',
+                          width: '100%',
+                          padding: collapsed ? '9px 0' : '8px 10px',
+                          border: 'none',
+                          borderRadius: '8px',
+                          backgroundColor: isActive
+                            ? levelColor
+                              ? levelColor.bg
+                              : 'var(--aiims-accent-glow, rgba(99, 102, 241, 0.12))'
+                            : 'transparent',
+                          color: isActive
+                            ? levelColor
+                              ? levelColor.accent
+                              : 'var(--aiims-primary, #6366f1)'
+                            : item.locked
+                              ? 'var(--aiims-text-muted, #94a3b8)'
+                              : 'var(--aiims-text-secondary, #334155)',
+                          fontWeight: isActive ? 700 : 600,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.15s ease, color 0.15s ease',
+                          textAlign: 'left',
+                          boxSizing: 'border-box',
+                          position: 'relative',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor =
+                              'var(--aiims-bg-card-hover, #f8f7fd)';
+                            e.currentTarget.style.color = 'var(--aiims-text-heading, #0f172a)';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                            e.currentTarget.style.color = item.locked
+                              ? 'var(--aiims-text-muted, #94a3b8)'
+                              : 'var(--aiims-text-secondary, #334155)';
+                          }
+                        }}
                       >
+                        {/* Left highlight indicator line for active item */}
+                        {isActive && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: 0,
+                              top: '6px',
+                              bottom: '6px',
+                              width: '3px',
+                              borderRadius: '0 3px 3px 0',
+                              backgroundColor: levelColor
+                                ? levelColor.accent
+                                : 'var(--aiims-primary, #6366f1)',
+                            }}
+                          />
+                        )}
+
                         <div
                           style={{
-                            width: '20px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
+                            gap: '10px',
+                            minWidth: 0,
                           }}
                         >
-                          <Icon
-                            size={17}
-                            color={
-                              isActive
-                                ? 'var(--aiims-primary, #6366f1)'
-                                : item.locked
-                                  ? 'var(--aiims-text-subtle, #94a3b8)'
-                                  : 'var(--aiims-text-secondary, #64748b)'
-                            }
-                          />
+                          <div
+                            style={{
+                              width: '20px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              position: 'relative',
+                            }}
+                          >
+                            <Icon
+                              size={17}
+                              color={
+                                isActive
+                                  ? levelColor
+                                    ? levelColor.accent
+                                    : 'var(--aiims-primary, #6366f1)'
+                                  : item.locked
+                                    ? 'var(--aiims-text-subtle, #94a3b8)'
+                                    : 'var(--aiims-text-secondary, #64748b)'
+                              }
+                            />
+                            {collapsed && item.locked && (
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  top: '-4px',
+                                  right: '-6px',
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.15)',
+                                }}
+                              >
+                                <Lock size={8} color="var(--aiims-text-muted, #94a3b8)" />
+                              </div>
+                            )}
+                          </div>
+
+                          {!collapsed && (
+                            <span
+                              style={{
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                fontSize: '13px',
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                          )}
                         </div>
 
+                        {/* Right Lock / Badge indicators */}
                         {!collapsed && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {item.locked && (
+                              <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />
+                            )}
+                            {item.badge ? (
+                              <span
+                                style={{
+                                  fontSize: '10.5px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '6px',
+                                  backgroundColor: isActive
+                                    ? 'var(--aiims-primary, #6366f1)'
+                                    : 'var(--aiims-border-subtle, #ede9fe)',
+                                  color: isActive ? '#ffffff' : 'var(--aiims-primary, #4338ca)',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {item.badge}
+                              </span>
+                            ) : null}
+                          </div>
+                        )}
+                      </button>
+
+                      {/* Floating Tooltip in Collapsed Mode */}
+                      {collapsed && hoveredItemId === item.id && (
+                        <div
+                          className="aiims-nav-tooltip"
+                          style={{
+                            position: 'absolute',
+                            left: '100%',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            marginLeft: '10px',
+                            backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
+                            border: '1px solid var(--aiims-modal-border, #e2e8f0)',
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 25px rgba(0,0,0,0.12))',
+                            zIndex: 1000,
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
                           <span
                             style={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              fontSize: '13px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: 'var(--aiims-text-heading, #0f172a)',
                             }}
                           >
                             {item.label}
                           </span>
-                        )}
-                      </div>
-
-                      {/* Right Lock / Badge indicators */}
-                      {!collapsed && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            flexShrink: 0,
-                          }}
-                        >
                           {item.locked && (
-                            <Lock size={12} color="var(--aiims-text-muted, #94a3b8)" />
-                          )}
-                          {item.badge ? (
                             <span
                               style={{
-                                fontSize: '10.5px',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
+                                color: 'var(--aiims-text-muted, #64748b)',
+                              }}
+                            >
+                              Locked
+                            </span>
+                          )}
+                          {item.badge && (
+                            <span
+                              style={{
+                                fontSize: '10px',
                                 fontWeight: 700,
-                                padding: '2px 6px',
-                                borderRadius: '6px',
-                                backgroundColor: isActive
-                                  ? 'var(--aiims-primary, #6366f1)'
-                                  : 'var(--aiims-border-subtle, #ede9fe)',
-                                color: isActive ? '#ffffff' : 'var(--aiims-primary, #4338ca)',
-                                lineHeight: 1,
+                                padding: '1px 5px',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--aiims-primary, #6366f1)',
+                                color: '#ffffff',
                               }}
                             >
                               {item.badge}
                             </span>
-                          ) : null}
+                          )}
                         </div>
                       )}
-                    </button>
-
-                    {/* Floating Tooltip in Collapsed Mode */}
-                    {collapsed && hoveredItemId === item.id && (
-                      <div
-                        className="aiims-nav-tooltip"
-                        style={{
-                          position: 'absolute',
-                          left: '100%',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          marginLeft: '10px',
-                          backgroundColor: 'var(--aiims-modal-bg, #ffffff)',
-                          border: '1px solid var(--aiims-modal-border, #e2e8f0)',
-                          borderRadius: '8px',
-                          padding: '6px 10px',
-                          boxShadow: 'var(--aiims-shadow-dropdown, 0 10px 25px rgba(0,0,0,0.12))',
-                          zIndex: 1000,
-                          whiteSpace: 'nowrap',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            color: 'var(--aiims-text-heading, #0f172a)',
-                          }}
-                        >
-                          {item.label}
-                        </span>
-                        {item.locked && (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 600,
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--aiims-border-subtle, #f1f5f9)',
-                              color: 'var(--aiims-text-muted, #64748b)',
-                            }}
-                          >
-                            Locked
-                          </span>
-                        )}
-                        {item.badge && (
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              backgroundColor: 'var(--aiims-primary, #6366f1)',
-                              color: '#ffffff',
-                            }}
-                          >
-                            {item.badge}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Profile & Account Bottom Anchor */}
@@ -776,13 +850,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 fontFamily: "'Fredoka', sans-serif",
               }}
             >
-              {lockedModal.title}
+              {lockedModal.title} is Locked
             </h3>
 
             <p
               style={{
                 margin: '0 0 20px 0',
-                fontSize: '13px',
+                fontSize: '13.5px',
                 color: 'var(--aiims-text-secondary, #475569)',
                 lineHeight: 1.5,
               }}
@@ -790,7 +864,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {lockedModal.message}
             </p>
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <div
+              style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}
+            >
               <button
                 type="button"
                 onClick={() => setLockedModal(null)}
@@ -806,6 +882,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab(lockedModal.featureTab);
+                  setLockedModal(null);
+                  if (onClose) onClose();
+                }}
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--aiims-border-card, #cbd5e1)',
+                  backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                  color: 'var(--aiims-text-secondary, #475569)',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Explore Details
               </button>
               <button
                 type="button"
@@ -828,7 +924,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   gap: '6px',
                 }}
               >
-                <span>View Details</span>
+                <span>{lockedModal.unlockAction}</span>
                 <ArrowRight size={14} />
               </button>
             </div>

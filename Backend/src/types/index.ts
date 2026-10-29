@@ -1,10 +1,13 @@
-export type ProgressionStage = 'Knowing' | 'Understanding' | 'Recognising' | 'Applying' | 'Adapting';
+export type ProgressionStage =
+  'Knowing' | 'Understanding' | 'Recognising' | 'Applying' | 'Adapting';
+
+export type UserRole = 'learner' | 'evaluator' | 'admin';
 
 export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   college?: string;
   targetGoal: string;
   stage: ProgressionStage;
@@ -100,7 +103,7 @@ export const CREDIT_CONFIG = {
   LEVEL_COMPLETION_REWARD: 10,
   SIGNAL_INVESTIGATION_REWARD: 30,
   REFLECTION_REWARD: 15,
-  EVIDENCE_SUBMISSION_REWARD: 25
+  EVIDENCE_SUBMISSION_REWARD: 25,
 };
 
 // ==========================================
@@ -122,13 +125,7 @@ export type TaskCategory =
 export type ToolFamiliarity = 'exploring' | 'practicing' | 'proficient' | 'mastered';
 
 export type ToolLifecycleStatus =
-  | 'NEW'
-  | 'RECENTLY_UPDATED'
-  | 'ACTIVE'
-  | 'UPDATED'
-  | 'DEPRECATED'
-  | 'DISCONTINUED'
-  | 'UNVERIFIED';
+  'NEW' | 'RECENTLY_UPDATED' | 'ACTIVE' | 'UPDATED' | 'DEPRECATED' | 'DISCONTINUED' | 'UNVERIFIED';
 
 export type VerificationStatus =
   | 'VERIFIED'
@@ -140,13 +137,7 @@ export type VerificationStatus =
   | 'REJECTED';
 
 export type PricingType =
-  | 'FREE'
-  | 'FREE_TIER'
-  | 'FREE_TRIAL'
-  | 'FREEMIUM'
-  | 'PAID'
-  | 'ENTERPRISE'
-  | 'UNKNOWN';
+  'FREE' | 'FREE_TIER' | 'FREE_TRIAL' | 'FREEMIUM' | 'PAID' | 'ENTERPRISE' | 'UNKNOWN';
 
 export interface ToolPricing {
   type: PricingType;
@@ -355,11 +346,14 @@ export interface RequirementToolComparison {
   taskDomain: string;
   tools: AITool[];
   comparisonCriteria: ComparisonCriterion[];
-  fitAnalysis: Record<string, {
-    whyItFits: string;
-    bestSuitedScenario: string;
-    keyTradeoff: string;
-  }>;
+  fitAnalysis: Record<
+    string,
+    {
+      whyItFits: string;
+      bestSuitedScenario: string;
+      keyTradeoff: string;
+    }
+  >;
   overallSynthesis: string;
 }
 
@@ -377,5 +371,3 @@ export interface ToolComparison {
   keyConsideration: string;
   summaryQuestion: string;
 }
-
-

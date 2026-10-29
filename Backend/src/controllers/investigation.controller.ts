@@ -160,9 +160,9 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
 
       if (ledgerResult && ledgerResult.duplicate) {
         creditsEarned = 0;
-      } else {
+      } else if (ledgerResult && ledgerResult.success) {
         const previousBalance = req.user.aiimsCredits || 0;
-        req.user.aiimsCredits = ledgerResult?.newBalance ?? previousBalance + reward;
+        req.user.aiimsCredits = ledgerResult.newBalance ?? ledgerResult.balance ?? previousBalance;
         req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
         creditsEarned = reward;
 

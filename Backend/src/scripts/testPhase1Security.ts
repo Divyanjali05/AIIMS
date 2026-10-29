@@ -51,7 +51,7 @@ function makeRequest(
     const postData = options.body ? JSON.stringify(options.body) : undefined;
 
     const reqHeaders: Record<string, string> = {
-      ...(options.headers || {})
+      ...(options.headers || {}),
     };
     if (postData) {
       reqHeaders['Content-Type'] = 'application/json';
@@ -64,7 +64,7 @@ function makeRequest(
         port: addr.port,
         path: options.path,
         method: options.method,
-        headers: reqHeaders
+        headers: reqHeaders,
       },
       (res) => {
         let raw = '';
@@ -82,7 +82,7 @@ function makeRequest(
             status: res.statusCode || 0,
             headers: res.headers,
             body: parsed,
-            rawBody: raw
+            rawBody: raw,
           });
         });
       }
@@ -124,7 +124,11 @@ async function runSecuritySuite() {
       );
     }
     if (!thrownMissing) {
-      assert('Production fails fast if JWT_SECRET is missing', false, 'Expected fatal error not thrown');
+      assert(
+        'Production fails fast if JWT_SECRET is missing',
+        false,
+        'Expected fatal error not thrown'
+      );
     }
 
     // 1B: In production, hardcoded default placeholder throws fatal error
@@ -140,7 +144,11 @@ async function runSecuritySuite() {
       );
     }
     if (!thrownDefault) {
-      assert('Production rejects hardcoded default placeholder', false, 'Expected fatal error not thrown');
+      assert(
+        'Production rejects hardcoded default placeholder',
+        false,
+        'Expected fatal error not thrown'
+      );
     }
 
     // 1C: In production, short secret (<32 chars) throws fatal error
@@ -203,13 +211,10 @@ async function runSecuritySuite() {
       method: 'GET',
       path: '/health',
       headers: {
-        Origin: 'http://localhost:3000'
-      }
+        Origin: 'http://localhost:3000',
+      },
     });
-    assert(
-      'Allowed origin (http://localhost:3000) receives 200 OK',
-      allowedRes.status === 200
-    );
+    assert('Allowed origin (http://localhost:3000) receives 200 OK', allowedRes.status === 200);
     assert(
       'Allowed origin receives Access-Control-Allow-Origin matching origin',
       allowedRes.headers['access-control-allow-origin'] === 'http://localhost:3000'
@@ -224,8 +229,8 @@ async function runSecuritySuite() {
       method: 'GET',
       path: '/health',
       headers: {
-        Origin: 'http://evil-attacker-site.com'
-      }
+        Origin: 'http://evil-attacker-site.com',
+      },
     });
     assert(
       'Unauthorized origin (http://evil-attacker-site.com) is rejected with HTTP 403 Forbidden',
@@ -243,8 +248,8 @@ async function runSecuritySuite() {
       headers: {
         Origin: 'http://localhost:3000',
         'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'Content-Type,Authorization'
-      }
+        'Access-Control-Request-Headers': 'Content-Type,Authorization',
+      },
     });
     assert(
       'Preflight OPTIONS from allowed origin returns HTTP 204 No Content',
@@ -258,7 +263,7 @@ async function runSecuritySuite() {
     // 2D: Requests without origin (server-to-server, curl, mobile) succeed
     const noOriginRes = await makeRequest(testServer, {
       method: 'GET',
-      path: '/health'
+      path: '/health',
     });
     assert(
       'Direct server-to-server / curl request without Origin succeeds',
@@ -272,7 +277,7 @@ async function runSecuritySuite() {
 
     const headerRes = await makeRequest(testServer, {
       method: 'GET',
-      path: '/health'
+      path: '/health',
     });
     assert(
       'X-Content-Type-Options: nosniff header is present',
@@ -301,7 +306,7 @@ async function runSecuritySuite() {
     const firstLogin = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/login',
-      body: { email: 'invalid@example.com', password: 'wrong' }
+      body: { email: 'invalid@example.com', password: 'wrong' },
     });
     assert(
       'Auth route includes X-RateLimit-Limit header',
@@ -319,7 +324,7 @@ async function runSecuritySuite() {
       await makeRequest(testServer, {
         method: 'POST',
         path: '/api/auth/login',
-        body: { email: 'spam@example.com', password: 'wrong' }
+        body: { email: 'spam@example.com', password: 'wrong' },
       });
     }
 
@@ -327,12 +332,9 @@ async function runSecuritySuite() {
     const limitedRes = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/login',
-      body: { email: 'spam@example.com', password: 'wrong' }
+      body: { email: 'spam@example.com', password: 'wrong' },
     });
-    assert(
-      'Exceeded login requests trigger HTTP 429 Too Many Requests',
-      limitedRes.status === 429
-    );
+    assert('Exceeded login requests trigger HTTP 429 Too Many Requests', limitedRes.status === 429);
     assert(
       'Rate limit response contains RATE_LIMIT_EXCEEDED code',
       limitedRes.body?.code === 'RATE_LIMIT_EXCEEDED'
@@ -349,7 +351,7 @@ async function runSecuritySuite() {
     // Non-auth route is NOT affected by auth rate limit
     const nonAuthRes = await makeRequest(testServer, {
       method: 'GET',
-      path: '/health'
+      path: '/health',
     });
     assert(
       'Non-auth routes (/health) remain unblocked when auth rate limit is exhausted',
@@ -366,12 +368,9 @@ async function runSecuritySuite() {
 
     const healthRes = await makeRequest(testServer, {
       method: 'GET',
-      path: '/api/health'
+      path: '/api/health',
     });
-    assert(
-      'API Health check returns HTTP 200',
-      healthRes.status === 200
-    );
+    assert('API Health check returns HTTP 200', healthRes.status === 200);
     assert(
       'Health check exposes structured database status object',
       typeof healthRes.body?.database === 'object' && healthRes.body?.database !== null
@@ -388,10 +387,7 @@ async function runSecuritySuite() {
       const start = Date.now();
       const testDbStatus = await initDatabase(1, 1000); // 1 retry, 1s timeout
       const elapsed = Date.now() - start;
-      assert(
-        'Database connection failure resolves boundedly without hanging',
-        elapsed < 3000
-      );
+      assert('Database connection failure resolves boundedly without hanging', elapsed < 3000);
       assert(
         'Database connection failure falls back safely in development mode',
         testDbStatus.connected === false && testDbStatus.mode === 'fallback'
@@ -403,71 +399,222 @@ async function runSecuritySuite() {
     // ---------------------------------------------------------------------------
     // 6. Normal Authentication & Core Request Integrity
     // ---------------------------------------------------------------------------
+    // 6. Normal Authentication & Protected Routes Continuity
+    // ---------------------------------------------------------------------------
     console.log('\n── SUITE 6: Normal Authentication & Protected Routes Continuity ');
 
-    // 6A: Valid login succeeds and returns JWT token
-    const validLogin = await makeRequest(testServer, {
+    // 6A: Web client login succeeds, sets httpOnly cookie, and omits token from JSON body
+    const webLogin = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/login',
       body: {
         email: 'alex.ai@example.com',
-        password: 'password123'
-      }
+        password: 'password123',
+      },
     });
+    assert('Valid web login returns HTTP 200 OK', webLogin.status === 200);
     assert(
-      'Valid login returns HTTP 200 OK',
-      validLogin.status === 200
+      'Web login sets httpOnly cookie aiims_token',
+      Boolean(
+        webLogin.headers['set-cookie']?.some(
+          (c) => c.includes('aiims_token=') && c.toLowerCase().includes('httponly')
+        )
+      )
     );
-    assert(
-      'Valid login returns signed JWT token',
-      typeof validLogin.body?.token === 'string' && validLogin.body.token.length > 20
-    );
+    assert('Web login omits token from JSON body', webLogin.body?.token === undefined);
     assert(
       'Valid login returns user profile',
-      validLogin.body?.user?.email === 'alex.ai@example.com'
+      webLogin.body?.user?.email === 'alex.ai@example.com'
     );
 
-    const token = validLogin.body?.token;
+    // Extract cookie value for subsequent requests
+    const cookieHeader = webLogin.headers['set-cookie']?.find((c) => c.includes('aiims_token='));
+    const tokenCookie = cookieHeader ? cookieHeader.split(';')[0] : '';
 
-    // 6B: Invalid password returns HTTP 401
+    // 6B: Mobile client login with X-Client: mobile returns token in JSON body
+    const mobileLogin = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/auth/login',
+      headers: {
+        'x-client': 'mobile',
+      },
+      body: {
+        email: 'alex.ai@example.com',
+        password: 'password123',
+      },
+    });
+    assert('Mobile login returns HTTP 200 OK', mobileLogin.status === 200);
+    assert(
+      'Mobile login returns signed JWT token in JSON body',
+      typeof mobileLogin.body?.token === 'string' && mobileLogin.body.token.length > 20
+    );
+    const mobileToken = mobileLogin.body?.token;
+
+    // 6C: Invalid password returns HTTP 401
     const invalidPwRes = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/login',
       body: {
         email: 'alex.ai@example.com',
-        password: 'definitely-wrong-password'
-      }
+        password: 'definitely-wrong-password',
+      },
     });
-    assert(
-      'Invalid login password returns HTTP 401 Unauthorized',
-      invalidPwRes.status === 401
-    );
+    assert('Invalid login password returns HTTP 401 Unauthorized', invalidPwRes.status === 401);
 
-    // 6C: Authenticated request to protected route succeeds
-    const profileRes = await makeRequest(testServer, {
+    // 6D: Authenticated request using cookie succeeds
+    const cookieProfileRes = await makeRequest(testServer, {
       method: 'GET',
       path: '/api/users/profile',
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Cookie: tokenCookie,
+      },
     });
     assert(
-      'Authenticated request to /api/users/profile returns HTTP 200 OK',
-      profileRes.status === 200
+      'Cookie-authenticated request to /api/users/profile returns HTTP 200 OK',
+      cookieProfileRes.status === 200
     );
     assert(
-      'Profile payload matches authenticated user',
-      profileRes.body?.email === 'alex.ai@example.com'
+      'Cookie-authenticated profile matches user',
+      cookieProfileRes.body?.email === 'alex.ai@example.com'
     );
 
-    // 6D: Unauthenticated request to protected route is rejected
+    // 6E: Authenticated request using Bearer token (mobile client) succeeds
+    const bearerProfileRes = await makeRequest(testServer, {
+      method: 'GET',
+      path: '/api/users/profile',
+      headers: {
+        Authorization: `Bearer ${mobileToken}`,
+      },
+    });
+    assert(
+      'Bearer-authenticated request to /api/users/profile returns HTTP 200 OK',
+      bearerProfileRes.status === 200
+    );
+    assert(
+      'Bearer-authenticated profile matches user',
+      bearerProfileRes.body?.email === 'alex.ai@example.com'
+    );
+
+    // 6F: CSRF protection: cookie-authenticated mutation with invalid Origin fails with HTTP 403
+    const csrfFailRes = await makeRequest(testServer, {
+      method: 'PUT',
+      path: '/api/users/profile',
+      headers: {
+        Cookie: tokenCookie,
+        Origin: 'https://evil-hacker.com',
+      },
+      body: { name: 'Hacked Name' },
+    });
+    assert(
+      'Cookie mutation with disallowed Origin is rejected with HTTP 403',
+      csrfFailRes.status === 403
+    );
+
+    // 6G: CSRF protection: cookie-authenticated mutation with allowed Origin succeeds
+    const csrfPassRes = await makeRequest(testServer, {
+      method: 'PUT',
+      path: '/api/users/profile',
+      headers: {
+        Cookie: tokenCookie,
+        Origin: 'http://localhost:3000',
+      },
+      body: { name: 'Alex AI Updated' },
+    });
+    assert(
+      'Cookie mutation with allowed Origin succeeds with HTTP 200',
+      csrfPassRes.status === 200
+    );
+
+    // 6H: Logout clears the aiims_token cookie
+    const logoutRes = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/auth/logout',
+    });
+    assert('Logout returns HTTP 200 OK', logoutRes.status === 200);
+    assert(
+      'Logout clears aiims_token cookie',
+      Boolean(
+        logoutRes.headers['set-cookie']?.some(
+          (c) => c.includes('aiims_token=;') || c.includes('aiims_token=')
+        )
+      )
+    );
+
+    // 6I: Unauthenticated request to protected route is rejected
     const unauthRes = await makeRequest(testServer, {
       method: 'GET',
-      path: '/api/users/profile'
+      path: '/api/users/profile',
     });
     assert(
       'Unauthenticated request to /api/users/profile is rejected with HTTP 401',
       unauthRes.status === 401
+    );
+
+    // -------------------------------------------------------------------------
+    // SUITE 7: Server-Side Feature Lock Enforcement (HTTP 403 Refusal)
+    // -------------------------------------------------------------------------
+    console.log('\n── SUITE 7: Server-Side Feature Lock Enforcement (HTTP 403 Refusal) ──');
+
+    // 7A: Direct invocation of locked Investigation API is refused with HTTP 403
+    const lockedInvestigationRes = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/investigations/submit',
+      headers: {
+        Authorization: `Bearer ${mobileToken}`,
+      },
+      body: {
+        signalId: 'sig-rag-memory-2026',
+        personalInterpretation: 'Direct call from locked client',
+      },
+    });
+    assert(
+      'Locked user calling /api/investigations/submit directly is refused with HTTP 403',
+      lockedInvestigationRes.status === 403
+    );
+    assert(
+      'Investigation lock refusal includes FEATURE_LOCKED code and clear explanation',
+      lockedInvestigationRes.body?.code === 'FEATURE_LOCKED' &&
+        Boolean(lockedInvestigationRes.body?.error)
+    );
+
+    // 7B: Direct invocation of locked Relevance API is refused with HTTP 403
+    const lockedRelevanceRes = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/relevance/generate',
+      headers: {
+        Authorization: `Bearer ${mobileToken}`,
+      },
+      body: {
+        signalId: 'sig-rag-memory-2026',
+      },
+    });
+    assert(
+      'Locked user calling /api/relevance/generate directly is refused with HTTP 403',
+      lockedRelevanceRes.status === 403
+    );
+    assert(
+      'Relevance lock refusal includes FEATURE_LOCKED code',
+      lockedRelevanceRes.body?.code === 'FEATURE_LOCKED'
+    );
+
+    // 7C: Direct invocation of locked Mentor API is refused with HTTP 403
+    const lockedMentorRes = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/ai/mentor',
+      headers: {
+        Authorization: `Bearer ${mobileToken}`,
+      },
+      body: {
+        stage: 'Knowing',
+      },
+    });
+    assert(
+      'Locked user calling /api/ai/mentor directly is refused with HTTP 403',
+      lockedMentorRes.status === 403
+    );
+    assert(
+      'Mentor lock refusal includes FEATURE_LOCKED code',
+      lockedMentorRes.body?.code === 'FEATURE_LOCKED'
     );
   } finally {
     testServer.close();

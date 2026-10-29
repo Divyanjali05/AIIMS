@@ -1,7 +1,27 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'icon' | 'green' | 'amber' | 'cyan' | 'violet' | 'rose';
+  variant?:
+    | 'primary'
+    | 'secondary'
+    | 'ghost'
+    | 'outline'
+    | 'danger'
+    | 'icon'
+    | 'sky'
+    | 'mint'
+    | 'sunshine'
+    | 'coral'
+    | 'lavender'
+    | 'green'
+    | 'amber'
+    | 'cyan'
+    | 'violet'
+    | 'rose'
+    | 'level1'
+    | 'level2'
+    | 'level3'
+    | 'level4';
   size?: 'sm' | 'md' | 'lg';
   children: React.ReactNode;
   icon?: React.ReactNode;
@@ -25,65 +45,74 @@ export const Button: React.FC<ButtonProps> = ({
     switch (variant) {
       case 'secondary':
         return {
-          backgroundColor: 'var(--aiims-card-banner-bg, #eef2ff)',
-          color: 'var(--aiims-primary, #4338ca)',
-          border: '1px solid var(--aiims-border-card, #c7d2fe)',
-          boxShadow: '0 2px 0 var(--aiims-border-card, #c7d2fe)'
+          backgroundColor: 'var(--aiims-token-lavender-bg, #f5f3ff)',
+          color: 'var(--aiims-token-lavender-accent, #7c3aed)',
+          border: '1px solid var(--aiims-token-lavender-border, #ddd6fe)',
+          boxShadow: '0 2px 0 var(--aiims-token-lavender-border, #ddd6fe)',
         };
       case 'outline':
         return {
           backgroundColor: 'var(--aiims-bg-card, #ffffff)',
-          color: 'var(--aiims-text-primary, #334155)',
-          border: '1px solid var(--aiims-border-card, #cbd5e1)',
-          boxShadow: '0 2px 0 var(--aiims-border-card, #e2e8f0)'
+          color: 'var(--aiims-text-heading, #0f172a)',
+          border: '1.5px solid var(--aiims-border-card, #cbd5e1)',
+          boxShadow: '0 2px 0 var(--aiims-border-subtle, #e2e8f0)',
         };
       case 'ghost':
         return {
           backgroundColor: 'transparent',
           color: 'var(--aiims-text-secondary, #475569)',
-          border: '1px solid transparent'
+          border: '1px solid transparent',
         };
       case 'danger':
         return {
           backgroundColor: '#ef4444',
           color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 0 #dc2626, 0 4px 14px rgba(239, 68, 68, 0.25)'
+          boxShadow: '0 4px 0 #dc2626, 0 4px 14px rgba(239, 68, 68, 0.25)',
         };
-      case 'green':
-        return {
-          backgroundColor: '#059669',
-          color: '#ffffff',
-          border: 'none',
-          boxShadow: '0 4px 0 #047857, 0 4px 14px rgba(5, 150, 105, 0.25)'
-        };
-      case 'amber':
-        return {
-          backgroundColor: '#d97706',
-          color: '#ffffff',
-          border: 'none',
-          boxShadow: '0 4px 0 #b45309, 0 4px 14px rgba(217, 119, 6, 0.25)'
-        };
+      case 'level2':
+      case 'sky':
       case 'cyan':
         return {
-          backgroundColor: '#0284c7',
+          backgroundColor: '#0369a1',
           color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 0 #0369a1, 0 4px 14px rgba(2, 132, 199, 0.25)'
+          boxShadow: '0 4px 0 #075985, 0 4px 14px rgba(3, 105, 161, 0.25)',
         };
-      case 'violet':
+      case 'level3':
+      case 'mint':
+      case 'green':
         return {
-          backgroundColor: '#7c3aed',
+          backgroundColor: '#047857',
           color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 0 #6d28d9, 0 4px 14px rgba(124, 58, 237, 0.25)'
+          boxShadow: '0 4px 0 #065f46, 0 4px 14px rgba(4, 120, 87, 0.25)',
         };
+      case 'sunshine':
+      case 'amber':
+        return {
+          backgroundColor: '#854d0e',
+          color: '#ffffff',
+          border: 'none',
+          boxShadow: '0 4px 0 #713f12, 0 4px 14px rgba(133, 77, 14, 0.25)',
+        };
+      case 'level4':
+      case 'coral':
       case 'rose':
         return {
           backgroundColor: '#e11d48',
           color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 0 #be123c, 0 4px 14px rgba(225, 29, 72, 0.25)'
+          boxShadow: '0 4px 0 #be123c, 0 4px 14px rgba(225, 29, 72, 0.25)',
+        };
+      case 'level1':
+      case 'lavender':
+      case 'violet':
+        return {
+          backgroundColor: '#7c3aed',
+          color: '#ffffff',
+          border: 'none',
+          boxShadow: '0 4px 0 #6d28d9, 0 4px 14px rgba(124, 58, 237, 0.25)',
         };
       case 'icon':
         return {
@@ -91,7 +120,7 @@ export const Button: React.FC<ButtonProps> = ({
           color: 'var(--aiims-text-secondary, #64748b)',
           border: '1px solid var(--aiims-border-card, #e2e8f0)',
           padding: '8px',
-          borderRadius: '50%'
+          borderRadius: '50%',
         };
       case 'primary':
       default:
@@ -99,7 +128,7 @@ export const Button: React.FC<ButtonProps> = ({
           backgroundColor: '#6366f1',
           color: '#ffffff',
           border: 'none',
-          boxShadow: '0 4px 0 #4338ca, 0 6px 18px rgba(99, 102, 241, 0.3)'
+          boxShadow: '0 4px 0 #4338ca, 0 6px 18px rgba(99, 102, 241, 0.3)',
         };
     }
   };
@@ -133,14 +162,13 @@ export const Button: React.FC<ButtonProps> = ({
     userSelect: 'none',
     ...getVariantStyles(),
     ...getSizeStyles(),
-    ...style
+    ...style,
   };
 
   return (
     <button
       disabled={disabled}
 
-      
       style={baseStyle}
       className={className}
       onMouseDown={(e) => {

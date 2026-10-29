@@ -1,31 +1,20 @@
 import React, { useRef } from 'react';
-import {
-  Sparkles,
-  ArrowRight,
-  Compass,
-  ShieldCheck,
-  Cpu,
-  CheckCircle2,
-  LogIn,
-  Sun,
-  Moon,
-} from 'lucide-react';
+import { Sparkles, ArrowRight, Compass, ShieldCheck, Cpu, CheckCircle2, LogIn } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
-import { AinovaLogo } from '../../components/common/AinovaLogo';
+import { AiimsLogo } from '../../components/common/AiimsLogo';
+
 import { Hero3DVisual } from '../../components/3d/Hero3DVisual';
 import { LearningUniverseMap } from '../../components/universe/LearningUniverseMap';
+import { SUPPORT_EMAIL } from '../../config/appConfig';
 
 interface PublicHeroScreenProps {
   onStartJourney: () => void;
   onSignIn: () => void;
 }
 
-export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
-  onStartJourney,
-  onSignIn,
-}) => {
-  const { isDarkMode, toggleTheme } = useTheme();
+export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({ onStartJourney, onSignIn }) => {
+  const { isDarkMode } = useTheme();
   const universeSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToUniverse = () => {
@@ -165,9 +154,11 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
         }
 
         .aiims-hero-gradient-text {
-          background: ${isDarkMode
-            ? 'linear-gradient(135deg, #C4B5FD 0%, #38BDF8 100%)'
-            : 'linear-gradient(135deg, #7C3AED 0%, #0284C7 100%)'};
+          background: ${
+            isDarkMode
+              ? 'linear-gradient(135deg, #C4B5FD 0%, #38BDF8 100%)'
+              : 'linear-gradient(135deg, #7C3AED 0%, #0284C7 100%)'
+          };
           -webkit-background-clip: text;
           background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -216,7 +207,11 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
         >
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-            <AinovaLogo size="md" showWordmark={true} textColor={isDarkMode ? '#FFFFFF' : '#0F172A'} />
+            <AiimsLogo
+              size="md"
+              showWordmark={true}
+              textColor={isDarkMode ? '#FFFFFF' : '#0F172A'}
+            />
           </div>
 
           {/* Center Navigation Links (Hidden on small mobile) */}
@@ -328,9 +323,7 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
               }}
             >
               Don’t Just Learn AI.{' '}
-              <span className="aiims-hero-gradient-text">
-                Become Future-Ready.
-              </span>
+              <span className="aiims-hero-gradient-text">Become Future-Ready.</span>
             </h1>
 
             {/* Supporting Copy */}
@@ -394,19 +387,37 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CheckCircle2 size={16} color={isDarkMode ? '#34D399' : '#059669'} />
-                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '13.5px',
+                    color: isDarkMode ? '#F1F5F9' : '#1E293B',
+                    fontWeight: 600,
+                  }}
+                >
                   Activity Unlock Engine
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShieldCheck size={16} color={isDarkMode ? '#22D3EE' : '#0891B2'} />
-                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '13.5px',
+                    color: isDarkMode ? '#F1F5F9' : '#1E293B',
+                    fontWeight: 600,
+                  }}
+                >
                   Deterministic AC/XP
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Cpu size={16} color={isDarkMode ? '#A78BFA' : '#7C3AED'} />
-                <span style={{ fontSize: '13.5px', color: isDarkMode ? '#F1F5F9' : '#1E293B', fontWeight: 600 }}>
+                <span
+                  style={{
+                    fontSize: '13.5px',
+                    color: isDarkMode ? '#F1F5F9' : '#1E293B',
+                    fontWeight: 600,
+                  }}
+                >
                   Claude & Gemini Scored
                 </span>
               </div>
@@ -453,7 +464,9 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
                 padding: '4px 12px',
                 borderRadius: '9999px',
                 backgroundColor: isDarkMode ? 'rgba(34, 211, 238, 0.1)' : 'rgba(6, 182, 212, 0.1)',
-                border: isDarkMode ? '1px solid rgba(34, 211, 238, 0.3)' : '1px solid rgba(6, 182, 212, 0.25)',
+                border: isDarkMode
+                  ? '1px solid rgba(34, 211, 238, 0.3)'
+                  : '1px solid rgba(6, 182, 212, 0.25)',
                 color: isDarkMode ? '#22D3EE' : '#0891B2',
                 fontSize: '12px',
                 fontWeight: 700,
@@ -564,13 +577,88 @@ export const PublicHeroScreen: React.FC<PublicHeroScreenProps> = ({
             gap: '16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <AinovaLogo size="sm" showWordmark={true} textColor={isDarkMode ? '#FFFFFF' : '#0F172A'} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <AiimsLogo
+              size="sm"
+              showWordmark={true}
+              textColor={isDarkMode ? '#FFFFFF' : '#0F172A'}
+            />
             <span style={{ fontSize: '12px', color: '#64748B' }}>
               © {new Date().getFullYear()} AIIMS. All rights reserved.
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              fontSize: '12px',
+              color: isDarkMode ? '#94A3B8' : '#64748B',
+              flexWrap: 'wrap',
+            }}
+          >
+            <a
+              href="/privacy"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/privacy');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              style={{ color: 'inherit', textDecoration: 'none' }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.color = isDarkMode ? '#A78BFA' : '#6366F1')
+              }
+              onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              Privacy Policy
+            </a>
+            <span>•</span>
+            <a
+              href="/terms"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/terms');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              style={{ color: 'inherit', textDecoration: 'none' }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.color = isDarkMode ? '#A78BFA' : '#6366F1')
+              }
+              onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              Terms of Service
+            </a>
+            <span>•</span>
+            <a
+              href="/refunds"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/refunds');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              style={{ color: 'inherit', textDecoration: 'none' }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.color = isDarkMode ? '#A78BFA' : '#6366F1')
+              }
+              onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              Refunds
+            </a>
+            <span>•</span>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              style={{ color: 'inherit', textDecoration: 'none' }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.color = isDarkMode ? '#A78BFA' : '#6366F1')
+              }
+              onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
+            >
+              Support
+            </a>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '18px', flexWrap: 'wrap' }}>
             <span
               style={{
                 fontSize: '12px',

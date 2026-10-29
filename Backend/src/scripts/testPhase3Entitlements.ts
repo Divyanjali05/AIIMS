@@ -38,11 +38,11 @@ const createMockLearnerState = (overrides?: any): any => ({
     id: 'user-learner-test-01',
     name: 'Alex AI',
     email: 'alex.ai@example.com',
-    role: 'STUDENT',
+    role: 'learner',
     targetGoal: 'Master AI Intelligence',
     stage: 'Knowing',
     xpPoints: 100,
-    aiimsCredits: 100,
+    aiimsCredits: 500,
   },
   assessment: {
     status: 'not_started',
@@ -94,7 +94,7 @@ const createMockLearnerState = (overrides?: any): any => ({
     status: 'locked',
   },
   credits: {
-    balance: 100,
+    balance: 500,
     transactions: [],
     claimedActions: [],
   },

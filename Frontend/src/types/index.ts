@@ -1,4 +1,5 @@
-export type ProgressionStage = 'Knowing' | 'Understanding' | 'Recognising' | 'Applying' | 'Adapting';
+export type ProgressionStage =
+  'Knowing' | 'Understanding' | 'Recognising' | 'Applying' | 'Adapting';
 
 export type Stream = 'TECH' | 'NON_TECH';
 
@@ -32,7 +33,7 @@ export interface UserProfile {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole | string;
   college?: string;
   targetGoal: string;
   stage: ProgressionStage;
@@ -71,12 +72,7 @@ export interface FocusArea {
 // ==========================================
 
 export type FocusSessionLifecycleState =
-  | 'idle'
-  | 'focusing'
-  | 'paused'
-  | 'break'
-  | 'completed'
-  | 'abandoned';
+  'idle' | 'focusing' | 'paused' | 'break' | 'completed' | 'abandoned';
 
 export type FocusPeriodType = 'focus' | 'short_break' | 'long_break';
 
@@ -117,7 +113,6 @@ export interface FocusSessionRecord {
   status: 'completed' | 'abandoned';
   cyclesCompleted: number;
 }
-
 
 export type RadarCategory =
   | 'New Models'
@@ -187,7 +182,7 @@ export const CREDIT_CONFIG = {
   LEVEL_COMPLETION_REWARD: 10,
   SIGNAL_INVESTIGATION_REWARD: 30,
   REFLECTION_REWARD: 15,
-  EVIDENCE_SUBMISSION_REWARD: 25
+  EVIDENCE_SUBMISSION_REWARD: 25,
 };
 
 // ==========================================
@@ -209,28 +204,13 @@ export type TaskCategory =
 export type ToolFamiliarity = 'exploring' | 'practicing' | 'proficient' | 'mastered';
 
 export type ToolLifecycleStatus =
-  | 'NEW'
-  | 'RECENTLY_UPDATED'
-  | 'ACTIVE'
-  | 'UPDATED'
-  | 'DEPRECATED'
-  | 'DISCONTINUED'
-  | 'UNVERIFIED';
+  'NEW' | 'RECENTLY_UPDATED' | 'ACTIVE' | 'UPDATED' | 'DEPRECATED' | 'DISCONTINUED' | 'UNVERIFIED';
 
 export type VerificationStatus =
-  | 'VERIFIED'
-  | 'COMMUNITY_VERIFIED'
-  | 'UNVERIFIED'
-  | 'PENDING_VERIFICATION';
+  'VERIFIED' | 'COMMUNITY_VERIFIED' | 'UNVERIFIED' | 'PENDING_VERIFICATION';
 
 export type PricingType =
-  | 'FREE'
-  | 'FREE_TIER'
-  | 'FREE_TRIAL'
-  | 'FREEMIUM'
-  | 'PAID'
-  | 'ENTERPRISE'
-  | 'UNKNOWN';
+  'FREE' | 'FREE_TIER' | 'FREE_TRIAL' | 'FREEMIUM' | 'PAID' | 'ENTERPRISE' | 'UNKNOWN';
 
 export interface ToolPricing {
   type: PricingType;
@@ -442,11 +422,14 @@ export interface RequirementToolComparison {
   taskDomain: string;
   tools: AITool[];
   comparisonCriteria: ComparisonCriterion[];
-  fitAnalysis: Record<string, {
-    whyItFits: string;
-    bestSuitedScenario: string;
-    keyTradeoff: string;
-  }>;
+  fitAnalysis: Record<
+    string,
+    {
+      whyItFits: string;
+      bestSuitedScenario: string;
+      keyTradeoff: string;
+    }
+  >;
   overallSynthesis: string;
 }
 
@@ -490,5 +473,144 @@ export interface UserProject {
 
 export type AudienceMode = 'student' | 'entrepreneur';
 
+// ==========================================
+// EVALUATOR & TASK SUBMISSION TYPES
+// ==========================================
 
+export type UserRole = 'learner' | 'evaluator' | 'admin';
 
+export type SubmissionStatus =
+  'submitted' | 'in_review' | 'feedback_given' | 'revision_requested' | 'accepted';
+
+export interface RubricCriterion {
+  id: string;
+  name: string;
+  description: string;
+  minScore: number;
+  maxScore: number;
+}
+
+export const RUBRIC_CRITERIA_LIST: RubricCriterion[] = [
+  {
+    id: 'accuracy',
+    name: 'Accuracy & Correctness',
+    description:
+      'Precision of solution, technical correctness, and factual consistency with requirements.',
+    minScore: 1,
+    maxScore: 5,
+  },
+  {
+    id: 'critical_thinking',
+    name: 'Critical Thinking & Reasoning',
+    description:
+      'Depth of analytical reasoning, problem formulation, trade-off analysis, and risk mitigation.',
+    minScore: 1,
+    maxScore: 5,
+  },
+  {
+    id: 'clarity',
+    name: 'Clarity & Communication',
+    description:
+      'Logical structure, readability, precision of prompt wording, and actionable documentation.',
+    minScore: 1,
+    maxScore: 5,
+  },
+  {
+    id: 'ai_application',
+    name: 'Practical AI Application',
+    description:
+      'Effectiveness of model context utilization, constraint handling, and workflow efficiency.',
+    minScore: 1,
+    maxScore: 5,
+  },
+];
+
+export type RubricScores = Record<string, number>;
+
+export interface StatusHistoryEntry {
+  changedBy: string;
+  changedByName?: string;
+  changedAt: string;
+  fromStatus: string;
+  toStatus: string;
+  note?: string;
+}
+
+export interface SubmissionItem {
+  _id?: string;
+  id?: string;
+  learner: string | { _id?: string; id?: string; name?: string; email?: string };
+  learnerName?: string;
+  learnerEmail?: string;
+  taskId: string;
+  taskTitle?: string;
+  answerContent: string;
+  status: SubmissionStatus;
+  evaluator?: string | { _id?: string; id?: string; name?: string } | null;
+  evaluatorName?: string;
+  rubricScores?: RubricScores;
+  writtenFeedback: string;
+  revisionCount: number;
+  statusHistory?: StatusHistoryEntry[];
+  submittedAt: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  waitingTimeMs?: number;
+  waitingTimeFormatted?: string;
+}
+
+export interface TaskItem {
+  _id?: string;
+  id?: string;
+  taskId: string;
+  title: string;
+  description: string;
+  category: string;
+  level: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EvaluatorItem {
+  id: string;
+  _id?: string;
+  name: string;
+  email: string;
+  role: 'evaluator' | 'admin';
+  isActive: boolean;
+  mustChangePassword?: boolean;
+  createdAt?: string;
+}
+
+export interface AuditLogItem {
+  id?: string;
+  _id?: string;
+  actor: string;
+  actorName?: string;
+  actorRole: string;
+  action: string;
+  target?: string;
+  targetType?: string;
+  time: string;
+  details?: Record<string, any>;
+}
+
+export interface AdminSummaryMetrics {
+  statusCounts: {
+    submitted: number;
+    in_review: number;
+    feedback_given: number;
+    revision_requested: number;
+    accepted: number;
+    total: number;
+  };
+  metrics: {
+    totalSubmissions: number;
+    reviewedCount: number;
+    pendingReviewCount: number;
+    averageReviewTimeMs: number;
+    averageReviewTimeFormatted: string;
+  };
+}

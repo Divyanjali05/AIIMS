@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { STARTING_CREDITS } from '../config/credits.config';
 
 export interface ICreditTransaction {
   id: string;
@@ -14,12 +15,34 @@ export interface ICreditTransaction {
   newBalance?: number;
 }
 
+export type UserRole = 'learner' | 'evaluator' | 'admin';
+
+export interface ITotp {
+  /** AES-256-GCM encrypted TOTP secret (iv:authTag:ciphertext hex). Empty until setup. */
+  encryptedSecret?: string;
+  /** Whether 2FA has been fully set up and is required on login. */
+  enabled: boolean;
+  /** True between first login (QR shown) and the user verifying the first code. */
+  pendingSetup: boolean;
+  /** SHA-256 hashes of single-use backup codes. */
+  backupCodeHashes: string[];
+  /** Number of failed TOTP attempts since last success. */
+  failedAttempts: number;
+  /** Timestamp until which TOTP entry is locked out. */
+  lockedUntil?: Date;
+}
+
 export interface IUser extends Document {
   id: string;
   name: string;
   email: string;
   password?: string;
-  role: string;
+  role: UserRole;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
+  inviteToken?: string;
+  inviteTokenExpires?: Date;
+  totp: ITotp;
   college: string;
   targetGoal: string;
   stage: string;
@@ -122,118 +145,142 @@ const CreditTransactionSchema = new Schema(
     description: { type: String, required: true },
     timestamp: { type: String, required: true },
     previousBalance: { type: Number },
-    newBalance: { type: Number }
+    newBalance: { type: Number },
   },
   { _id: false }
 );
 
-const UserSchema: Schema = new Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  role: { type: String, default: 'Student / AI Learner' },
-  college: { type: String, default: 'Engineering & Technology College' },
-  targetGoal: { type: String, default: 'Master AI Intelligence & Mentoring' },
-  stage: { type: String, default: 'Knowing' },
-  xpPoints: { type: Number, default: 100 },
-  aiimsCredits: { type: Number, default: 100 },
-  assessment: {
-    status: { type: String, default: 'not_started' },
-    answers: { type: Schema.Types.Mixed, default: {} },
-    currentQuestionIndex: { type: Number, default: 0 },
-    completedAt: { type: String, default: null },
-    rewardClaimed: { type: Boolean, default: false },
-    scores: {
-      usageFrequency: { type: Number, default: 0 },
-      evaluationCapability: { type: Number, default: 0 },
-      workflowDesign: { type: Number, default: 0 },
-      strategicVision: { type: Number, default: 0 },
-      mentorshipReadiness: { type: Number, default: 0 }
+const UserSchema: Schema = new Schema(
+  {
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ['learner', 'evaluator', 'admin'],
+      default: 'learner',
     },
-    evaluationResult: { type: Schema.Types.Mixed }
-  },
-  analysis: {
-    status: { type: String, default: 'locked' },
-    topCapability: { type: String, default: 'AI Evaluation & Critical Assessment' },
-    growthArea: { type: String, default: 'AI Workflow Design' },
-    unlockedAt: { type: String, default: null }
-  },
-  clarity: {
-    status: { type: String, default: 'locked' },
-    selectedAreas: { type: [String], default: [] },
-    selectedTopic: { type: String, default: null },
-    completedTopics: { type: [String], default: [] },
-    reflections: { type: Schema.Types.Mixed, default: {} },
-    taskScores: { type: Schema.Types.Mixed, default: {} },
-    trialRunsUsed: { type: Number, default: 0 }
-  },
-  focus: {
-    status: { type: String, default: 'locked' },
-    selectedTrack: { type: String, default: null },
-    history: { type: [String], default: [] },
-    activatedAt: { type: String, default: null },
-    sessionHistory: { type: Schema.Types.Mixed, default: [] },
-    activeSession: { type: Schema.Types.Mixed, default: null },
-    sessionConfig: { type: Schema.Types.Mixed, default: null }
-  },
-  radar: {
-    status: { type: String, default: 'locked' },
-    investigatedSignalIds: { type: [String], default: [] },
-    followedSignalIds: { type: [String], default: [] },
-    savedSignalIds: { type: [String], default: [] },
-    dismissedSignalIds: { type: [String], default: [] },
-    lastViewedRadar: { type: String, default: null },
-    radarProgress: { type: Number, default: 0 }
-  },
-  investigation: {
-    status: { type: String, default: 'locked' },
-    selectedSignalId: { type: String, default: null },
-    userNotes: { type: Schema.Types.Mixed, default: {} }
-  },
-  solver: { type: Schema.Types.Mixed, default: { latestWorkflow: null, history: [] } },
-  build: { type: Schema.Types.Mixed, default: { projects: [], activeProjectId: null } },
-  transactions: { type: [CreditTransactionSchema], default: [] },
-  notifications: {
-    type: [
-      {
-        id: { type: String, required: true },
-        title: { type: String, required: true },
-        message: { type: String, required: true },
-        timestamp: { type: String, default: 'Just now' },
-        targetTab: { type: String },
-        read: { type: Boolean, default: false }
-      }
-    ],
-    default: [
-      {
-        id: 'notif-init',
-        title: 'Welcome to AIIMS Ecosystem',
-        message: 'Begin with your baseline Capability Assessment to unlock personalized AI intelligence.',
-        timestamp: 'Just now',
-        targetTab: 'assessment',
-        read: false
-      }
-    ]
-  },
-  // AI Wallet — per-user tool kit persisted in MongoDB
-  aiWallet: {
-    userTools: {
+    isActive: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
+    inviteToken: { type: String },
+    inviteTokenExpires: { type: Date },
+    totp: {
+      encryptedSecret: { type: String },
+      enabled: { type: Boolean, default: false },
+      pendingSetup: { type: Boolean, default: false },
+      backupCodeHashes: { type: [String], default: [] },
+      failedAttempts: { type: Number, default: 0 },
+      lockedUntil: { type: Date },
+    },
+    college: { type: String, default: 'Engineering & Technology College' },
+    targetGoal: { type: String, default: 'Master AI Intelligence & Mentoring' },
+    stage: { type: String, default: 'Knowing' },
+    xpPoints: { type: Number, default: 100 },
+    aiimsCredits: { type: Number, default: STARTING_CREDITS },
+    assessment: {
+      status: { type: String, default: 'not_started' },
+      answers: { type: Schema.Types.Mixed, default: {} },
+      currentQuestionIndex: { type: Number, default: 0 },
+      completedAt: { type: String, default: null },
+      rewardClaimed: { type: Boolean, default: false },
+      scores: {
+        usageFrequency: { type: Number, default: 0 },
+        evaluationCapability: { type: Number, default: 0 },
+        workflowDesign: { type: Number, default: 0 },
+        strategicVision: { type: Number, default: 0 },
+        mentorshipReadiness: { type: Number, default: 0 },
+      },
+      evaluationResult: { type: Schema.Types.Mixed },
+    },
+    analysis: {
+      status: { type: String, default: 'locked' },
+      topCapability: { type: String, default: 'AI Evaluation & Critical Assessment' },
+      growthArea: { type: String, default: 'AI Workflow Design' },
+      unlockedAt: { type: String, default: null },
+    },
+    clarity: {
+      status: { type: String, default: 'locked' },
+      selectedAreas: { type: [String], default: [] },
+      selectedTopic: { type: String, default: null },
+      completedTopics: { type: [String], default: [] },
+      reflections: { type: Schema.Types.Mixed, default: {} },
+      taskScores: { type: Schema.Types.Mixed, default: {} },
+      trialRunsUsed: { type: Number, default: 0 },
+    },
+    focus: {
+      status: { type: String, default: 'locked' },
+      selectedTrack: { type: String, default: null },
+      history: { type: [String], default: [] },
+      activatedAt: { type: String, default: null },
+      sessionHistory: { type: Schema.Types.Mixed, default: [] },
+      activeSession: { type: Schema.Types.Mixed, default: null },
+      sessionConfig: { type: Schema.Types.Mixed, default: null },
+    },
+    radar: {
+      status: { type: String, default: 'locked' },
+      investigatedSignalIds: { type: [String], default: [] },
+      followedSignalIds: { type: [String], default: [] },
+      savedSignalIds: { type: [String], default: [] },
+      dismissedSignalIds: { type: [String], default: [] },
+      lastViewedRadar: { type: String, default: null },
+      radarProgress: { type: Number, default: 0 },
+    },
+    investigation: {
+      status: { type: String, default: 'locked' },
+      selectedSignalId: { type: String, default: null },
+      userNotes: { type: Schema.Types.Mixed, default: {} },
+    },
+    solver: { type: Schema.Types.Mixed, default: { latestWorkflow: null, history: [] } },
+    build: { type: Schema.Types.Mixed, default: { projects: [], activeProjectId: null } },
+    transactions: { type: [CreditTransactionSchema], default: [] },
+    notifications: {
       type: [
         {
-          toolId:          { type: String, required: true },
-          addedAt:         { type: String, required: true },
-          familiarity:     { type: String, default: 'exploring' },
-          userNotes:       { type: String, default: '' },
-          primaryCategory: { type: String, required: true },
-          customTags:      { type: [String], default: [] }
-        }
+          id: { type: String, required: true },
+          title: { type: String, required: true },
+          message: { type: String, required: true },
+          timestamp: { type: String, default: 'Just now' },
+          targetTab: { type: String },
+          read: { type: Boolean, default: false },
+        },
       ],
-      default: []
+      default: [
+        {
+          id: 'notif-init',
+          title: 'Welcome to AIIMS Ecosystem',
+          message:
+            'Begin with your baseline Capability Assessment to unlock personalized AI intelligence.',
+          timestamp: 'Just now',
+          targetTab: 'assessment',
+          read: false,
+        },
+      ],
     },
-    dismissedRecommendations: { type: [String], default: [] }
+    // AI Wallet — per-user tool kit persisted in MongoDB
+    aiWallet: {
+      userTools: {
+        type: [
+          {
+            toolId: { type: String, required: true },
+            addedAt: { type: String, required: true },
+            familiarity: { type: String, default: 'exploring' },
+            userNotes: { type: String, default: '' },
+            primaryCategory: { type: String, required: true },
+            customTags: { type: [String], default: [] },
+          },
+        ],
+        default: [],
+      },
+      dismissedRecommendations: { type: [String], default: [] },
+    },
+    createdAt: { type: Date, default: Date.now },
   },
-  createdAt: { type: Date, default: Date.now }
-}, { versionKey: false });
+  { versionKey: false }
+);
+
+// Query optimization indexes
+UserSchema.index({ role: 1, createdAt: -1 });
+UserSchema.index({ inviteToken: 1 }, { sparse: true });
 
 // Pre-save hook: Hash password with bcrypt before saving
 UserSchema.pre<IUser>('save', async function () {
@@ -279,7 +326,7 @@ UserSchema.set('toJSON', {
   transform: (_doc, ret) => {
     delete ret.password;
     return ret;
-  }
+  },
 });
 
 export const User = mongoose.model<IUser>('User', UserSchema);

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:mobile": "tsc && VITE_API_BASE_URL=${VITE_API_BASE_URL:-https://api.aiims.com/api} vite build && npx cap sync",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
@@ -22,8 +23,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
+    "@capacitor/splash-screen": "^6.0.4",
+    "@capacitor/status-bar": "^6.0.3",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@types/three": "^0.169.0",

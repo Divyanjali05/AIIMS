@@ -15,7 +15,9 @@ paths = [
   '''(?i)\.env\.example$''',
   '''(?i)gitleaks.*\.json$''',
   '''(?i)Backend/api-tests\.http$''',
-  '''(?i)package-lock\.json$'''
+  '''(?i)package-lock\.json$''',
+  '''(?i)(?:^|/)src/services/__tests__/''',
+  '''(?i)(?:^|/)src/scripts/'''
 ]
 
 stopwords = [

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
+import { generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import {
   getLearnerState,
   updateLearnerState,
@@ -7,10 +8,12 @@ import {
   getInstitutes,
   requestInstitute,
   getStudentProfile,
-  updateStudentProfile
+  updateStudentProfile,
 } from '../controllers/learner.controller';
 
 const router = Router();
+
+router.use(generalApiRateLimiter);
 
 // Learner state
 router.get('/learner/state', requireAuth, getLearnerState);
