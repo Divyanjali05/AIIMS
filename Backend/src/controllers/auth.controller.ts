@@ -54,7 +54,12 @@ const setAuthCookie = (res: Response, token: string, req?: Request): void => {
 const isMobileClient = (req: Request): boolean =>
   (req.headers['x-client'] as string | undefined)?.toLowerCase() === 'mobile';
 
-import { registeredUsers, isSafeKey } from '../models/userStore';
+import {
+  registeredUsers,
+  isSafeKey,
+  getRegisteredUser,
+  saveRegisteredUser,
+} from '../models/userStore';
 export { registeredUsers };
 
 export const login = async (req: Request, res: Response) => {
@@ -591,18 +596,18 @@ export const setPassword = async (req: Request, res: Response) => {
 
   // Fallback memory user with prototype pollution guards
   let memoryUser: any = null;
-  if (!user && isSafeKey(normalizedEmail) && registeredUsers[normalizedEmail]) {
-    memoryUser = registeredUsers[normalizedEmail];
+  if (!user && isSafeKey(normalizedEmail)) {
+    memoryUser = getRegisteredUser(normalizedEmail);
     if (
       inviteToken &&
       typeof inviteToken === 'string' &&
-      memoryUser.inviteToken === inviteToken.trim()
+      memoryUser?.inviteToken === inviteToken.trim()
     ) {
       // Valid memory invite token
     } else if (currentPassword && typeof currentPassword === 'string') {
-      const match = memoryUser.password?.startsWith('$2')
+      const match = memoryUser?.password?.startsWith('$2')
         ? await bcrypt.compare(currentPassword, memoryUser.password)
-        : memoryUser.password === currentPassword;
+        : memoryUser?.password === currentPassword;
       if (!match) return res.status(401).json({ error: 'Current password is incorrect.' });
     } else {
       memoryUser = null;
@@ -621,11 +626,15 @@ export const setPassword = async (req: Request, res: Response) => {
     user.inviteToken = undefined;
     user.inviteTokenExpires = undefined;
     await user.save();
-  } else if (memoryUser && typeof memoryUser === 'object' && memoryUser !== Object.prototype) {
-    memoryUser.password = hashedPassword;
-    memoryUser.mustChangePassword = false;
-    memoryUser.inviteToken = undefined;
-    memoryUser.inviteTokenExpires = undefined;
+  } else if (memoryUser) {
+    const updatedUser = {
+      ...memoryUser,
+      password: hashedPassword,
+      mustChangePassword: false,
+      inviteToken: undefined,
+      inviteTokenExpires: undefined,
+    };
+    saveRegisteredUser(normalizedEmail, updatedUser);
   }
 
   const token = generateAuthToken(
