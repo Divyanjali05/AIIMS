@@ -25,6 +25,7 @@ const { generateCsrfToken, validateRequest, doubleCsrfProtection } = doubleCsrf(
     (req.headers['x-csrf-token'] as string) || (req.headers['csrf-token'] as string),
 });
 
+export const csrf = () => csrfMiddleware;
 export { generateCsrfToken, doubleCsrfProtection };
 
 /**

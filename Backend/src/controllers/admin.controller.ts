@@ -132,7 +132,12 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
     aiimsCredits: 0,
     transactions: [],
   };
-  registeredUsers[normalizedEmail] = memoryEvaluator;
+  Object.defineProperty(registeredUsers, normalizedEmail, {
+    value: memoryEvaluator,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 
   await writeAuditLog({
     actor: admin._id || admin.id,

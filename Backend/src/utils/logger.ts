@@ -144,11 +144,13 @@ class Logger {
   }
 
   info(message: string, meta?: any): void {
-    console.log(this.formatMessage('info', message, meta));
+    const output = this.formatMessage('info', message, meta).replace(/[\r\n]+/g, ' ');
+    console.log(output);
   }
 
   warn(message: string, meta?: any): void {
-    console.warn(this.formatMessage('warn', message, meta));
+    const output = this.formatMessage('warn', message, meta).replace(/[\r\n]+/g, ' ');
+    console.warn(output);
   }
 
   error(message: string, error?: any, meta?: any): void {
@@ -164,7 +166,8 @@ class Logger {
           ? { rawError: String(error) }
           : {}),
     };
-    console.error(this.formatMessage('error', message, combinedMeta));
+    const output = this.formatMessage('error', message, combinedMeta).replace(/[\r\n]+/g, ' ');
+    console.error(output);
   }
 
   debug(message: string, meta?: any): void {
@@ -172,7 +175,8 @@ class Logger {
     if (this.isProduction) {
       return;
     }
-    console.log(this.formatMessage('debug', message, meta));
+    const output = this.formatMessage('debug', message, meta).replace(/[\r\n]+/g, ' ');
+    console.log(output);
   }
 }
 

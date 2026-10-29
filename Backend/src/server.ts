@@ -12,7 +12,7 @@ import { ToolCatalogService } from './services/wallet/toolCatalog.service';
 import { logger, requestLogger } from './utils/logger';
 import { sentryErrorHandler } from './utils/sentry';
 import { syncAllDatabaseIndexes } from './services/databaseIndex.service';
-import { csrfMiddleware, getCsrfTokenHandler } from './middleware/csrf.middleware';
+import { csrf, getCsrfTokenHandler } from './middleware/csrf.middleware';
 
 export const app = express();
 
@@ -81,7 +81,7 @@ app.use(requestLogger);
 app.use(cookieParser(config.jwtSecret));
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
-app.use(csrfMiddleware);
+app.use(csrf());
 
 // CSRF Token issuance endpoint
 app.get('/api/csrf-token', getCsrfTokenHandler);
