@@ -42,6 +42,9 @@ import {
 } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
+import { NetworkStatusBanner } from './components/common/NetworkStatusBanner';
 import { apiClient } from './api/client';
 import { SUPPORT_EMAIL } from './config/appConfig';
 import { LegalScreen } from './screens/legal/LegalScreen';
@@ -101,6 +104,22 @@ const mapTabToPath = (tab: string): string => {
 
 const AppContent: React.FC = () => {
   const { state, isAuthenticated } = useLearner();
+  const { isDarkMode } = useTheme();
+
+  // Hide splash screen smoothly on mount (Capacitor Native)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      SplashScreen.hide().catch(() => {});
+    }
+  }, []);
+
+  // Synchronize Android Native Status Bar with Theme
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: isDarkMode ? Style.Dark : Style.Light }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: isDarkMode ? '#0f0d24' : '#ffffff' }).catch(() => {});
+    }
+  }, [isDarkMode]);
   const [intendedRoute, setIntendedRoute] = useState<string | null>(null);
 
   const [activeTab, setActiveTabState] = useState<string>(() => {
@@ -457,6 +476,9 @@ const AppContent: React.FC = () => {
         fontFamily: "'Nunito', -apple-system, sans-serif",
       }}
     >
+      {/* Network Status Banner */}
+      <NetworkStatusBanner />
+
       {/* Sticky Top Header */}
       <Header
         activeTab={activeTab}

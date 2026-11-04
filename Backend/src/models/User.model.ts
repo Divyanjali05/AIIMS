@@ -17,6 +17,18 @@ export interface ICreditTransaction {
 
 export type UserRole = 'learner' | 'evaluator' | 'admin';
 
+export interface IDeviceBinding {
+  deviceIdHash: string;
+  deviceName?: string;
+  platform: 'web' | 'android' | 'ios' | 'other';
+  boundAt?: Date | null;
+  lastSeenAt?: Date | null;
+  activeSessionId?: string | null;
+  bindingStatus: 'BOUND' | 'UNBOUND';
+  resetAt?: Date | null;
+  resetBy?: string | null;
+}
+
 export interface ITotp {
   /** AES-256-GCM encrypted TOTP secret (iv:authTag:ciphertext hex). Empty until setup. */
   encryptedSecret?: string;
@@ -43,6 +55,7 @@ export interface IUser extends Document {
   inviteToken?: string;
   inviteTokenExpires?: Date;
   totp: ITotp;
+  deviceBinding?: IDeviceBinding;
   college: string;
   targetGoal: string;
   stage: string;
@@ -172,6 +185,25 @@ const UserSchema: Schema = new Schema(
       failedAttempts: { type: Number, default: 0 },
       lockedUntil: { type: Date },
     },
+    deviceBinding: {
+      deviceIdHash: { type: String, default: '' },
+      deviceName: { type: String, default: '' },
+      platform: {
+        type: String,
+        enum: ['web', 'android', 'ios', 'other'],
+        default: 'web',
+      },
+      boundAt: { type: Date, default: null },
+      lastSeenAt: { type: Date, default: null },
+      activeSessionId: { type: String, default: null },
+      bindingStatus: {
+        type: String,
+        enum: ['BOUND', 'UNBOUND'],
+        default: 'UNBOUND',
+      },
+      resetAt: { type: Date, default: null },
+      resetBy: { type: String, default: null },
+    },
     college: { type: String, default: 'Engineering & Technology College' },
     targetGoal: { type: String, default: 'Master AI Intelligence & Mentoring' },
     stage: { type: String, default: 'Knowing' },
@@ -281,6 +313,7 @@ const UserSchema: Schema = new Schema(
 // Query optimization indexes
 UserSchema.index({ role: 1, createdAt: -1 });
 UserSchema.index({ inviteToken: 1 }, { sparse: true });
+UserSchema.index({ 'deviceBinding.deviceIdHash': 1 });
 
 // Pre-save hook: Hash password with bcrypt before saving
 UserSchema.pre<IUser>('save', async function () {

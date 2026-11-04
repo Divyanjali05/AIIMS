@@ -24,6 +24,7 @@ import {
   GraduationCap,
   Rocket,
   Search,
+  Coins,
 } from 'lucide-react';
 import { useLearner, resolveAudienceMode } from '../../context/LearnerContext';
 import { Surface } from '../../components/common/Surface';
@@ -46,6 +47,8 @@ import { generateWalletRecommendations } from '../../services/recommendationEngi
 import { trackLearningLoopEvent } from '../../services/learningLoop';
 import { getAssessmentToolInsights } from '../../services/assessmentToolMatcher';
 import { AssessmentPromptSuggestions } from './AssessmentPromptSuggestions';
+import { CreditsLedgerSection } from './CreditsLedgerSection';
+import { IntelligentToolMatchingSection } from './IntelligentToolMatchingSection';
 
 /**
  * Startup Toolkit Gaps — capability categories identified as essential
@@ -120,8 +123,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   );
 
   const [activeSection, setActiveSection] = useState<
-    'wallet' | 'discover' | 'compare' | 'gaps' | 'admin'
-  >('discover');
+    'credits' | 'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'admin'
+  >('credits');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -738,17 +741,29 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       >
         {[
           {
+            id: 'credits',
+            label: '1. AI Credits & Ledger',
+            icon: Coins,
+            badge: undefined,
+          },
+          {
+            id: 'matching',
+            label: '2. Intelligent Tool Matching',
+            icon: Sparkles,
+            badge: undefined,
+          },
+          { id: 'wallet', label: '3. My Tool Stack', icon: Wallet, badge: `${userTools.length}` },
+          {
             id: 'discover',
-            label: '1. Requirement Search & Discover',
+            label: '4. Full Catalog',
             icon: Compass,
             badge: `${catalog.length}`,
           },
-          { id: 'wallet', label: '2. My Wallet', icon: Wallet, badge: `${userTools.length}` },
-          { id: 'compare', label: '3. Task Comparison', icon: ArrowRightLeft, badge: undefined },
-          { id: 'gaps', label: '4. Toolkit Gaps', icon: BarChart2, badge: undefined },
+          { id: 'compare', label: '5. Task Comparison', icon: ArrowRightLeft, badge: undefined },
+          { id: 'gaps', label: '6. Toolkit Gaps', icon: BarChart2, badge: undefined },
           {
             id: 'admin',
-            label: '5. Pipeline Observability',
+            label: '7. Pipeline',
             icon: ShieldCheck,
             badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
           },
@@ -799,6 +814,26 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           );
         })}
       </div>
+
+      {/* ========================================================================= */}
+      {/* SECTION: AI CREDITS & AUTHORITATIVE LEDGER */}
+      {/* ========================================================================= */}
+      {activeSection === 'credits' && (
+        <CreditsLedgerSection onNavigateToMatching={() => setActiveSection('matching')} />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION: INTELLIGENT TOOL MATCHING */}
+      {/* ========================================================================= */}
+      {activeSection === 'matching' && (
+        <IntelligentToolMatchingSection
+          catalog={catalog}
+          userTools={userTools}
+          onAddTool={handleAddToolWithFeedback}
+          onOpenToolDetail={handleOpenToolDetail}
+          currentAudienceMode={currentAudienceMode}
+        />
+      )}
 
       {/* ========================================================================= */}
       {/* SECTION 1: REQUIREMENT SEARCH & DISCOVER */}

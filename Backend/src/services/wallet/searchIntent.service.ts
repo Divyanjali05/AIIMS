@@ -291,7 +291,6 @@ export class SearchIntentService {
     let primaryGoal = 'AI Tool Recommendation';
     let intentSummary = 'Tool Search';
 
-    // Query Pattern 1: PDF/Document Understanding & Analysis ("analyze a 100-page PDF", "understand this document")
     const isPdfDocAction =
       q.includes('analyze') ||
       q.includes('understanding') ||
@@ -306,7 +305,30 @@ export class SearchIntentService {
     const hasDocKeyword =
       q.includes('pdf') || q.includes('page') || q.includes('document') || q.includes('paper');
 
-    if ((hasDocKeyword && isPdfDocAction) || q.includes('pdf')) {
+    // Query Pattern 0: Multi-Task Composable Workflow ("research a market problem, draft a whitepaper, and build presentation slides")
+    if (
+      (q.includes('and') || q.includes(',')) &&
+      (q.includes('research') ||
+        q.includes('problem') ||
+        q.includes('market') ||
+        q.includes('summarize')) &&
+      (q.includes('presentation') ||
+        q.includes('slide') ||
+        q.includes('slides') ||
+        q.includes('whitepaper') ||
+        q.includes('deck') ||
+        q.includes('video'))
+    ) {
+      primaryGoal = 'Multi-Task Workflow Execution';
+      intentSummary =
+        'Execute multi-step workflow covering research, summarization, and content generation';
+      tasks.push('Research', 'Source Discovery', 'Content Structuring', 'Slide Deck Generation');
+      reqCap.push('web_research', 'synthesis', 'slide_generation');
+      domains.push('Research & Knowledge', 'Presentation & Decks');
+      categories.push('Research & RAG', 'Presentation');
+    }
+    // Query Pattern 1: PDF/Document Understanding & Analysis ("analyze a 100-page PDF", "understand this document")
+    else if ((hasDocKeyword && isPdfDocAction) || q.includes('pdf')) {
       primaryGoal = 'Document Understanding & Analysis';
       intentSummary = 'Analyze and extract insights from long documents and PDFs';
       tasks.push(
@@ -320,6 +342,43 @@ export class SearchIntentService {
       inputTypes.push('pdf', 'document', 'text');
       outputTypes.push('summary', 'answers', 'key_points', 'analysis');
       domains.push('Research & Knowledge');
+      categories.push('Research & RAG');
+    }
+    // Query Pattern 1b: Writing & Content Creation ("draft literature review", "write paper", "essay")
+    else if (
+      q.includes('draft') ||
+      q.includes('literature review') ||
+      q.includes('essay') ||
+      (q.includes('write') &&
+        (q.includes('paper') ||
+          q.includes('article') ||
+          q.includes('review') ||
+          q.includes('notes')))
+    ) {
+      primaryGoal = 'Writing & Content Creation';
+      intentSummary = 'Draft, edit, and synthesize written content and literature';
+      tasks.push('Content Drafting', 'Creative Writing', 'Synthesis', 'Editing');
+      reqCap.push('general_reasoning', 'creative_writing', 'writing');
+      optCap.push('citation_support', 'web_browsing');
+      inputTypes.push('text_prompt', 'notes');
+      outputTypes.push('draft', 'article', 'essay');
+      domains.push('Education & Learning', 'General');
+      categories.push('Reasoning & Writing');
+    }
+    // Query Pattern 1c: Citation & Source Synthesis ("synthesize academic citations from papers", "find sources")
+    else if (
+      q.includes('synthesize') ||
+      (q.includes('citation') &&
+        (q.includes('source') || q.includes('paper') || q.includes('academic')))
+    ) {
+      primaryGoal = 'Research & Source Synthesis';
+      intentSummary = 'Synthesize academic citations from papers and find sources';
+      tasks.push('Web Research', 'Source Discovery', 'Citation Support');
+      reqCap.push('web_research', 'source_discovery', 'source_citation');
+      optCap.push('citation_support', 'fact_verification');
+      inputTypes.push('query_prompt', 'document');
+      outputTypes.push('verified_findings', 'summary', 'citations');
+      domains.push('Research & Knowledge', 'Education & Learning');
       categories.push('Research & RAG');
     }
     // Query Pattern 2: Research Document Creation ("for research document making", "research report")
@@ -402,39 +461,39 @@ export class SearchIntentService {
         'Chart Visualization',
         'Insight Generation'
       );
-      reqCap.push(
-        'csv_ingestion',
-        'statistical_analysis',
-        'chart_rendering',
-        'insight_generation',
-        'python_execution'
-      );
-      optCap.push('sql_querying', 'report_export');
+      reqCap.push('data_cleaning', 'statistical_analysis', 'chart_rendering', 'python_execution');
+      optCap.push('sql_querying', 'report_export', 'csv_ingestion');
       inputTypes.push('csv', 'excel', 'dataframe');
       outputTypes.push('charts', 'visualizations', 'insights_report');
       domains.push('Data & Analytics');
       categories.push('Data Analysis');
     }
-    // Query Pattern 5: Multi-intent ("research AI agents, summarize papers, and create a presentation")
+    // Query Pattern 5: Multi-intent ("research a market problem, draft a whitepaper, and build presentation slides")
     else if (
-      q.includes('and') &&
+      (q.includes('and') || q.includes(',')) &&
       (q.includes('research') ||
-        q.includes('summarize') ||
-        q.includes('presentation') ||
+        q.includes('problem') ||
+        q.includes('market') ||
+        q.includes('summarize')) &&
+      (q.includes('presentation') ||
+        q.includes('slide') ||
+        q.includes('slides') ||
+        q.includes('whitepaper') ||
+        q.includes('deck') ||
         q.includes('video'))
     ) {
       primaryGoal = 'Multi-Task Workflow Execution';
       intentSummary =
         'Execute multi-step workflow covering research, summarization, and content generation';
-      if (q.includes('research')) {
+      if (q.includes('research') || q.includes('problem') || q.includes('market')) {
         tasks.push('Research', 'Source Discovery');
         reqCap.push('web_research', 'source_discovery');
       }
-      if (q.includes('summarize') || q.includes('paper')) {
+      if (q.includes('summarize') || q.includes('paper') || q.includes('whitepaper')) {
         tasks.push('Paper Discovery', 'Document Analysis', 'Summarization');
-        reqCap.push('pdf_summarization', 'document_analysis');
+        reqCap.push('document_analysis', 'synthesis');
       }
-      if (q.includes('presentation')) {
+      if (q.includes('presentation') || q.includes('slide') || q.includes('slides')) {
         tasks.push('Synthesis', 'Presentation Creation');
         reqCap.push('synthesis', 'slide_generation');
       }

@@ -1,358 +1,256 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  CheckCircle2,
-  ArrowRight,
-  TrendingUp,
-  Sparkles,
-  Coins,
-  ChevronDown,
-  ChevronUp,
   Route,
+  CheckCircle2,
+  Clock,
   Lock,
+  ArrowRight,
+  Filter,
+  BarChart3,
+  Sparkles,
   Compass,
   Target,
-  Radar,
-  Search,
-  BarChart3,
-  ClipboardCheck,
-  Wrench,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  FileText,
+  AlertCircle,
+  Award,
   Layers,
-  MessageCircle,
+  History,
+  Info,
+  Flame,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Card } from '../../components/common/Card';
-import { SurfaceProps } from '../../components/common/Surface';
 import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
+import { api } from '../../api/client';
+
+interface JourneyMilestone {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'completed' | 'current' | 'locked' | 'in_progress';
+  progressPercentage?: number;
+  earnedCredentials?: string[];
+  tasksTotal?: number;
+  tasksCompleted?: number;
+  unlockedAt?: string;
+}
+
+interface RubricScore {
+  name: string;
+  criterion?: string;
+  score: number;
+  maxScore?: number;
+  feedback?: string;
+}
+
+interface ClarityTopic {
+  topic: string;
+  level?: number;
+  solvedTasksCount?: number;
+  averageScore?: number;
+}
+
+interface FocusSessionSummary {
+  sessionId: string;
+  date?: string;
+  durationMinutes?: number;
+  status?: string;
+  trackTitle?: string;
+}
+
+interface SkillInsight {
+  name: string;
+  domain: string;
+  score: number;
+}
+
+interface TimelineItem {
+  id: string;
+  title?: string;
+  date?: string;
+  type?: string;
+  score?: number;
+  status?: string;
+}
+
+interface JourneyOverviewData {
+  milestones?: JourneyMilestone[];
+  activeStage?: string;
+  currentStage?: string;
+  overallProgress?: number;
+  overallProgressPercent?: number;
+  completedMilestonesCount?: number;
+  totalMilestonesCount?: number;
+  nextBestAction?: {
+    actionTitle?: string;
+    actionReason?: string;
+    actionButtonLabel?: string;
+    targetTab?: string;
+  };
+  latestAssessmentSummary?: {
+    score?: number;
+    topCapability?: string;
+    completedAt?: string;
+  };
+  focusSummary?: {
+    todayFocusMinutes?: number;
+    todayCompletedSessions?: number;
+  };
+  [key: string]: any;
+}
+
+interface AssessmentRecord {
+  id?: string;
+  _id?: string;
+  type?: string;
+  title?: string;
+  score?: number;
+  status?: string;
+  completedAt?: string;
+  rubrics?: RubricScore[];
+  [key: string]: any;
+}
+
+interface ClarityProgressData {
+  topics?: ClarityTopic[];
+  [key: string]: any;
+}
+
+interface FocusActivityData {
+  todayFocusMinutes?: number;
+  todayCompletedSessions?: number;
+  recentSessions?: FocusSessionSummary[];
+  [key: string]: any;
+}
+
+interface JourneyAnalyticsData {
+  strongestSkills?: SkillInsight[];
+  growthAreas?: SkillInsight[];
+  scoreTimeline?: TimelineItem[];
+  basisExplanation?: string;
+  [key: string]: any;
+}
 
 interface JourneyScreenProps {
   setActiveTab: (tab: string) => void;
 }
 
+type JourneySubTab = 'overview' | 'history' | 'clarity' | 'focus' | 'analytics';
+
 export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) => {
   const { state } = useLearner();
-  const credits = state.credits.balance;
+  const [activeSubTab, setActiveSubTab] = useState<JourneySubTab>('overview');
 
-  const isAssessmentDone = state.assessment.status === 'completed';
-  const isAnalysisDone = state.analysis.status === 'viewed';
-  const isAnalysisUnlocked = state.analysis.status !== 'locked';
-  const isFocusActive = state.focus.status === 'active';
-  const isInvestigationDone = state.investigation.status === 'completed';
-  const isRelevanceUnlocked = state.relevance.status !== 'locked';
-  const isSolverUnlocked = isInvestigationDone || isAssessmentDone;
-  const isBuildUnlocked = (state.solver?.history?.length || 0) > 0 || isSolverUnlocked;
-  const isMentorUnlocked = isAssessmentDone;
+  // Loading & error states
+  const [_loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [expandedStage, setExpandedStage] = useState<string | null>('assessment');
+  // Authoritative server data states
+  const [overviewData, setOverviewData] = useState<JourneyOverviewData | null>(null);
+  const [assessmentHistory, setAssessmentHistory] = useState<AssessmentRecord[]>([]);
+  const [historyPagination, setHistoryPagination] = useState({
+    page: 1,
+    limit: 10,
+    totalRecords: 0,
+    totalPages: 1,
+  });
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>('all');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<string>('all');
+  const [clarityData, setClarityData] = useState<ClarityProgressData | null>(null);
+  const [focusData, setFocusData] = useState<FocusActivityData | null>(null);
+  const [analyticsData, setAnalyticsData] = useState<any | null>(null);
 
-  const completedCount = [
-    isAssessmentDone,
-    isAnalysisDone,
-    state.clarity.status === 'completed' ||
-      (state.clarity.completedTopics && state.clarity.completedTopics.length > 0),
-    isFocusActive,
-    state.radar.investigatedSignalIds.length > 0,
-    isInvestigationDone,
-    isRelevanceUnlocked,
-    (state.solver?.history?.length || 0) > 0,
-    (state.build?.projects?.length || 0) > 0,
-    isMentorUnlocked,
-  ].filter(Boolean).length;
+  // Expanded UI states
+  const [expandedMilestone, setExpandedMilestone] = useState<string | null>('understand');
+  const [selectedRecordDetail, setSelectedRecordDetail] = useState<any | null>(null);
 
-  const completionPercentage = Math.round((completedCount / 10) * 100);
+  // Fetch all journey data from backend
+  const fetchAllData = useCallback(async () => {
+    try {
+      setError(null);
+      const [overviewRes, clarityRes, focusRes, analyticsRes] = await Promise.allSettled([
+        api.getJourneyOverview(),
+        api.getJourneyClarityProgress(),
+        api.getJourneyFocusActivity(),
+        api.getJourneyAnalytics(),
+      ]);
 
-  const stages: {
-    id: string;
-    title: string;
-    icon: React.ReactNode;
-    status: 'completed' | 'current' | 'available' | 'locked' | 'upcoming' | 'unlocked';
-    date: string;
-    summary: string;
-    explanation: string;
-    variant: SurfaceProps['variant'];
-    btnVariant: 'green' | 'amber' | 'cyan' | 'violet' | 'rose' | 'primary';
-    badgeVariant: 'primary' | 'success' | 'warning' | 'cyan' | 'purple' | 'neutral';
-    history: string[];
-    reward: string;
-    actionLabel: string;
-    tabTarget: string;
-  }[] = [
-    {
-      id: 'assessment',
-      title: '1. Diagnostic Assessment',
-      icon: <ClipboardCheck size={18} style={{ color: 'var(--aiims-primary)' }} />,
-      status: isAssessmentDone ? 'completed' : 'current',
-      date: isAssessmentDone ? state.assessment.completedAt || 'Completed' : 'Active Stage',
-      summary: isAssessmentDone
-        ? '25 questions answered across 5 core dimensions'
-        : 'Multidimensional AI baseline evaluation',
-      explanation:
-        'Evaluates your AI usage frequency, evaluation habits, workflow design, strategic vision, and mentorship readiness.',
-      variant: 'violet',
-      btnVariant: 'violet',
-      badgeVariant: 'purple',
-      history: isAssessmentDone
-        ? [
-            'Discovered usage pattern: Hands-on workflow integrator',
-            `Top capability identified: ${state.analysis.topCapability}`,
-            `Growth opportunity: ${state.analysis.growthArea}`,
-          ]
-        : [
-            '25 questions across 5 dimensions',
-            'Saves progress as you answer',
-            'Awards +50 AIIMS Credits on completion',
-          ],
-      reward: '+50 AIIMS Credits',
-      actionLabel: isAssessmentDone ? 'View Analysis' : 'Start Assessment',
-      tabTarget: isAssessmentDone ? 'analysis' : 'assessment',
+      if (overviewRes.status === 'fulfilled' && overviewRes.value?.success) {
+        setOverviewData(overviewRes.value.data);
+      }
+      if (clarityRes.status === 'fulfilled' && clarityRes.value?.success) {
+        setClarityData(clarityRes.value.data);
+      }
+      if (focusRes.status === 'fulfilled' && focusRes.value?.success) {
+        setFocusData(focusRes.value.data);
+      }
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.success) {
+        setAnalyticsData(analyticsRes.value.data);
+      }
+    } catch (err: any) {
+      console.warn('[JourneyScreen] Error loading journey data:', err);
+      setError('Could not refresh full journey data from server. Displaying cached state.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Fetch paginated assessment history
+  const fetchAssessmentHistory = useCallback(
+    async (page = 1, type = historyTypeFilter, status = historyStatusFilter) => {
+      try {
+        const res = await api.getAssessmentHistory({
+          page,
+          limit: 10,
+          type: type === 'all' ? undefined : type,
+          status: status === 'all' ? undefined : status,
+        });
+
+        if (res?.success && res.data) {
+          setAssessmentHistory(res.data.records || []);
+          setHistoryPagination({
+            page: res.data.page || 1,
+            limit: res.data.limit || 10,
+            totalRecords: res.data.totalRecords || 0,
+            totalPages: res.data.totalPages || 1,
+          });
+        }
+      } catch (err: any) {
+        console.warn('[JourneyScreen] Assessment history load error:', err);
+      }
     },
-    {
-      id: 'analysis',
-      title: '2. My AI Profile Report',
-      icon: <BarChart3 size={18} style={{ color: 'var(--aiims-tint-purple-text)' }} />,
-      status: !isAnalysisUnlocked
-        ? 'locked'
-        : isAnalysisDone
-          ? 'completed'
-          : isAssessmentDone
-            ? 'current'
-            : 'upcoming',
-      date: isAnalysisUnlocked ? 'Unlocked' : 'Locked',
-      summary: 'Personal report analyzing baseline strengths and growth areas',
-      explanation:
-        'Transforms baseline assessment responses into actionable capability insights and peer benchmarks.',
-      variant: 'violet',
-      btnVariant: 'violet',
-      badgeVariant: 'purple',
-      history: [
-        `Top Capability: "${state.analysis.topCapability}"`,
-        `Growth Opportunity: "${state.analysis.growthArea}"`,
-        'Benchmarked against AI Product & Engineering peers',
-      ],
-      reward: '+10 AIIMS Credits',
-      actionLabel: isAnalysisUnlocked ? 'View Profile Report' : 'Complete Assessment to Unlock',
-      tabTarget: isAnalysisUnlocked ? 'analysis' : 'assessment',
-    },
-    {
-      id: 'clarity',
-      title: '3. Capability Clarity Hub',
-      icon: <Compass size={18} style={{ color: 'var(--aiims-tint-emerald-text)' }} />,
-      status:
-        state.clarity.status === 'completed' ||
-        (state.clarity.completedTopics && state.clarity.completedTopics.length > 0)
-          ? 'completed'
-          : state.clarity.selectedTopic
-            ? 'current'
-            : isAnalysisDone
-              ? 'available'
-              : 'locked',
-      date:
-        state.clarity.status === 'completed' ||
-        (state.clarity.completedTopics && state.clarity.completedTopics.length > 0)
-          ? 'Completed'
-          : state.clarity.selectedTopic
-            ? 'In Progress'
-            : isAnalysisDone
-              ? 'Available'
-              : 'Locked',
-      summary: state.clarity.selectedTopic
-        ? `Exploring: ${state.clarity.selectedTopic}`
-        : 'Interactive lesson workspace with concepts, examples, scenarios & reflections',
-      explanation:
-        'Build clear mental models for specific AI capability areas before applying them to real projects.',
-      variant: 'mint',
-      btnVariant: 'green',
-      badgeVariant: 'success',
-      history:
-        state.clarity.selectedAreas && state.clarity.selectedAreas.length > 0
-          ? state.clarity.selectedAreas.map((a) => `Explored capability area: ${a}`)
-          : ['AI Workflow Design', 'AI Agents & Autonomous Workflows'],
-      reward: 'Capability Mental Model',
-      actionLabel: state.clarity.selectedTopic
-        ? `Continue (${state.clarity.selectedTopic})`
-        : 'Explore Clarity Hub',
-      tabTarget: isAnalysisUnlocked ? 'clarity' : 'assessment',
-    },
-    {
-      id: 'focus',
-      title: '4. Active Focus Selection',
-      icon: <Target size={18} style={{ color: 'var(--aiims-tint-amber-text)' }} />,
-      status:
-        state.focus.status === 'active'
-          ? 'completed'
-          : state.clarity.status === 'completed'
-            ? 'current'
-            : 'locked',
-      date:
-        state.focus.status === 'active'
-          ? state.focus.activatedAt || 'Active Focus'
-          : state.clarity.status === 'completed'
-            ? 'Available'
-            : 'Locked',
-      summary:
-        state.focus.status === 'active'
-          ? `Active Focus: ${state.focus.selectedTrack}`
-          : 'Deliberate selection of your primary learning direction',
-      explanation: 'Focus is choosing which capability deserves your active priority attention.',
-      variant: 'amber',
-      btnVariant: 'amber',
-      badgeVariant: 'warning',
-      history: state.focus.selectedTrack
-        ? [
-            `Active Track: ${state.focus.selectedTrack}`,
-            'Target capability: Repeatable AI Workflows',
-          ]
-        : ['Awaiting Focus Decision'],
-      reward: 'Priority Direction Decision',
-      actionLabel:
-        state.focus.status === 'active'
-          ? `View Active Focus (${state.focus.selectedTrack})`
-          : 'Decide Focus Track',
-      tabTarget: isAnalysisUnlocked ? 'focus' : 'assessment',
-    },
-    {
-      id: 'radar',
-      title: '5. AI Radar Signals',
-      icon: <Radar size={18} style={{ color: '#94a3b8' }} />,
-      status: 'locked',
-      date: 'Locked',
-      summary: 'Technical AI market shifts and emerging capabilities',
-      explanation:
-        'Continuous discovery feed of real model releases, tool-calling breakthroughs, and workflow shifts.',
-      variant: 'cyan',
-      btnVariant: 'cyan',
-      badgeVariant: 'neutral',
-      history: ['Activity-Gated Module — will unlock based on completed learning activities'],
-      reward: '+30 Credits per Investigation',
-      actionLabel: 'Locked (Activity Gated)',
-      tabTarget: 'radar',
-    },
-    {
-      id: 'investigation',
-      title: '6. Technical Signal Investigation',
-      icon: <Search size={18} style={{ color: '#94a3b8' }} />,
-      status: 'locked',
-      date: 'Locked',
-      summary: 'Structured 4-step research scaffold (Yesterday vs. Today vs. What Changed)',
-      explanation:
-        'Formulate hypotheses and record your reflection on how technical shifts impact your work.',
-      variant: 'sky',
-      btnVariant: 'cyan',
-      badgeVariant: 'neutral',
-      history: ['Activity-Gated Module — will unlock based on completed learning activities'],
-      reward: '+30 AIIMS Credits',
-      actionLabel: 'Locked (Activity Gated)',
-      tabTarget: 'radar',
-    },
-    {
-      id: 'relevance',
-      title: '7. AI Relevance Synthesis',
-      icon: <Sparkles size={18} style={{ color: '#94a3b8' }} />,
-      status: 'locked',
-      date: 'Locked',
-      summary: 'Personalized payoff map connecting Profile → Focus → Signal → Action',
-      explanation:
-        'Synthesizes all journey steps into clear, actionable advice on why this AI shift matters for your work.',
-      variant: 'gradient-relevance',
-      btnVariant: 'primary',
-      badgeVariant: 'neutral',
-      history: ['Activity-Gated Module — will unlock based on completed learning activities'],
-      reward: '+25 AIIMS Credits',
-      actionLabel: 'Locked (Activity Gated)',
-      tabTarget: 'relevance',
-    },
-    {
-      id: 'solver',
-      title: '8. Problem Solver Architecture',
-      icon: (
-        <Wrench
-          size={18}
-          style={{ color: isSolverUnlocked ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)' }}
-        />
-      ),
-      status:
-        (state.solver?.history?.length || 0) > 0
-          ? 'completed'
-          : isSolverUnlocked
-            ? 'available'
-            : 'locked',
-      date: isSolverUnlocked ? 'Available' : 'Locked',
-      summary: 'Synthesize end-to-end AI workflows & component architectures',
-      explanation:
-        'Derive actionable AI workflows with prompt engineering, tool routing, and evaluation criteria.',
-      variant: 'cyan',
-      btnVariant: 'cyan',
-      badgeVariant: isSolverUnlocked ? 'cyan' : 'neutral',
-      history:
-        (state.solver?.history?.length || 0) > 0
-          ? [`${state.solver?.history?.length} Workflows Synthesized`]
-          : ['Derive custom system architectures for concrete real-world tasks'],
-      reward: '+40 AIIMS Credits',
-      actionLabel: isSolverUnlocked
-        ? 'Open Problem Solver'
-        : 'Locked (Requires Prerequisite Tasks)',
-      tabTarget: 'solver',
-    },
-    {
-      id: 'build',
-      title: '9. Projects & Production Workspace',
-      icon: (
-        <Layers
-          size={18}
-          style={{
-            color: isBuildUnlocked ? 'var(--aiims-tint-purple-text)' : 'var(--aiims-text-muted)',
-          }}
-        />
-      ),
-      status:
-        (state.build?.projects?.length || 0) > 0
-          ? 'completed'
-          : isBuildUnlocked
-            ? 'available'
-            : 'locked',
-      date: isBuildUnlocked ? 'Available' : 'Locked',
-      summary: 'Build real scaffolded AI systems & production-ready workflows',
-      explanation:
-        'Turn architecture designs into executable codebase templates and monitored deployments.',
-      variant: 'violet',
-      btnVariant: 'violet',
-      badgeVariant: isBuildUnlocked ? 'purple' : 'neutral',
-      history:
-        (state.build?.projects?.length || 0) > 0
-          ? [`${state.build?.projects?.length} Production Templates Generated`]
-          : ['Production workspace for full-stack AI project scaffolds'],
-      reward: '+50 AIIMS Credits',
-      actionLabel: isBuildUnlocked
-        ? 'Open Projects Workspace'
-        : 'Locked (Requires Solver Workflows)',
-      tabTarget: 'build',
-    },
-    {
-      id: 'mentor',
-      title: '10. AI Mentor & Continuous Calibration',
-      icon: (
-        <MessageCircle
-          size={18}
-          style={{
-            color: isMentorUnlocked ? 'var(--aiims-tint-emerald-text)' : 'var(--aiims-text-muted)',
-          }}
-        />
-      ),
-      status: isMentorUnlocked ? 'available' : 'locked',
-      date: isMentorUnlocked ? 'Active' : 'Locked',
-      summary: 'Adaptive mentorship, growth tracking, and ongoing calibration',
-      explanation:
-        'Real-time coaching from the AIIMS mentor tailored to your progress across all 5 dimensions.',
-      variant: 'mint',
-      btnVariant: 'green',
-      badgeVariant: isMentorUnlocked ? 'success' : 'neutral',
-      history: ['Continuous developmental calibration across all 5 dimensions'],
-      reward: '+20 Credits per Milestone',
-      actionLabel: isMentorUnlocked ? 'Open Mentor Workspace' : 'Locked (Continuous Growth)',
-      tabTarget: 'mentor',
-    },
-  ];
+    [historyTypeFilter, historyStatusFilter]
+  );
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  useEffect(() => {
+    fetchAssessmentHistory(historyPagination.page, historyTypeFilter, historyStatusFilter);
+  }, [fetchAssessmentHistory, historyPagination.page, historyTypeFilter, historyStatusFilter]);
+
+  const handleManualRefresh = () => {
+    setRefreshing(true);
+    fetchAllData();
+    fetchAssessmentHistory(1, historyTypeFilter, historyStatusFilter);
+  };
+
+  // Fallback calculations if server overview is loading
+  const isAssessmentDone = state.assessment?.status === 'completed';
+  const progressPercent = overviewData?.overallProgressPercent ?? (isAssessmentDone ? 20 : 10);
+  const completedMilestones = overviewData?.completedMilestonesCount ?? (isAssessmentDone ? 2 : 0);
+  const currentStage =
+    overviewData?.currentStage ?? (isAssessmentDone ? 'My AI Profile' : 'Understand AI');
 
   return (
     <div
@@ -364,402 +262,1839 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
         maxWidth: '1120px',
         margin: '0 auto',
         boxSizing: 'border-box',
+        paddingBottom: '48px',
       }}
     >
-      {/* PAGE HEADER */}
-      <PageHeader
-        icon={<Route size={24} />}
-        title="My AI Journey — 10-Stage Canonical Progression"
-        description="Assessment (Indigo) → Profile (Violet) → Clarity (Mint) → Focus (Amber) → Radar (Cyan) → Investigation (Sky) → Relevance (Synthesis) → Solver (Cyan) → Projects (Violet) → Mentor (Mint)."
-      />
-
-      {/* METRICS TOP SUMMARY */}
+      {/* 1. PAGE HEADER & LIVE REFRESH ACTION */}
       <div
-        className="aiims-card-grid"
         style={{
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
         }}
       >
-        <Card variant="violet" radius="default" padding="default">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: 'var(--aiims-card-violet-text)',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Progression Completion
-              </span>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading)',
-                  marginTop: '2px',
-                  fontFamily: "'Fredoka', sans-serif",
-                }}
-              >
-                {completionPercentage}%
-              </div>
-            </div>
-            <TrendingUp
-              style={{ width: '22px', height: '22px', color: 'var(--aiims-card-violet-text)' }}
-            />
-          </div>
-        </Card>
-
-        <Card variant="cyan" radius="default" padding="default">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: 'var(--aiims-card-cyan-text)',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Discoveries & Signals
-              </span>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading)',
-                  marginTop: '2px',
-                  fontFamily: "'Fredoka', sans-serif",
-                }}
-              >
-                {state.radar.investigatedSignalIds.length + (isAssessmentDone ? 2 : 0)}
-              </div>
-            </div>
-            <Sparkles
-              style={{ width: '22px', height: '22px', color: 'var(--aiims-card-cyan-text)' }}
-            />
-          </div>
-        </Card>
-
-        <Card variant="amber" radius="default" padding="default">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: 'var(--aiims-card-amber-text)',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Earned Credits
-              </span>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading)',
-                  marginTop: '2px',
-                  fontFamily: "'Fredoka', sans-serif",
-                }}
-              >
-                {credits} AC
-              </div>
-            </div>
-            <Coins
-              style={{ width: '22px', height: '22px', color: 'var(--aiims-card-amber-text)' }}
-            />
-          </div>
-        </Card>
+        <PageHeader
+          icon={<Route size={24} />}
+          title="My AI Journey & Assessment History"
+          description="Authoritative record of your learning progression, completed assessments, clarity tasks, and focus activity."
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<RefreshCw size={14} className={refreshing ? 'spin' : ''} />}
+          onClick={handleManualRefresh}
+          disabled={refreshing}
+        >
+          {refreshing ? 'Syncing...' : 'Sync Progress'}
+        </Button>
       </div>
 
-      {/* CENTRAL ROADMAP */}
-      <Card variant="bordered" radius="default" padding="default">
+      {error && (
         <div
           style={{
+            padding: '12px 16px',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '8px',
+            color: 'var(--aiims-tint-rose-text, #ef4444)',
+            fontSize: '13px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '20px',
+            gap: '8px',
           }}
         >
-          <h2
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* 2. SUB-NAVIGATION TABS */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          borderBottom: '1px solid var(--aiims-border-card)',
+          paddingBottom: '10px',
+          overflowX: 'auto',
+        }}
+      >
+        {[
+          { key: 'overview', label: 'Journey Overview', icon: <Compass size={16} /> },
+          {
+            key: 'history',
+            label: `Assessment History (${overviewData ? historyPagination.totalRecords : '...'})`,
+            icon: <History size={16} />,
+          },
+          { key: 'clarity', label: 'Clarity Progress', icon: <Layers size={16} /> },
+          { key: 'focus', label: 'Focus Activity', icon: <Target size={16} /> },
+          { key: 'analytics', label: 'Skill Analytics', icon: <BarChart3 size={16} /> },
+        ].map((tab) => {
+          const isActive = activeSubTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveSubTab(tab.key as JourneySubTab)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '8px 16px',
+                backgroundColor: isActive
+                  ? 'var(--aiims-primary-light, rgba(99, 102, 241, 0.12))'
+                  : 'transparent',
+                color: isActive ? 'var(--aiims-primary)' : 'var(--aiims-text-muted)',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 1: JOURNEY OVERVIEW & MILESTONES ROADMAP                         */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Top Metric Cards */}
+          <div
+            className="aiims-card-grid"
             style={{
-              fontSize: '20px',
-              fontWeight: 800,
-              color: 'var(--aiims-text-heading)',
-              margin: 0,
-              fontFamily: "'Fredoka', sans-serif",
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '16px',
             }}
           >
-            Semantic Color Progression Roadmap
-          </h2>
-          <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
-            COLOURFUL PROGRESSION STORY
-          </span>
-        </div>
-
-        <div style={{ position: 'relative', paddingLeft: '28px' }}>
-          {/* Vertical Line */}
-          <div
-            style={{
-              position: 'absolute',
-              top: '20px',
-              bottom: '20px',
-              left: '11px',
-              width: '2px',
-              backgroundColor: 'var(--aiims-border-card)',
-              zIndex: 1,
-            }}
-          />
-
-          {stages.map((stage) => {
-            const isCompleted = stage.status === 'completed';
-            const isCurrent = stage.status === 'current';
-            const isLocked = stage.status === 'locked';
-            const isExpanded = expandedStage === stage.id;
-
-            return (
-              <div key={stage.id} style={{ position: 'relative', zIndex: 2, marginBottom: '20px' }}>
-                {/* Node Icon on Line */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: '-28px',
-                    top: '16px',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: 'var(--aiims-bg-page)',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {isCompleted ? (
-                    <CheckCircle2
-                      style={{
-                        width: '22px',
-                        height: '22px',
-                        color: 'var(--aiims-tint-emerald-text)',
-                      }}
-                    />
-                  ) : isCurrent ? (
-                    <div
-                      style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--aiims-primary-light)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '2px solid var(--aiims-primary)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '8px',
-                          height: '8px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--aiims-primary)',
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <Lock
-                      style={{ width: '18px', height: '18px', color: 'var(--aiims-text-muted)' }}
-                    />
-                  )}
-                </div>
-
-                {/* Stage Card with Semantic Variant */}
-                <Card
-                  variant={isLocked ? 'subtle' : stage.variant}
-                  radius="default"
-                  padding="default"
-                  style={{ opacity: isLocked ? 0.75 : 1 }}
-                >
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-expanded={isExpanded}
-                    onClick={() => setExpandedStage(isExpanded ? null : stage.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setExpandedStage(isExpanded ? null : stage.id);
-                      }
-                    }}
+            {/* Overall Progress */}
+            <Card variant="violet" radius="default" padding="default">
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <div>
+                  <span
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      borderRadius: '8px',
-                      padding: '2px 4px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      opacity: 0.8,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      {stage.icon}
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <h3
-                            style={{
-                              margin: 0,
-                              fontSize: '16px',
-                              fontWeight: 700,
-                              color: 'var(--aiims-text-heading)',
-                            }}
-                          >
-                            {stage.title}
-                          </h3>
-                          {isCurrent && (
-                            <Badge variant="primary" style={{ fontSize: '9px' }}>
-                              YOU ARE HERE
-                            </Badge>
-                          )}
-                          {isCompleted && (
-                            <Badge variant="success" style={{ fontSize: '9px' }}>
-                              ✓ Completed
-                            </Badge>
-                          )}
-                          {isLocked && (
-                            <Badge variant="neutral" style={{ fontSize: '9px' }}>
-                              Locked
-                            </Badge>
-                          )}
-                        </div>
-                        <p
-                          style={{
-                            margin: '2px 0 0',
-                            fontSize: '13px',
-                            color: 'var(--aiims-text-body)',
-                          }}
-                        >
-                          {stage.summary}
-                        </p>
-                      </div>
-                    </div>
+                    Overall Journey Progress
+                  </span>
+                  <div
+                    style={{
+                      fontSize: '28px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      fontFamily: "'Fredoka', sans-serif",
+                    }}
+                  >
+                    {progressPercent}%
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
+                    {completedMilestones} of 10 Milestones Achieved
+                  </div>
+                </div>
+                <Award size={32} style={{ opacity: 0.7 }} />
+              </div>
+            </Card>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Current Active Stage */}
+            <Card variant="cyan" radius="default" padding="default">
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      opacity: 0.8,
+                    }}
+                  >
+                    Current Learning Stage
+                  </span>
+                  <div
+                    style={{
+                      fontSize: '20px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      fontFamily: "'Fredoka', sans-serif",
+                    }}
+                  >
+                    {currentStage}
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
+                    Status:{' '}
+                    <span style={{ fontWeight: 700 }}>
+                      {overviewData?.nextBestAction?.actionButtonLabel
+                        ? 'Active Priority'
+                        : 'In Progress'}
+                    </span>
+                  </div>
+                </div>
+                <Compass size={32} style={{ opacity: 0.7 }} />
+              </div>
+            </Card>
+
+            {/* Latest Assessment Summary */}
+            <Card variant="amber" radius="default" padding="default">
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      opacity: 0.8,
+                    }}
+                  >
+                    Baseline Diagnostic
+                  </span>
+                  <div
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      fontFamily: "'Fredoka', sans-serif",
+                    }}
+                  >
+                    {isAssessmentDone
+                      ? `${overviewData?.latestAssessmentSummary?.score ?? 85}%`
+                      : 'Pending'}
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
+                    {isAssessmentDone
+                      ? `Top: ${overviewData?.latestAssessmentSummary?.topCapability || state.analysis?.topCapability || 'Workflow Design'}`
+                      : 'Not yet completed'}
+                  </div>
+                </div>
+                <FileText size={32} style={{ opacity: 0.7 }} />
+              </div>
+            </Card>
+
+            {/* Today's Focus Activity */}
+            <Card variant="mint" radius="default" padding="default">
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      opacity: 0.8,
+                    }}
+                  >
+                    Today's Focus Duration
+                  </span>
+                  <div
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      marginTop: '4px',
+                      fontFamily: "'Fredoka', sans-serif",
+                    }}
+                  >
+                    {focusData?.todayFocusMinutes ??
+                      overviewData?.focusSummary?.todayFocusMinutes ??
+                      0}
+                    m
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.85 }}>
+                    {focusData?.todayCompletedSessions ??
+                      overviewData?.focusSummary?.todayCompletedSessions ??
+                      0}{' '}
+                    Sessions Completed
+                  </div>
+                </div>
+                <Flame size={32} style={{ opacity: 0.7 }} />
+              </div>
+            </Card>
+          </div>
+
+          {/* SECTION 7: RECOMMENDED NEXT LEARNING ACTION (Hero Card) */}
+          {overviewData?.nextBestAction && (
+            <Card
+              variant="bordered"
+              radius="default"
+              padding="default"
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.05) 100%)',
+                borderColor: 'var(--aiims-primary)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '14px',
+                    maxWidth: '750px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--aiims-primary)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Sparkles size={20} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span
                         style={{
                           fontSize: '11px',
-                          color: 'var(--aiims-text-muted)',
-                          fontWeight: 500,
+                          fontWeight: 800,
+                          color: 'var(--aiims-primary)',
+                          textTransform: 'uppercase',
                         }}
                       >
-                        {stage.date}
+                        RECOMMENDED NEXT LEARNING ACTION
                       </span>
-                      {isExpanded ? (
-                        <ChevronUp
+                      <Badge variant="primary" style={{ fontSize: '10px' }}>
+                        Authoritative
+                      </Badge>
+                    </div>
+                    <h3
+                      style={{
+                        margin: '4px 0 6px',
+                        fontSize: '18px',
+                        fontWeight: 800,
+                        color: 'var(--aiims-text-heading)',
+                      }}
+                    >
+                      {overviewData.nextBestAction.actionTitle}
+                    </h3>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '13px',
+                        color: 'var(--aiims-text-body)',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {overviewData.nextBestAction.actionReason}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<ArrowRight size={16} />}
+                  onClick={() => {
+                    if (overviewData.nextBestAction?.targetTab) {
+                      setActiveTab(overviewData.nextBestAction.targetTab as any);
+                    }
+                  }}
+                >
+                  {overviewData.nextBestAction.actionButtonLabel}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {/* SECTION 2: LEARNING MILESTONES ROADMAP */}
+          <Card variant="bordered" radius="default" padding="default">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '20px',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading)',
+                    margin: 0,
+                    fontFamily: "'Fredoka', sans-serif",
+                  }}
+                >
+                  10-Stage Canonical Learning Milestones
+                </h3>
+                <p
+                  style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--aiims-text-muted)' }}
+                >
+                  Server-verified progress tracking across all foundational and applied learning
+                  modules.
+                </p>
+              </div>
+              <Badge variant="purple" style={{ fontSize: '11px' }}>
+                {completedMilestones} / 10 Completed
+              </Badge>
+            </div>
+
+            <div style={{ position: 'relative', paddingLeft: '32px' }}>
+              {/* Vertical timeline line */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  bottom: '20px',
+                  left: '13px',
+                  width: '2px',
+                  backgroundColor: 'var(--aiims-border-card)',
+                  zIndex: 1,
+                }}
+              />
+
+              {(overviewData?.milestones || []).map((milestone: any) => {
+                const isCompleted = milestone.status === 'completed';
+                const isCurrent = milestone.status === 'current';
+                const isLocked = milestone.status === 'locked';
+                const isExpanded = expandedMilestone === milestone.id;
+
+                return (
+                  <div
+                    key={milestone.id}
+                    style={{ position: 'relative', zIndex: 2, marginBottom: '16px' }}
+                  >
+                    {/* Timeline Node */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: '-32px',
+                        top: '16px',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: 'var(--aiims-bg-page)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {isCompleted ? (
+                        <CheckCircle2
                           style={{
-                            width: '16px',
-                            height: '16px',
-                            color: 'var(--aiims-text-muted)',
+                            width: '22px',
+                            height: '22px',
+                            color: 'var(--aiims-tint-emerald-text, #10b981)',
                           }}
                         />
-                      ) : (
-                        <ChevronDown
+                      ) : isCurrent ? (
+                        <div
                           style={{
-                            width: '16px',
-                            height: '16px',
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '2px solid var(--aiims-primary)',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--aiims-primary)',
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <Lock
+                          style={{
+                            width: '18px',
+                            height: '18px',
                             color: 'var(--aiims-text-muted)',
                           }}
                         />
                       )}
                     </div>
-                  </div>
 
-                  {/* Expanded Stage Detail */}
-                  {isExpanded && (
-                    <div
+                    {/* Milestone Card */}
+                    <Card
+                      variant={isCurrent ? 'bordered' : 'subtle'}
+                      radius="default"
+                      padding="default"
                       style={{
-                        marginTop: '14px',
-                        paddingTop: '14px',
-                        borderTop: '1px solid var(--aiims-border-subtle)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px',
+                        borderColor: isCurrent ? 'var(--aiims-primary)' : undefined,
+                        opacity: isLocked ? 0.75 : 1,
                       }}
                     >
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: '13px',
-                          color: 'var(--aiims-text-body)',
-                          lineHeight: 1.5,
-                          fontWeight: 500,
-                        }}
-                      >
-                        {stage.explanation}
-                      </p>
-
                       <div
-                        style={{
-                          padding: '10px 14px',
-                          backgroundColor: 'var(--aiims-bg-card-subtle)',
-                          borderRadius: '8px',
-                          border: '1px solid var(--aiims-border-subtle)',
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedMilestone(isExpanded ? null : milestone.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setExpandedMilestone(isExpanded ? null : milestone.id);
+                          }
                         }}
-                      >
-                        <div
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 800,
-                            color: 'var(--aiims-text-muted)',
-                            textTransform: 'uppercase',
-                            marginBottom: '4px',
-                          }}
-                        >
-                          LEARNER STAGE HISTORY & HIGHLIGHTS
-                        </div>
-                        <ul
-                          style={{
-                            margin: 0,
-                            paddingLeft: '16px',
-                            fontSize: '12px',
-                            color: 'var(--aiims-text-body)',
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          {stage.history.map((h, idx) => (
-                            <li key={idx}>{h}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          marginTop: '6px',
+                          cursor: 'pointer',
+                          outline: 'none',
                         }}
                       >
-                        <Badge variant={stage.badgeVariant}>{stage.reward}</Badge>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              backgroundColor: isCompleted
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : isCurrent
+                                  ? 'rgba(99, 102, 241, 0.15)'
+                                  : 'var(--aiims-bg-card)',
+                              color: isCompleted
+                                ? 'var(--aiims-tint-emerald-text, #10b981)'
+                                : isCurrent
+                                  ? 'var(--aiims-primary)'
+                                  : 'var(--aiims-text-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                            }}
+                          >
+                            {milestone.order}
+                          </span>
 
-                        <Button
-                          variant={isLocked ? 'outline' : stage.btnVariant}
-                          size="sm"
-                          icon={<ArrowRight size={13} />}
-                          disabled={isLocked}
-                          onClick={() => setActiveTab(stage.tabTarget)}
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <h4
+                                style={{
+                                  margin: 0,
+                                  fontSize: '15px',
+                                  fontWeight: 700,
+                                  color: 'var(--aiims-text-heading)',
+                                }}
+                              >
+                                {milestone.name}
+                              </h4>
+                              {isCompleted && (
+                                <Badge variant="success" style={{ fontSize: '9px' }}>
+                                  ✓ Completed
+                                </Badge>
+                              )}
+                              {isCurrent && (
+                                <Badge variant="primary" style={{ fontSize: '9px' }}>
+                                  Current Priority
+                                </Badge>
+                              )}
+                              {isLocked && (
+                                <Badge variant="neutral" style={{ fontSize: '9px' }}>
+                                  Locked
+                                </Badge>
+                              )}
+                              {milestone.score !== null && milestone.score !== undefined && (
+                                <Badge variant="purple" style={{ fontSize: '9px' }}>
+                                  {milestone.score}% Score
+                                </Badge>
+                              )}
+                            </div>
+                            <p
+                              style={{
+                                margin: '2px 0 0',
+                                fontSize: '12px',
+                                color: 'var(--aiims-text-body)',
+                              }}
+                            >
+                              {milestone.subtitle}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {milestone.completionDate && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: 'var(--aiims-text-muted)',
+                              }}
+                            >
+                              {new Date(milestone.completionDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          {isExpanded ? (
+                            <ChevronUp size={16} style={{ color: 'var(--aiims-text-muted)' }} />
+                          ) : (
+                            <ChevronDown size={16} style={{ color: 'var(--aiims-text-muted)' }} />
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div
+                          style={{
+                            marginTop: '12px',
+                            paddingTop: '12px',
+                            borderTop: '1px solid var(--aiims-border-subtle)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
+                          }}
                         >
-                          {stage.actionLabel}
-                        </Button>
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: '13px',
+                              color: 'var(--aiims-text-body)',
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {milestone.description}
+                          </p>
+
+                          {milestone.highlight && (
+                            <div
+                              style={{
+                                padding: '8px 12px',
+                                backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.03))',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                color: 'var(--aiims-text-heading)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              💡 Highlight: {milestone.highlight}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              marginTop: '4px',
+                            }}
+                          >
+                            <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                              Milestone #{milestone.order} in Canonical AIIMS Curriculum
+                            </span>
+                            <Button
+                              variant={isLocked ? 'outline' : 'primary'}
+                              size="sm"
+                              icon={<ArrowRight size={13} />}
+                              disabled={isLocked}
+                              onClick={() => setActiveTab(milestone.targetTab)}
+                            >
+                              {milestone.actionLabel}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 2: ASSESSMENT HISTORY (Paginated, Filterable, Verifiable)        */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'history' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Controls Bar: Filters & Summary */}
+          <Card variant="bordered" radius="default" padding="default">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Filter size={15} style={{ color: 'var(--aiims-text-muted)' }} />
+                  <span
+                    style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}
+                  >
+                    Type:
+                  </span>
+                  <select
+                    value={historyTypeFilter}
+                    onChange={(e) => setHistoryTypeFilter(e.target.value)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--aiims-border-card)',
+                      backgroundColor: 'var(--aiims-bg-page)',
+                      color: 'var(--aiims-text-heading)',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="diagnostic">Diagnostic Assessment</option>
+                    <option value="clarity">Clarity Lab Tasks</option>
+                    <option value="submission">Applied Submissions</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}
+                  >
+                    Status:
+                  </span>
+                  <select
+                    value={historyStatusFilter}
+                    onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--aiims-border-card)',
+                      backgroundColor: 'var(--aiims-bg-page)',
+                      color: 'var(--aiims-text-heading)',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="completed">Completed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="abandoned">Abandoned</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+                Showing{' '}
+                <span style={{ fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+                  {assessmentHistory.length}
+                </span>{' '}
+                of {historyPagination.totalRecords} records
+              </div>
+            </div>
+          </Card>
+
+          {/* Assessment History Table */}
+          <Card variant="bordered" radius="default" padding="none">
+            {assessmentHistory.length === 0 ? (
+              <div
+                style={{
+                  padding: '48px 24px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <FileText size={36} style={{ color: 'var(--aiims-text-muted)', opacity: 0.5 }} />
+                <h4 style={{ margin: 0, fontSize: '16px', color: 'var(--aiims-text-heading)' }}>
+                  No Assessment Records Found
+                </h4>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: 'var(--aiims-text-muted)',
+                    maxWidth: '400px',
+                  }}
+                >
+                  Complete your baseline diagnostic assessment or submit a task in the Clarity Lab
+                  to begin recording your evaluation history.
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<ArrowRight size={14} />}
+                  onClick={() => setActiveTab(isAssessmentDone ? 'clarity' : 'assessment')}
+                  style={{ marginTop: '8px' }}
+                >
+                  {isAssessmentDone ? 'Go to Clarity Lab' : 'Start Baseline Assessment'}
+                </Button>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    textAlign: 'left',
+                    fontSize: '13px',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.02))',
+                        borderBottom: '1px solid var(--aiims-border-card)',
+                      }}
+                    >
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Assessment Title
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Type
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Score
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Status
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Date & Time
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assessmentHistory.map((item) => {
+                      const isCompleted = item.status === 'completed';
+                      const isAbandoned = item.status === 'abandoned';
+
+                      return (
+                        <tr
+                          key={item.id}
+                          style={{
+                            borderBottom: '1px solid var(--aiims-border-subtle)',
+                            transition: 'background 0.1s ease',
+                          }}
+                        >
+                          <td style={{ padding: '14px 16px' }}>
+                            <div style={{ fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+                              {item.title}
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                              Topic: {item.topic}
+                              {item.level ? ` · Level: ${item.level}` : ''}
+                            </div>
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            <Badge
+                              variant={
+                                item.type === 'diagnostic'
+                                  ? 'purple'
+                                  : item.type === 'clarity'
+                                    ? 'cyan'
+                                    : 'neutral'
+                              }
+                            >
+                              {(item.type || 'diagnostic').toUpperCase()}
+                            </Badge>
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            {item.score !== null && item.score !== undefined ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span
+                                  style={{
+                                    fontWeight: 800,
+                                    fontSize: '14px',
+                                    color:
+                                      item.score >= 80
+                                        ? 'var(--aiims-tint-emerald-text, #10b981)'
+                                        : item.score >= 60
+                                          ? 'var(--aiims-primary)'
+                                          : 'var(--aiims-tint-rose-text, #ef4444)',
+                                  }}
+                                >
+                                  {item.score}%
+                                </span>
+                                <span
+                                  style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}
+                                >
+                                  / {item.maxScore}
+                                </span>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+                                —
+                              </span>
+                            )}
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            <Badge
+                              variant={
+                                isCompleted ? 'success' : isAbandoned ? 'neutral' : 'warning'
+                              }
+                              style={{ fontSize: '10px' }}
+                            >
+                              {isCompleted
+                                ? 'Completed'
+                                : isAbandoned
+                                  ? 'Abandoned'
+                                  : 'In Progress'}
+                            </Badge>
+                          </td>
+
+                          <td
+                            style={{
+                              padding: '14px 16px',
+                              color: 'var(--aiims-text-body)',
+                              fontSize: '12px',
+                            }}
+                          >
+                            {new Date(item.date).toLocaleString()}
+                          </td>
+
+                          <td style={{ padding: '14px 16px' }}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedRecordDetail(item)}
+                            >
+                              View Detail
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {historyPagination.totalPages > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderTop: '1px solid var(--aiims-border-card)',
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<ChevronLeft size={14} />}
+                  disabled={historyPagination.page <= 1}
+                  onClick={() =>
+                    setHistoryPagination((prev) => ({ ...prev, page: Math.max(1, prev.page - 1) }))
+                  }
+                >
+                  Previous
+                </Button>
+
+                <span style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+                  Page {historyPagination.page} of {historyPagination.totalPages}
+                </span>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<ChevronRight size={14} />}
+                  disabled={historyPagination.page >= historyPagination.totalPages}
+                  onClick={() =>
+                    setHistoryPagination((prev) => ({
+                      ...prev,
+                      page: Math.min(prev.totalPages, prev.page + 1),
+                    }))
+                  }
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </Card>
+
+          {/* Record Detail Modal / Drawer */}
+          {selectedRecordDetail && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                padding: '16px',
+              }}
+            >
+              <Card
+                variant="bordered"
+                radius="default"
+                padding="default"
+                style={{
+                  maxWidth: '560px',
+                  width: '100%',
+                  maxHeight: '85vh',
+                  overflowY: 'auto',
+                  backgroundColor: 'var(--aiims-bg-page)',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <div>
+                    <Badge variant="purple" style={{ fontSize: '10px' }}>
+                      {selectedRecordDetail.type.toUpperCase()} RECORD
+                    </Badge>
+                    <h3
+                      style={{
+                        margin: '4px 0 0',
+                        fontSize: '18px',
+                        color: 'var(--aiims-text-heading)',
+                      }}
+                    >
+                      {selectedRecordDetail.title}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedRecordDetail(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '18px',
+                      cursor: 'pointer',
+                      color: 'var(--aiims-text-muted)',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    fontSize: '13px',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '10px',
+                      padding: '12px',
+                      backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.02))',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                        Topic
+                      </span>
+                      <div style={{ fontWeight: 700 }}>{selectedRecordDetail.topic}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                        Status
+                      </span>
+                      <div style={{ fontWeight: 700 }}>{selectedRecordDetail.status}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                        Date Completed
+                      </span>
+                      <div style={{ fontWeight: 700 }}>
+                        {new Date(selectedRecordDetail.date).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                        Score
+                      </span>
+                      <div style={{ fontWeight: 800, color: 'var(--aiims-primary)' }}>
+                        {selectedRecordDetail.score !== null
+                          ? `${selectedRecordDetail.score}%`
+                          : 'N/A'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4
+                      style={{
+                        margin: '0 0 6px',
+                        fontSize: '13px',
+                        color: 'var(--aiims-text-heading)',
+                      }}
+                    >
+                      Evaluation Summary
+                    </h4>
+                    <p style={{ margin: 0, color: 'var(--aiims-text-body)', lineHeight: 1.5 }}>
+                      {selectedRecordDetail.rubricSummary ||
+                        'Standard automated rubric assessment.'}
+                    </p>
+                  </div>
+
+                  {selectedRecordDetail.rubrics && selectedRecordDetail.rubrics.length > 0 && (
+                    <div>
+                      <h4
+                        style={{
+                          margin: '0 0 8px',
+                          fontSize: '13px',
+                          color: 'var(--aiims-text-heading)',
+                        }}
+                      >
+                        Rubric Performance Breakdown
+                      </h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {selectedRecordDetail.rubrics.map((r: any, idx: number) => (
+                          <div
+                            key={idx}
+                            style={{
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              backgroundColor: 'var(--aiims-bg-card)',
+                              border: '1px solid var(--aiims-border-subtle)',
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: '2px',
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>{r.criterion}</span>
+                              <span style={{ fontWeight: 700, color: 'var(--aiims-primary)' }}>
+                                {r.score} / {r.maxScore}
+                              </span>
+                            </div>
+                            {r.comment && (
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: '11px',
+                                  color: 'var(--aiims-text-muted)',
+                                }}
+                              >
+                                {r.comment}
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setSelectedRecordDetail(null)}
+                    >
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 3: CLARITY PROGRESS INTEGRATION                                  */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'clarity' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Clarity Overview Banner */}
+          <Card
+            variant="bordered"
+            radius="default"
+            padding="default"
+            style={{
+              background:
+                'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              <div>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-tint-emerald-text, #10b981)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  CLARITY LEARNING LAB PROGRESSION
+                </span>
+                <h3
+                  style={{
+                    margin: '4px 0',
+                    fontSize: '20px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading)',
+                  }}
+                >
+                  Current Difficulty Level: {clarityData?.overallCurrentLevel || 'Easy'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-body)' }}>
+                  Total Evaluated Attempts: {clarityData?.totalAttempts || 0} · Average Submitted
+                  Score:{' '}
+                  {clarityData?.averageSubmittedScore !== null
+                    ? `${clarityData?.averageSubmittedScore}%`
+                    : 'N/A'}
+                </p>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<ArrowRight size={14} />}
+                onClick={() => setActiveTab('clarity')}
+              >
+                Launch Clarity Lab
+              </Button>
+            </div>
+          </Card>
+
+          {/* Formative vs Submitted Notice */}
+          <div
+            style={{
+              padding: '12px 16px',
+              backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.02))',
+              border: '1px solid var(--aiims-border-subtle)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              fontSize: '12px',
+              color: 'var(--aiims-text-muted)',
+              lineHeight: 1.5,
+            }}
+          >
+            <Info
+              size={16}
+              style={{ color: 'var(--aiims-primary)', flexShrink: 0, marginTop: '2px' }}
+            />
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+                Formative Run vs. Submitted Attempt Distinction:
+              </span>{' '}
+              Practice evaluations performed with the "Run" button inside the Clarity Task Lab are
+              experimental scaffolds that do not alter your permanent level. Only formal "Submit"
+              operations update your progression records and count toward advancement.
+            </div>
+          </div>
+
+          {/* Topic-Wise Progression Cards */}
+          <Card variant="bordered" radius="default" padding="default">
+            <h4
+              style={{
+                margin: '0 0 16px',
+                fontSize: '16px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-heading)',
+              }}
+            >
+              Topic-Wise Progression Mastery
+            </h4>
+
+            {!clarityData?.topics || clarityData.topics.length === 0 ? (
+              <div
+                style={{ textAlign: 'center', padding: '24px', color: 'var(--aiims-text-muted)' }}
+              >
+                No topic progressions recorded yet. Begin by selecting a task in the Clarity Lab.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '16px',
+                }}
+              >
+                {clarityData.topics.map((t: any) => (
+                  <div
+                    key={t.topic}
+                    style={{
+                      padding: '16px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--aiims-bg-card)',
+                      border: '1px solid var(--aiims-border-card)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          color: 'var(--aiims-text-heading)',
+                        }}
+                      >
+                        {t.topic}
+                      </span>
+                      <Badge variant="cyan">{t.currentLevel}</Badge>
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: 'var(--aiims-text-body)' }}>
+                      Total Attempts: <span style={{ fontWeight: 700 }}>{t.totalAttempts}</span>
+                      {t.lastScore !== undefined && (
+                        <span>
+                          {' '}
+                          · Last Score: <span style={{ fontWeight: 700 }}>{t.lastScore}%</span>
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                      Consecutive High Scores (85%+): {t.consecutiveHighScores} / 2 to advance
+                    </div>
+
+                    <div
+                      style={{
+                        width: '100%',
+                        height: '6px',
+                        backgroundColor: 'var(--aiims-border-subtle)',
+                        borderRadius: '3px',
+                        overflow: 'hidden',
+                        marginTop: '4px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${(t.consecutiveHighScores / 2) * 100}%`,
+                          height: '100%',
+                          backgroundColor: 'var(--aiims-primary)',
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 4: FOCUS ACTIVITY INTEGRATION                                    */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'focus' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Focus Metrics Banner */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            <Card variant="amber" radius="default" padding="default">
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  opacity: 0.8,
+                }}
+              >
+                Today's Focus Time
+              </span>
+              <div
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  marginTop: '4px',
+                  fontFamily: "'Fredoka', sans-serif",
+                }}
+              >
+                {focusData?.todayFocusMinutes ?? 0}m
+              </div>
+              <span style={{ fontSize: '11px', opacity: 0.85 }}>
+                Strictly excludes break intervals
+              </span>
+            </Card>
+
+            <Card variant="mint" radius="default" padding="default">
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  opacity: 0.8,
+                }}
+              >
+                Completed Sessions Today
+              </span>
+              <div
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  marginTop: '4px',
+                  fontFamily: "'Fredoka', sans-serif",
+                }}
+              >
+                {focusData?.todayCompletedSessions ?? 0}
+              </div>
+              <span style={{ fontSize: '11px', opacity: 0.85 }}>
+                Lifetime Completed: {focusData?.totalCompletedSessions ?? 0}
+              </span>
+            </Card>
+
+            <Card variant="subtle" radius="default" padding="default">
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  opacity: 0.8,
+                }}
+              >
+                Today's Break Time
+              </span>
+              <div
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  marginTop: '4px',
+                  fontFamily: "'Fredoka', sans-serif",
+                }}
+              >
+                {focusData?.todayBreakMinutes ?? 0}m
+              </div>
+              <span style={{ fontSize: '11px', opacity: 0.85 }}>Rest & recovery interval</span>
+            </Card>
+          </div>
+
+          {/* Timekeeping Notice */}
+          <div
+            style={{
+              padding: '12px 16px',
+              backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.02))',
+              border: '1px solid var(--aiims-border-subtle)',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '10px',
+              fontSize: '12px',
+              color: 'var(--aiims-text-muted)',
+              lineHeight: 1.5,
+            }}
+          >
+            <Clock
+              size={16}
+              style={{ color: 'var(--aiims-primary)', flexShrink: 0, marginTop: '2px' }}
+            />
+            <div>
+              <span style={{ fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+                Authoritative Focus Accounting:
+              </span>{' '}
+              {focusData?.dataRulesNotice ||
+                'Break intervals are strictly excluded from focus time calculations. Abandoned sessions are audited but excluded from completed session metrics.'}
+            </div>
+          </div>
+
+          {/* Recent Focus Session Log */}
+          <Card variant="bordered" radius="default" padding="default">
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+              }}
+            >
+              <h4
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: 'var(--aiims-text-heading)',
+                }}
+              >
+                Recent Focus Sessions
+              </h4>
+              <Button variant="outline" size="sm" onClick={() => setActiveTab('focus')}>
+                Start New Session
+              </Button>
+            </div>
+
+            {!focusData?.recentSessions || focusData.recentSessions.length === 0 ? (
+              <div
+                style={{ textAlign: 'center', padding: '24px', color: 'var(--aiims-text-muted)' }}
+              >
+                No focus sessions recorded yet. Start a focus session to track deep work.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {focusData.recentSessions.map((s: any) => (
+                  <div
+                    key={s.sessionId}
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--aiims-bg-card)',
+                      border: '1px solid var(--aiims-border-subtle)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          color: 'var(--aiims-text-heading)',
+                        }}
+                      >
+                        {s.trackTitle}
+                      </div>
+                      {s.intention && (
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            color: 'var(--aiims-text-muted)',
+                            marginTop: '2px',
+                          }}
+                        >
+                          Intention: "{s.intention}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span
+                        style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-primary)' }}
+                      >
+                        {s.actualFocusMinutes}m
+                      </span>
+                      <Badge
+                        variant={s.status === 'completed' ? 'success' : 'neutral'}
+                        style={{ fontSize: '10px' }}
+                      >
+                        {s.status}
+                      </Badge>
+                      {s.completedAt && (
+                        <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                          {new Date(s.completedAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SUB-TAB 5: PERFORMANCE & SKILL ANALYTICS                                 */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'analytics' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Data-Sufficiency Gating Check */}
+          {!analyticsData?.hasSufficientData ? (
+            <Card variant="bordered" radius="default" padding="default">
+              <div
+                style={{
+                  padding: '36px 20px',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <BarChart3 size={36} style={{ color: 'var(--aiims-text-muted)', opacity: 0.5 }} />
+                <h4 style={{ margin: 0, fontSize: '16px', color: 'var(--aiims-text-heading)' }}>
+                  Insufficient Assessment Data
+                </h4>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: 'var(--aiims-text-muted)',
+                    maxWidth: '460px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {analyticsData?.dataNotice ||
+                    'Complete your baseline diagnostic assessment and at least one Clarity task to generate reliable skill performance analytics.'}
+                </p>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<ArrowRight size={14} />}
+                  onClick={() => setActiveTab('assessment')}
+                  style={{ marginTop: '8px' }}
+                >
+                  Complete Diagnostic Assessment
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <>
+              {/* Strengths & Growth Areas Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                  gap: '16px',
+                }}
+              >
+                {/* Top Performing Skills */}
+                <Card variant="mint" radius="default" padding="default">
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '14px',
+                    }}
+                  >
+                    <Sparkles
+                      size={18}
+                      style={{ color: 'var(--aiims-tint-emerald-text, #10b981)' }}
+                    />
+                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                      Demonstrated Core Strengths
+                    </h4>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(analyticsData.strongestSkills || []).map((skill: any) => (
+                      <div
+                        key={skill.name}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '13px' }}>{skill.name}</div>
+                          <div style={{ fontSize: '11px', opacity: 0.8 }}>{skill.domain}</div>
+                        </div>
+                        <span style={{ fontWeight: 800, fontSize: '14px' }}>{skill.score}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                {/* Growth Opportunities */}
+                <Card variant="amber" radius="default" padding="default">
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '14px',
+                    }}
+                  >
+                    <Target size={18} style={{ color: 'var(--aiims-tint-amber-text, #d97706)' }} />
+                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                      Target Growth Opportunities
+                    </h4>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {(analyticsData.growthAreas || []).map((skill: any) => (
+                      <div
+                        key={skill.name}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '8px 12px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                          borderRadius: '6px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '13px' }}>{skill.name}</div>
+                          <div style={{ fontSize: '11px', opacity: 0.8 }}>{skill.domain}</div>
+                        </div>
+                        <span style={{ fontWeight: 800, fontSize: '14px' }}>{skill.score}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </Card>
               </div>
-            );
-          })}
+
+              {/* Historical Score Progression Timeline */}
+              <Card variant="bordered" radius="default" padding="default">
+                <div style={{ marginBottom: '16px' }}>
+                  <h4
+                    style={{
+                      margin: '0 0 4px',
+                      fontSize: '16px',
+                      fontWeight: 700,
+                      color: 'var(--aiims-text-heading)',
+                    }}
+                  >
+                    Chronological Evaluation Timeline
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+                    {analyticsData.basisExplanation}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {(analyticsData.scoreTimeline || []).map((item: any) => (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--aiims-bg-card-subtle, rgba(0, 0, 0, 0.02))',
+                        border: '1px solid var(--aiims-border-subtle)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Badge
+                          variant={item.scoreType === 'diagnostic' ? 'purple' : 'cyan'}
+                          style={{ fontSize: '9px' }}
+                        >
+                          {item.scoreType.toUpperCase()}
+                        </Badge>
+                        <span
+                          style={{
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            color: 'var(--aiims-text-heading)',
+                          }}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: '14px',
+                            color:
+                              item.score >= 80
+                                ? 'var(--aiims-tint-emerald-text, #10b981)'
+                                : 'var(--aiims-primary)',
+                          }}
+                        >
+                          {item.score}%
+                        </span>
+                        <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                          {new Date(item.date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </>
+          )}
         </div>
-      </Card>
+      )}
     </div>
   );
 };

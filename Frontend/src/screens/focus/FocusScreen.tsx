@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLearner } from '../../context/LearnerContext';
+import { apiClient } from '../../api/client';
 import {
   Target,
   Sparkles,
@@ -153,6 +154,28 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
   const [showEndConfirm, setShowEndConfirm] = useState<boolean>(false);
   const [notificationStatus, setNotificationStatus] = useState<string>(getNotificationPermission());
   const [historyFilter, setHistoryFilter] = useState<'all' | 'completed'>('all');
+  const [_serverStats, setServerStats] = useState<{
+    todayFocusSeconds: number;
+    todayFocusHours: number;
+    todayCompletedSessions: number;
+    totalCompletedSessions: number;
+    todayBreakSeconds: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    apiClient
+      .getFocusStats()
+      .then((res) => {
+        if (isMounted && res?.success && res.stats) {
+          setServerStats(res.stats);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [activeSession?.sessionState]);
 
   // Gating guards
   if (!isAssessmentCompleted) {

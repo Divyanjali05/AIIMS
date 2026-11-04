@@ -27,7 +27,7 @@ router.post(
 
 // Analysis routes
 router.get('/analysis/peer-benchmarks', getPeerBenchmarks);
-router.get('/analysis/individual', getIndividualAnalysis);
+router.get('/analysis/individual', requireAuth, getIndividualAnalysis);
 router.get('/analysis/comparative', getComparativeAnalysis);
 router.get('/analysis/overall', getOverallAnalysis);
 

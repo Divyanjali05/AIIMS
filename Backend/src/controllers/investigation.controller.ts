@@ -25,14 +25,67 @@ export const getFocusAreas = (req: Request, res: Response) => {
 
 /**
  * POST /focus/override
+ * Enforces authentication, cross-user ownership guards, and persists to authenticated user's DB record.
  */
-export const overrideFocus = (req: Request, res: Response) => {
-  const { focusId, mentorOverride } = req.body;
-  const focus = mockFocusAreas.find((f) => f.id === focusId);
-  if (focus) {
-    focus.mentorOverride = mentorOverride;
+export const overrideFocus = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
   }
-  res.json(focus);
+
+  const { focusId, mentorOverride, userId: targetUserId } = req.body;
+
+  // Cross-user modification prevention
+  const currentUserId = String(req.user._id || req.user.id);
+  if (targetUserId && String(targetUserId) !== currentUserId) {
+    return res.status(403).json({
+      error: 'Access forbidden: cannot modify another learner focus state',
+      code: 'FORBIDDEN_CROSS_USER',
+    });
+  }
+
+  if (!focusId || typeof focusId !== 'string' || !focusId.trim()) {
+    return res.status(400).json({ error: 'Valid focusId is required', code: 'INVALID_FOCUS_ID' });
+  }
+
+  const cleanFocusId = focusId.trim();
+
+  // Persist to authenticated user's record
+  req.user.focus = req.user.focus || {
+    status: 'available',
+    selectedTrack: null,
+    history: [],
+  };
+  req.user.focus.selectedTrack = cleanFocusId;
+
+  if (mongoose.connection.readyState === 1 && req.user._id) {
+    try {
+      await User.findByIdAndUpdate(req.user._id, {
+        $set: {
+          'focus.selectedTrack': cleanFocusId,
+          ...(mentorOverride ? { 'focus.mentorOverride': mentorOverride } : {}),
+        },
+      });
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ error: 'Failed to persist focus override', details: err.message });
+    }
+  }
+
+  const baseArea = mockFocusAreas.find((f) => f.id === cleanFocusId) || {
+    id: cleanFocusId,
+    title: cleanFocusId,
+    description: '',
+    category: 'General',
+  };
+
+  return res.json({
+    success: true,
+    focus: {
+      ...baseArea,
+      mentorOverride: mentorOverride || '',
+    },
+  });
 };
 
 /**
@@ -44,14 +97,74 @@ export const getRadarSignals = (req: Request, res: Response) => {
 
 /**
  * POST /radar/follow
+ * Enforces authentication, cross-user ownership guards, and persists followed signals to DB.
  */
-export const toggleFollowSignal = (req: Request, res: Response) => {
-  const { signalId } = req.body;
-  const signal = mockRadarSignals.find((s) => s.id === signalId);
-  if (signal) {
-    signal.isFollowed = !signal.isFollowed;
+export const toggleFollowSignal = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
   }
-  res.json(signal);
+
+  const { signalId, userId: targetUserId } = req.body;
+
+  // Cross-user modification prevention
+  const currentUserId = String(req.user._id || req.user.id);
+  if (targetUserId && String(targetUserId) !== currentUserId) {
+    return res.status(403).json({
+      error: 'Access forbidden: cannot modify another learner radar signals',
+      code: 'FORBIDDEN_CROSS_USER',
+    });
+  }
+
+  if (!signalId || typeof signalId !== 'string' || !signalId.trim()) {
+    return res.status(400).json({ error: 'Valid signalId is required', code: 'INVALID_SIGNAL_ID' });
+  }
+
+  const cleanSignalId = signalId.trim();
+
+  req.user.radar = req.user.radar || {
+    status: 'available',
+    investigatedSignalIds: [],
+    followedSignalIds: [],
+  };
+  req.user.radar.followedSignalIds = req.user.radar.followedSignalIds || [];
+
+  const isFollowed = req.user.radar.followedSignalIds.includes(cleanSignalId);
+  if (isFollowed) {
+    req.user.radar.followedSignalIds = req.user.radar.followedSignalIds.filter(
+      (id) => id !== cleanSignalId
+    );
+  } else {
+    req.user.radar.followedSignalIds.push(cleanSignalId);
+  }
+
+  if (mongoose.connection.readyState === 1 && req.user._id) {
+    try {
+      await User.findByIdAndUpdate(req.user._id, {
+        [isFollowed ? '$pull' : '$addToSet']: {
+          'radar.followedSignalIds': cleanSignalId,
+        },
+      });
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ error: 'Failed to update followed signals', details: err.message });
+    }
+  }
+
+  const baseSignal = mockRadarSignals.find((s) => s.id === cleanSignalId) || {
+    id: cleanSignalId,
+    title: cleanSignalId,
+  };
+
+  return res.json({
+    success: true,
+    signalId: cleanSignalId,
+    isFollowed: !isFollowed,
+    signal: {
+      ...baseSignal,
+      isFollowed: !isFollowed,
+    },
+  });
 };
 
 /**
@@ -153,49 +266,49 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
           sourceId: signalId,
           idempotencyKey: actionKey,
         })
-        .catch((e) => {
-          console.warn('[Investigation] Ledger offline write notice:', e.message);
-          return null;
-        });
+        .catch(() => null);
 
-      if (ledgerResult && ledgerResult.duplicate) {
-        creditsEarned = 0;
-      } else if (ledgerResult && ledgerResult.success) {
-        const previousBalance = req.user.aiimsCredits || 0;
-        req.user.aiimsCredits = ledgerResult.newBalance ?? ledgerResult.balance ?? previousBalance;
-        req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
-        creditsEarned = reward;
+      const previousBalance = req.user.aiimsCredits || 0;
+      if (ledgerResult?.balance !== undefined) {
+        req.user.aiimsCredits = ledgerResult.balance;
+      } else {
+        req.user.aiimsCredits = previousBalance + reward;
+      }
+      req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
+      creditsEarned = reward;
 
-        if (!req.user.radar.investigatedSignalIds) {
-          req.user.radar.investigatedSignalIds = [];
-        }
-        req.user.radar.investigatedSignalIds.push(signalId);
+      if (!req.user.radar) {
+        req.user.radar = { status: 'unlocked', investigatedSignalIds: [], followedSignalIds: [] };
+      }
+      if (!req.user.radar.investigatedSignalIds) {
+        req.user.radar.investigatedSignalIds = [];
+      }
+      req.user.radar.investigatedSignalIds.push(signalId);
 
-        const tx = {
-          id: ledgerResult?.transaction?.id || `tx-inv-${Date.now()}`,
-          transactionType: 'SIGNAL_INVESTIGATION',
-          type: 'EARN' as const,
-          source: 'RADAR',
-          sourceId: signalId,
-          amount: reward,
-          description: `Investigated Signal: ${signalId} (+${reward} AC)`,
-          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          previousBalance,
-          newBalance: req.user.aiimsCredits,
-        };
+      const tx = {
+        id: ledgerResult?.transaction?.id || `tx-inv-${Date.now()}`,
+        transactionType: 'SIGNAL_INVESTIGATION',
+        type: 'EARN' as const,
+        source: 'RADAR',
+        sourceId: signalId,
+        amount: reward,
+        description: `Investigated Signal: ${signalId} (+${reward} AC)`,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        previousBalance,
+        newBalance: req.user.aiimsCredits,
+      };
 
-        req.user.transactions = req.user.transactions || [];
-        req.user.transactions.unshift(tx);
+      req.user.transactions = req.user.transactions || [];
+      req.user.transactions.unshift(tx);
 
-        if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
-          const reg = registeredUsers[req.user.email.toLowerCase()];
-          reg.aiimsCredits = req.user.aiimsCredits;
-          reg.xpPoints = req.user.xpPoints;
-          if (!reg.radar) reg.radar = { status: 'unlocked', investigatedSignalIds: [] };
-          if (!reg.radar.investigatedSignalIds) reg.radar.investigatedSignalIds = [];
-          if (!reg.radar.investigatedSignalIds.includes(signalId)) {
-            reg.radar.investigatedSignalIds.push(signalId);
-          }
+      if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
+        const reg = registeredUsers[req.user.email.toLowerCase()];
+        reg.aiimsCredits = req.user.aiimsCredits;
+        reg.xpPoints = req.user.xpPoints;
+        if (!reg.radar) reg.radar = { status: 'unlocked', investigatedSignalIds: [] };
+        if (!reg.radar.investigatedSignalIds) reg.radar.investigatedSignalIds = [];
+        if (!reg.radar.investigatedSignalIds.includes(signalId)) {
+          reg.radar.investigatedSignalIds.push(signalId);
         }
       }
     }

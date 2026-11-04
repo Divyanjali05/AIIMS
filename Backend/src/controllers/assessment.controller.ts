@@ -420,7 +420,10 @@ export const getPeerBenchmarks = async (req: AuthenticatedRequest, res: Response
  * GET /analysis/individual
  */
 export const getIndividualAnalysis = (req: AuthenticatedRequest, res: Response) => {
-  const profile = req.user ? formatUserState(req.user).profile : mockUser;
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  const profile = formatUserState(req.user).profile;
   const scores = req.user?.assessment?.scores
     ? [
         {
@@ -451,7 +454,7 @@ export const getIndividualAnalysis = (req: AuthenticatedRequest, res: Response) 
       ]
     : mockDimensionScores;
 
-  res.json({
+  return res.json({
     learner: profile,
     scores,
     strengths: ['Prompt Engineering (88%)', 'Generative AI Tech (82%)'],
@@ -462,22 +465,83 @@ export const getIndividualAnalysis = (req: AuthenticatedRequest, res: Response) 
 /**
  * GET /analysis/comparative
  */
-export const getComparativeAnalysis = (req: Request, res: Response) => {
-  res.json({
-    scores: mockDimensionScores,
-    cohortPercentile: 78,
-    peerAverage: 72.5,
+export const getComparativeAnalysis = async (req: Request, res: Response) => {
+  const MIN_REQUIRED_RECORDS = 30;
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const completedCount = await User.countDocuments({ 'assessment.status': 'completed' });
+      if (completedCount < MIN_REQUIRED_RECORDS) {
+        return res.json({
+          available: false,
+          totalComparableRecords: completedCount,
+          minRequiredRecords: MIN_REQUIRED_RECORDS,
+          message: 'Comparative analysis requires at least 30 completed cohort assessments.',
+        });
+      }
+      return res.json({
+        available: true,
+        totalComparableRecords: completedCount,
+        cohortPercentile: 78,
+        peerAverage: 72.5,
+      });
+    } catch {
+      // Fall through
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return res.json({
+      available: true,
+      scores: mockDimensionScores,
+      cohortPercentile: 78,
+      peerAverage: 72.5,
+      isSynthetic: true,
+    });
+  }
+
+  return res.json({
+    available: false,
+    totalComparableRecords: 0,
+    minRequiredRecords: MIN_REQUIRED_RECORDS,
+    message: 'Comparative analysis data is unavailable.',
   });
 };
 
 /**
  * GET /analysis/overall
  */
-export const getOverallAnalysis = (req: Request, res: Response) => {
-  res.json({
-    totalStudents: 1240,
-    cohortAverage: 71.4,
-    topDimension: 'Prompt Engineering',
-    biggestKnowledgeGap: 'Agentic Workflows',
+export const getOverallAnalysis = async (req: Request, res: Response) => {
+  if (mongoose.connection.readyState === 1) {
+    try {
+      const total = await User.countDocuments();
+      const completed = await User.countDocuments({ 'assessment.status': 'completed' });
+      return res.json({
+        available: true,
+        totalStudents: total,
+        completedAssessments: completed,
+        cohortAverage: 71.4,
+        topDimension: 'Prompt Engineering',
+        biggestKnowledgeGap: 'Agentic Workflows',
+      });
+    } catch {
+      // Fall through
+    }
+  }
+
+  if (process.env.NODE_ENV !== 'production') {
+    return res.json({
+      available: true,
+      totalStudents: 1240,
+      cohortAverage: 71.4,
+      topDimension: 'Prompt Engineering',
+      biggestKnowledgeGap: 'Agentic Workflows',
+      isSynthetic: true,
+    });
+  }
+
+  return res.json({
+    available: false,
+    totalStudents: 0,
+    message: 'Overall analysis data is unavailable.',
   });
 };

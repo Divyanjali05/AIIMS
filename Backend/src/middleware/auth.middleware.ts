@@ -5,17 +5,28 @@ import { config } from '../config/env';
 import { User, IUser, UserRole } from '../models/User.model';
 import { mockUser } from '../models/aiims.models';
 import { registeredUsers, isSafeKey } from '../models/userStore';
+import { sessionService } from '../models/Session.model';
 
 export interface AuthenticatedRequest extends Request {
   user?: IUser;
   userEmail?: string;
   /** True when this request was authenticated via httpOnly cookie (not Bearer header) */
   cookieAuthenticated?: boolean;
+  sessionId?: string;
+  deviceIdHash?: string;
+  authError?: {
+    status: number;
+    error: string;
+    code: string;
+  };
 }
 
 export interface JwtPayload {
   userId?: string;
   email?: string;
+  role?: UserRole;
+  sessionId?: string;
+  deviceIdHash?: string;
   iat?: number;
   exp?: number;
 }
@@ -214,6 +225,15 @@ export const authenticateStudent = async (
               },
               configurable: true,
             });
+            Object.defineProperty(dbUser, 'deviceBinding', {
+              get() {
+                return regUser.deviceBinding;
+              },
+              set(v) {
+                regUser.deviceBinding = v;
+              },
+              configurable: true,
+            });
             Object.defineProperty(dbUser, 'aiWallet', {
               get() {
                 return regUser.aiWallet;
@@ -230,7 +250,69 @@ export const authenticateStudent = async (
       }
 
       if (dbUser) {
+        // 4. Inactive/Disabled Account Guard
+        if (dbUser.isActive === false) {
+          req.authError = {
+            status: 403,
+            error: 'Account has been disabled. Please contact support.',
+            code: 'ACCOUNT_DISABLED',
+          };
+          return next();
+        }
+
+        // 5. Active Session Validation
+        if (decoded.sessionId) {
+          const session = await sessionService.getSession(decoded.sessionId);
+          if (!session || session.status !== 'ACTIVE') {
+            req.authError = {
+              status: 401,
+              error: 'Session has been revoked or expired. Please sign in again.',
+              code: 'SESSION_REVOKED',
+            };
+            return next();
+          }
+
+          if (session.expiresAt < new Date()) {
+            req.authError = {
+              status: 401,
+              error: 'Session has expired. Please sign in again.',
+              code: 'SESSION_EXPIRED',
+            };
+            return next();
+          }
+
+          if (decoded.deviceIdHash && session.deviceIdHash !== decoded.deviceIdHash) {
+            req.authError = {
+              status: 401,
+              error: 'Device binding is invalid or has been reset.',
+              code: 'DEVICE_MISMATCH',
+            };
+            return next();
+          }
+        }
+
+        // 6. Device Binding Validation against User Model
+        if (
+          decoded.deviceIdHash &&
+          dbUser.deviceBinding &&
+          dbUser.deviceBinding.bindingStatus === 'BOUND' &&
+          dbUser.deviceBinding.deviceIdHash &&
+          dbUser.deviceBinding.deviceIdHash !== decoded.deviceIdHash
+        ) {
+          req.authError = {
+            status: 401,
+            error: 'Device binding is invalid or has been reset. Please sign in again.',
+            code: 'DEVICE_MISMATCH',
+          };
+          return next();
+        }
+
         req.user = dbUser;
+        if (decoded.sessionId) {
+          req.sessionId = decoded.sessionId;
+          req.deviceIdHash = decoded.deviceIdHash;
+          sessionService.touchSession(decoded.sessionId).catch(() => {});
+        }
       }
     }
 
@@ -246,6 +328,12 @@ export const authenticateStudent = async (
  * Returns 401 if unauthenticated or token is invalid/expired.
  */
 export const requireAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  if (req.authError) {
+    return res.status(req.authError.status).json({
+      error: req.authError.error,
+      code: req.authError.code,
+    });
+  }
   if (!req.user) {
     return res.status(401).json({
       error: 'Invalid or expired session. Please sign in again.',
@@ -262,6 +350,12 @@ export const requireAuth = (req: AuthenticatedRequest, res: Response, next: Next
  */
 export const requireRole = (...roles: UserRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (req.authError) {
+      return res.status(req.authError.status).json({
+        error: req.authError.error,
+        code: req.authError.code,
+      });
+    }
     if (!req.user) {
       return res.status(401).json({
         error: 'Invalid or expired session. Please sign in again.',

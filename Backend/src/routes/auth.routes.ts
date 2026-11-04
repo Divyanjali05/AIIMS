@@ -35,7 +35,7 @@ router.get('/config/public', getPublicConfig);
 
 router.post('/auth/login', authRateLimiter, validateBody(loginSchema), login);
 router.post('/auth/register', authRateLimiter, validateBody(registerSchema), register);
-router.post('/auth/logout', logout);
+router.post('/auth/logout', authenticateStudent, logout);
 router.post('/auth/set-password', authRateLimiter, setPassword);
 
 // In-app account deletion: permanently purges personal data with "DELETE" confirmation

@@ -11,6 +11,9 @@ import aiWalletRoutes from './aiWallet.routes';
 import submissionRoutes from './submission.routes';
 import evaluatorRoutes from './evaluator.routes';
 import adminRoutes from './admin.routes';
+import questionRoutes from './question.routes';
+import focusRoutes from './focus.routes';
+import journeyRoutes from './journey.routes';
 
 export { CREDIT_RULES } from '../config/credits.config';
 export { registeredUsers } from '../controllers/auth.controller';
@@ -34,5 +37,8 @@ router.use(aiWalletRoutes);
 router.use(submissionRoutes);
 router.use(evaluatorRoutes);
 router.use(adminRoutes);
+router.use(questionRoutes);
+router.use(focusRoutes);
+router.use(journeyRoutes);
 
 export default router;

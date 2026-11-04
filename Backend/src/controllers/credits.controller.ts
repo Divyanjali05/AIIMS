@@ -6,7 +6,69 @@ import { mockUser, mockTransactions, rewardedLevelIds } from '../models/aiims.mo
 import { CreditTransaction } from '../types';
 import { CREDIT_RULES } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { CreditTransactionType } from '../models/CreditLedger.model';
+import { CreditTransactionType, CreditTransactionCategory } from '../models/CreditLedger.model';
+
+/**
+ * GET /credits/costs
+ * Authoritative credit cost table and honest payment status
+ */
+export const getCreditCosts = async (_req: AuthenticatedRequest, res: Response) => {
+  return res.json({
+    success: true,
+    costs: {
+      clarityRun: {
+        cost: 10,
+        freeTrialCount: 1,
+        unit: 'AC',
+        description: 'Execute AI prompt in Clarity Task Lab',
+      },
+      focusSession: {
+        cost: 0,
+        unit: 'AC',
+        description: 'Timed focus and restorative break intervals (Free)',
+      },
+      toolMatching: {
+        cost: 0,
+        unit: 'AC',
+        description: 'Intelligent tool matching and catalog recommendations (Free)',
+      },
+      diagnosticAssessment: {
+        cost: 0,
+        reward: CREDIT_RULES.ASSESSMENT_COMPLETION.credits,
+        xp: CREDIT_RULES.ASSESSMENT_COMPLETION.xp,
+        unit: 'AC',
+        description: 'Initial AI capability diagnostic assessment',
+      },
+      signalInvestigation: {
+        cost: 0,
+        reward: CREDIT_RULES.SIGNAL_INVESTIGATION.credits,
+        xp: CREDIT_RULES.SIGNAL_INVESTIGATION.xp,
+        unit: 'AC',
+        description: 'Investigating market signal on AI Radar',
+      },
+      questLevelCompletion: {
+        cost: 0,
+        reward: CREDIT_RULES.LEVEL_QUEST_COMPLETION.credits,
+        xp: CREDIT_RULES.LEVEL_QUEST_COMPLETION.xp,
+        unit: 'AC',
+        description: 'Completing learning quest level',
+      },
+      clarityTaskCompletion: {
+        cost: 0,
+        reward: CREDIT_RULES.CLARITY_TASK_EASY.credits,
+        xp: CREDIT_RULES.CLARITY_TASK_EASY.xp,
+        unit: 'AC',
+        description: 'Completing Clarity task evaluation',
+      },
+    },
+    paymentGateway: {
+      status: 'PREVIEW',
+      integrated: false,
+      message:
+        'Direct credit purchases via payment gateway are currently in preview. Credits are earned exclusively through completed quests, diagnostic assessments, and investigations.',
+    },
+  });
+};
 
 /**
  * GET /credits/wallet
@@ -53,10 +115,16 @@ export const getLedger = async (req: AuthenticatedRequest, res: Response) => {
 
   const userId = String(req.user._id || req.user.id);
   const type = req.query.type as CreditTransactionType | undefined;
+  const category = req.query.category as CreditTransactionCategory | undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
   const skip = req.query.skip ? parseInt(req.query.skip as string, 10) : 0;
 
-  const result = await creditsLedgerService.getLedgerHistory(userId, { type, limit, skip });
+  const result = await creditsLedgerService.getLedgerHistory(userId, {
+    type,
+    category,
+    limit,
+    skip,
+  });
   res.json(result);
 };
 

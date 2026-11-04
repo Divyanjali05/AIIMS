@@ -168,11 +168,22 @@ export class ToolMatchingService {
     | undefined {
     if (
       (intent.domain && intent.domain.length >= 2) ||
-      (intent.tasks.includes('Research') && intent.tasks.includes('Presentation Creation'))
+      (intent.tasks.includes('Research') &&
+        (intent.tasks.includes('Presentation Creation') ||
+          intent.tasks.includes('Slide Deck Generation'))) ||
+      intent.intent.includes('multi-step') ||
+      intent.primaryGoal.includes('Multi-Task')
     ) {
-      const researchTool = topTools.find((t) => t.category === 'Research & RAG');
-      const presTool = topTools.find((t) => t.category === 'Presentation');
-      const dataTool = topTools.find((t) => t.category === 'Data Analysis');
+      const allCatalog = ToolCatalogService.getCatalog();
+      const researchTool =
+        topTools.find((t) => t.category === 'Research & RAG') ||
+        allCatalog.find((t) => t.category === 'Research & RAG');
+      const presTool =
+        topTools.find((t) => t.category === 'Presentation') ||
+        allCatalog.find((t) => t.category === 'Presentation');
+      const dataTool =
+        topTools.find((t) => t.category === 'Data Analysis') ||
+        allCatalog.find((t) => t.category === 'Data Analysis');
 
       if (researchTool && presTool) {
         return [

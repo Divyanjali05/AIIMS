@@ -1,5 +1,8 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import crypto from 'crypto';
+
+let devEphemeralSecret: string | null = null;
 
 // Load .env from Backend directory or current working directory
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -90,7 +93,10 @@ export function getValidatedJwtSecret(): string {
     console.warn(
       '⚠️  [SECURITY WARNING] No JWT_SECRET defined in environment. Using development-only fallback. DO NOT USE IN PRODUCTION.'
     );
-    return 'aiims-dev-ephemeral-key-do-not-use-in-production-min32chars';
+    if (!devEphemeralSecret) {
+      devEphemeralSecret = crypto.randomBytes(32).toString('hex');
+    }
+    return devEphemeralSecret;
   }
 
   const isKnownDefault = INSECURE_JWT_DEFAULTS.some(
@@ -139,6 +145,12 @@ export const config = {
           'http://127.0.0.1:3000',
           'http://localhost:5173',
           'http://127.0.0.1:5173',
+          'https://localhost',
+          'http://localhost',
+          'capacitor://localhost',
+          'http://192.168.1.5:3000',
+          'http://192.168.1.5:5173',
+          'http://192.168.1.5:5001',
         ];
   })(),
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 15,

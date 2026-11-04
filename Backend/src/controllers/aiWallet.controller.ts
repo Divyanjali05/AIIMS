@@ -32,6 +32,72 @@ export const searchTools = (req: Request, res: Response) => {
 };
 
 /**
+ * POST /wallet/match
+ * Intelligent task-first tool matching grounded in the verified AIIMS catalog
+ */
+export const matchTools = (req: Request, res: Response) => {
+  const { taskDescription, desiredOutput, inputFormat, freeOnly, category } = req.body;
+  if (
+    !taskDescription ||
+    typeof taskDescription !== 'string' ||
+    taskDescription.trim().length < 3
+  ) {
+    return res
+      .status(400)
+      .json({ error: 'Valid taskDescription of at least 3 characters is required.' });
+  }
+
+  const queryParts = [taskDescription.trim()];
+  if (desiredOutput) queryParts.push(`output: ${desiredOutput.trim()}`);
+  if (inputFormat) queryParts.push(`input: ${inputFormat.trim()}`);
+  if (freeOnly) queryParts.push('free');
+  if (category) queryParts.push(`category: ${category.trim()}`);
+
+  const enrichedQuery = queryParts.join(' ');
+  const searchResult = ToolMatchingService.searchTools(enrichedQuery);
+
+  let matches = searchResult.matches || [];
+
+  if (freeOnly) {
+    matches = matches.filter(
+      (m) => m.tool.pricingDetails.type === 'FREE' || m.tool.pricingDetails.freeTierAvailable
+    );
+  }
+
+  const formattedMatches = matches.map((m) => ({
+    toolId: m.tool.id,
+    name: m.tool.name,
+    provider: m.tool.provider,
+    category: m.tool.category,
+    description: m.tool.description,
+    matchScore: m.matchScore,
+    matchLabel: m.matchLabel,
+    confidence: m.confidence,
+    whyMatches: m.whyMatches || [m.matchReason],
+    limitations: m.tool.limitations || [],
+    pricing: m.tool.pricingDetails.summary || m.tool.pricing,
+    freeTierAvailable: m.tool.pricingDetails.freeTierAvailable ?? false,
+    pricingType: m.tool.pricingDetails.type,
+    isIntegrated: m.tool.capabilities.some(
+      (c) => c.toLowerCase().includes('sandbox') || c.toLowerCase().includes('interactive')
+    ),
+    officialWebsite: m.tool.officialWebsite,
+    learningTrackLevel1: m.tool.learningTrack?.[0]?.title || null,
+  }));
+
+  return res.json({
+    success: true,
+    taskDescription: taskDescription.trim(),
+    desiredOutput: desiredOutput || null,
+    inputFormat: inputFormat || null,
+    totalMatches: formattedMatches.length,
+    matches: formattedMatches,
+    toolCombinations: searchResult.toolCombinations || [],
+    suggestionsIfNoMatches: searchResult.suggestionsIfNoMatches,
+  });
+};
+
+/**
  * GET /wallet/catalog
  */
 export const getCatalog = async (req: Request, res: Response) => {
@@ -39,25 +105,35 @@ export const getCatalog = async (req: Request, res: Response) => {
   let tools = await ToolCatalogService.getCatalogAsync();
 
   if (category && category !== 'All') {
-    tools = tools.filter(t => t.category === category || t.categories.includes(category as any));
+    tools = tools.filter((t) => t.category === category || t.categories.includes(category as any));
   }
   if (domain && domain !== 'All') {
-    tools = tools.filter(t => t.domains.some(d => d.toLowerCase() === (domain as string).toLowerCase()));
+    tools = tools.filter((t) =>
+      t.domains.some((d) => d.toLowerCase() === (domain as string).toLowerCase())
+    );
   }
   if (status && status !== 'All') {
-    tools = tools.filter(t => t.status === status);
+    tools = tools.filter((t) => t.status === status);
   }
   if (pricing && pricing !== 'All') {
-    if (pricing === 'Free') tools = tools.filter(t => t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable);
-    else if (pricing === 'Trial') tools = tools.filter(t => t.pricingDetails.freeTrialAvailable);
-    else if (pricing === 'Paid') tools = tools.filter(t => t.pricingDetails.type === 'PAID');
+    if (pricing === 'Free')
+      tools = tools.filter(
+        (t) => t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable
+      );
+    else if (pricing === 'Trial') tools = tools.filter((t) => t.pricingDetails.freeTrialAvailable);
+    else if (pricing === 'Paid') tools = tools.filter((t) => t.pricingDetails.type === 'PAID');
   }
   if (search && typeof search === 'string' && search.trim()) {
     const q = search.trim().toLowerCase();
-    tools = tools.filter(t => t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q) || t.provider.toLowerCase().includes(q));
+    tools = tools.filter(
+      (t) =>
+        t.name.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        t.provider.toLowerCase().includes(q)
+    );
   }
 
-  return res.json(tools.filter(t => t.activeStatus));
+  return res.json(tools.filter((t) => t.activeStatus));
 };
 
 /**
@@ -83,16 +159,18 @@ export const getTaxonomy = (req: Request, res: Response) => {
  */
 export const compareTools = (req: Request, res: Response) => {
   const { toolIds, toolAId, toolBId, userRequirement, task } = req.body;
-  const ids: string[] = Array.isArray(toolIds) && toolIds.length > 0
-    ? toolIds
-    : [toolAId, toolBId].filter(Boolean);
+  const ids: string[] =
+    Array.isArray(toolIds) && toolIds.length > 0 ? toolIds : [toolAId, toolBId].filter(Boolean);
 
   if (ids.length === 0) {
     return res.status(400).json({ error: 'At least 2 tool IDs are required for comparison.' });
   }
 
   try {
-    const comparison = ToolComparisonService.compareToolsForRequirement(ids, userRequirement || task);
+    const comparison = ToolComparisonService.compareToolsForRequirement(
+      ids,
+      userRequirement || task
+    );
     return res.json(comparison);
   } catch (err: any) {
     return res.status(400).json({ error: err.message });
@@ -105,30 +183,30 @@ export const compareTools = (req: Request, res: Response) => {
 export const getGaps = (req: AuthenticatedRequest, res: Response) => {
   const userTools = req.user?.assessment ? mockUserTools : mockUserTools;
   const catalog = ToolCatalogService.getCatalog();
-  
+
   const coveredDomains = new Set<string>();
   for (const item of userTools) {
-    const tool = catalog.find(c => c.id === item.toolId);
+    const tool = catalog.find((c) => c.id === item.toolId);
     if (tool) {
-      tool.domains.forEach(d => coveredDomains.add(d));
+      tool.domains.forEach((d) => coveredDomains.add(d));
     }
   }
 
   const allTaxonomy = DomainTaxonomyService.getTaxonomy();
   const gaps = allTaxonomy
-    .filter(t => !coveredDomains.has(t.domain))
-    .map(t => ({
+    .filter((t) => !coveredDomains.has(t.domain))
+    .map((t) => ({
       domain: t.domain,
       subdomains: t.subdomains,
       category: t.categoryMapping,
-      recommendedQuery: `Show me ${t.domain} AI tools`
+      recommendedQuery: `Show me ${t.domain} AI tools`,
     }));
 
   return res.json({
     coveredCount: coveredDomains.size,
     totalDomains: allTaxonomy.length,
     coveredDomains: Array.from(coveredDomains),
-    gaps
+    gaps,
   });
 };
 
@@ -140,7 +218,7 @@ export const triggerDiscovery = async (req: Request, res: Response) => {
   return res.json({
     message: 'Automated AI Tool Discovery job completed successfully.',
     report: jobReport,
-    newAndUpdatedTools: ToolCatalogService.getNewAndRecentlyUpdatedTools()
+    newAndUpdatedTools: ToolCatalogService.getNewAndRecentlyUpdatedTools(),
   });
 };
 
@@ -148,7 +226,7 @@ export const triggerDiscovery = async (req: Request, res: Response) => {
  * GET /wallet/tools/new
  */
 export const getNewTools = (req: Request, res: Response) => {
-  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'NEW');
+  const tools = ToolCatalogService.getCatalog().filter((t) => t.status === 'NEW');
   return res.json(tools);
 };
 
@@ -156,7 +234,9 @@ export const getNewTools = (req: Request, res: Response) => {
  * GET /wallet/tools/recently-updated
  */
 export const getRecentlyUpdatedTools = (req: Request, res: Response) => {
-  const tools = ToolCatalogService.getCatalog().filter(t => t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED');
+  const tools = ToolCatalogService.getCatalog().filter(
+    (t) => t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED'
+  );
   return res.json(tools);
 };
 
@@ -192,7 +272,7 @@ export const getDiscoveryStatus = (req: Request, res: Response) => {
   return res.json({
     status,
     newAndUpdatedCount: newAndUpdated.length,
-    newAndUpdatedTools: newAndUpdated
+    newAndUpdatedTools: newAndUpdated,
   });
 };
 
@@ -200,17 +280,23 @@ export const getDiscoveryStatus = (req: Request, res: Response) => {
  * GET /wallet/user
  */
 export const getUserWallet = (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
   if (req.user?.aiWallet) {
     return res.json(req.user.aiWallet.userTools || []);
   }
-  return res.json(mockUserTools);
+  return res.json([]);
 };
 
 /**
  * GET /wallet/recommendations
  */
 export const getRecommendations = (req: AuthenticatedRequest, res: Response) => {
-  const userTools = (req.user as any)?.aiWallet?.userTools || mockLearnerFullState.aiWallet?.userTools || mockUserTools;
+  const userTools =
+    (req.user as any)?.aiWallet?.userTools ||
+    mockLearnerFullState.aiWallet?.userTools ||
+    mockUserTools;
   const userToolMap = new Map<string, string>();
   userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
 
@@ -225,11 +311,11 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
     'AI Workflow Design';
   const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
   const clarityTopic =
-    req.user?.clarity?.selectedTopic ||
-    mockLearnerFullState.clarity?.selectedTopic || '';
+    req.user?.clarity?.selectedTopic || mockLearnerFullState.clarity?.selectedTopic || '';
   const investigatedRadarIds =
     req.user?.radar?.investigatedSignalIds ||
-    mockLearnerFullState.radar?.investigatedSignalIds || [];
+    mockLearnerFullState.radar?.investigatedSignalIds ||
+    [];
 
   const containsMatch = (targetText: string, searchKey: string): boolean => {
     if (!targetText || !searchKey) return false;
@@ -253,13 +339,13 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
 
     // 1. FOCUS_BASED
     if (
-      toolFocusTracks.some(ft => containsMatch(ft, activeFocus)) ||
-      toolCategories.some(cat => containsMatch(cat, activeFocus))
+      toolFocusTracks.some((ft) => containsMatch(ft, activeFocus)) ||
+      toolCategories.some((cat) => containsMatch(cat, activeFocus))
     ) {
       matchedSignals.push({
         type: 'FOCUS_BASED',
         snippet: `aligns with your active focus on ${activeFocus}`,
-        priority: 2
+        priority: 2,
       });
     }
 
@@ -268,12 +354,12 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
     if (investigatedRadarIds.length > 0) {
       for (const sigId of investigatedRadarIds) {
         if (toolRadarTopics.includes(sigId) || toolRelatedTools.includes(sigId)) {
-          matchedRadarTopic = toolRadarTopics.find(t => t !== sigId) || tool.category;
+          matchedRadarTopic = toolRadarTopics.find((t) => t !== sigId) || tool.category;
           break;
         }
       }
       if (!matchedRadarTopic) {
-        const matchingTopic = toolRadarTopics.find(rt =>
+        const matchingTopic = toolRadarTopics.find((rt) =>
           investigatedRadarIds.some((sigId: string) => containsMatch(rt, sigId))
         );
         if (matchingTopic) matchedRadarTopic = matchingTopic;
@@ -286,37 +372,33 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
       matchedSignals.push({
         type: 'RADAR_DISCOVERY',
         snippet: `supports ${displayTopic} capabilities you explored on AI Radar`,
-        priority: 1
+        priority: 1,
       });
     }
 
     // 3. TASK_BASED
     if (
       clarityTopic &&
-      (
-        toolClarityTopics.some(ct => containsMatch(ct, clarityTopic)) ||
-        toolCategories.some(cat => containsMatch(cat, clarityTopic))
-      )
+      (toolClarityTopics.some((ct) => containsMatch(ct, clarityTopic)) ||
+        toolCategories.some((cat) => containsMatch(cat, clarityTopic)))
     ) {
       matchedSignals.push({
         type: 'TASK_BASED',
         snippet: `directly supports your Clarity goal ("${clarityTopic}")`,
-        priority: 3
+        priority: 3,
       });
     }
 
     // 4. SKILL_GAP
     if (
       growthArea &&
-      (
-        toolCategories.some(cat => containsMatch(cat, growthArea)) ||
-        toolFocusTracks.some(ft => containsMatch(ft, growthArea))
-      )
+      (toolCategories.some((cat) => containsMatch(cat, growthArea)) ||
+        toolFocusTracks.some((ft) => containsMatch(ft, growthArea)))
     ) {
       matchedSignals.push({
         type: 'SKILL_GAP',
         snippet: `strengthens your growth area in ${growthArea}`,
-        priority: 4
+        priority: 4,
       });
     }
 
@@ -325,13 +407,13 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
       matchedSignals.push({
         type: 'TOOLKIT_GAP',
         snippet: `fills an unrepresented category (${tool.category}) in your current AI toolkit`,
-        priority: 5
+        priority: 5,
       });
     }
 
     // 6. ALTERNATIVE_TOOL
     const isAlt = userTools.some((ut: any) => {
-      const userToolObj = catalog.find(c => c.id === ut.toolId);
+      const userToolObj = catalog.find((c) => c.id === ut.toolId);
       return (
         userToolObj &&
         (userToolObj.alternatives?.includes(tool.id) || tool.alternatives?.includes(ut.toolId))
@@ -341,7 +423,7 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
       matchedSignals.push({
         type: 'ALTERNATIVE_TOOL',
         snippet: `offers a complementary workflow alternative to tools in your wallet`,
-        priority: 6
+        priority: 6,
       });
     }
 
@@ -350,21 +432,22 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
     // Familiarity filtering
     if (familiarity === 'mastered') {
       const hasRadarOrAlt = matchedSignals.some(
-        s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
+        (s) => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL'
       );
       if (!hasRadarOrAlt) continue;
     } else if (familiarity === 'proficient') {
       const hasAdvancedSignal = matchedSignals.some(
-        s => s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED'
+        (s) =>
+          s.type === 'RADAR_DISCOVERY' || s.type === 'ALTERNATIVE_TOOL' || s.type === 'FOCUS_BASED'
       );
       if (!hasAdvancedSignal) continue;
     }
 
     matchedSignals.sort((a, b) => a.priority - b.priority);
     const primarySignal = matchedSignals[0];
-    const allSignalTypes = Array.from(new Set(matchedSignals.map(s => s.type)));
+    const allSignalTypes = Array.from(new Set(matchedSignals.map((s) => s.type)));
 
-    const snippets = matchedSignals.slice(0, 3).map(s => s.snippet);
+    const snippets = matchedSignals.slice(0, 3).map((s) => s.snippet);
     let synthesizedReason = '';
     if (snippets.length === 1) {
       synthesizedReason = `You're seeing this because ${tool.name} ${snippets[0]}.`;
@@ -375,10 +458,10 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
     }
 
     let actionLabel = 'Add to Wallet & Explore';
-    if (familiarity === 'exploring')  actionLabel = 'Explore & Practice Tool';
+    if (familiarity === 'exploring') actionLabel = 'Explore & Practice Tool';
     else if (familiarity === 'practicing') actionLabel = 'Practice a Real Task';
     else if (familiarity === 'proficient') actionLabel = 'Try an Advanced Workflow';
-    else if (familiarity === 'mastered')   actionLabel = 'View Advanced Opportunities';
+    else if (familiarity === 'mastered') actionLabel = 'View Advanced Opportunities';
 
     recs.push({
       id: `rec-${tool.id}`,
@@ -391,7 +474,7 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
       relevance: `Aligned with your ${activeFocus} workflow`,
       actionLabel,
       status: 'active',
-      createdAt: 'Just now'
+      createdAt: 'Just now',
     });
   }
 
@@ -402,79 +485,66 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
  * POST /wallet/add
  */
 export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
-  const { toolId, familiarity, primaryCategory, userNotes } = req.body;
-
-  // Authenticated + DB path
-  if (req.user) {
-    try {
-      const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
-      const existing = wallet.userTools.find((t: any) => t.toolId === toolId);
-
-      if (existing) {
-        if (familiarity) existing.familiarity = familiarity;
-        if (userNotes !== undefined) existing.userNotes = userNotes;
-        req.user.aiWallet = wallet;
-        if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-          try {
-            req.user.markModified('aiWallet');
-            await req.user.save();
-          } catch (err: any) {
-            console.error('[/wallet/add] DB save error:', err.message);
-          }
-        }
-        return res.json({ success: true, item: existing, action: 'updated' });
-      }
-
-      // Resolve category from live catalog if not supplied
-      let resolvedCategory = primaryCategory;
-      if (!resolvedCategory) {
-        const catalogItem = ToolCatalogService.getToolById(toolId);
-        resolvedCategory = catalogItem?.category || 'Reasoning & Writing';
-      }
-
-      const newItem = {
-        toolId,
-        addedAt: new Date().toISOString().split('T')[0],
-        familiarity: familiarity || 'exploring',
-        userNotes: userNotes || '',
-        primaryCategory: resolvedCategory,
-        customTags: ['my-toolkit']
-      };
-
-      wallet.userTools.unshift(newItem as any);
-      req.user.aiWallet = wallet;
-      if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-        try {
-          req.user.markModified('aiWallet');
-          await req.user.save();
-        } catch (err: any) {
-          console.error('[/wallet/add] DB save error:', err.message);
-        }
-      }
-      return res.json({ success: true, item: newItem, action: 'added' });
-    } catch (err: any) {
-      console.error('[/wallet/add] error, falling back to mock:', err.message);
-    }
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
   }
 
-  // Offline / unauthenticated fallback — mutate in-memory mock only
-  const existing = mockUserTools.find(t => t.toolId === toolId);
+  const { toolId, familiarity, primaryCategory, userNotes } = req.body;
+  if (!toolId || typeof toolId !== 'string' || !toolId.trim()) {
+    return res.status(400).json({ error: 'Valid toolId is required', code: 'INVALID_TOOL_ID' });
+  }
+
+  const cleanToolId = toolId.trim();
+  const catalogItem =
+    ToolCatalogService.getToolById(cleanToolId) ||
+    mockToolCatalog.find((t) => t.id === cleanToolId);
+  if (!catalogItem) {
+    return res
+      .status(404)
+      .json({ error: `Tool '${cleanToolId}' not found in catalog`, code: 'TOOL_NOT_FOUND' });
+  }
+
+  const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
+  wallet.userTools = wallet.userTools || [];
+
+  const existing = wallet.userTools.find((t: any) => t.toolId === cleanToolId);
   if (existing) {
-    existing.familiarity = (familiarity || existing.familiarity) as any;
-    if (userNotes) existing.userNotes = userNotes;
+    if (familiarity) existing.familiarity = familiarity;
+    if (userNotes !== undefined) existing.userNotes = userNotes;
+    req.user.aiWallet = wallet;
+    if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+      try {
+        req.user.markModified('aiWallet');
+        await req.user.save();
+      } catch (err: any) {
+        console.error('[/wallet/add] DB save error:', err.message);
+      }
+    }
     return res.json({ success: true, item: existing, action: 'updated' });
   }
 
-  const catalogItem = ToolCatalogService.getToolById(toolId) || mockToolCatalog.find(t => t.id === toolId);
+  const resolvedCategory = primaryCategory || catalogItem.category || 'Reasoning & Writing';
   const newItem = {
-    toolId,
+    toolId: cleanToolId,
     addedAt: new Date().toISOString().split('T')[0],
     familiarity: familiarity || 'exploring',
     userNotes: userNotes || '',
-    primaryCategory: primaryCategory || catalogItem?.category || 'Reasoning & Writing',
-    customTags: ['my-toolkit']
+    primaryCategory: resolvedCategory,
+    customTags: ['my-toolkit'],
   };
-  mockUserTools.unshift(newItem as any);
+
+  wallet.userTools.unshift(newItem as any);
+  req.user.aiWallet = wallet;
+
+  if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
+    try {
+      req.user.markModified('aiWallet');
+      await req.user.save();
+    } catch (err: any) {
+      console.error('[/wallet/add] DB save error:', err.message);
+    }
+  }
+
   return res.json({ success: true, item: newItem, action: 'added' });
 };
 
@@ -482,42 +552,39 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
  * POST /wallet/update-familiarity
  */
 export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response) => {
-  const { toolId, familiarity, userNotes } = req.body;
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
 
-  if (req.user) {
+  const { toolId, familiarity, userNotes } = req.body;
+  if (!toolId || typeof toolId !== 'string' || !toolId.trim()) {
+    return res.status(400).json({ error: 'Valid toolId is required', code: 'INVALID_TOOL_ID' });
+  }
+
+  const cleanToolId = toolId.trim();
+  const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
+  wallet.userTools = wallet.userTools || [];
+
+  const item = wallet.userTools.find((t: any) => t.toolId === cleanToolId);
+  if (!item) {
+    return res
+      .status(404)
+      .json({ error: 'Tool not found in user wallet', code: 'TOOL_NOT_IN_WALLET' });
+  }
+
+  if (familiarity) item.familiarity = familiarity;
+  if (userNotes !== undefined) item.userNotes = userNotes;
+
+  req.user.aiWallet = wallet;
+  if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
     try {
-      const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
-      let item = wallet.userTools.find((t: any) => t.toolId === toolId);
-      if (!item) {
-        item = mockUserTools.find(t => t.toolId === toolId);
-      }
-      if (!item) {
-        return res.status(404).json({ error: 'Tool not found in user wallet' });
-      }
-      if (familiarity) item.familiarity = familiarity;
-      if (userNotes !== undefined) item.userNotes = userNotes;
-      req.user.aiWallet = wallet;
-      if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-        try {
-          req.user.markModified('aiWallet');
-          await req.user.save();
-        } catch (err: any) {
-          console.error('[/wallet/update-familiarity] DB save error:', err.message);
-        }
-      }
-      return res.json({ success: true, item });
+      req.user.markModified('aiWallet');
+      await req.user.save();
     } catch (err: any) {
-      console.error('[/wallet/update-familiarity] DB error:', err.message);
+      console.error('[/wallet/update-familiarity] DB save error:', err.message);
     }
   }
 
-  // Offline fallback
-  const item = mockUserTools.find(t => t.toolId === toolId);
-  if (!item) {
-    return res.status(404).json({ error: 'Tool not found in user wallet' });
-  }
-  if (familiarity) item.familiarity = familiarity as any;
-  if (userNotes !== undefined) item.userNotes = userNotes;
   return res.json({ success: true, item });
 };
 
@@ -530,10 +597,7 @@ export const getDiscoveryRuns = async (req: Request, res: Response) => {
   }
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const runs = await ToolDiscoveryRunModel.find()
-      .sort({ startedAt: -1 })
-      .limit(limit)
-      .lean();
+    const runs = await ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(limit).lean();
     return res.json({ runs, total: runs.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch discovery runs.', details: err.message });
@@ -552,18 +616,16 @@ export const getToolEvidenceAdmin = async (req: Request, res: Response) => {
     return res.json({ evidence: [], message: 'DB not connected.' });
   }
   try {
-    const evidence = await ToolEvidenceModel.find({ toolId })
-      .sort({ fetchedAt: -1 })
-      .lean();
+    const evidence = await ToolEvidenceModel.find({ toolId }).sort({ fetchedAt: -1 }).lean();
     return res.json({
       toolId,
       evidence,
       counts: {
-        total:    evidence.length,
-        pending:  evidence.filter((e: any) => e.verificationStatus === 'PENDING').length,
+        total: evidence.length,
+        pending: evidence.filter((e: any) => e.verificationStatus === 'PENDING').length,
         accepted: evidence.filter((e: any) => e.verificationStatus === 'ACCEPTED').length,
-        rejected: evidence.filter((e: any) => e.verificationStatus === 'REJECTED').length
-      }
+        rejected: evidence.filter((e: any) => e.verificationStatus === 'REJECTED').length,
+      },
     });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch tool evidence.', details: err.message });
@@ -582,9 +644,7 @@ export const getToolHistoryAdmin = async (req: Request, res: Response) => {
     return res.json({ history: [], message: 'DB not connected.' });
   }
   try {
-    const history = await ToolVersionHistoryModel.find({ toolId })
-      .sort({ detectedAt: -1 })
-      .lean();
+    const history = await ToolVersionHistoryModel.find({ toolId }).sort({ detectedAt: -1 }).lean();
     return res.json({ toolId, history, count: history.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch tool history.', details: err.message });
@@ -596,12 +656,12 @@ export const getToolHistoryAdmin = async (req: Request, res: Response) => {
  */
 export const getAdminSources = async (_req: Request, res: Response) => {
   try {
-    const sources = ToolSourceService.getSources().map(s => ({
+    const sources = ToolSourceService.getSources().map((s) => ({
       id: s.id,
       name: s.name,
       type: s.type,
       priority: s.priority,
-      enabled: s.enabled
+      enabled: s.enabled,
     }));
     return res.json({ sources, total: sources.length });
   } catch (err: any) {
@@ -626,7 +686,7 @@ export const registerAdminSource = async (req: Request, res: Response) => {
       enabled: enabled !== false,
       async fetch() {
         return [];
-      }
+      },
     });
     return res.json({ success: true, message: `Source "${name}" registered.` });
   } catch (err: any) {
@@ -647,9 +707,11 @@ export const getAdminCandidates = async (_req: Request, res: Response) => {
         { verificationStatus: 'DISCOVERED' },
         { verificationStatus: 'UNVERIFIED' },
         { verificationStatus: 'PENDING_VERIFICATION' },
-        { activeStatus: false }
-      ]
-    }).sort({ createdAt: -1 }).lean();
+        { activeStatus: false },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
     return res.json({ candidates, count: candidates.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch candidates', details: err.message });
@@ -674,7 +736,10 @@ export const verifyCandidate = async (req: Request, res: Response) => {
     const verifyResult = await toolVerificationService.verifyTool(toolId);
 
     if (activate) {
-      await AIToolModel.updateOne({ id: toolId }, { $set: { activeStatus: true, verificationStatus: 'VERIFIED' } });
+      await AIToolModel.updateOne(
+        { id: toolId },
+        { $set: { activeStatus: true, verificationStatus: 'VERIFIED' } }
+      );
     }
 
     return res.json({ success: true, verification: verifyResult });
@@ -693,22 +758,26 @@ export const getAdminDashboard = async (_req: Request, res: Response) => {
       pipelineStatus: 'OPERATIONAL',
       mode: 'OFFLINE_MOCK',
       totalToolsInCatalog: catalog.length,
-      activeVerifiedTools: catalog.filter(t => t.activeStatus).length,
+      activeVerifiedTools: catalog.filter((t) => t.activeStatus).length,
       pendingCandidates: 0,
       totalEvidenceDocs: 12,
       recentRunsCount: 1,
-      lastRunAt: new Date().toISOString()
+      lastRunAt: new Date().toISOString(),
     });
   }
 
   try {
-    const [totalTools, activeVerified, pendingCandidates, totalEvidence, recentRuns] = await Promise.all([
-      AIToolModel.countDocuments({}),
-      AIToolModel.countDocuments({ activeStatus: true, verificationStatus: { $in: ['VERIFIED', 'VERIFIED_SEED'] } }),
-      AIToolModel.countDocuments({ activeStatus: false }),
-      ToolEvidenceModel.countDocuments({}),
-      ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(5).lean()
-    ]);
+    const [totalTools, activeVerified, pendingCandidates, totalEvidence, recentRuns] =
+      await Promise.all([
+        AIToolModel.countDocuments({}),
+        AIToolModel.countDocuments({
+          activeStatus: true,
+          verificationStatus: { $in: ['VERIFIED', 'VERIFIED_SEED'] },
+        }),
+        AIToolModel.countDocuments({ activeStatus: false }),
+        ToolEvidenceModel.countDocuments({}),
+        ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(5).lean(),
+      ]);
 
     return res.json({
       pipelineStatus: 'OPERATIONAL',
@@ -718,9 +787,11 @@ export const getAdminDashboard = async (_req: Request, res: Response) => {
       pendingCandidates,
       totalEvidenceDocs: totalEvidence,
       recentRunsCount: recentRuns.length,
-      lastRun: recentRuns[0] || null
+      lastRun: recentRuns[0] || null,
     });
   } catch (err: any) {
-    return res.status(500).json({ error: 'Failed to fetch intelligence dashboard', details: err.message });
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch intelligence dashboard', details: err.message });
   }
 };

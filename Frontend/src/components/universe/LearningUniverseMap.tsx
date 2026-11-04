@@ -303,7 +303,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
           height: '440px',
           borderRadius: '18px',
           backgroundColor: isLight ? '#F8FAFC' : 'rgba(16, 22, 42, 0.45)',
-          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
+          border: isLight ? '1.5px solid #172033' : '1px solid rgba(255, 255, 255, 0.12)',
           zIndex: 2,
           overflow: 'visible',
         }}
@@ -546,8 +546,8 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
                     ...(dest.x <= 25
                       ? { left: '0', right: 'auto', transform: 'none' }
                       : dest.x >= 75
-                      ? { right: '0', left: 'auto', transform: 'none' }
-                      : { left: '50%', right: 'auto', transform: 'translateX(-50%)' }),
+                        ? { right: '0', left: 'auto', transform: 'none' }
+                        : { left: '50%', right: 'auto', transform: 'translateX(-50%)' }),
                     backgroundColor: isLight ? '#FFFFFF' : 'rgba(10, 15, 36, 0.98)',
                     backdropFilter: 'blur(20px)',
                     border: isLight ? '1.5px solid #CBD5E1' : `1.5px solid ${dest.color}`,
@@ -562,8 +562,23 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
                     zIndex: 40,
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                    <div style={{ fontSize: '11.5px', fontWeight: 800, color: dest.color, textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '11.5px',
+                        fontWeight: 800,
+                        color: dest.color,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.6px',
+                      }}
+                    >
                       {dest.name}
                     </div>
                     <span
@@ -572,25 +587,59 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
                         fontWeight: 700,
                         padding: '2px 7px',
                         borderRadius: '6px',
-                        backgroundColor: isCompleted ? '#10B98120' : isLocked ? '#EF444420' : `${dest.color}20`,
-                        color: isCompleted ? '#10B981' : isLocked ? '#EF4444' : dest.color
+                        backgroundColor: isCompleted
+                          ? '#10B98120'
+                          : isLocked
+                            ? '#EF444420'
+                            : `${dest.color}20`,
+                        color: isCompleted ? '#10B981' : isLocked ? '#EF4444' : dest.color,
                       }}
                     >
                       {isCompleted ? 'Completed' : isLocked ? 'Locked' : 'Available'}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '12px', color: isLight ? '#334155' : '#E2E8F0', lineHeight: 1.45, marginBottom: '8px', fontWeight: 500 }}>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: isLight ? '#334155' : '#E2E8F0',
+                      lineHeight: 1.45,
+                      marginBottom: '8px',
+                      fontWeight: 500,
+                    }}
+                  >
                     {dest.description}
                   </div>
 
                   {isLocked && accessInfo?.reason && (
-                    <div style={{ fontSize: '11px', color: '#EF4444', borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: '#EF4444',
+                        borderTop: isLight
+                          ? '1px solid #E2E8F0'
+                          : '1px solid rgba(255,255,255,0.1)',
+                        paddingTop: '6px',
+                        marginBottom: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
                       <Lock size={11} /> {accessInfo.reason}
                     </div>
                   )}
 
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: isLight ? '#0891B2' : '#22D3EE', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: isLight ? '#0891B2' : '#22D3EE',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
                     {isLocked ? 'View requirements' : 'Launch destination'} <ArrowRight size={12} />
                   </div>
                 </div>
@@ -607,7 +656,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
           padding: '12px 18px',
           borderRadius: '14px',
           backgroundColor: isLight ? '#F8FAFC' : 'rgba(16, 22, 42, 0.65)',
-          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
+          border: isLight ? '1.5px solid #172033' : '1px solid rgba(255, 255, 255, 0.12)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -616,7 +665,7 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
           transition: 'all 0.25s ease',
           position: 'relative',
           zIndex: 2,
-          boxShadow: isLight ? '0 2px 6px rgba(0, 0, 0, 0.02)' : 'none'
+          boxShadow: isLight ? '0 2px 6px rgba(0, 0, 0, 0.02)' : 'none',
         }}
       >
         {hoveredNode ? (
@@ -631,34 +680,77 @@ export const LearningUniverseMap: React.FC<LearningUniverseMapProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: hoveredNode.color,
-                flexShrink: 0
+                flexShrink: 0,
               }}
             >
               {React.createElement(hoveredNode.icon, { size: 18 })}
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 800, color: isLight ? '#0F172A' : '#F8FAFC' }}>
+                <span
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    color: isLight ? '#0F172A' : '#F8FAFC',
+                  }}
+                >
                   {hoveredNode.name}
                 </span>
-                <span style={{ fontSize: '11px', color: hoveredNode.color, fontWeight: 700, textTransform: 'uppercase' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: hoveredNode.color,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                  }}
+                >
                   · {hoveredNode.tagline}
                 </span>
               </div>
-              <div style={{ fontSize: '12px', color: isLight ? '#475569' : '#CBD5E1', marginTop: '2px' }}>
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: isLight ? '#475569' : '#CBD5E1',
+                  marginTop: '2px',
+                }}
+              >
                 {hoveredNode.description}
               </div>
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isLight ? '#64748B' : '#94A3B8', fontSize: '12.5px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: isLight ? '#64748B' : '#94A3B8',
+              fontSize: '12.5px',
+            }}
+          >
             <Sparkles size={15} color={isLight ? '#6366F1' : '#818CF8'} />
-            <span>Hover or place cursor over any destination node above to inspect its curriculum, scoring rubric, and prerequisites.</span>
+            <span>
+              Hover or place cursor over any destination node above to inspect its curriculum,
+              scoring rubric, and prerequisites.
+            </span>
           </div>
         )}
 
-        <div style={{ fontSize: '12px', fontWeight: 700, color: hoveredNode ? hoveredNode.color : (isLight ? '#6366F1' : '#818CF8'), display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {hoveredNode ? (getNodeStatus(hoveredNode) === 'locked' ? 'Locked Zone' : 'Click to Enter') : '7 Active Destinations'}
+        <div
+          style={{
+            fontSize: '12px',
+            fontWeight: 700,
+            color: hoveredNode ? hoveredNode.color : isLight ? '#6366F1' : '#818CF8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+        >
+          {hoveredNode
+            ? getNodeStatus(hoveredNode) === 'locked'
+              ? 'Locked Zone'
+              : 'Click to Enter'
+            : '7 Active Destinations'}
           <ArrowRight size={13} />
         </div>
       </div>

@@ -14,12 +14,14 @@ import {
   reconcileBalance,
   awardLevel,
   investCredits,
+  getCreditCosts,
 } from '../controllers/credits.controller';
 
 const router = Router();
 
 router.use(generalApiRateLimiter);
 
+router.get('/credits/costs', getCreditCosts);
 router.get('/credits/wallet', requireAuth, getWallet);
 router.get('/credits/ledger', requireAuth, validateQuery(ledgerQuerySchema), getLedger);
 router.get('/credits/balance', requireAuth, getBalance);

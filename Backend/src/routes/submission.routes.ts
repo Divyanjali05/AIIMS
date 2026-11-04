@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { submissionRateLimiter } from '../middleware/rateLimit.middleware';
+import { validateBody } from '../middleware/validate.middleware';
+import { createSubmissionSchema, resubmitTaskSchema } from '../schemas/submission.schema';
 import {
   submitTask,
   getMySubmissions,
@@ -14,7 +16,13 @@ const router = Router();
 router.use('/submissions', submissionRateLimiter);
 
 // Task Submission endpoints (open to all authenticated user roles; self-review is strictly forbidden)
-router.post('/submissions', requireAuth, requireRole('learner', 'evaluator', 'admin'), submitTask);
+router.post(
+  '/submissions',
+  requireAuth,
+  requireRole('learner', 'evaluator', 'admin'),
+  validateBody(createSubmissionSchema),
+  submitTask
+);
 router.get(
   '/submissions',
   requireAuth,
@@ -26,6 +34,7 @@ router.post(
   '/submissions/:id/resubmit',
   requireAuth,
   requireRole('learner', 'evaluator', 'admin'),
+  validateBody(resubmitTaskSchema),
   resubmitTask
 );
 

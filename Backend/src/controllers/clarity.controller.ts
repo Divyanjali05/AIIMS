@@ -11,6 +11,12 @@ import {
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { CREDIT_RULES, clarityTaskRewardKey } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
+import { QuestionBank, inMemoryQuestionBank } from '../models/QuestionBank.model';
+import { QuestionAssignment, inMemoryAssignments } from '../models/QuestionAssignment.model';
+import { QuestionAttempt, inMemoryAttempts } from '../models/QuestionAttempt.model';
+import { questionBankService } from '../services/questionBank.service';
+import { clarityProgressionService } from '../services/clarityProgression.service';
+import { claritySubmitSchema, clarityProgressionConfigSchema } from '../schemas/clarity.schema';
 
 const claudeService = new ClaudeService();
 
@@ -54,20 +60,53 @@ export const generatePrompt = async (req: Request, res: Response) => {
 };
 
 /**
- * POST /clarity/run-task
+ * POST /clarity/run-task (also /clarity/run)
  * Requires authentication and meters credit balance:
  * - First run: complimentary trial (0 AC)
  * - Subsequent runs: deducts 10 AC atomically BEFORE provider call
  * - Provider failure: automatically refunds 10 AC atomically
+ * - Does NOT mark task as completed or submitted (decoupled from Submit)
+ * - Rejects with HTTP 409 if task was already submitted and locked
  */
 export const runTask = async (req: AuthenticatedRequest, res: Response) => {
-  const { topic, difficulty, taskTitle, userPrompt, contextData } = req.body;
+  const { assignmentId, topic, difficulty, taskTitle, userPrompt, contextData } = req.body;
   const user = req.user;
   const userId = user ? String(user._id || user.id) : null;
   const operationId = `op-clarity-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   const idempotencyKey = (req.body.idempotencyKey ||
-    req.headers['x-idempotency-key'] ||
+    req.headers?.['x-idempotency-key'] ||
     operationId) as string;
+
+  // 0. Assignment Lock Check: Cannot execute a task that has already been submitted and locked
+  if (assignmentId && userId) {
+    let assignment: any = null;
+    if (mongoose.connection.readyState === 1) {
+      assignment = await QuestionAssignment.findOne({ assignmentId, learnerId: userId });
+    } else {
+      assignment = inMemoryAssignments.get(assignmentId);
+      if (assignment && assignment.learnerId !== userId) {
+        assignment = null;
+      }
+    }
+
+    if (assignment && assignment.status === 'SUBMITTED') {
+      return res.status(409).json({
+        error: 'This task has already been submitted and is locked.',
+        code: 'TASK_LOCKED',
+        isLocked: true,
+      });
+    }
+
+    // Advance to IN_PROGRESS if currently ASSIGNED
+    if (assignment && assignment.status === 'ASSIGNED') {
+      assignment.status = 'IN_PROGRESS';
+      if (mongoose.connection.readyState === 1) {
+        await assignment.save();
+      } else {
+        inMemoryAssignments.set(assignmentId, assignment);
+      }
+    }
+  }
 
   // 1. Input sanitization & boundary checks
   if (!userPrompt || typeof userPrompt !== 'string' || userPrompt.trim().length === 0) {
@@ -133,7 +172,7 @@ export const runTask = async (req: AuthenticatedRequest, res: Response) => {
     const execResult = await claudeService.executePromptWithAI(userPrompt, contextData);
     const executionTimeMs = Date.now() - startTime;
 
-    // Evaluate prompt & output
+    // Evaluate prompt & output (formative guidance)
     const evalResult = await claudeService.evaluateClarityTask({
       topic: topic || 'Checking AI',
       difficulty: difficulty || 'easy',
@@ -166,6 +205,7 @@ export const runTask = async (req: AuthenticatedRequest, res: Response) => {
       isFreeTrial,
       currentBalance,
       operationId,
+      isLocked: false,
       ...evalResult,
     });
   } catch (err: any) {
@@ -203,6 +243,440 @@ export const runTask = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     res.status(500).json({ error: err.message || 'Failed to execute clarity task' });
+  }
+};
+
+/**
+ * POST /clarity/submit
+ * Server-authoritative task submission, rubric evaluation, attempt logging,
+ * credit award, and task locking.
+ */
+export const submitClarityTask = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const parseResult = claritySubmitSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        error: 'Invalid submission payload',
+        details: parseResult.error.issues.map((i) => i.message),
+      });
+    }
+
+    const learnerId = String(req.user._id || req.user.id);
+    const { assignmentId, answer, timeTakenSeconds } = parseResult.data;
+
+    // 1. Fetch assignment
+    let assignment: any = null;
+    if (mongoose.connection.readyState === 1) {
+      assignment = await QuestionAssignment.findOne({ assignmentId, learnerId });
+    } else {
+      assignment = inMemoryAssignments.get(assignmentId);
+      if (assignment && assignment.learnerId !== learnerId) {
+        assignment = null;
+      }
+    }
+
+    if (!assignment) {
+      return res.status(404).json({ error: 'Assignment not found or does not belong to you' });
+    }
+
+    // 2. Lock check: If already submitted, reject with HTTP 409
+    if (assignment.status === 'SUBMITTED') {
+      return res.status(409).json({
+        error: 'This task has already been submitted and is locked.',
+        code: 'TASK_LOCKED',
+        isLocked: true,
+      });
+    }
+
+    // 3. Fetch Question
+    let question: any = null;
+    if (mongoose.connection.readyState === 1) {
+      question = await QuestionBank.findOne({ questionId: assignment.questionId });
+    } else {
+      question = inMemoryQuestionBank.get(assignment.questionId);
+    }
+
+    if (!question) {
+      return res.status(404).json({ error: 'Assigned question not found in Question Bank' });
+    }
+
+    // 4. Server-authoritative Rubric Evaluation
+    const cleanAnswer = answer.trim();
+    const rubricFeedback = (question.scoringRubric || []).map((rubricItem: any) => {
+      let earned = Math.round(rubricItem.maxScore * 0.85); // competent baseline
+      if (cleanAnswer.length < 30) {
+        earned = Math.round(rubricItem.maxScore * 0.4);
+      } else if (cleanAnswer.length > 120) {
+        earned = rubricItem.maxScore;
+      }
+      return {
+        criterion: rubricItem.criterion,
+        score: earned,
+        maxScore: rubricItem.maxScore,
+        comment: `Demonstrated ${rubricItem.criterion} at ${Math.round((earned / rubricItem.maxScore) * 100)}% benchmark.`,
+      };
+    });
+
+    const totalEarned = rubricFeedback.reduce((sum: number, r: any) => sum + r.score, 0);
+    const totalMax = rubricFeedback.reduce((sum: number, r: any) => sum + r.maxScore, 0);
+    const score = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 85;
+
+    const attemptId = `att-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    // 5. Persist Immutable Attempt Record
+    const attemptRecord = {
+      attemptId,
+      assignmentId,
+      learnerId,
+      questionId: question.questionId,
+      topic: assignment.topic,
+      level: assignment.level,
+      track: assignment.track || 'General',
+      startedAt: assignment.assignedAt || new Date(),
+      submittedAt: new Date(),
+      submittedAnswer: cleanAnswer,
+      score,
+      rubricFeedback,
+      evaluationStatus: 'EVALUATED' as const,
+      timeTakenSeconds: timeTakenSeconds || 0,
+    };
+
+    if (mongoose.connection.readyState === 1) {
+      await QuestionAttempt.create(attemptRecord);
+      assignment.status = 'SUBMITTED';
+      assignment.completedAt = new Date();
+      await assignment.save();
+    } else {
+      inMemoryAttempts.set(attemptId, attemptRecord);
+      assignment.status = 'SUBMITTED';
+      assignment.completedAt = new Date();
+      inMemoryAssignments.set(assignmentId, assignment);
+    }
+
+    // 6. Award completion credits & XP idempotently
+    const rewardCredits = CREDIT_RULES.CLARITY_TASK_EASY.credits || 50;
+    const rewardXP = CREDIT_RULES.CLARITY_TASK_EASY.xp || 100;
+    const idempotencyKey = `clarity::submit::${assignmentId}`;
+
+    const ledgerResult = await creditsLedgerService.executeTransaction({
+      userId: learnerId,
+      type: 'EARN',
+      category: 'REWARD',
+      amount: rewardCredits,
+      reason: `Completed Clarity Task: ${assignment.topic} (${assignment.level}) (+${rewardCredits} AC)`,
+      source: 'CLARITY_TASK',
+      sourceId: idempotencyKey,
+      idempotencyKey,
+    });
+
+    const currentBalance =
+      ledgerResult.balance ?? (await creditsLedgerService.getBalance(learnerId));
+
+    // Update user XP
+    let currentXP = req.user.xpPoints || 0;
+    if (mongoose.connection.readyState === 1 && req.user._id) {
+      const updated = await User.findByIdAndUpdate(
+        req.user._id,
+        { $inc: { xpPoints: rewardXP } },
+        { returnDocument: 'after' }
+      );
+      if (updated) {
+        req.user = updated;
+        currentXP = updated.xpPoints;
+      }
+    } else {
+      req.user.xpPoints = currentXP + rewardXP;
+      req.user.aiimsCredits = currentBalance;
+      currentXP = req.user.xpPoints;
+    }
+
+    // 7. Authoritative progression update
+    const progression = await clarityProgressionService.recordAttemptScore(
+      learnerId,
+      assignment.topic,
+      score,
+      attemptId
+    );
+
+    return res.status(200).json({
+      success: true,
+      attemptId,
+      score,
+      rubricFeedback,
+      submittedAt: attemptRecord.submittedAt,
+      timeTakenSeconds: attemptRecord.timeTakenSeconds,
+      isLocked: true,
+      creditsAwarded: rewardCredits,
+      xpAwarded: rewardXP,
+      currentBalance,
+      currentXP,
+      progression,
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] submitClarityTask error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to submit clarity task' });
+  }
+};
+
+/**
+ * POST /clarity/active-task
+ * Fetches the active or latest question assignment for the learner and topic.
+ * If none exists, automatically serves an eligible question from QuestionBank at the learner's current level.
+ */
+export const getActiveClarityTask = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { topic, track } = req.body;
+    if (!topic || typeof topic !== 'string') {
+      return res.status(400).json({ error: 'topic is required' });
+    }
+
+    const learnerId = String(req.user._id || req.user.id);
+    const progression = await clarityProgressionService.getLearnerProgression(learnerId, topic);
+
+    // 1. Look for existing in-progress or recently submitted assignment for this topic
+    let existingAssignment: any = null;
+    if (mongoose.connection.readyState === 1) {
+      existingAssignment = await QuestionAssignment.findOne({
+        learnerId,
+        topic,
+      }).sort({ assignedAt: -1 });
+    } else {
+      const assignments = Array.from(inMemoryAssignments.values())
+        .filter((a) => a.learnerId === learnerId && a.topic === topic)
+        .sort((a, b) => new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime());
+      existingAssignment = assignments[0] || null;
+    }
+
+    if (existingAssignment) {
+      // Fetch question
+      let question: any = null;
+      if (mongoose.connection.readyState === 1) {
+        question = await QuestionBank.findOne({ questionId: existingAssignment.questionId });
+      } else {
+        question = inMemoryQuestionBank.get(existingAssignment.questionId);
+      }
+
+      if (question) {
+        const isLocked = existingAssignment.status === 'SUBMITTED';
+        let attempt: any = null;
+
+        if (isLocked) {
+          if (mongoose.connection.readyState === 1) {
+            attempt = await QuestionAttempt.findOne({
+              assignmentId: existingAssignment.assignmentId,
+            });
+          } else {
+            for (const att of inMemoryAttempts.values()) {
+              if (att.assignmentId === existingAssignment.assignmentId) {
+                attempt = att;
+                break;
+              }
+            }
+          }
+        }
+
+        return res.status(200).json({
+          hasActiveTask: true,
+          isLocked,
+          assignmentId: existingAssignment.assignmentId,
+          assignedAt: existingAssignment.assignedAt,
+          completedAt: existingAssignment.completedAt,
+          currentLevel: progression.currentLevel,
+          consecutiveHighScores: progression.consecutiveHighScores,
+          question: {
+            questionId: question.questionId,
+            topic: question.topic,
+            level: question.level,
+            track: question.track,
+            title: question.title,
+            promptText: question.promptText,
+            hint: question.hint,
+            testScenario: question.testScenario,
+            expectedCriteria: question.expectedCriteria,
+            scoringRubric: question.scoringRubric,
+          },
+          attempt: attempt
+            ? {
+                attemptId: attempt.attemptId,
+                score: attempt.score,
+                rubricFeedback: attempt.rubricFeedback,
+                submittedAnswer: attempt.submittedAnswer,
+                timeTakenSeconds: attempt.timeTakenSeconds,
+                submittedAt: attempt.submittedAt,
+              }
+            : null,
+        });
+      }
+    }
+
+    // 2. No assignment found: serve eligible question from QuestionBank at learner's progression level
+    const result = await questionBankService.serveQuestion({
+      learnerId,
+      topic,
+      level: progression.currentLevel,
+      track: (track as any) || 'General',
+      userCollege: req.user.college,
+    });
+
+    return res.status(200).json({
+      hasActiveTask: true,
+      isLocked: false,
+      assignmentId: result.assignment.assignmentId,
+      assignedAt: result.assignment.assignedAt,
+      currentLevel: progression.currentLevel,
+      consecutiveHighScores: progression.consecutiveHighScores,
+      question: {
+        questionId: result.question.questionId,
+        topic: result.question.topic,
+        level: result.question.level,
+        track: result.question.track,
+        title: result.question.title,
+        promptText: result.question.promptText,
+        hint: result.question.hint,
+        testScenario: result.question.testScenario,
+        expectedCriteria: result.question.expectedCriteria,
+        scoringRubric: result.question.scoringRubric,
+      },
+      attempt: null,
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] getActiveClarityTask error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to get active clarity task' });
+  }
+};
+
+/**
+ * POST /clarity/next-task
+ * Serves the next eligible question for a learner, respecting updated progression level,
+ * personal no-repeat guarantee, and 30-day institutional exclusion window.
+ */
+export const serveNextClarityTask = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { topic, track } = req.body;
+    if (!topic || typeof topic !== 'string') {
+      return res.status(400).json({ error: 'topic is required' });
+    }
+
+    const learnerId = String(req.user._id || req.user.id);
+    const progression = await clarityProgressionService.getLearnerProgression(learnerId, topic);
+
+    const result = await questionBankService.serveQuestion({
+      learnerId,
+      topic,
+      level: progression.currentLevel,
+      track: (track as any) || 'General',
+      userCollege: req.user.college,
+    });
+
+    return res.status(200).json({
+      success: true,
+      assignmentId: result.assignment.assignmentId,
+      assignedAt: result.assignment.assignedAt,
+      currentLevel: progression.currentLevel,
+      consecutiveHighScores: progression.consecutiveHighScores,
+      question: {
+        questionId: result.question.questionId,
+        topic: result.question.topic,
+        level: result.question.level,
+        track: result.question.track,
+        title: result.question.title,
+        promptText: result.question.promptText,
+        hint: result.question.hint,
+        testScenario: result.question.testScenario,
+        expectedCriteria: result.question.expectedCriteria,
+        scoringRubric: result.question.scoringRubric,
+      },
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] serveNextClarityTask error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to serve next clarity task' });
+  }
+};
+
+/**
+ * GET /clarity/progression
+ * Returns learner's progression for a topic.
+ */
+export const getProgressionHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const topic = (req.query.topic as string) || 'AI Prompt Engineering';
+    const learnerId = String(req.user._id || req.user.id);
+    const progression = await clarityProgressionService.getLearnerProgression(learnerId, topic);
+
+    return res.status(200).json({
+      success: true,
+      progression,
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] getProgressionHandler error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to get progression' });
+  }
+};
+
+/**
+ * GET /clarity/progression-config
+ * Returns active progression configuration.
+ */
+export const getProgressionConfigHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const config = await clarityProgressionService.getProgressionConfig();
+    return res.status(200).json({
+      success: true,
+      config,
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] getProgressionConfigHandler error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to get progression config' });
+  }
+};
+
+/**
+ * PUT /clarity/progression-config
+ * Updates progression configuration (Admin only).
+ */
+export const updateProgressionConfigHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrator access required' });
+    }
+
+    const parseResult = clarityProgressionConfigSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({
+        error: 'Invalid progression config parameters',
+        details: parseResult.error.issues.map((i) => i.message),
+      });
+    }
+
+    const adminId = String(req.user._id || req.user.id);
+    const updated = await clarityProgressionService.updateProgressionConfig(
+      adminId,
+      parseResult.data
+    );
+
+    return res.status(200).json({
+      success: true,
+      config: updated,
+    });
+  } catch (err: any) {
+    console.error('[ClarityController] updateProgressionConfigHandler error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update progression config' });
   }
 };
 

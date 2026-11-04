@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
@@ -9,7 +10,10 @@ import { Cohort } from '../models/Cohort.model';
 import { mockUser } from '../models/aiims.models';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { writeAuditLog } from '../models/AuditLog.model';
-import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { AuthenticatedRequest, JwtPayload } from '../middleware/auth.middleware';
+import { extractDeviceInfo } from '../utils/deviceIdentifier';
+import { sessionService } from '../models/Session.model';
+import { recordDeviceResetAudit } from '../models/DeviceResetAudit.model';
 import { formatUserState, STARTING_CREDITS } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { PROGRAMS, validateAcademicCombination } from '../config/academicTaxonomy';
@@ -22,10 +26,26 @@ const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /**
  * Generates a cryptographically signed JWT token with a 7-day expiration
  */
-export const generateAuthToken = (userId: string, email: string): string => {
-  return jwt.sign({ userId, email: email.toLowerCase().trim() }, config.jwtSecret, {
-    expiresIn: '7d',
-  });
+export const generateAuthToken = (
+  userId: string,
+  email: string,
+  role: string = 'learner',
+  sessionId?: string,
+  deviceIdHash?: string
+): string => {
+  return jwt.sign(
+    {
+      userId,
+      email: email.toLowerCase().trim(),
+      role,
+      ...(sessionId ? { sessionId } : {}),
+      ...(deviceIdHash ? { deviceIdHash } : {}),
+    },
+    config.jwtSecret,
+    {
+      expiresIn: '7d',
+    }
+  );
 };
 
 /**
@@ -62,6 +82,126 @@ import {
 } from '../models/userStore';
 export { registeredUsers };
 
+/**
+ * Strict One Account – One Device validation & session creation helper.
+ */
+async function verifyAndBindDevice(
+  userDocOrMemory: any,
+  req: Request,
+  res: Response
+): Promise<{ success: boolean; sessionId?: string; deviceIdHash?: string }> {
+  const devInfo = extractDeviceInfo(req);
+  const userId = String(userDocOrMemory._id || userDocOrMemory.id);
+  const binding = userDocOrMemory.deviceBinding;
+
+  const isBound = Boolean(
+    binding &&
+    binding.bindingStatus === 'BOUND' &&
+    binding.deviceIdHash &&
+    binding.deviceIdHash.trim().length > 0
+  );
+
+  if (isBound) {
+    if (binding.deviceIdHash !== devInfo.deviceIdHash) {
+      let hasActiveSession = false;
+      if (binding.activeSessionId) {
+        const sess = await sessionService.getSession(binding.activeSessionId);
+        if (sess && sess.status === 'ACTIVE' && sess.expiresAt > new Date()) {
+          hasActiveSession = true;
+        }
+      }
+      if (!hasActiveSession) {
+        const anyActive = await sessionService.getActiveSessionForUser(userId);
+        if (anyActive) {
+          hasActiveSession = true;
+        }
+      }
+
+      if (hasActiveSession) {
+        res.status(403).json({
+          error: 'Account is active on another device.',
+          code: 'ACCOUNT_ACTIVE_ANOTHER_DEVICE',
+        });
+        return { success: false };
+      } else {
+        res.status(403).json({
+          error:
+            'This account is registered to another device. Contact support for a device reset.',
+          code: 'DEVICE_BOUND_ANOTHER_DEVICE',
+        });
+        return { success: false };
+      }
+    } else {
+      if (binding.activeSessionId) {
+        await sessionService.revokeSession(binding.activeSessionId);
+      }
+      const newSessionId = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + COOKIE_MAX_AGE_MS);
+      await sessionService.createSession({
+        sessionId: newSessionId,
+        userId,
+        deviceIdHash: devInfo.deviceIdHash,
+        deviceName: devInfo.deviceName,
+        platform: devInfo.platform,
+        expiresAt,
+      });
+
+      binding.activeSessionId = newSessionId;
+      binding.lastSeenAt = new Date();
+      binding.deviceName = devInfo.deviceName;
+      binding.platform = devInfo.platform;
+
+      if (typeof userDocOrMemory.save === 'function') {
+        await userDocOrMemory.save();
+      } else if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(userId)) {
+        await User.findByIdAndUpdate(userId, {
+          $set: {
+            'deviceBinding.activeSessionId': newSessionId,
+            'deviceBinding.lastSeenAt': new Date(),
+            'deviceBinding.deviceName': devInfo.deviceName,
+            'deviceBinding.platform': devInfo.platform,
+          },
+        });
+      }
+      return { success: true, sessionId: newSessionId, deviceIdHash: devInfo.deviceIdHash };
+    }
+  } else {
+    const newSessionId = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + COOKIE_MAX_AGE_MS);
+    await sessionService.createSession({
+      sessionId: newSessionId,
+      userId,
+      deviceIdHash: devInfo.deviceIdHash,
+      deviceName: devInfo.deviceName,
+      platform: devInfo.platform,
+      expiresAt,
+    });
+
+    const newBinding = {
+      deviceIdHash: devInfo.deviceIdHash,
+      deviceName: devInfo.deviceName,
+      platform: devInfo.platform,
+      boundAt: new Date(),
+      lastSeenAt: new Date(),
+      activeSessionId: newSessionId,
+      bindingStatus: 'BOUND' as const,
+      resetAt: null,
+      resetBy: null,
+    };
+
+    userDocOrMemory.deviceBinding = newBinding;
+
+    if (typeof userDocOrMemory.save === 'function') {
+      await userDocOrMemory.save();
+    } else if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(userId)) {
+      await User.findByIdAndUpdate(userId, {
+        $set: { deviceBinding: newBinding },
+      });
+    }
+    return { success: true, sessionId: newSessionId, deviceIdHash: devInfo.deviceIdHash };
+  }
+}
+
 export const login = async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -90,7 +230,17 @@ export const login = async (req: Request, res: Response) => {
               role: dbUser.role,
             });
           }
-          const token = generateAuthToken(String(dbUser._id), dbUser.email);
+          const deviceResult = await verifyAndBindDevice(dbUser, req, res);
+          if (!deviceResult.success) {
+            return;
+          }
+          const token = generateAuthToken(
+            String(dbUser._id),
+            dbUser.email,
+            dbUser.role,
+            deviceResult.sessionId,
+            deviceResult.deviceIdHash
+          );
           setAuthCookie(res, token, req);
           const userState = formatUserState(dbUser);
           return res.json({
@@ -116,13 +266,23 @@ export const login = async (req: Request, res: Response) => {
   const isMatch =
     user.password && user.password.startsWith('$2')
       ? await bcrypt.compare(password, user.password)
-      : user.password === password;
+      : false;
 
   if (!isMatch) {
     return res.status(401).json({ error: 'Email or password is incorrect.' });
   }
 
-  const token = generateAuthToken(user.id || `usr-${normalizedEmail}`, user.email);
+  const deviceResult = await verifyAndBindDevice(user, req, res);
+  if (!deviceResult.success) {
+    return;
+  }
+  const token = generateAuthToken(
+    user.id || `usr-${normalizedEmail}`,
+    user.email,
+    user.role || 'learner',
+    deviceResult.sessionId,
+    deviceResult.deviceIdHash
+  );
   setAuthCookie(res, token, req);
   return res.json({
     ...(mobile ? { token } : {}),
@@ -500,20 +660,179 @@ export const getMe = (req: AuthenticatedRequest, res: Response) => {
 /**
  * POST /auth/logout — clears the auth cookie and invalidates the session.
  */
-export const logout = (_req: Request, res: Response) => {
-  res.clearCookie('aiims_token', {
-    httpOnly: true,
-    secure: config.nodeEnv === 'production',
-    sameSite: 'lax',
-    path: '/',
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as AuthenticatedRequest;
+    let sessionId = authReq.sessionId;
+
+    if (!sessionId) {
+      const authHeader = req.headers.authorization || (req.headers['x-auth-token'] as string);
+      const cookieToken = req.cookies?.aiims_token;
+      const rawToken = authHeader || cookieToken || '';
+      const token = rawToken.startsWith('Bearer ') ? rawToken.slice(7).trim() : rawToken.trim();
+      if (token) {
+        try {
+          const decoded = jwt.decode(token) as JwtPayload;
+          if (decoded?.sessionId) {
+            sessionId = decoded.sessionId;
+          }
+        } catch {}
+      }
+    }
+
+    if (sessionId) {
+      await sessionService.revokeSession(sessionId);
+    }
+
+    const user = authReq.user;
+    if (user && user.deviceBinding) {
+      user.deviceBinding.activeSessionId = null;
+      user.deviceBinding.lastSeenAt = new Date();
+      if (typeof user.save === 'function') {
+        await user.save();
+      }
+    }
+    const cleanEmail = (user?.email || authReq.userEmail || '').toLowerCase().trim();
+    if (cleanEmail && registeredUsers[cleanEmail]?.deviceBinding) {
+      registeredUsers[cleanEmail].deviceBinding.activeSessionId = null;
+      registeredUsers[cleanEmail].deviceBinding.lastSeenAt = new Date();
+    } else if (sessionId) {
+      const sess = await sessionService.getSession(sessionId);
+      if (sess?.userId) {
+        if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(sess.userId)) {
+          await User.findByIdAndUpdate(sess.userId, {
+            $set: { 'deviceBinding.activeSessionId': null, 'deviceBinding.lastSeenAt': new Date() },
+          });
+        } else {
+          for (const u of Object.values(registeredUsers)) {
+            if ((u.id === sess.userId || u._id === sess.userId) && u.deviceBinding) {
+              u.deviceBinding.activeSessionId = null;
+              u.deviceBinding.lastSeenAt = new Date();
+            }
+          }
+        }
+      }
+    }
+
+    res.clearCookie('aiims_token', {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    res.clearCookie('aiims_csrf', {
+      httpOnly: false,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    return res.json({ success: true, message: 'Signed out successfully.' });
+  } catch (err) {
+    console.error('Logout error:', err);
+    return res.json({ success: true, message: 'Signed out.' });
+  }
+};
+
+/**
+ * POST /admin/users/:userId/device-reset
+ * Resets device binding for a user, revoking all active sessions and allowing them to bind a new device.
+ * Strictly protected: requires role 'admin'.
+ */
+export const resetUserDevice = async (req: AuthenticatedRequest, res: Response) => {
+  const adminUser = req.user;
+  if (!adminUser || adminUser.role !== 'admin') {
+    return res.status(403).json({
+      error: 'Access denied: administrator privileges required to reset device binding.',
+      code: 'ADMIN_REQUIRED',
+    });
+  }
+
+  const targetUserId = req.params.userId || req.body.userId;
+  if (!targetUserId || typeof targetUserId !== 'string') {
+    return res.status(400).json({
+      error: 'Target user ID is required.',
+      code: 'USER_ID_REQUIRED',
+    });
+  }
+
+  let targetUser: any = null;
+
+  if (mongoose.connection.readyState === 1) {
+    try {
+      if (mongoose.Types.ObjectId.isValid(targetUserId)) {
+        targetUser = await User.findById(targetUserId);
+      }
+      if (!targetUser) {
+        targetUser = await User.findOne({ email: targetUserId.toLowerCase().trim() });
+      }
+    } catch {}
+  }
+
+  if (!targetUser) {
+    for (const u of Object.values(registeredUsers)) {
+      if (
+        u.id === targetUserId ||
+        u._id === targetUserId ||
+        u.email?.toLowerCase() === targetUserId.toLowerCase()
+      ) {
+        targetUser = u;
+        break;
+      }
+    }
+  }
+
+  if (!targetUser) {
+    return res.status(404).json({
+      error: 'User not found.',
+      code: 'USER_NOT_FOUND',
+    });
+  }
+
+  const prevHash = targetUser.deviceBinding?.deviceIdHash || '';
+  const prevName = targetUser.deviceBinding?.deviceName || '';
+  const reason = req.body.reason || 'Administrator device reset requested';
+
+  const finalUserId = String(targetUser._id || targetUser.id);
+  await sessionService.revokeAllUserSessions(finalUserId);
+
+  const newBinding = {
+    deviceIdHash: '',
+    deviceName: '',
+    platform: 'web' as const,
+    boundAt: null,
+    lastSeenAt: null,
+    activeSessionId: null,
+    bindingStatus: 'UNBOUND' as const,
+    resetAt: new Date(),
+    resetBy: String(adminUser._id || adminUser.id),
+  };
+
+  targetUser.deviceBinding = newBinding;
+
+  if (typeof targetUser.save === 'function') {
+    await targetUser.save();
+  }
+
+  if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(finalUserId)) {
+    await User.findByIdAndUpdate(finalUserId, {
+      $set: { deviceBinding: newBinding },
+    });
+  }
+
+  await recordDeviceResetAudit({
+    targetUserId: finalUserId,
+    adminUserId: String(adminUser._id || adminUser.id),
+    adminEmail: adminUser.email,
+    previousDeviceIdHash: prevHash,
+    previousDeviceName: prevName,
+    reason,
   });
-  res.clearCookie('aiims_csrf', {
-    httpOnly: false,
-    secure: config.nodeEnv === 'production',
-    sameSite: 'lax',
-    path: '/',
+
+  return res.json({
+    success: true,
+    message: 'Device binding successfully reset. The user may now bind a new device.',
+    userId: finalUserId,
   });
-  return res.json({ success: true, message: 'Signed out successfully.' });
 };
 
 export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
@@ -894,8 +1213,20 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
     },
   });
 
+  // Strict One Account – One Device Binding & Verification on 2FA completion
+  const deviceResult = await verifyAndBindDevice(dbUser, req, res);
+  if (!deviceResult.success) {
+    return;
+  }
+
   // Issue the real JWT now that both factors are verified
-  const token = generateAuthToken(String(dbUser._id), dbUser.email);
+  const token = generateAuthToken(
+    String(dbUser._id),
+    dbUser.email,
+    dbUser.role,
+    deviceResult.sessionId,
+    deviceResult.deviceIdHash
+  );
   const mobile = isMobileClient(req);
   setAuthCookie(res, token, req);
   const userState = formatUserState(dbUser);

@@ -347,6 +347,7 @@ interface LearnerContextType {
   toggleSaveSignal: (signalId: string) => void;
   dismissSignal: (signalId: string) => void;
   awardCredits: (amount: number, description: string, actionKey?: string) => void;
+  refreshCredits: () => Promise<void>;
   setAudienceMode: (mode: AudienceMode) => void;
   addToolToWallet: (
     toolId: string,
@@ -956,6 +957,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // ==========================================
 
   const updateFocusSessionConfig = (newConfig: Partial<FocusSessionConfig>) => {
+    let effectiveConfigToSync: FocusSessionConfig | null = null;
+
     setState((prev) => {
       const currentConfig = prev.focus.sessionConfig || {
         focusDurationMinutes: 25,
@@ -991,6 +994,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ? 4
         : Math.max(1, Math.min(12, parsedInterval));
 
+      effectiveConfigToSync = updated;
+
       return {
         ...prev,
         focus: {
@@ -1005,6 +1010,12 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    if (effectiveConfigToSync) {
+      apiClient
+        .updateFocusConfig(effectiveConfigToSync)
+        .catch((err) => console.warn('[Focus] Error syncing config:', err));
+    }
   };
 
   const startFocusSession = (params?: {
@@ -1087,6 +1098,34 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     });
 
+    if (started) {
+      apiClient
+        .startFocusSession({
+          trackTitle: params?.trackTitle,
+          intention: params?.intention,
+          focusDurationMinutes: params?.customFocusMinutes,
+          breakDurationMinutes: params?.customBreakMinutes,
+        })
+        .then((res) => {
+          if (res?.success && res.session?.sessionId) {
+            setState((prev) => {
+              if (!prev.focus.activeSession) return prev;
+              return {
+                ...prev,
+                focus: {
+                  ...prev.focus,
+                  activeSession: {
+                    ...prev.focus.activeSession,
+                    id: res.session.sessionId,
+                  },
+                },
+              };
+            });
+          }
+        })
+        .catch((err) => console.warn('[Focus] Failed to sync session start:', err));
+    }
+
     return started;
   };
 
@@ -1126,6 +1165,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient.pauseFocusSession().catch((err) => console.warn('[Focus] Pause sync error:', err));
   };
 
   const resumeFocusSession = () => {
@@ -1151,6 +1192,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient.resumeFocusSession().catch((err) => console.warn('[Focus] Resume sync error:', err));
   };
 
   const completeFocusPeriod = () => {
@@ -1208,6 +1251,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient
+      .completeFocusPeriod()
+      .catch((err) => console.warn('[Focus] Complete sync error:', err));
   };
 
   const startBreakPeriod = (forceLongBreak?: boolean) => {
@@ -1244,6 +1291,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient
+      .startBreakPeriod({ forceLongBreak })
+      .catch((err) => console.warn('[Focus] Break sync error:', err));
   };
 
   const skipBreakPeriod = () => {
@@ -1272,6 +1323,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient
+      .startFocusSession()
+      .catch((err) => console.warn('[Focus] Skip break sync error:', err));
   };
 
   const endFocusSession = (saveAsAbandoned?: boolean) => {
@@ -1317,6 +1372,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
     });
+
+    apiClient
+      .abandonFocusSession()
+      .catch((err) => console.warn('[Focus] Abandon sync error:', err));
   };
 
   const clearFocusSessionHistory = () => {
@@ -1444,37 +1503,31 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  const awardCredits = (amount: number, description: string, actionKey?: string) => {
-    const key = actionKey || `CUSTOM_${Date.now()}_${amount}`;
-    const nowStr = new Date().toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-
-    setState((prev) => {
-      if (prev.credits.claimedActions.includes(key)) {
-        return prev;
+  const refreshCredits = async () => {
+    try {
+      const res = await apiClient.getWallet();
+      if (res && typeof res.balance === 'number') {
+        setState((prev) => ({
+          ...prev,
+          profile: { ...prev.profile, aiimsCredits: res.balance },
+          credits: {
+            ...prev.credits,
+            balance: res.balance,
+            transactions: res.transactions || prev.credits.transactions,
+          },
+        }));
       }
-      const newBalance = prev.credits.balance + amount;
-      const newTx: CreditTransactionItem = {
-        id: `tx-${Date.now()}`,
-        description,
-        amount,
-        type: 'EARN',
-        timestamp: nowStr,
-        actionKey: key,
-      };
-      return {
-        ...prev,
-        profile: { ...prev.profile, aiimsCredits: newBalance },
-        credits: {
-          balance: newBalance,
-          transactions: [newTx, ...prev.credits.transactions],
-          claimedActions: [...prev.credits.claimedActions, key],
-        },
-      };
-    });
+    } catch (err) {
+      console.warn('Failed to refresh authoritative credits balance from server:', err);
+    }
+  };
+
+  const awardCredits = (_amount: number, _description: string, _actionKey?: string) => {
+    console.warn(
+      '[SECURITY] Client-side credit manipulation is strictly disabled. Credits are managed exclusively by the authoritative server ledger.'
+    );
+    // Rehydrate authoritative balance from backend to ensure synchronization
+    refreshCredits().catch(() => {});
   };
 
   const markNotificationRead = (id: string) => {
@@ -1742,8 +1795,28 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }));
       }
       return { success: true, user: userObj };
-    } catch {
-      return { success: false, error: "We couldn't sign you in right now. Please try again." };
+    } catch (err: any) {
+      console.warn('Login network or runtime error:', err);
+      const errMsg = String(err?.message || '');
+      const isNetworkErr =
+        errMsg.includes('Failed to fetch') ||
+        errMsg.includes('Network') ||
+        errMsg.includes('Connect') ||
+        errMsg.includes('refused') ||
+        errMsg.includes('CLEARTEXT') ||
+        errMsg.includes('timed out') ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('ECONNREFUSED') ||
+        errMsg.includes('UnknownHost') ||
+        errMsg.includes('Socket') ||
+        err?.name === 'TypeError' ||
+        err?.name === 'AbortError';
+      return {
+        success: false,
+        error: isNetworkErr
+          ? `Unable to connect to AIIMS server (${getApiBaseUrl()}). Please verify network connection.`
+          : err?.message || "We couldn't sign you in right now. Please try again.",
+      };
     }
   };
 
@@ -1791,10 +1864,27 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }));
       }
       return { success: true };
-    } catch {
+    } catch (err: any) {
+      console.warn('Registration network or runtime error:', err);
+      const errMsg = String(err?.message || '');
+      const isNetworkErr =
+        errMsg.includes('Failed to fetch') ||
+        errMsg.includes('Network') ||
+        errMsg.includes('Connect') ||
+        errMsg.includes('refused') ||
+        errMsg.includes('CLEARTEXT') ||
+        errMsg.includes('timed out') ||
+        errMsg.includes('timeout') ||
+        errMsg.includes('ECONNREFUSED') ||
+        errMsg.includes('UnknownHost') ||
+        errMsg.includes('Socket') ||
+        err?.name === 'TypeError' ||
+        err?.name === 'AbortError';
       return {
         success: false,
-        error: "We couldn't create your account right now. Please try again.",
+        error: isNetworkErr
+          ? `Unable to connect to AIIMS server (${getApiBaseUrl()}). Please verify that the backend is running.`
+          : err?.message || "We couldn't create your account right now. Please try again.",
       };
     }
   };
@@ -2002,6 +2092,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleSaveSignal,
         dismissSignal,
         awardCredits,
+        refreshCredits,
         setAudienceMode,
         addToolToWallet,
         addMultipleToolsToWallet,

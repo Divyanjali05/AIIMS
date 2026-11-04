@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
@@ -21,6 +21,7 @@
     "seed:tools": "ts-node src/scripts/seedToolCatalog.ts",
     "test:phase2a": "ts-node src/scripts/testPhase2A.ts",
     "test:security": "ts-node src/scripts/testPhase1Security.ts",
+    "test:security:remediation": "ts-node src/scripts/verifySecurityRemediation.ts",
     "test:scoring": "ts-node src/scripts/runScoringTests.ts",
     "test:evaluation": "ts-node src/scripts/testEvaluationSystem.ts",
     "test:deletion": "ts-node src/scripts/testAccountDeletion.ts",

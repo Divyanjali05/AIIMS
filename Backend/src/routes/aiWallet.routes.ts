@@ -1,8 +1,18 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { aiExecutionRateLimiter, generalApiRateLimiter } from '../middleware/rateLimit.middleware';
+import { validateBody } from '../middleware/validate.middleware';
+import {
+  addToWalletSchema,
+  updateFamiliaritySchema,
+  searchToolsSchema,
+  matchToolSchema,
+  compareToolsSchema,
+  registerSourceSchema,
+} from '../schemas/wallet.schema';
 import {
   searchTools,
+  matchTools,
   getCatalog,
   getToolById,
   getTaxonomy,
@@ -33,35 +43,48 @@ const router = Router();
 
 router.use(generalApiRateLimiter);
 
-// Wallet routes
-router.post('/wallet/search', searchTools);
+// Public / Read-only Catalog routes
+router.post('/wallet/search', validateBody(searchToolsSchema), searchTools);
+router.post('/wallet/match', validateBody(matchToolSchema), matchTools);
 router.get('/wallet/catalog', getCatalog);
 router.get('/wallet/tools/:id', getToolById);
 router.get('/wallet/taxonomy', getTaxonomy);
-router.post('/wallet/compare', compareTools);
+router.post('/wallet/compare', validateBody(compareToolsSchema), compareTools);
 router.get('/wallet/gaps', getGaps);
-router.post('/wallet/discover/trigger', requireAuth, aiExecutionRateLimiter, triggerDiscovery);
 router.get('/wallet/tools/new', getNewTools);
 router.get('/wallet/tools/recently-updated', getRecentlyUpdatedTools);
 router.get('/wallet/tools/:id/evidence', getToolEvidence);
 router.get('/wallet/tools/:id/history', getToolHistory);
 router.get('/wallet/intelligence/status', getIntelligenceStatus);
 router.get('/wallet/discovery/status', getDiscoveryStatus);
-router.get('/wallet/user', getUserWallet);
-router.get('/wallet/recommendations', getRecommendations);
-router.post('/wallet/add', addToWallet);
-router.post('/wallet/update-familiarity', updateFamiliarity);
 
-// Tool admin & discovery monitoring
-router.get('/tools/discovery/runs', requireAuth, getDiscoveryRuns);
-router.get('/tools/evidence/:toolId', requireAuth, getToolEvidenceAdmin);
-router.get('/tools/history/:toolId', requireAuth, getToolHistoryAdmin);
+// Authenticated Wallet User routes
+router.get('/wallet/user', requireAuth, getUserWallet);
+router.get('/wallet/recommendations', requireAuth, getRecommendations);
+router.post('/wallet/add', requireAuth, validateBody(addToWalletSchema), addToWallet);
+router.post(
+  '/wallet/update-familiarity',
+  requireAuth,
+  validateBody(updateFamiliaritySchema),
+  updateFamiliarity
+);
+router.post('/wallet/discover/trigger', requireAuth, aiExecutionRateLimiter, triggerDiscovery);
 
-// Admin sources and verification
-router.get('/admin/sources', requireAuth, getAdminSources);
-router.post('/admin/sources', requireAuth, registerAdminSource);
-router.get('/admin/candidates', requireAuth, getAdminCandidates);
-router.post('/admin/verify/:toolId', requireAuth, verifyCandidate);
-router.get('/admin/intelligence/dashboard', requireAuth, getAdminDashboard);
+// Admin-Only Discovery & Tool Management routes
+router.get('/tools/discovery/runs', requireAuth, requireRole('admin'), getDiscoveryRuns);
+router.get('/tools/evidence/:toolId', requireAuth, requireRole('admin'), getToolEvidenceAdmin);
+router.get('/tools/history/:toolId', requireAuth, requireRole('admin'), getToolHistoryAdmin);
+
+router.get('/admin/sources', requireAuth, requireRole('admin'), getAdminSources);
+router.post(
+  '/admin/sources',
+  requireAuth,
+  requireRole('admin'),
+  validateBody(registerSourceSchema),
+  registerAdminSource
+);
+router.get('/admin/candidates', requireAuth, requireRole('admin'), getAdminCandidates);
+router.post('/admin/verify/:toolId', requireAuth, requireRole('admin'), verifyCandidate);
+router.get('/admin/intelligence/dashboard', requireAuth, requireRole('admin'), getAdminDashboard);
 
 export default router;

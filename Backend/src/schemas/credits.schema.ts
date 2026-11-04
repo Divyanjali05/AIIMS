@@ -22,7 +22,8 @@ export const investCreditsSchema = z.object({
 export type InvestCreditsInput = z.infer<typeof investCreditsSchema>;
 
 export const ledgerQuerySchema = z.object({
-  type: z.enum(['EARN', 'SPEND', 'REFUND'] as const).optional(),
+  type: z.enum(['EARN', 'SPEND', 'REFUND', 'ADJUSTMENT'] as const).optional(),
+  category: z.enum(['TASK_USAGE', 'REWARD', 'REFUND', 'ADMIN', 'INVESTMENT'] as const).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50).optional(),
   skip: z.coerce.number().int().min(0).default(0).optional(),
 });

@@ -616,7 +616,12 @@ export class CreditsLedgerService {
    */
   public async getLedgerHistory(
     userId: string,
-    options?: { limit?: number; skip?: number; type?: CreditTransactionType }
+    options?: {
+      limit?: number;
+      skip?: number;
+      type?: CreditTransactionType;
+      category?: CreditTransactionCategory;
+    }
   ): Promise<{
     transactions: Array<{
       id?: string;
@@ -656,6 +661,9 @@ export class CreditsLedgerService {
       const query: Record<string, unknown> = { userId };
       if (options?.type) {
         query.type = options.type;
+      }
+      if (options?.category) {
+        query.category = options.category;
       }
 
       const [transactions, total, allEntries] = await Promise.all([
@@ -713,9 +721,10 @@ export class CreditsLedgerService {
 
     // In-memory fallback
     const userEntries = memoryLedgerStore.filter((e) => e.userId === userId);
-    const filtered = options?.type
-      ? userEntries.filter((e) => e.type === options.type)
-      : userEntries;
+    let filtered = options?.type ? userEntries.filter((e) => e.type === options.type) : userEntries;
+    if (options?.category) {
+      filtered = filtered.filter((e) => e.category === options.category);
+    }
 
     const balance = memoryUserBalances.get(userId) ?? 0;
     let totalEarned = 0;
@@ -938,6 +947,75 @@ export class CreditsLedgerService {
       }
       throw taskError;
     }
+  }
+
+  /**
+   * Helper to reward credits
+   */
+  public async rewardCredits(
+    userId: string,
+    amount: number,
+    category: CreditTransactionCategory = 'REWARD',
+    reason: string = 'Credit reward',
+    idempotencyKey?: string,
+    sourceId?: string
+  ): Promise<TransactionResult> {
+    return this.executeTransaction({
+      userId,
+      type: 'EARN',
+      category,
+      amount,
+      reason,
+      source: 'system_reward',
+      sourceId,
+      idempotencyKey,
+    });
+  }
+
+  /**
+   * Helper to deduct credits
+   */
+  public async deductCredits(
+    userId: string,
+    amount: number,
+    category: CreditTransactionCategory = 'TASK_USAGE',
+    reason: string = 'Credit deduction',
+    idempotencyKey?: string,
+    sourceId?: string
+  ): Promise<TransactionResult> {
+    return this.executeTransaction({
+      userId,
+      type: 'SPEND',
+      category,
+      amount,
+      reason,
+      source: 'task_execution',
+      sourceId,
+      idempotencyKey,
+    });
+  }
+
+  /**
+   * Helper to refund credits
+   */
+  public async refundCredits(
+    userId: string,
+    amount: number,
+    category: CreditTransactionCategory = 'REFUND',
+    reason: string = 'Credit refund',
+    idempotencyKey?: string,
+    sourceId?: string
+  ): Promise<TransactionResult> {
+    return this.executeTransaction({
+      userId,
+      type: 'REFUND',
+      category,
+      amount,
+      reason,
+      source: 'task_refund',
+      sourceId,
+      idempotencyKey,
+    });
   }
 
   /**

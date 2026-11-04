@@ -73,32 +73,36 @@ export interface LearnerProfileContext {
 }
 
 export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileContext => {
-  const isAssessmentCompleted = state.assessment.status === 'completed';
-  const scores = state.assessment.scores || {
+  const isAssessmentCompleted = state.assessment?.status === 'completed';
+  const scores = state.assessment?.scores || {
     usageFrequency: 0,
     evaluationCapability: 0,
     workflowDesign: 0,
     strategicVision: 0,
-    mentorshipReadiness: 0
+    mentorshipReadiness: 0,
   };
 
-  const topCapability = state.analysis.topCapability || 'AI Evaluation & Critical Assessment';
-  const growthArea = state.analysis.growthArea || 'AI Workflow Design';
+  const topCapability = state.analysis?.topCapability || 'AI Evaluation & Critical Assessment';
+  const growthArea = state.analysis?.growthArea || 'AI Workflow Design';
 
-  const selectedClarityTopic = state.clarity.selectedTopic || null;
-  const completedTopics = state.clarity.completedTopics || [];
+  const selectedClarityTopic = state.clarity?.selectedTopic || null;
+  const completedTopics = state.clarity?.completedTopics || [];
 
-  const reflections = state.clarity.reflections || {};
+  const reflections = state.clarity?.reflections || {};
   const reflectionsCount = Object.keys(reflections).length;
   const latestReflection = selectedClarityTopic ? reflections[selectedClarityTopic] || null : null;
 
-  const isFocusActive = state.focus.status === 'active' && state.focus.selectedTrack !== null;
-  const activeFocusTrack = state.focus.selectedTrack || null;
-  const candidateFocusTrack = selectedClarityTopic || completedTopics[0] || (state.clarity.selectedAreas && state.clarity.selectedAreas[0]) || growthArea;
+  const isFocusActive = state.focus?.status === 'active' && state.focus?.selectedTrack !== null;
+  const activeFocusTrack = state.focus?.selectedTrack || null;
+  const candidateFocusTrack =
+    selectedClarityTopic ||
+    completedTopics[0] ||
+    (state.clarity?.selectedAreas && state.clarity?.selectedAreas[0]) ||
+    growthArea;
 
-  const investigatedSignalIds = state.radar.investigatedSignalIds || [];
-  const userNotes = state.investigation.userNotes || {};
-  const selectedSignalId = state.investigation.selectedSignalId || null;
+  const investigatedSignalIds = state.radar?.investigatedSignalIds || [];
+  const userNotes = state.investigation?.userNotes || {};
+  const selectedSignalId = state.investigation?.selectedSignalId || null;
   const latestNote = selectedSignalId ? userNotes[selectedSignalId] || null : null;
 
   // Derive AI Wallet Context Signals
@@ -113,18 +117,21 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
     'Data Analysis',
     'Presentation',
     'Video',
-    'Automation'
+    'Automation',
   ];
   const toolkitGaps = allCategories.filter((c) => !primaryCategories.includes(c));
-  const toolFamiliarityCount = userTools.reduce((acc: Record<string, number>, t) => {
-    acc[t.familiarity] = (acc[t.familiarity] || 0) + 1;
-    return acc;
-  }, { exploring: 0, practicing: 0, proficient: 0, mastered: 0 });
+  const toolFamiliarityCount = userTools.reduce(
+    (acc: Record<string, number>, t) => {
+      acc[t.familiarity] = (acc[t.familiarity] || 0) + 1;
+      return acc;
+    },
+    { exploring: 0, practicing: 0, proficient: 0, mastered: 0 }
+  );
 
   const currentToolsSummary = userTools.map((t) => ({
     toolId: t.toolId,
     category: t.primaryCategory,
-    familiarity: t.familiarity
+    familiarity: t.familiarity,
   }));
 
   // Calculate dynamic stage progress
@@ -140,8 +147,8 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
     statusLabel = '15% (Analysis Ready)';
   }
 
-  if (state.analysis.status === 'viewed') {
-    if (completedTopics.length > 0 || state.clarity.status === 'completed') {
+  if (state.analysis?.status === 'viewed') {
+    if (completedTopics.length > 0 || state.clarity?.status === 'completed') {
       completedCount = 2;
       currentStageName = 'Focus';
       progressPercent = 35;
@@ -163,14 +170,14 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
     statusLabel = '70% (Radar Active)';
   }
 
-  if (state.investigation.status === 'completed') {
+  if (state.investigation?.status === 'completed') {
     completedCount = 5;
     currentStageName = 'AI Relevance';
     progressPercent = 85;
     statusLabel = '85% (Investigation Complete)';
   }
 
-  if (state.relevance.status !== 'locked' && state.investigation.status === 'completed') {
+  if (state.relevance?.status !== 'locked' && state.investigation?.status === 'completed') {
     completedCount = 6;
     currentStageName = 'AI Relevance Payoff';
     progressPercent = 100;
@@ -182,55 +189,55 @@ export const buildLearnerProfileContext = (state: LearnerState): LearnerProfileC
       name: state.profile?.name || 'Learner',
       role: state.profile?.role || 'Student / AI Learner',
       targetGoal: state.profile?.targetGoal || 'Master AI Intelligence & Mentoring',
-      stage: state.profile?.stage || 'Knowing'
+      stage: state.profile?.stage || 'Knowing',
     },
     assessment: {
       isCompleted: isAssessmentCompleted,
-      completedAt: state.assessment.completedAt,
+      completedAt: state.assessment?.completedAt || null,
       scores,
       topCapability,
       growthArea,
-      answeredQuestionsCount: Object.keys(state.assessment.answers || {}).length
+      answeredQuestionsCount: Object.keys(state.assessment?.answers || {}).length,
     },
     clarity: {
-      status: state.clarity.status,
+      status: state.clarity?.status || 'idle',
       selectedTopic: selectedClarityTopic,
       completedTopics,
       reflectionsCount,
-      latestReflection
+      latestReflection,
     },
     focus: {
-      status: state.focus.status,
+      status: state.focus?.status || 'idle',
       activeFocusTrack,
       candidateFocusTrack,
-      history: state.focus.history || [],
-      activatedAt: state.focus.activatedAt
+      history: state.focus?.history || [],
+      activatedAt: state.focus?.activatedAt || null,
     },
     radar: {
       followedSignalCount: 0,
-      investigatedSignalIds
+      investigatedSignalIds,
     },
     investigation: {
-      isCompleted: state.investigation.status === 'completed',
+      isCompleted: state.investigation?.status === 'completed',
       selectedSignalId,
       userNotesCount: Object.keys(userNotes).length,
-      latestNote
+      latestNote,
     },
     relevance: {
-      status: state.relevance.status
+      status: state.relevance?.status || 'locked',
     },
     aiWallet: {
       toolCount: userTools.length,
       primaryCategories,
       toolkitGaps,
       toolFamiliarityCount,
-      currentTools: currentToolsSummary
+      currentTools: currentToolsSummary,
     },
     journeyProgress: {
       completedStagesCount: completedCount,
       currentStageName,
       progressPercent,
-      statusLabel
-    }
+      statusLabel,
+    },
   };
 };

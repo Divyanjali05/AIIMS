@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { getDeviceHeaders } from '../utils/deviceIdentifier';
+
 /**
  * Dynamic API Base URL resolution for Web and Android environments.
  * - In Web: defaults to '/api' (proxied by Vite or web server)
@@ -6,7 +9,8 @@
  * - Configurable via:
  *   1. localStorage 'aiims_api_base_url' (runtime override)
  *   2. import.meta.env.VITE_API_BASE_URL (.env configuration)
- *   3. Default fallback '/api'
+ *   3. Native Android default: 'http://10.0.2.2:5001/api' (dev) or 'https://api.aiims.com/api' (prod)
+ *   4. Web default fallback '/api'
  */
 export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
@@ -20,7 +24,30 @@ export const getApiBaseUrl = (): string => {
   if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
     return envUrl.trim().replace(/\/+$/, '');
   }
+
+  // Native Android & Mobile default resolution
+  try {
+    if (Capacitor.isNativePlatform()) {
+      // Android emulator default bridge to local development backend on host machine (port 5001)
+      return 'http://10.0.2.2:5001/api';
+    }
+  } catch {
+    // Ignore error if Capacitor is not yet initialized
+  }
+
   return '/api';
+};
+
+/**
+ * Allows setting a custom runtime API Base URL (e.g. for physical Android device testing on LAN).
+ */
+export const setCustomApiBaseUrl = (url: string | null): void => {
+  if (typeof window === 'undefined') return;
+  if (!url) {
+    localStorage.removeItem('aiims_api_base_url');
+  } else {
+    localStorage.setItem('aiims_api_base_url', url.trim().replace(/\/+$/, ''));
+  }
 };
 
 const API_BASE = {
@@ -28,8 +55,6 @@ const API_BASE = {
     return getApiBaseUrl();
   },
 } as unknown as string;
-
-import { Capacitor } from '@capacitor/core';
 
 // In-memory token storage for native mobile platforms.
 // Web clients use httpOnly cookies exclusively (no tokens stored in localStorage).
@@ -54,6 +79,7 @@ export const isMobileClient = (): boolean => {
 export const getAuthHeaders = (): Record<string, string> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...getDeviceHeaders(),
   };
   const token = getAuthToken();
   if (token) {
@@ -75,10 +101,37 @@ export const getCookie = (name: string): string | null => {
 };
 
 /**
+ * Test connectivity to an API endpoint (/health check).
+ */
+export const testApiConnection = async (
+  baseUrl: string
+): Promise<{ ok: boolean; status?: number; data?: any; error?: string }> => {
+  try {
+    const cleanUrl = baseUrl.trim().replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${cleanUrl}/health`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: true, status: res.status, data };
+    }
+    return { ok: false, status: res.status, error: `HTTP ${res.status}` };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Connection failed' };
+  }
+};
+
+/**
  * Universal authenticated fetch:
  * - Always sends `credentials: 'include'` so httpOnly cookies are transmitted automatically on Web.
  * - Merges mobile Bearer token & X-Client header when on native mobile platforms.
  * - Automatically attaches X-CSRF-Token on state-changing browser mutations.
+ * - Native Android auto-fallback between emulator (10.0.2.2) and host LAN IP (192.168.1.5).
  */
 export const apiFetch = async (input: string, init: RequestInit = {}): Promise<Response> => {
   const authHeaders = getAuthHeaders();
@@ -95,11 +148,74 @@ export const apiFetch = async (input: string, init: RequestInit = {}): Promise<R
     }
   }
 
-  return fetch(input, {
-    credentials: 'include',
-    ...init,
-    headers: mergedHeaders,
-  });
+  // Mobile request timeout protection (adaptive timeout on mobile candidate endpoints)
+  const isMobile = isMobileClient();
+  const isCandidateUrl =
+    typeof input === 'string' &&
+    (input.includes('10.0.2.2:5001') || input.includes('192.168.1.5:5001'));
+  const timeoutMs = isMobile && isCandidateUrl ? 5000 : 15000;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let signal = init.signal;
+  if (!signal && typeof AbortController !== 'undefined') {
+    const controller = new AbortController();
+    timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    signal = controller.signal;
+  }
+
+  try {
+    const response = await fetch(input, {
+      credentials: 'include',
+      ...init,
+      headers: mergedHeaders,
+      signal,
+    });
+    return response;
+  } catch (err: unknown) {
+    // If on native mobile and connection to candidate 1 fails, attempt automatic candidate 2 fallback
+    if (isMobileClient() && typeof input === 'string') {
+      const isEmulatorUrl = input.includes('10.0.2.2:5001');
+      const isLanUrl = input.includes('192.168.1.5:5001');
+
+      if (isEmulatorUrl || isLanUrl) {
+        const altUrl = isEmulatorUrl
+          ? input.replace('10.0.2.2:5001', '192.168.1.5:5001')
+          : input.replace('192.168.1.5:5001', '10.0.2.2:5001');
+        const altBase = isEmulatorUrl ? 'http://192.168.1.5:5001/api' : 'http://10.0.2.2:5001/api';
+
+        let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+        const fallbackController =
+          typeof AbortController !== 'undefined' ? new AbortController() : null;
+        if (fallbackController) {
+          fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 8000);
+        }
+
+        try {
+          const fallbackResponse = await fetch(altUrl, {
+            credentials: 'include',
+            ...init,
+            headers: mergedHeaders,
+            signal: fallbackController ? fallbackController.signal : undefined,
+          });
+          // Fallback succeeded! Persist working URL so all future requests use it directly
+          setCustomApiBaseUrl(altBase);
+          return fallbackResponse;
+        } catch {
+          // If fallback also fails, rethrow original error
+        } finally {
+          if (fallbackTimeoutId) clearTimeout(fallbackTimeoutId);
+        }
+      }
+    }
+
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('Network request timed out. Please check your internet connection.');
+    }
+    throw err;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 };
 
 export const apiClient = {
@@ -112,6 +228,19 @@ export const apiClient = {
   async logout() {
     const res = await apiFetch(`${API_BASE}/auth/logout`, {
       method: 'POST',
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /**
+   * Resets device binding for a user (Administrator only).
+   */
+  async adminResetUserDevice(userId: string, reason?: string) {
+    const res = await apiFetch(`${API_BASE}/admin/users/${userId}/device-reset`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason }),
     });
     return res.json();
   },
@@ -223,13 +352,26 @@ export const apiClient = {
     return res.json();
   },
 
-  async getCreditsLedger(params?: { type?: string; limit?: number; skip?: number }) {
+  async getCreditsLedger(params?: {
+    type?: string;
+    category?: string;
+    limit?: number;
+    skip?: number;
+  }) {
     const queryEntries: [string, string][] = [];
     if (params?.type) queryEntries.push(['type', params.type]);
+    if (params?.category) queryEntries.push(['category', params.category]);
     if (params?.limit !== undefined) queryEntries.push(['limit', String(params.limit)]);
     if (params?.skip !== undefined) queryEntries.push(['skip', String(params.skip)]);
     const query = new URLSearchParams(queryEntries).toString();
     const res = await apiFetch(`${API_BASE}/credits/ledger${query ? `?${query}` : ''}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getCreditCosts() {
+    const res = await apiFetch(`${API_BASE}/credits/costs`, {
       headers: getAuthHeaders(),
     });
     return res.json();
@@ -362,6 +504,21 @@ export const apiClient = {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ query, userTools }),
+    });
+    return res.json();
+  },
+
+  async matchTools(params: {
+    taskDescription: string;
+    desiredOutput?: string;
+    inputFormat?: string;
+    freeOnly?: boolean;
+    category?: string;
+  }) {
+    const res = await apiFetch(`${API_BASE}/wallet/match`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
     });
     return res.json();
   },
@@ -598,17 +755,79 @@ export const apiClient = {
   },
 
   async runClarityTask(params: {
-    topic: string;
-    difficulty: string;
-    taskTitle: string;
+    assignmentId?: string;
+    topic?: string;
+    difficulty?: string;
+    taskTitle?: string;
     taskObjective?: string;
     userPrompt: string;
     contextData?: string;
   }) {
-    const res = await apiFetch(`${API_BASE}/clarity/run-task`, {
+    const res = await apiFetch(`${API_BASE}/clarity/run`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(params),
+    });
+    return res.json();
+  },
+
+  async getClarityActiveTask(topic: string, track: string = 'General') {
+    const res = await apiFetch(`${API_BASE}/clarity/active-task`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ topic, track }),
+    });
+    return res.json();
+  },
+
+  async submitClarityAttempt(params: {
+    assignmentId: string;
+    answer: string;
+    timeTakenSeconds?: number;
+  }) {
+    const res = await apiFetch(`${API_BASE}/clarity/submit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    return res.json();
+  },
+
+  async serveNextClarityTask(topic: string, track: string = 'General') {
+    const res = await apiFetch(`${API_BASE}/clarity/next-task`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ topic, track }),
+    });
+    return res.json();
+  },
+
+  async getClarityProgression(topic: string) {
+    const res = await apiFetch(
+      `${API_BASE}/clarity/progression?topic=${encodeURIComponent(topic)}`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+    return res.json();
+  },
+
+  async getClarityProgressionConfig() {
+    const res = await apiFetch(`${API_BASE}/clarity/progression-config`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async updateClarityProgressionConfig(updates: {
+    upwardThreshold: number;
+    consecutiveRequired: number;
+    downwardThreshold: number;
+  }) {
+    const res = await apiFetch(`${API_BASE}/clarity/progression-config`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(updates),
     });
     return res.json();
   },
@@ -833,4 +1052,286 @@ export const apiClient = {
     });
     return res.json();
   },
+
+  // ── QUESTION BANK & AI QUESTION GENERATION ─────────────────────────────────
+
+  /** Serves an unrepeated, eligible question to the authenticated learner. */
+  async serveQuestion(topic: string, level: string, track: 'General' | 'Coding' = 'General') {
+    const res = await apiFetch(`${API_BASE}/questions/serve`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, level, track }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to serve question');
+    }
+    return res.json();
+  },
+
+  /** Retrieves the active in-progress question assignment for the learner. */
+  async getCurrentQuestion() {
+    const res = await apiFetch(`${API_BASE}/questions/current`, {
+      headers: getAuthHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to fetch current question');
+    }
+    return res.json();
+  },
+
+  /** Submits an attempt to an assigned question for grading. */
+  async submitQuestionAttempt(assignmentId: string, answer: string, timeTakenSeconds = 0) {
+    const res = await apiFetch(`${API_BASE}/questions/submit`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignmentId, answer, timeTakenSeconds }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to submit attempt');
+    }
+    return res.json();
+  },
+
+  /** Retrieves learner attempt history. */
+  async getQuestionHistory(params?: { topic?: string; level?: string }) {
+    const query = new URLSearchParams();
+    if (params?.topic) query.set('topic', params.topic);
+    if (params?.level) query.set('level', params.level);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await apiFetch(`${API_BASE}/questions/history${qs}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: retrieves question bank coverage statistics. */
+  async getAdminQuestionStats() {
+    const res = await apiFetch(`${API_BASE}/admin/questions/stats`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: lists questions with filters. */
+  async getAdminQuestions(filters?: Record<string, string>) {
+    const query = new URLSearchParams(filters || {});
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await apiFetch(`${API_BASE}/admin/questions${qs}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: creates a human-authored question. */
+  async adminCreateQuestion(data: any) {
+    const res = await apiFetch(`${API_BASE}/admin/questions`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  /** Admin: updates an existing question. */
+  async adminUpdateQuestion(id: string, data: any) {
+    const res = await apiFetch(`${API_BASE}/admin/questions/${id}`, {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  /** Admin: updates question status (approval, active, inactive, etc.). */
+  async adminUpdateQuestionStatus(id: string, status: string, note?: string) {
+    const res = await apiFetch(`${API_BASE}/admin/questions/${id}/status`, {
+      method: 'PATCH',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, note }),
+    });
+    return res.json();
+  },
+
+  /** Admin: retrieves institution exclusion configuration. */
+  async getAdminExclusionConfig() {
+    const res = await apiFetch(`${API_BASE}/admin/questions/exclusion-config`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: updates institution exclusion configuration. */
+  async updateAdminExclusionConfig(scope: string, exclusionDays: number) {
+    const res = await apiFetch(`${API_BASE}/admin/questions/exclusion-config`, {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope, exclusionDays }),
+    });
+    return res.json();
+  },
+
+  // 17. Focus Module Endpoints
+  async getActiveFocusSession() {
+    const res = await apiFetch(`${API_BASE}/focus/active`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async startFocusSession(params?: {
+    trackTitle?: string;
+    intention?: string;
+    focusDurationMinutes?: number;
+    breakDurationMinutes?: number;
+    enableLongBreak?: boolean;
+    longBreakDurationMinutes?: number;
+    longBreakInterval?: number;
+    soundEnabled?: boolean;
+  }) {
+    const res = await apiFetch(`${API_BASE}/focus/start`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params || {}),
+    });
+    return res.json();
+  },
+
+  async pauseFocusSession(sessionId?: string) {
+    const res = await apiFetch(`${API_BASE}/focus/pause`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sessionId }),
+    });
+    return res.json();
+  },
+
+  async resumeFocusSession(sessionId?: string) {
+    const res = await apiFetch(`${API_BASE}/focus/resume`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sessionId }),
+    });
+    return res.json();
+  },
+
+  async completeFocusPeriod(sessionId?: string) {
+    const res = await apiFetch(`${API_BASE}/focus/complete`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sessionId }),
+    });
+    return res.json();
+  },
+
+  async startBreakPeriod(params?: { sessionId?: string; forceLongBreak?: boolean }) {
+    const res = await apiFetch(`${API_BASE}/focus/break`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params || {}),
+    });
+    return res.json();
+  },
+
+  async abandonFocusSession(sessionId?: string) {
+    const res = await apiFetch(`${API_BASE}/focus/abandon`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ sessionId }),
+    });
+    return res.json();
+  },
+
+  async getFocusStats() {
+    const res = await apiFetch(`${API_BASE}/focus/stats`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getFocusHistory(filter: 'all' | 'completed' = 'all') {
+    const res = await apiFetch(`${API_BASE}/focus/history?filter=${filter}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async updateFocusConfig(config: {
+    focusDurationMinutes: number;
+    breakDurationMinutes: number;
+    enableLongBreak?: boolean;
+    longBreakDurationMinutes?: number;
+    longBreakInterval?: number;
+    soundEnabled?: boolean;
+  }) {
+    const res = await apiFetch(`${API_BASE}/focus/config`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(config),
+    });
+    return res.json();
+  },
+
+  // 17. My AI Journey & Assessment History Module
+  async getJourneyOverview() {
+    const res = await apiFetch(`${API_BASE}/journey/overview`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getAssessmentHistory(params?: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.type && params.type !== 'all') query.set('type', params.type);
+    if (params?.status && params.status !== 'all') query.set('status', params.status);
+    if (params?.startDate) query.set('startDate', params.startDate);
+    if (params?.endDate) query.set('endDate', params.endDate);
+
+    const qs = query.toString();
+    const res = await apiFetch(`${API_BASE}/journey/assessment-history${qs ? `?${qs}` : ''}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getJourneyClarityProgress() {
+    const res = await apiFetch(`${API_BASE}/journey/clarity-progress`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getJourneyFocusActivity() {
+    const res = await apiFetch(`${API_BASE}/journey/focus-activity`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getJourneyAnalytics() {
+    const res = await apiFetch(`${API_BASE}/journey/analytics`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getJourneyNextAction() {
+    const res = await apiFetch(`${API_BASE}/journey/next-action`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
 };
+
+export { apiClient as api };

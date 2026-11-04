@@ -20,6 +20,13 @@ import { Institute } from '../models/Institute.model';
 import { ToolDiscoveryRunModel } from '../models/ToolDiscoveryRun.model';
 import { ToolEvidenceModel } from '../models/toolEvidence.model';
 import { ToolVersionHistoryModel } from '../models/toolVersionHistory.model';
+import { QuestionBank } from '../models/QuestionBank.model';
+import { QuestionAssignment } from '../models/QuestionAssignment.model';
+import { QuestionAttempt } from '../models/QuestionAttempt.model';
+import { InstitutionExclusionConfig } from '../models/InstitutionExclusionConfig.model';
+import { ClarityProgressionConfig } from '../models/ClarityProgressionConfig.model';
+import { LearnerClarityProgression } from '../models/LearnerClarityProgression.model';
+import { FocusSession } from '../models/FocusSession.model';
 import { logger } from '../utils/logger';
 
 export interface IndexSyncResult {
@@ -51,6 +58,13 @@ export async function syncAllDatabaseIndexes(): Promise<IndexSyncResult[]> {
     { name: 'ToolDiscoveryRun', model: ToolDiscoveryRunModel },
     { name: 'ToolEvidence', model: ToolEvidenceModel },
     { name: 'ToolVersionHistory', model: ToolVersionHistoryModel },
+    { name: 'QuestionBank', model: QuestionBank },
+    { name: 'QuestionAssignment', model: QuestionAssignment },
+    { name: 'QuestionAttempt', model: QuestionAttempt },
+    { name: 'InstitutionExclusionConfig', model: InstitutionExclusionConfig },
+    { name: 'ClarityProgressionConfig', model: ClarityProgressionConfig },
+    { name: 'LearnerClarityProgression', model: LearnerClarityProgression },
+    { name: 'FocusSession', model: FocusSession },
   ];
 
   logger.info(`[DatabaseIndexService] Beginning index creation for ${models.length} models...`);

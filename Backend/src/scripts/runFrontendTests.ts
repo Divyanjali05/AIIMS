@@ -7,6 +7,9 @@
  *  1. Assessment scoring quality checks
  *  2. Feature access, journey gates & entitlement checks
  *  3. Design system tokens & theme engine checks
+ *  4. WCAG AA color contrast & accessibility standards
+ *  5. Evaluation frontend, send button guardian & role redirects
+ *  6. Home Dashboard, navigation & design system standards
  */
 
 import { runAssessmentScoringQualityChecks } from '../../../Frontend/src/services/__tests__/assessmentScoring.test';
@@ -14,6 +17,8 @@ import { runFeatureAccessTestSuite } from '../../../Frontend/src/services/__test
 import { runThemeQualityChecks } from '../../../Frontend/src/services/__tests__/theme.test';
 import { runColorContrastTestSuite } from '../../../Frontend/src/services/__tests__/colorContrast.test';
 import { runEvaluationFrontendTestSuite } from '../../../Frontend/src/services/__tests__/evaluationFrontend.test';
+import { runHomeAndDesignSystemTestSuite } from '../../../Frontend/src/services/__tests__/homeAndDesignSystem.test';
+import { runAndroidAndMobileExperienceTests } from '../../../Frontend/src/services/__tests__/androidAndMobileExperience.test';
 
 interface SuiteResult {
   id: string;
@@ -112,6 +117,40 @@ const suiteDefinitions: SuiteDefinition[] = [
           name: r.name,
           passed: r.passed,
           detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'homeAndDesignSystem',
+    name: 'Home Dashboard, Navigation & Design System Standards',
+    execute: () => {
+      const res = runHomeAndDesignSystemTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'androidAndMobile',
+    name: 'Android App, Device Plugins & Mobile Experience Standards',
+    execute: () => {
+      const res = runAndroidAndMobileExperienceTests();
+      return {
+        passedCount: res.passed,
+        failedCount: res.failed,
+        totalCount: res.total,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.error,
         })),
       };
     },

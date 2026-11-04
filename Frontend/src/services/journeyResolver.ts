@@ -75,8 +75,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
   const profileCtx = buildLearnerProfileContext(state);
 
   // Exact Stage Completion Triggers
-  const isAssessmentDone = state.assessment.status === 'completed';
-  const isAnalysisViewed = state.analysis.status === 'viewed'; // Must actually view profile, unlocked alone is NOT completed
+  const isAssessmentDone = state.assessment?.status === 'completed';
+  const isAnalysisViewed = state.analysis?.status === 'viewed'; // Must actually view profile, unlocked alone is NOT completed
   const isWalletExplored = (state.aiWallet?.userTools?.length || 0) >= 1;
   const isClarityCompleted =
     (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
@@ -97,7 +97,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
   let targetTab = 'assessment';
   let actionButtonLabel = 'Start Assessment';
-  let progressPercent = 10;
+  let progressPercent = 0;
 
   if (!isAssessmentDone) {
     currentStageKey = 'assessment';
@@ -107,12 +107,12 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       'Take your baseline diagnostic assessment to discover your AI skills and capability profile.';
     targetTab = 'assessment';
     actionButtonLabel = 'Start Assessment';
-    progressPercent = 10;
+    progressPercent = 0;
   } else if (!isAnalysisViewed) {
     currentStageKey = 'analysis';
     currentStageTitle = '2. MY AI PROFILE';
     nextActionTitle = 'View your AI profile';
-    nextActionReason = `Your assessment is complete. Open your profile to see your top skill in ${profileCtx.assessment.topCapability} and growth areas.`;
+    nextActionReason = `Your assessment is complete. Open your profile to see your top skill in ${profileCtx.assessment?.topCapability || 'AI Systems'} and growth areas.`;
     targetTab = 'analysis';
     actionButtonLabel = 'View Your AI Profile';
     progressPercent = 20;
@@ -296,21 +296,21 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
  * Single-source-of-truth Journey Resolver for Personal Learning Home
  */
 export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
-  const isAssessmentCompleted = state.assessment.status === 'completed';
-  const isAnalysisViewed = state.analysis.status === 'viewed';
-  const isAnalysisUnlocked = state.analysis.status !== 'locked';
+  const isAssessmentCompleted = state.assessment?.status === 'completed';
+  const isAnalysisViewed = state.analysis?.status === 'viewed';
+  const isAnalysisUnlocked = state.analysis?.status !== 'locked';
   const isClarityCompleted =
-    state.clarity.status === 'completed' ||
-    (state.clarity.completedTopics && state.clarity.completedTopics.length > 0);
-  const isFocusActive = state.focus.status === 'active' && Boolean(state.focus.selectedTrack);
+    state.clarity?.status === 'completed' ||
+    (state.clarity?.completedTopics && state.clarity.completedTopics.length > 0);
+  const isFocusActive = state.focus?.status === 'active' && Boolean(state.focus?.selectedTrack);
   const activeFocusTrack =
-    state.focus.selectedTrack || state.analysis.growthArea || 'AI Workflow Design';
-  const growthArea = state.analysis.growthArea || 'AI Workflow Design';
-  const topCapability = state.analysis.topCapability || 'AI Literacy & Verification';
+    state.focus?.selectedTrack || state.analysis?.growthArea || 'AI Workflow Design';
+  const growthArea = state.analysis?.growthArea || 'AI Workflow Design';
+  const topCapability = state.analysis?.topCapability || 'AI Literacy & Verification';
   const hasInvestigatedSignal =
     state.radar?.investigatedSignalIds && state.radar.investigatedSignalIds.length > 0;
-  const isInvestigationCompleted = state.investigation.status === 'completed';
-  const isRelevanceUnlocked = state.relevance.status !== 'locked';
+  const isInvestigationCompleted = state.investigation?.status === 'completed';
+  const isRelevanceUnlocked = state.relevance?.status !== 'locked';
 
   let currentStageKey = 'understand';
   let nextActionTitle = 'Discover your AI capability baseline.';

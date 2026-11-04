@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { evaluatorRateLimiter } from '../middleware/rateLimit.middleware';
+import { validateBody } from '../middleware/validate.middleware';
+import { evaluatorReviewSchema } from '../schemas/submission.schema';
 import {
   getEvaluationQueue,
   claimSubmission,
@@ -24,6 +26,7 @@ router.post(
   '/evaluator/submissions/:id/review',
   requireAuth,
   requireRole('evaluator', 'admin'),
+  validateBody(evaluatorReviewSchema),
   submitReview
 );
 

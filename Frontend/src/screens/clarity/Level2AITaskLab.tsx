@@ -5,17 +5,19 @@ import {
   RotateCcw,
   CheckCircle2,
   Lightbulb,
-  Award,
   Clock,
-  Terminal,
   Zap,
   Check,
   Copy,
-  ChevronRight,
-  ShieldCheck,
-  FileCode,
-  HelpCircle,
+  ChevronDown,
+  ChevronUp,
+  Lock,
   Send,
+  AlertTriangle,
+  ArrowRight,
+  ShieldCheck,
+  Award,
+  HelpCircle,
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
@@ -23,20 +25,6 @@ import { Badge } from '../../components/common/Badge';
 import { apiClient } from '../../api/client';
 import { useLearner } from '../../context/LearnerContext';
 import { LearnerSubmissionsSection } from '../../components/clarity/LearnerSubmissionsSection';
-
-export interface ClarityAITask {
-  id: string;
-  difficulty: 'easy' | 'medium' | 'advanced';
-  difficultyLabel: string;
-  badgeColor: string;
-  title: string;
-  tagline: string;
-  scenario: string;
-  objective: string;
-  testInput: string;
-  starterPrompt: string;
-  rubricFocus: string[];
-}
 
 interface Level2AITaskLabProps {
   topicName: string;
@@ -52,1587 +40,1266 @@ interface Level2AITaskLabProps {
   };
 }
 
-export const getTasksForTopic = (topic: string): ClarityAITask[] => {
-  const isCheckingAI =
-    topic.toLowerCase().includes('check') || topic.toLowerCase().includes('eval');
-  const isAgents = topic.toLowerCase().includes('agent') || topic.toLowerCase().includes('autonom');
+export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onTaskCompleted }) => {
+  const { state } = useLearner();
 
-  if (isCheckingAI) {
-    return [
-      {
-        id: 'task-easy',
-        difficulty: 'easy',
-        difficultyLabel: 'Easy (Basic Level 2)',
-        badgeColor: '#059669',
-        title: 'Fact-Check & Grounding Verification Prompt',
-        tagline: 'Single-objective inspection against policy ground truth',
-        scenario:
-          'A company published an automated customer announcement claiming: "All orders placed before midnight receive free overnight delivery." You need an AI prompt to verify this statement against official shipping policy.',
-        objective:
-          'Write an AI prompt that establishes a compliance auditor persona, compares the claim against provided policy terms, flags any discrepancies, and outputs a strict Accurate / Inaccurate verdict.',
-        testInput:
-          'Official Shipping Policy (Clause 4.2): Free standard ground shipping applies to domestic orders exceeding $50 placed Monday through Thursday. Express overnight delivery requires an additional $18 surcharge regardless of order time or basket value.',
-        starterPrompt: `Act as a Senior Compliance & Policy Auditor.
-Compare the following customer statement against the official policy text below.
+  // Active assignment & question state from centralized Question Bank
+  const [activeAssignment, setActiveAssignment] = useState<any | null>(null);
+  const [assignedQuestion, setAssignedQuestion] = useState<any | null>(null);
+  const [isLoadingTask, setIsLoadingTask] = useState<boolean>(true);
+  const [isLocked, setIsLocked] = useState<boolean>(false);
 
-CUSTOMER STATEMENT:
-"All orders placed before midnight receive free overnight delivery."
+  // Authoritative progression state
+  const [currentLevel, setCurrentLevel] = useState<'Easy' | 'Medium' | 'Hard'>('Easy');
+  const [consecutiveHighScores, setConsecutiveHighScores] = useState<number>(0);
 
-OFFICIAL POLICY TEXT:
-[Insert Official Policy Text Here]
+  // Authoritative elapsed timer
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
-AUDIT INSTRUCTIONS:
-1. Identify any factual discrepancy between the statement and the policy.
-2. State your final verdict clearly: [ACCURATE or INACCURATE].
-3. Provide a one-sentence factual correction citing the exact policy clause.`,
-        rubricFocus: [
-          'Explicit verification persona established',
-          'Direct contrast between claim and source evidence',
-          'Definitive binary verdict (Accurate / Inaccurate)',
-          'Clear policy citation requirement',
-        ],
-      },
-      {
-        id: 'task-medium',
-        difficulty: 'medium',
-        difficultyLabel: 'Medium (Intermediate Level 2)',
-        badgeColor: '#d97706',
-        title: 'Hallucination Detection & Logic Audit Workflow',
-        tagline: 'Multi-point verification with negative constraints & JSON schema',
-        scenario:
-          'An AI draft summarized Q3 corporate earnings. Some statistics match the financial ledger, but others appear fabricated or speculative. You need a structured validation prompt to audit every single fact.',
-        objective:
-          'Construct a verification prompt with explicit negative constraints ("Do not extrapolate", "Flag missing figures") and mandate structured JSON output separating verified facts from ungrounded claims.',
-        testInput:
-          'Source Financial Ledger: Q3 revenue was $14.2M with an operating margin of 11.4%. Research & Development expenditure was $2.6M.\n\nAI Draft to Audit: "Q3 delivered exceptional results with $14.2M revenue and 11.4% margin. Due to strong market response, Q4 revenue is guaranteed to exceed $22M with a 15% dividend bonus for investors."',
-        starterPrompt: `Act as a Financial Data Auditor and Hallucination Inspector.
-Audit the following AI draft against the official Source Financial Ledger.
+  // Section 2: Scenario expansion toggle
+  const [isScenarioExpanded, setIsScenarioExpanded] = useState<boolean>(false);
+  const [copiedTestScenario, setCopiedTestScenario] = useState<boolean>(false);
 
-AUDIT CONSTRAINTS & NEGATIVE RULES:
-1. Cross-reference every quantitative number and projection.
-2. STRICT RULE: DO NOT extrapolate, assume, or validate unstated figures.
-3. Every claim not backed by the ledger MUST be classified as UNBACKED_OR_HALLUCINATED.
+  // Section 3: Collapsed Hint (optional)
+  const [isHintExpanded, setIsHintExpanded] = useState<boolean>(false);
 
-OUTPUT FORMAT (Return valid JSON only):
-{
-  "auditStatus": "PASSED" | "FLAGGED_DISCREPANCIES",
-  "verifiedFacts": ["list of facts confirmed in ledger"],
-  "unbackedClaims": ["list of speculative or fabricated statements"],
-  "confidenceScore": 0-100,
-  "summaryVerdict": "string explanation"
-}`,
-        rubricFocus: [
-          'Strict negative constraints preventing extrapolation',
-          'Clear separation between grounded vs unbacked claims',
-          'Structured JSON schema enforcement',
-          'Quantitative confidence scoring',
-        ],
-      },
-      {
-        id: 'task-advanced',
-        difficulty: 'advanced',
-        difficultyLabel: 'Advanced (Pro Level 2)',
-        badgeColor: '#7c3aed',
-        title: 'Autonomous Verification Gate & Escalation Protocol',
-        tagline: 'High-stakes decision auditing with automated human-in-the-loop triggers',
-        scenario:
-          'An autonomous customer refund agent is approving a $780 warranty refund. You must build an AI verification gatekeeper that evaluates fraud indicators, policy limits, and automatically halts execution for human review if risk score exceeds safety thresholds.',
-        objective:
-          'Design an advanced autonomous gate prompt that verifies chronological event validity, calculates claim discrepancy risk, and enforces a mandatory Human-in-the-Loop escalation trigger if confidence falls below 85%.',
-        testInput:
-          'Claim #W-9021: Product purchased 14 months ago (Standard Warranty: 12 months). Extended care package active: YES (Adds 12 months). Customer claims hardware defect occurred within 30 days of purchase but reported today. Requested payout: $780 replacement credit.',
-        starterPrompt: `Act as an Autonomous Risk & Verification Gatekeeper for High-Value Claims.
-Audit the incoming claim data against business governance rules before payment dispatch.
+  // Section 4: Prompt Editor (initially empty, placeholder: "Write your prompt here")
+  const [promptText, setPromptText] = useState<string>('');
 
-DECISION PROTOCOL:
-1. Verify warranty coverage duration (Standard 12 mo + Extended 12 mo = 24 mo active window).
-2. Assess reporting latency risk (claimant notes defect happened 13 months ago but filed today).
-3. Compute a Verification Confidence Score between 0.0 and 1.0.
+  // Section 5: Run vs Submit decoupled states
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [runOutput, setRunOutput] = useState<string | null>(null);
+  const [runMetrics, setRunMetrics] = useState<{
+    modelUsed?: string;
+    executionTimeMs?: number;
+    creditsDeducted?: number;
+    isFreeTrial?: boolean;
+  } | null>(null);
 
-ESCALATION THRESHOLD:
-- If Confidence Score < 0.85 OR reporting delay > 90 days without documentation, output Decision: HUMAN_ESCALATION_REQUIRED.
-- Otherwise, output Decision: AUTOMATED_CLEARANCE_APPROVED.
+  // Section 6: Results & rubric-based evaluation feedback
+  const [submissionResult, setSubmissionResult] = useState<{
+    attemptId: string;
+    score: number;
+    rubricFeedback: any[];
+    submittedAt?: string;
+    timeTakenSeconds?: number;
+    creditsAwarded?: number;
+    xpAwarded?: number;
+    progression?: any;
+  } | null>(null);
 
-OUTPUT FORMAT:
-- Gate Decision: [AUTOMATED_CLEARANCE_APPROVED | HUMAN_ESCALATION_REQUIRED | REJECTED]
-- Confidence Score: (0.0 to 1.0)
-- Risk Factors Identified: (bullet points)
-- Actionable Human Checklist: (specific items the human reviewer must verify if escalated)`,
-        rubricFocus: [
-          'Multi-variable governance and coverage validation',
-          'Explicit quantitative escalation threshold (< 0.85 triggers human intervention)',
-          'Clear audit trail and human remediation checklist',
-          'Resilience against prompt injection or premature clearance',
-        ],
-      },
-    ];
-  }
+  // Doubt / Mentor Query State (Locked alongside task submission)
+  const [doubtText, setDoubtText] = useState<string>('');
+  const [doubtSubmitted, setDoubtSubmitted] = useState<boolean>(false);
 
-  if (isAgents) {
-    return [
-      {
-        id: 'task-easy',
-        difficulty: 'easy',
-        difficultyLabel: 'Easy (Basic Level 2)',
-        badgeColor: '#059669',
-        title: 'Goal-Oriented Agent Instruction Prompt',
-        tagline: 'Framing autonomous objectives without line-by-line micromanagement',
-        scenario:
-          'You want an AI agent to monitor customer feedback emails, categorize sentiment, and alert engineers only to high-priority system bugs.',
-        objective:
-          'Design an agent prompt that states the high-level objective, defines clear boundaries, and specifies output triggers instead of commanding every tiny manual step.',
-        testInput:
-          'Incoming Email: "The checkout page crashed 3 times when trying to apply discount code SAVE20 on mobile Safari. Lost my cart items!"',
-        starterPrompt: `Act as an Autonomous Customer Triage Agent.
-Your objective is to inspect incoming customer messages and surface critical issues.
-
-OPERATIONAL BOUNDARIES:
-- Categorize sentiment: [Positive | Neutral | Frustrated | Critical].
-- Determine if an immediate engineering ticket is required.
-- Do NOT reply directly to the customer; your role is internal triage.
-
-OUTPUT FORMAT:
-- Severity: [LOW | MEDIUM | HIGH | URGENT]
-- Issue Category: [Billing | UI Bug | Crash | Inquiry]
-- Engineer Summary: 1-line concise description
-- Recommended Action: Next step`,
-        rubricFocus: [
-          'Goal delegation rather than step-by-step micromanagement',
-          'Explicit operational boundaries (what NOT to do)',
-          'Actionable output schema for downstream tools',
-        ],
-      },
-      {
-        id: 'task-medium',
-        difficulty: 'medium',
-        difficultyLabel: 'Medium (Intermediate Level 2)',
-        badgeColor: '#d97706',
-        title: 'Agent Tool-Contract & Pre-Flight Validation Prompt',
-        tagline: 'Ensuring autonomous agents validate arguments before calling tools',
-        scenario:
-          'An AI agent has access to a `send_refund_payment(user_id, amount_cents)` tool. You must prevent the agent from triggering the tool with missing parameters or negative numbers.',
-        objective:
-          'Write a pre-flight validation prompt that forces the agent to verify all tool parameters against business constraints before confirming tool invocation.',
-        testInput:
-          'User Request: "Please refund customer cust_994 for $45.00 because their package was late."',
-        starterPrompt: `Act as an Agentic Tool Execution Gatekeeper.
-Before authorizing the execution of 'send_refund_payment', conduct a pre-flight sanity check.
-
-TOOL SPECIFICATION:
-tool: send_refund_payment
-parameters:
-  - user_id: string (must start with 'cust_')
-  - amount_cents: integer (must be positive integer, 1 to 50000)
-  - reason: string (minimum 10 characters)
-
-VALIDATION RULES:
-1. Parse the user request to extract tool parameters.
-2. Confirm amount conversion: $45.00 = 4500 cents.
-3. If any parameter is missing or invalid, ABORT tool execution and state missing requirements.
-
-OUTPUT FORMAT:
-- Tool Clearance: [READY_TO_EXECUTE | ABORTED_INVALID_ARGS]
-- Extracted Payload: { user_id, amount_cents, reason }
-- Validation Notes: explanation of checks passed`,
-        rubricFocus: [
-          'Pre-flight parameter validation before execution',
-          'Unit conversion verification (dollars to cents)',
-          'Defensive error abort states for invalid inputs',
-        ],
-      },
-      {
-        id: 'task-advanced',
-        difficulty: 'advanced',
-        difficultyLabel: 'Advanced (Pro Level 2)',
-        badgeColor: '#7c3aed',
-        title: 'Multi-Agent Coordination & Reflection Loop Prompt',
-        tagline: 'Autonomous agent self-correction and cross-evaluation loop',
-        scenario:
-          'A multi-agent system uses a Researcher Agent to collect product details and a Critic Agent to spot gaps before presenting the final report to stakeholders.',
-        objective:
-          'Craft a prompt for the Critic & Synthesis Agent that evaluates the Researcher output against completeness criteria, triggers a reflection loop if gaps exist, and compiles the final verified briefing.',
-        testInput:
-          'Researcher Output: "Tool XYZ costs $20/month. It has a modern interface and supports API keys. Recommended for enterprise teams."',
-        starterPrompt: `Act as the Lead Critic & Synthesis Agent in a Multi-Agent Architecture.
-Review the draft submitted by the Researcher Agent against our enterprise diligence standard.
-
-EVALUATION CHECKLIST:
-1. Pricing clarity: Are enterprise tiers, annual discounts, and seat limits defined?
-2. Security & Compliance: Are SOC2, GDPR, or data retention policies documented?
-3. Integration capabilities: What ecosystems does it connect to?
-
-REFLECTION PROTOCOL:
-- If >= 2 checklist items are missing: Trigger STATUS: REWORK_REQUIRED and specify the exact query prompts the Researcher must run next.
-- If all checklist items are satisfied: Trigger STATUS: APPROVED_FOR_STAKEHOLDERS and compile the executive summary.
-
-OUTPUT:
-- Reflection Status: [APPROVED_FOR_STAKEHOLDERS | REWORK_REQUIRED]
-- Gap Analysis: (detailed list of missing data points)
-- Directed Queries for Next Loop: (specific research instructions if rework required)`,
-        rubricFocus: [
-          'Autonomous quality inspection and self-correction loop',
-          'Actionable feedback for other agents in the loop',
-          'Rigorous criteria preventing premature workflow completion',
-        ],
-      },
-    ];
-  }
-
-  // Default / AI Workflow Design tasks
-  return [
-    {
-      id: 'task-easy',
-      difficulty: 'easy',
-      difficultyLabel: 'Easy (Basic Level 2)',
-      badgeColor: '#059669',
-      title: 'Single-Objective Structured Prompt',
-      tagline: 'Transforming casual AI chat into a repeatable, grounded prompt template',
-      scenario:
-        'You need to turn a weekly team status update into an automated, structured progress briefing with accomplishments, blockers, and next week targets.',
-      objective:
-        'Write a prompt that defines a project manager persona, takes raw team bullet points as input, filters out irrelevant chat chatter, and formats the result into a clean 3-part update.',
-      testInput:
-        'Raw Team Notes: "Sarah finished the login flow! Dave was waiting on backend API tokens for 2 days. The server had a restart on Tuesday. Next week we plan to run load tests and demo to marketing. Also had pizza on Friday."',
-      starterPrompt: `Act as a Technical Project Manager.
-Transform the raw team notes below into a clean, professional weekly progress report.
-
-RAW NOTES:
-[Insert Raw Notes Here]
-
-REPORT FORMAT:
-1. Key Milestones Completed (bulleted)
-2. Blockers & Technical Risks (bulleted)
-3. Priorities for Next Week (bulleted)
-
-NEGATIVE CONSTRAINT:
-Filter out personal or casual commentary (e.g. food, casual chat) and keep only operational work items.`,
-      rubricFocus: [
-        'Clear persona and domain framing',
-        'Filtering constraint for irrelevant chatter',
-        'Consistent 3-part structured layout',
-      ],
-    },
-    {
-      id: 'task-medium',
-      difficulty: 'medium',
-      difficultyLabel: 'Medium (Intermediate Level 2)',
-      badgeColor: '#d97706',
-      title: 'Context-Aware Quality Gate Workflow Prompt',
-      tagline: 'Adding validation checkpoints and schema enforcement to recurring workflows',
-      scenario:
-        'You are automating customer ticket categorization for a SaaS platform. Tickets must be tagged with exact department categories, SLA priority, and an estimated resolution complexity score.',
-      objective:
-        'Build a prompt that classifies customer issues against fixed enum categories, enforces negative boundary rules, and outputs schema-valid JSON for direct system ingestion.',
-      testInput:
-        'Customer Ticket: "Our webhook endpoint stopped receiving events since 09:00 UTC today. We are losing payment notifications for active customers! Please help ASAP."',
-      starterPrompt: `Act as an Automated Triage Classifier for an Enterprise SaaS Platform.
-Analyze the customer support ticket and classify it according to strict taxonomy rules.
-
-ALLOWED CATEGORIES:
-- "Billing"
-- "API_Integrations"
-- "Authentication"
-- "UI_UX"
-
-SLA PRIORITY CRITERIA:
-- "P1_CRITICAL": Data loss, payment failure, complete service outage
-- "P2_HIGH": Major feature degradation with workaround
-- "P3_NORMAL": General questions, minor bugs
-
-OUTPUT FORMAT (Return valid JSON only):
-{
-  "category": "API_Integrations",
-  "priority": "P1_CRITICAL",
-  "affectedSystem": "Webhooks / Payments",
-  "summary": "1-line summary",
-  "suggestedAssignmentQueue": "Platform Engineering",
-  "confidenceScore": 0.95
-}`,
-      rubricFocus: [
-        'Strict enum category constraints',
-        'Clear decision logic for SLA severity levels',
-        'Valid JSON format ready for automated API processing',
-      ],
-    },
-    {
-      id: 'task-advanced',
-      difficulty: 'advanced',
-      difficultyLabel: 'Advanced (Pro Level 2)',
-      badgeColor: '#7c3aed',
-      title: 'Resilient Multi-Stage Pipeline with Fallback Protocol',
-      tagline:
-        'Designing an end-to-end prompt workflow with error recovery & validation checkpoints',
-      scenario:
-        'You are designing an AI data extraction workflow that parses unstructured vendor invoices. The prompt must extract line items, verify that the sum of line items equals the invoice total, and trigger an anomaly alert if mathematical discrepancies are found.',
-      objective:
-        'Design an advanced extraction prompt with internal math verification, explicit failure recovery instructions, and structured risk tagging.',
-      testInput:
-        'Invoice Snippet: "Vendor: Acme Cloud Inc. Items: Database Instance $400.00, Storage 500GB $80.00, Network Egress $50.00. Invoice Subtotal: $530.00. Tax: $53.00. Total Billed: $590.00."',
-      starterPrompt: `Act as an Automated Financial Data Extraction & Reconciliation Engine.
-Parse the vendor invoice and execute mathematical integrity verification before committing records.
-
-WORKFLOW STEPS:
-1. Extract line items, subtotal, taxes, and total billed.
-2. RECONCILIATION CHECK: Sum line items ($400 + $80 + $50 = $530). Add tax ($53) = $583 expected total.
-3. Compare expected total ($583) against Total Billed ($590).
-4. Identify discrepancy ($7 discrepancy detected).
-
-ANOMALY PROTOCOL:
-- If Math Check fails: Flag Status: "RECONCILIATION_MISMATCH" and detail the exact discrepancy.
-- If Math Check passes: Flag Status: "RECONCILED_SUCCESS".
-
-OUTPUT JSON SCHEMA:
-{
-  "vendor": "string",
-  "lineItems": [{"item": "string", "amount": number}],
-  "calculatedTotal": number,
-  "billedTotal": number,
-  "status": "RECONCILED_SUCCESS" | "RECONCILIATION_MISMATCH",
-  "discrepancyAmount": number,
-  "actionRequired": "string"
-}`,
-      rubricFocus: [
-        'Mathematical reconciliation and self-verification logic',
-        'Explicit anomaly protocol for discrepancy handling',
-        'Production-grade JSON schema for ERP ingestion',
-      ],
-    },
-  ];
-};
-
-export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({
-  topicName,
-  onTaskCompleted,
-  legacyTryThis,
-}) => {
-  const { state, saveClarityTaskResult } = useLearner();
-  const tasks = getTasksForTopic(topicName);
-
-  const [activeTab, setActiveTab] = useState<'easy' | 'medium' | 'advanced'>('easy');
-  const [showLegacyQuiz, setShowLegacyQuiz] = useState<boolean>(false);
-  const [legacySelectedId, setLegacySelectedId] = useState<string | null>(null);
-
-  // Active task data
-  const currentTask = tasks.find((t) => t.difficulty === activeTab) || tasks[0];
-
-  // Learner saved task scores
-  const savedTaskData = state.clarity.taskScores?.[topicName]?.[activeTab];
-
-  // Editor and execution states
-  const [promptText, setPromptText] = useState<string>(
-    savedTaskData?.userPrompt || currentTask.starterPrompt
-  );
-  const [testInput, setTestInput] = useState<string>(currentTask.testInput);
-  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState<boolean>(false);
-  const [isRunningAI, setIsRunningAI] = useState<boolean>(false);
-
-  // Execution result state
-  const [aiOutput, setAiOutput] = useState<string>(savedTaskData?.output || '');
-  const [taskScore, setTaskScore] = useState<number | null>(
-    savedTaskData?.score !== undefined ? savedTaskData.score : null
-  );
-  const [scoreBreakdown, setScoreBreakdown] = useState<{
-    clarity: number;
-    constraints: number;
-    structure: number;
-    reliability: number;
-  } | null>(savedTaskData?.breakdown || null);
-  const [grade, setGrade] = useState<string>(savedTaskData?.grade || '');
-  const [strengths, setStrengths] = useState<string[]>(savedTaskData?.strengths || []);
-  const [gaps, setGaps] = useState<string[]>(savedTaskData?.gaps || []);
-  const [evalTip, setEvalTip] = useState<string>(savedTaskData?.tip || '');
-  const [modelUsed, setModelUsed] = useState<string>('Google Gemini 3.1 Flash');
-  const [executionTime, setExecutionTime] = useState<number | null>(null);
-  const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [_saveSuccess, setSaveSuccess] = useState<boolean>(false);
-
-  // Task submission for evaluator review state
-  const [isSubmittingForReview, setIsSubmittingForReview] = useState<boolean>(false);
-  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState<string | null>(null);
+  // UI feedback banner
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
+  const [copiedOutput, setCopiedOutput] = useState<boolean>(false);
   const [refreshSubmissionsKey, setRefreshSubmissionsKey] = useState<number>(0);
 
-  const handleSubmitForReview = async () => {
-    if (!promptText.trim()) return;
-    setIsSubmittingForReview(true);
-    setReviewSubmitSuccess(null);
-    try {
-      const res = await apiClient.submitTask({
-        taskId: currentTask.id,
-        taskTitle: `${topicName}: ${currentTask.title}`,
-        answerContent: promptText.trim(),
-      });
-      if (res && res.success) {
-        setReviewSubmitSuccess(
-          'Task submitted for mentor review! Check status below in My Submissions.'
-        );
-        setRefreshSubmissionsKey((k) => k + 1);
-      }
-    } catch (err: any) {
-      console.warn('Submission failed:', err);
-    } finally {
-      setIsSubmittingForReview(false);
-    }
+  // Format MM:SS for timer
+  const formatTime = (totalSeconds: number): string => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Sync state when switching task difficulty tabs
-  useEffect(() => {
-    const existing = state.clarity.taskScores?.[topicName]?.[activeTab];
-    if (existing) {
-      setPromptText(existing.userPrompt);
-      setAiOutput(existing.output);
-      setTaskScore(existing.score);
-      setScoreBreakdown(existing.breakdown || null);
-      setGrade(existing.grade || '');
-      setStrengths(existing.strengths || []);
-      setGaps(existing.gaps || []);
-      setEvalTip(existing.tip || '');
-    } else {
-      setPromptText(currentTask.starterPrompt);
-      setAiOutput('');
-      setTaskScore(null);
-      setScoreBreakdown(null);
-      setGrade('');
-      setStrengths([]);
-      setGaps([]);
-      setEvalTip('');
-    }
-    setTestInput(currentTask.testInput);
-    setSaveSuccess(false);
-  }, [activeTab, topicName, currentTask, state.clarity.taskScores]);
+  // Draft key in localStorage for auto-saving drafts before submission
+  const draftStorageKey = activeAssignment?.assignmentId
+    ? `aiims_clarity_draft_${activeAssignment.assignmentId}`
+    : `aiims_clarity_draft_${topicName}`;
 
-  // AI Prompt Generator handler
-  const handleGeneratePromptWithAI = async () => {
-    setIsGeneratingPrompt(true);
+  // Fetch or initialize active clarity task from Question Bank
+  const loadActiveTask = async () => {
+    setIsLoadingTask(true);
+    setNotification(null);
     try {
-      const res = await apiClient.generateClarityPrompt({
-        topic: topicName,
-        difficulty: currentTask.difficulty,
-        taskTitle: currentTask.title,
-        taskObjective: currentTask.objective,
-        scenario: currentTask.scenario,
-      });
-      if (res && res.prompt) {
-        setPromptText(res.prompt);
-      }
-    } catch (err) {
-      console.warn('AI prompt generation error, using curated template:', err);
-      setPromptText(currentTask.starterPrompt);
-    } finally {
-      setIsGeneratingPrompt(false);
-    }
-  };
-
-  // Run AI Task handler
-  const handleRunAITask = async () => {
-    if (!promptText.trim()) return;
-    setIsRunningAI(true);
-    setSaveSuccess(false);
-
-    try {
-      const startTime = Date.now();
-      const res = await apiClient.runClarityTask({
-        topic: topicName,
-        difficulty: currentTask.difficulty,
-        taskTitle: currentTask.title,
-        taskObjective: currentTask.objective,
-        userPrompt: promptText,
-        contextData: testInput,
-      });
-
-      const elapsed = Date.now() - startTime;
-      setExecutionTime(elapsed);
-
-      if (res) {
-        setAiOutput(res.output || 'Execution completed with no output.');
-        setTaskScore(res.score || 85);
-        setScoreBreakdown(
-          res.breakdown || { clarity: 22, constraints: 21, structure: 22, reliability: 20 }
-        );
-        setGrade(res.grade || 'Proficient');
-        setStrengths(res.strengths || ['Clear prompt structure']);
-        setGaps(res.gaps || []);
-        setEvalTip(res.tip || 'Include explicit validation criteria.');
-        if (res.modelUsed) setModelUsed(res.modelUsed);
-
-        // Auto-save to LearnerContext and trigger credit award
-        saveClarityTaskResult(topicName, currentTask.difficulty, {
-          score: res.score || 85,
-          output: res.output,
-          userPrompt: promptText,
-          breakdown: res.breakdown,
-          grade: res.grade,
-          strengths: res.strengths,
-          gaps: res.gaps,
-          tip: res.tip,
+      const res = await apiClient.getClarityActiveTask(topicName, 'General');
+      if (res && res.hasActiveTask) {
+        setActiveAssignment({
+          assignmentId: res.assignmentId,
+          assignedAt: res.assignedAt,
+          completedAt: res.completedAt,
+          status: res.isLocked ? 'SUBMITTED' : 'IN_PROGRESS',
         });
-        setSaveSuccess(true);
+        setAssignedQuestion(res.question);
+        setCurrentLevel(res.currentLevel || res.question?.level || 'Easy');
+        setConsecutiveHighScores(res.consecutiveHighScores || 0);
 
-        if (onTaskCompleted) {
-          onTaskCompleted(currentTask.difficulty, res.score || 85);
+        if (res.isLocked && res.attempt) {
+          setIsLocked(true);
+          setPromptText(res.attempt.submittedAnswer || '');
+          setSubmissionResult({
+            attemptId: res.attempt.attemptId,
+            score: res.attempt.score,
+            rubricFeedback: res.attempt.rubricFeedback || [],
+            submittedAt: res.attempt.submittedAt,
+            timeTakenSeconds: res.attempt.timeTakenSeconds || 0,
+          });
+          setElapsedSeconds(res.attempt.timeTakenSeconds || 0);
+        } else {
+          setIsLocked(false);
+          // Restore draft safely from localStorage
+          const savedDraft = localStorage.getItem(`aiims_clarity_draft_${res.assignmentId}`);
+          setPromptText(savedDraft || '');
+          setSubmissionResult(null);
+          setRunOutput(null);
+          setRunMetrics(null);
+
+          // Compute authoritative elapsed seconds from assignedAt
+          if (res.assignedAt) {
+            const startMs = new Date(res.assignedAt).getTime();
+            const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+            setElapsedSeconds(elapsed);
+          }
         }
       }
-    } catch (err) {
-      console.error('Error running AI task:', err);
+    } catch (err: any) {
+      console.warn('[Level2AITaskLab] Failed to load active task:', err);
     } finally {
-      setIsRunningAI(false);
+      setIsLoadingTask(false);
     }
   };
 
-  const handleCopyOutput = () => {
-    if (!aiOutput) return;
-    navigator.clipboard.writeText(aiOutput);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+  useEffect(() => {
+    loadActiveTask();
+  }, [topicName]);
+
+  // Authoritative elapsed timer: ticks every 1 second while task is active and unlocked
+  useEffect(() => {
+    if (isLocked || !activeAssignment?.assignedAt) return;
+
+    const startMs = new Date(activeAssignment.assignedAt).getTime();
+    const interval = setInterval(() => {
+      const nowMs = Date.now();
+      const currentElapsed = Math.max(0, Math.floor((nowMs - startMs) / 1000));
+      setElapsedSeconds(currentElapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [activeAssignment?.assignedAt, isLocked]);
+
+  // Safe draft persistence: auto-save typed prompt to localStorage
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (isLocked) return;
+    const value = e.target.value;
+    setPromptText(value);
+    if (activeAssignment?.assignmentId) {
+      try {
+        localStorage.setItem(draftStorageKey, value);
+      } catch {
+        // Safe storage quota fallback
+      }
+    }
   };
 
-  // Overall Task Completion Counter for Level 2
-  const topicScoresObj = state.clarity.taskScores?.[topicName] || {};
-  const completedTaskCount = ['easy', 'medium', 'advanced'].filter(
-    (diff) => topicScoresObj[diff]?.score !== undefined
-  ).length;
+  // Section 5: Decoupled RUN Action (0 AC on trial, 10 AC subsequently, refund on failure)
+  const handleRunTask = async () => {
+    if (!promptText.trim() || isLocked || isRunning) return;
+
+    setIsRunning(true);
+    setNotification(null);
+
+    try {
+      const res = await apiClient.runClarityTask({
+        assignmentId: activeAssignment?.assignmentId,
+        topic: topicName,
+        difficulty: currentLevel.toLowerCase(),
+        taskTitle: assignedQuestion?.title,
+        userPrompt: promptText.trim(),
+        contextData: assignedQuestion?.testScenario,
+      });
+
+      if (res) {
+        if (res.error) {
+          if (res.code === 'TASK_LOCKED') {
+            setIsLocked(true);
+          }
+          setNotification({ type: 'error', message: res.error });
+        } else {
+          setRunOutput(res.output || 'Execution completed.');
+          setRunMetrics({
+            modelUsed: res.modelUsed,
+            executionTimeMs: res.executionTimeMs,
+            creditsDeducted: res.creditsDeducted,
+            isFreeTrial: res.isFreeTrial,
+          });
+
+          const creditMsg = res.isFreeTrial
+            ? 'Complimentary trial run executed (0 AC deducted).'
+            : `Ran successfully. Deducted ${res.creditsDeducted || 10} AC. Balance: ${res.currentBalance} AC.`;
+          setNotification({ type: 'info', message: creditMsg });
+        }
+      }
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Run failed. Any deducted credits were safely refunded.',
+      });
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // Section 5: Decoupled SUBMIT Action (Evaluates rubric, locks question, awards credits & XP, updates progression)
+  const handleSubmitTask = async () => {
+    if (!promptText.trim() || isLocked || isSubmitting) return;
+
+    if (!activeAssignment?.assignmentId) {
+      setNotification({ type: 'error', message: 'Active assignment ID is missing.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setNotification(null);
+
+    try {
+      const res = await apiClient.submitClarityAttempt({
+        assignmentId: activeAssignment.assignmentId,
+        answer: promptText.trim(),
+        timeTakenSeconds: elapsedSeconds,
+      });
+
+      if (res && res.success) {
+        // Enforce lock permanently
+        setIsLocked(true);
+
+        // Clear local storage draft
+        try {
+          localStorage.removeItem(draftStorageKey);
+        } catch {}
+
+        setSubmissionResult({
+          attemptId: res.attemptId,
+          score: res.score,
+          rubricFeedback: res.rubricFeedback || [],
+          submittedAt: res.submittedAt,
+          timeTakenSeconds: res.timeTakenSeconds,
+          creditsAwarded: res.creditsAwarded,
+          xpAwarded: res.xpAwarded,
+          progression: res.progression,
+        });
+
+        // Update progression indicators
+        if (res.progression) {
+          setCurrentLevel(res.progression.currentLevel);
+          setConsecutiveHighScores(res.progression.consecutiveHighScores);
+        }
+
+        setNotification({
+          type: 'success',
+          message: `Task successfully submitted! Score: ${res.score}/100. Awarded +${res.creditsAwarded || 50} AC and +${res.xpAwarded || 100} XP. Task is now locked.`,
+        });
+
+        if (onTaskCompleted) {
+          const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
+            Easy: 'easy',
+            Medium: 'medium',
+            Hard: 'advanced',
+          };
+          onTaskCompleted(diffMap[currentLevel] || 'easy', res.score);
+        }
+
+        setRefreshSubmissionsKey((k) => k + 1);
+      } else if (res && res.error) {
+        if (res.code === 'TASK_LOCKED') {
+          setIsLocked(true);
+        }
+        setNotification({ type: 'error', message: res.error });
+      }
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Failed to submit task. Please check your connection and retry.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Serve Next Question handler (Loads next eligible question for the learner)
+  const handleNextQuestion = async () => {
+    setIsLoadingTask(true);
+    setNotification(null);
+    try {
+      const res = await apiClient.serveNextClarityTask(topicName, 'General');
+      if (res && res.success) {
+        setActiveAssignment({
+          assignmentId: res.assignmentId,
+          assignedAt: res.assignedAt,
+          status: 'ASSIGNED',
+        });
+        setAssignedQuestion(res.question);
+        setCurrentLevel(res.currentLevel || res.question?.level || 'Easy');
+        setConsecutiveHighScores(res.consecutiveHighScores || 0);
+        setIsLocked(false);
+        setPromptText('');
+        setRunOutput(null);
+        setRunMetrics(null);
+        setSubmissionResult(null);
+        setElapsedSeconds(0);
+        setIsHintExpanded(false);
+        setDoubtText('');
+        setDoubtSubmitted(false);
+
+        try {
+          localStorage.removeItem(`aiims_clarity_draft_${res.assignmentId}`);
+        } catch {}
+
+        setNotification({
+          type: 'info',
+          message: `Loaded new practice question at ${res.currentLevel} level.`,
+        });
+      }
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Failed to load next question.',
+      });
+    } finally {
+      setIsLoadingTask(false);
+    }
+  };
+
+  const handleCopyTestScenario = () => {
+    if (!assignedQuestion?.testScenario) return;
+    navigator.clipboard.writeText(assignedQuestion.testScenario);
+    setCopiedTestScenario(true);
+    setTimeout(() => setCopiedTestScenario(false), 2000);
+  };
+
+  const handleCopyRunOutput = () => {
+    if (!runOutput) return;
+    navigator.clipboard.writeText(runOutput);
+    setCopiedOutput(true);
+    setTimeout(() => setCopiedOutput(false), 2000);
+  };
+
+  const handleClearDraft = () => {
+    if (isLocked) return;
+    setPromptText('');
+    try {
+      localStorage.removeItem(draftStorageKey);
+    } catch {}
+  };
+
+  const handleSendDoubt = () => {
+    if (isLocked || !doubtText.trim()) return;
+    setDoubtSubmitted(true);
+    setTimeout(() => {
+      setDoubtText('');
+    }, 1500);
+  };
+
+  // Difficulty chip color resolver
+  const getLevelBadge = (level: string) => {
+    switch (level) {
+      case 'Hard':
+        return {
+          label: 'Hard',
+          color: '#7c3aed',
+          bg: 'var(--aiims-tint-violet-bg, #f5f3ff)',
+          border: 'var(--aiims-tint-violet-border, #ddd6fe)',
+        };
+      case 'Medium':
+        return {
+          label: 'Medium',
+          color: '#d97706',
+          bg: 'var(--aiims-tint-amber-bg, #fffbeb)',
+          border: 'var(--aiims-tint-amber-border, #fde68a)',
+        };
+      case 'Easy':
+      default:
+        return {
+          label: 'Easy',
+          color: '#059669',
+          bg: 'var(--aiims-tint-emerald-bg, #ecfdf5)',
+          border: 'var(--aiims-tint-emerald-border, #a7f3d0)',
+        };
+    }
+  };
+
+  const badgeProps = getLevelBadge(currentLevel);
+
+  if (isLoadingTask && !assignedQuestion) {
+    return (
+      <Surface variant="mint" radius="lg" padding="lg">
+        <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+          <div
+            style={{
+              width: '40px',
+              height: '40px',
+              border: '3px solid var(--aiims-primary)',
+              borderTopColor: 'transparent',
+              borderRadius: '50%',
+              margin: '0 auto 16px',
+              animation: 'spin 1s linear infinite',
+            }}
+          />
+          <p style={{ color: 'var(--aiims-text-heading)', fontWeight: 600 }}>
+            Fetching eligible question from Question Bank for {topicName}...
+          </p>
+        </div>
+      </Surface>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* TOP HEADER & DIFFICULTY TAB BAR */}
-      <Surface variant="sky" radius="lg" padding="lg">
+      {/* GLOBAL NOTIFICATION BANNER */}
+      {notification && (
+        <div
+          style={{
+            padding: '12px 16px',
+            borderRadius: '10px',
+            fontSize: '13px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            backgroundColor:
+              notification.type === 'success'
+                ? 'var(--aiims-tint-emerald-bg, #ecfdf5)'
+                : notification.type === 'error'
+                  ? 'var(--aiims-tint-rose-bg, #fff1f2)'
+                  : 'var(--aiims-tint-sky-bg, #f0f9ff)',
+            color:
+              notification.type === 'success'
+                ? '#059669'
+                : notification.type === 'error'
+                  ? '#dc2626'
+                  : 'var(--aiims-primary)',
+            border: `1px solid ${
+              notification.type === 'success'
+                ? 'var(--aiims-tint-emerald-border, #a7f3d0)'
+                : notification.type === 'error'
+                  ? 'var(--aiims-tint-rose-border, #fecdd3)'
+                  : 'var(--aiims-tint-sky-border, #bae6fd)'
+            }`,
+          }}
+        >
+          {notification.type === 'success' ? (
+            <CheckCircle2 size={16} />
+          ) : notification.type === 'error' ? (
+            <AlertTriangle size={16} />
+          ) : (
+            <Zap size={16} />
+          )}
+          <span>{notification.message}</span>
+        </div>
+      )}
+
+      {/* ========================================================
+          SECTION 1: TOPIC NAME, DIFFICULTY CHIP, ELAPSED TIMER
+          ======================================================== */}
+      <Surface variant="sky" radius="lg" padding="md">
         <div
           style={{
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             flexWrap: 'wrap',
             gap: '12px',
-            marginBottom: '16px',
           }}
         >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          {/* Topic & Difficulty */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                backgroundColor: 'var(--aiims-primary)',
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Zap size={18} />
+            </div>
+
+            <div>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-primary)',
+                  letterSpacing: '0.8px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Clarity Practice Lab
+              </span>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading)',
+                  fontFamily: "'Fredoka', sans-serif",
+                }}
+              >
+                {topicName}
+              </h3>
+            </div>
+
+            {/* Difficulty Level Chip */}
+            <div
+              style={{
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: badgeProps.color,
+                backgroundColor: badgeProps.bg,
+                border: `1px solid ${badgeProps.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <span>Level: {badgeProps.label}</span>
+              {consecutiveHighScores > 0 && !isLocked && (
+                <span style={{ opacity: 0.85, fontSize: '11px' }}>
+                  ({consecutiveHighScores}/2 toward advance)
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Authoritative Elapsed Timer & Lock Status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {isLocked ? (
               <div
                 style={{
-                  width: '32px',
-                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--aiims-tint-rose-bg, #fff1f2)',
+                  border: '1px solid var(--aiims-tint-rose-border, #fecdd3)',
                   borderRadius: '8px',
-                  backgroundColor: 'var(--aiims-primary)',
+                  color: '#dc2626',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                }}
+              >
+                <Lock size={14} />
+                <span>Locked • Finalized in {formatTime(elapsedSeconds)}</span>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--aiims-bg-card)',
+                  border: '1px solid var(--aiims-border-card)',
+                  borderRadius: '8px',
+                  boxShadow: 'var(--aiims-shadow-card)',
+                  color: 'var(--aiims-text-heading)',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+                title="Authoritative practice duration computed from server assignment timestamp"
+              >
+                <Clock size={15} style={{ color: 'var(--aiims-primary)' }} />
+                <span>Elapsed: {formatTime(elapsedSeconds)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </Surface>
+
+      {/* ========================================================
+          SECTION 2: QUESTION CARD (CONCISE TITLE & SCENARIO)
+          ======================================================== */}
+      <Surface variant="mint" radius="lg" padding="lg">
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 800,
+                color: 'var(--aiims-tint-emerald-text)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+              }}
+            >
+              Practical Workplace Scenario (Non-Coder Track)
+            </span>
+          </div>
+
+          <h2
+            style={{
+              margin: '0 0 10px',
+              fontSize: '20px',
+              fontWeight: 800,
+              color: 'var(--aiims-text-heading)',
+              fontFamily: "'Fredoka', sans-serif",
+            }}
+          >
+            {assignedQuestion?.title || 'AI Prompt Engineering Challenge'}
+          </h2>
+
+          {/* Concise Scenario (<= 4 lines before expansion) */}
+          <div
+            style={{
+              fontSize: '14px',
+              color: 'var(--aiims-text-heading)',
+              lineHeight: 1.6,
+              fontWeight: 500,
+              maxHeight: isScenarioExpanded ? 'none' : '90px',
+              overflow: 'hidden',
+              position: 'relative',
+            }}
+          >
+            <p style={{ margin: 0 }}>
+              {assignedQuestion?.promptText ||
+                'Design a reliable AI prompt that addresses the operational requirements described below.'}
+            </p>
+          </div>
+
+          {assignedQuestion?.promptText && assignedQuestion.promptText.length > 200 && (
+            <button
+              onClick={() => setIsScenarioExpanded(!isScenarioExpanded)}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: '4px 0 0',
+                color: 'var(--aiims-primary)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              {isScenarioExpanded ? (
+                <>
+                  Show Less <ChevronUp size={13} />
+                </>
+              ) : (
+                <>
+                  Show More <ChevronDown size={13} />
+                </>
+              )}
+            </button>
+          )}
+        </div>
+
+        {/* Test Input / Context Scenario */}
+        {assignedQuestion?.testScenario && (
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--aiims-bg-card)',
+              border: '1px solid var(--aiims-border-card)',
+              boxShadow: 'var(--aiims-shadow-card)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '6px',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-primary)',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Permitted Test Input Context
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={copiedTestScenario ? <Check size={12} /> : <Copy size={12} />}
+                onClick={handleCopyTestScenario}
+              >
+                {copiedTestScenario ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+
+            <p
+              style={{
+                margin: 0,
+                fontSize: '13px',
+                color: 'var(--aiims-text-body)',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                fontFamily: 'monospace',
+                maxHeight: '130px',
+                overflowY: 'auto',
+              }}
+            >
+              {assignedQuestion.testScenario}
+            </p>
+          </div>
+        )}
+      </Surface>
+
+      {/* ========================================================
+          SECTION 3: COLLAPSED HINT (OPTIONAL)
+          ======================================================== */}
+      {assignedQuestion?.hint && (
+        <Surface variant="mint" radius="lg" padding="sm">
+          <button
+            onClick={() => setIsHintExpanded(!isHintExpanded)}
+            style={{
+              width: '100%',
+              background: 'none',
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              color: 'var(--aiims-text-heading)',
+              fontWeight: 700,
+              fontSize: '13px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Lightbulb size={16} color="#d97706" />
+              <span>Hint (optional)</span>
+            </div>
+            {isHintExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+
+          {isHintExpanded && (
+            <div
+              style={{
+                padding: '10px 14px 12px',
+                borderTop: '1px solid var(--aiims-tint-emerald-border)',
+                fontSize: '13px',
+                color: 'var(--aiims-text-body)',
+                lineHeight: 1.55,
+              }}
+            >
+              <p style={{ margin: 0 }}>{assignedQuestion.hint}</p>
+            </div>
+          )}
+        </Surface>
+      )}
+
+      {/* ========================================================
+          SECTION 4: PROMPT EDITOR (EMPTY INITIALLY, DRAFT PRESERVED)
+          ======================================================== */}
+      <Surface variant="mint" radius="lg" padding="lg">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}
+            >
+              Your AI Prompt
+            </span>
+            {isLocked && (
+              <Badge variant="neutral" icon={<Lock size={11} />}>
+                Read-Only (Locked)
+              </Badge>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
+              {promptText.length} / 3,000 chars
+            </span>
+            {!isLocked && promptText.length > 0 && (
+              <button
+                onClick={handleClearDraft}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--aiims-text-muted)',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Clear Draft
+              </button>
+            )}
+          </div>
+        </div>
+
+        <textarea
+          rows={6}
+          value={promptText}
+          onChange={handlePromptChange}
+          disabled={isLocked}
+          placeholder="Write your prompt here"
+          style={{
+            width: '100%',
+            padding: '14px',
+            borderRadius: '10px',
+            border: isLocked
+              ? '1px solid var(--aiims-border-card)'
+              : '1.5px solid var(--aiims-primary)',
+            backgroundColor: isLocked
+              ? 'var(--aiims-bg-card-subtle, #f9fafb)'
+              : 'var(--aiims-bg-card)',
+            color: 'var(--aiims-text-heading)',
+            fontSize: '13.5px',
+            lineHeight: 1.55,
+            fontFamily: 'inherit',
+            resize: isLocked ? 'none' : 'vertical',
+            outline: 'none',
+            boxSizing: 'border-box',
+            opacity: isLocked ? 0.9 : 1,
+          }}
+        />
+
+        {/* ========================================================
+            SECTION 5: SEPARATE RUN AND SUBMIT ACTIONS
+            ======================================================== */}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginTop: '14px',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Run Button (Decoupled: does NOT lock or complete task) */}
+            <Button
+              variant="secondary"
+              size="md"
+              icon={isRunning ? undefined : <Play size={14} />}
+              onClick={handleRunTask}
+              disabled={isLocked || isRunning || !promptText.trim()}
+            >
+              {isRunning
+                ? 'Running AI...'
+                : (state.clarity as any)?.trialRunsUsed === 0
+                  ? 'Run Prompt (Free Trial)'
+                  : 'Run Prompt (10 AC)'}
+            </Button>
+
+            {/* Clear output button */}
+            {runOutput && !isLocked && (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RotateCcw size={12} />}
+                onClick={() => {
+                  setRunOutput(null);
+                  setRunMetrics(null);
+                }}
+              >
+                Reset Output
+              </Button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Submit Button (Server rubric scoring, locks task, awards +50 AC, level progression) */}
+            <Button
+              variant="green"
+              size="md"
+              icon={isSubmitting ? undefined : <CheckCircle2 size={15} />}
+              onClick={handleSubmitTask}
+              disabled={isLocked || isSubmitting || !promptText.trim()}
+            >
+              {isSubmitting
+                ? 'Submitting & Evaluating...'
+                : isLocked
+                  ? 'Task Submitted'
+                  : 'Submit Task (+50 AC)'}
+            </Button>
+          </div>
+        </div>
+      </Surface>
+
+      {/* ========================================================
+          RUN OUTPUT PREVIEW (AFTER RUNNING AI)
+          ======================================================== */}
+      {runOutput && !submissionResult && (
+        <Surface variant="mint" radius="lg" padding="md">
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '10px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Sparkles size={16} color="var(--aiims-primary)" />
+              <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-primary)' }}>
+                AI Model Test Execution Output
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {runMetrics?.modelUsed && <Badge variant="neutral">{runMetrics.modelUsed}</Badge>}
+              {runMetrics?.executionTimeMs !== undefined && (
+                <Badge variant="neutral">{runMetrics.executionTimeMs}ms</Badge>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={copiedOutput ? <Check size={12} /> : <Copy size={12} />}
+                onClick={handleCopyRunOutput}
+              >
+                {copiedOutput ? 'Copied' : 'Copy'}
+              </Button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px 14px',
+              backgroundColor: 'var(--aiims-bg-card)',
+              borderRadius: '8px',
+              border: '1px solid var(--aiims-border-card)',
+              fontSize: '13px',
+              lineHeight: 1.5,
+              whiteSpace: 'pre-wrap',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            {runOutput}
+          </div>
+
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: '11.5px',
+              color: 'var(--aiims-text-muted)',
+              fontStyle: 'italic',
+            }}
+          >
+            💡 Review the output above to refine your prompt. When satisfied, click "Submit Task
+            (+50 AC)" to lock and finalize your attempt.
+          </p>
+        </Surface>
+      )}
+
+      {/* ========================================================
+          SECTION 6: RESULTS & RUBRIC-BASED EVALUATION FEEDBACK
+          ======================================================== */}
+      {submissionResult && (
+        <Surface variant="sky" radius="lg" padding="lg">
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '16px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  backgroundColor: '#059669',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Zap size={18} />
+                <Award size={20} />
               </div>
-              <h2
+
+              <div>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: '#059669',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Server-Authoritative Rubric Score
+                </span>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '22px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading)',
+                    fontFamily: "'Fredoka', sans-serif",
+                  }}
+                >
+                  {submissionResult.score} / 100
+                </h3>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Badge variant="success">Completed</Badge>
+              <Badge variant="neutral">
+                +{submissionResult.creditsAwarded || 50} AC / +{submissionResult.xpAwarded || 100}{' '}
+                XP
+              </Badge>
+            </div>
+          </div>
+
+          {/* Level Progression Transition Notification */}
+          {submissionResult.progression && (
+            <div
+              style={{
+                padding: '12px 14px',
+                borderRadius: '10px',
+                backgroundColor:
+                  submissionResult.progression.direction === 'UP'
+                    ? 'var(--aiims-tint-emerald-bg, #ecfdf5)'
+                    : submissionResult.progression.direction === 'DOWN'
+                      ? 'var(--aiims-tint-amber-bg, #fffbeb)'
+                      : 'var(--aiims-bg-card)',
+                border: `1px solid ${
+                  submissionResult.progression.direction === 'UP'
+                    ? 'var(--aiims-tint-emerald-border, #a7f3d0)'
+                    : submissionResult.progression.direction === 'DOWN'
+                      ? 'var(--aiims-tint-amber-border, #fde68a)'
+                      : 'var(--aiims-border-card)'
+                }`,
+                marginBottom: '16px',
+              }}
+            >
+              {submissionResult.progression.direction === 'UP' ? (
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#059669' }}>
+                  🎉 Level Advanced to {submissionResult.progression.currentLevel}! You achieved two
+                  consecutive high scores (≥80) in this topic!
+                </p>
+              ) : submissionResult.progression.direction === 'DOWN' ? (
+                <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#d97706' }}>
+                  ⚠️ Score fell below 50. Level adjusted to{' '}
+                  {submissionResult.progression.currentLevel} for additional foundational practice.
+                </p>
+              ) : (
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--aiims-text-heading)',
+                  }}
+                >
+                  Score recorded. Current Level: {submissionResult.progression.currentLevel} •
+                  Consecutive high scores: {submissionResult.progression.consecutiveHighScores}/2
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Rubric Criteria Breakdown */}
+          {submissionResult.rubricFeedback && submissionResult.rubricFeedback.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <h4
                 style={{
-                  margin: 0,
-                  fontSize: '20px',
+                  margin: '0 0 10px',
+                  fontSize: '13px',
                   fontWeight: 800,
                   color: 'var(--aiims-text-heading)',
-                  fontFamily: "'Fredoka', sans-serif",
+                  textTransform: 'uppercase',
                 }}
               >
-                3. Try This — Level 2 Interactive AI Tasks
-              </h2>
-            </div>
-            <p
-              style={{
-                margin: 0,
-                fontSize: '13px',
-                color: 'var(--aiims-text-secondary)',
-                lineHeight: 1.45,
-              }}
-            >
-              Hands-on practical execution for <strong>{topicName}</strong>. Engineer prompts, run
-              live with AI, inspect outputs, and earn individual task evaluation scores.
-            </p>
-          </div>
+                Rubric Criteria Evaluation
+              </h4>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Badge variant="cyan">{completedTaskCount} of 3 Tasks Scored</Badge>
-
-            {legacyTryThis && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowLegacyQuiz(!showLegacyQuiz)}
-                icon={<HelpCircle size={14} />}
-              >
-                {showLegacyQuiz ? 'Show AI Tasks' : 'Concept Quiz'}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* 3 TASK DIFFICULTY SELECTOR TILES */}
-        <div
-          className="aiims-card-grid"
-          style={{
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
-            gap: '12px',
-          }}
-        >
-          {tasks.map((task) => {
-            const isCurrent = activeTab === task.difficulty;
-            const saved = topicScoresObj[task.difficulty];
-            const hasScore = saved?.score !== undefined;
-
-            return (
-              <div
-                key={task.id}
-                onClick={() => {
-                  setActiveTab(task.difficulty);
-                  setShowLegacyQuiz(false);
-                }}
-                style={{
-                  padding: '14px 16px',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  border: isCurrent
-                    ? '2px solid var(--aiims-primary)'
-                    : '1px solid var(--aiims-border-subtle)',
-                  backgroundColor: isCurrent ? 'var(--aiims-bg-card)' : 'var(--aiims-bg-subtle)',
-                  boxShadow: isCurrent ? 'var(--aiims-shadow-card)' : 'none',
-                  transition: 'all 0.18s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <span
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {submissionResult.rubricFeedback.map((item: any, idx: number) => (
+                  <div
+                    key={idx}
                     style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      color: task.badgeColor,
-                      backgroundColor:
-                        task.difficulty === 'easy'
-                          ? 'var(--aiims-tint-emerald-bg)'
-                          : task.difficulty === 'medium'
-                            ? 'var(--aiims-tint-amber-bg)'
-                            : 'var(--aiims-tint-indigo-bg)',
-                      padding: '3px 8px',
-                      borderRadius: '6px',
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      backgroundColor: 'var(--aiims-bg-card)',
+                      border: '1px solid var(--aiims-border-card)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '12px',
                     }}
                   >
-                    {task.difficultyLabel}
-                  </span>
-
-                  {hasScore ? (
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        fontWeight: 800,
-                        color:
-                          saved.score >= 85
-                            ? 'var(--aiims-tint-emerald-text)'
-                            : 'var(--aiims-tint-amber-text)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      <CheckCircle2 size={14} /> {saved.score}/100
-                    </span>
-                  ) : (
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        color: 'var(--aiims-text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                      }}
-                    >
-                      <Clock size={12} /> Ready
-                    </span>
-                  )}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 700,
-                    color: 'var(--aiims-text-heading)',
-                    lineHeight: 1.3,
-                  }}
-                >
-                  {task.title}
-                </div>
-
-                <div
-                  style={{
-                    fontSize: '12px',
-                    color: 'var(--aiims-text-secondary)',
-                    lineHeight: 1.4,
-                  }}
-                >
-                  {task.tagline}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </Surface>
-
-      {/* OPTIONAL LEGACY QUIZ ACCORDION / TOGGLE */}
-      {showLegacyQuiz && legacyTryThis && (
-        <Surface variant="bordered" radius="lg" padding="lg">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <HelpCircle style={{ width: '18px', height: '18px', color: 'var(--aiims-primary)' }} />
-            <h3
-              style={{
-                margin: 0,
-                fontSize: '16px',
-                fontWeight: 800,
-                color: 'var(--aiims-text-heading)',
-              }}
-            >
-              Concept Check: {legacyTryThis.question}
-            </h3>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {legacyTryThis.options.map((option) => {
-              const isSelected = legacySelectedId === option.id;
-              return (
-                <div
-                  key={option.id}
-                  onClick={() => setLegacySelectedId(option.id)}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '10px',
-                    border: isSelected
-                      ? '2px solid #059669'
-                      : '1px solid var(--aiims-border-subtle)',
-                    backgroundColor: isSelected
-                      ? 'var(--aiims-card-mint-bg)'
-                      : 'var(--aiims-bg-card)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <div
-                      style={{
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '6px',
-                        backgroundColor: isSelected ? '#059669' : 'var(--aiims-bg-subtle)',
-                        color: isSelected ? '#ffffff' : 'var(--aiims-text-body)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 800,
-                        fontSize: '12px',
-                      }}
-                    >
-                      {option.id}
-                    </div>
                     <div>
-                      <div
+                      <span
                         style={{
                           fontSize: '13px',
-                          fontWeight: 600,
+                          fontWeight: 700,
                           color: 'var(--aiims-text-heading)',
                         }}
                       >
-                        {option.text}
-                      </div>
-                      {isSelected && (
-                        <div
+                        {item.criterion}
+                      </span>
+                      {item.comment && (
+                        <p
                           style={{
-                            marginTop: '6px',
+                            margin: '2px 0 0',
                             fontSize: '12px',
-                            color: option.isRecommended ? '#059669' : 'var(--aiims-text-secondary)',
+                            color: 'var(--aiims-text-muted)',
                           }}
                         >
-                          <strong>{option.isRecommended ? 'Correct: ' : 'Analysis: '}</strong>{' '}
-                          {option.explanation}
-                        </div>
+                          {item.comment}
+                        </p>
                       )}
                     </div>
+
+                    <div
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        color:
+                          item.score >= item.maxScore * 0.8
+                            ? '#059669'
+                            : item.score >= item.maxScore * 0.5
+                              ? '#d97706'
+                              : '#dc2626',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {item.score} / {item.maxScore}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* NEXT QUESTION ACTION */}
+          <div
+            style={{
+              paddingTop: '16px',
+              borderTop: '1px solid var(--aiims-border-card)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <ShieldCheck size={16} color="#059669" />
+              <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700 }}>
+                Attempt finalized & securely locked
+              </span>
+            </div>
+
+            <Button
+              variant="green"
+              size="md"
+              icon={<ArrowRight size={14} />}
+              onClick={handleNextQuestion}
+            >
+              Next Practice Question →
+            </Button>
           </div>
         </Surface>
       )}
 
-      {/* ACTIVE TASK WORKSPACE */}
-      {!showLegacyQuiz && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* 1. SCENARIO & OBJECTIVE BRIEFING */}
-          <Surface variant="bordered" radius="lg" padding="md">
-            <div
+      {/* ========================================================
+          MENTOR DOUBT / QUERY SECTION (READ-ONLY WHEN LOCKED)
+          ======================================================== */}
+      <Surface variant="mint" radius="lg" padding="md">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <HelpCircle size={16} color="var(--aiims-primary)" />
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: 800,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            Ask Mentor about this Question
+          </span>
+          {isLocked && (
+            <Badge variant="neutral" icon={<Lock size={11} />}>
+              Locked
+            </Badge>
+          )}
+        </div>
+
+        {doubtSubmitted ? (
+          <p style={{ margin: 0, fontSize: '13px', color: '#059669', fontWeight: 600 }}>
+            ✓ Your doubt has been recorded for evaluator follow-up.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={doubtText}
+              onChange={(e) => setDoubtText(e.target.value)}
+              disabled={isLocked}
+              placeholder={
+                isLocked
+                  ? 'Task is locked after submission. Doubt chat is read-only.'
+                  : 'Have a doubt regarding this prompt scenario? Ask here...'
+              }
               style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                gap: '16px',
-              }}
-            >
-              <div>
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}
-                >
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      textTransform: 'uppercase',
-                      color: currentTask.badgeColor,
-                      backgroundColor: 'var(--aiims-bg-subtle)',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {currentTask.difficultyLabel}
-                  </span>
-                  <span
-                    style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}
-                  >
-                    • Real-World Challenge
-                  </span>
-                </div>
-
-                <h3
-                  style={{
-                    margin: '0 0 8px',
-                    fontSize: '16px',
-                    fontWeight: 800,
-                    color: 'var(--aiims-text-heading)',
-                  }}
-                >
-                  {currentTask.title}
-                </h3>
-
-                <p
-                  style={{
-                    margin: '0 0 10px',
-                    fontSize: '13px',
-                    color: 'var(--aiims-text-body)',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {currentTask.scenario}
-                </p>
-
-                <div
-                  style={{
-                    padding: '10px 12px',
-                    backgroundColor: 'var(--aiims-bg-subtle)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--aiims-border-subtle)',
-                    fontSize: '12px',
-                    color: 'var(--aiims-text-heading)',
-                  }}
-                >
-                  <strong style={{ color: 'var(--aiims-primary)' }}>Target Goal: </strong>
-                  {currentTask.objective}
-                </div>
-              </div>
-
-              {/* RUBRIC TARGETS */}
-              <div
-                style={{
-                  backgroundColor: 'var(--aiims-card-mint-bg)',
-                  padding: '14px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--aiims-card-mint-border)',
-                }}
-              >
-                <div
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}
-                >
-                  <ShieldCheck size={16} color="#059669" />
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-card-mint-text)',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    AI Evaluator Rubric Focus
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {currentTask.rubricFocus.map((focus, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontSize: '12px',
-                        color: 'var(--aiims-card-mint-text)',
-                      }}
-                    >
-                      <Check size={13} color="#059669" style={{ flexShrink: 0 }} />
-                      <span>{focus}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div
-                  style={{
-                    marginTop: '12px',
-                    fontSize: '11px',
-                    color: 'var(--aiims-card-mint-text)',
-                    borderTop: '1px dashed var(--aiims-card-mint-border)',
-                    paddingTop: '8px',
-                  }}
-                >
-                  💡{' '}
-                  <em>
-                    Scored on Clarity (25), Constraints (25), Output Structure (25), and Reliability
-                    (25).
-                  </em>
-                </div>
-              </div>
-            </div>
-          </Surface>
-
-          {/* 2. PROMPT GENERATOR & PROMPT EDITOR */}
-          <Surface variant="bordered" radius="lg" padding="md">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '10px',
-                flexWrap: 'wrap',
-                gap: '8px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileCode size={18} color="var(--aiims-primary)" />
-                <span
-                  style={{ fontSize: '14px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}
-                >
-                  Your Level 2 AI Prompt
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
-                  ({promptText.length} chars)
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleGeneratePromptWithAI}
-                  disabled={isGeneratingPrompt}
-                  icon={<Sparkles size={14} color="#7c3aed" />}
-                >
-                  {isGeneratingPrompt ? 'AI Generating Prompt...' : '✨ AI Generate Starter Prompt'}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPromptText(currentTask.starterPrompt)}
-                  icon={<RotateCcw size={12} />}
-                >
-                  Reset Template
-                </Button>
-              </div>
-            </div>
-
-            {/* PROMPT TEXTAREA */}
-            <textarea
-              rows={9}
-              value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
-              placeholder="Draft your AI instructions here..."
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
+                flex: 1,
+                padding: '8px 12px',
                 borderRadius: '8px',
-                border: '1px solid var(--aiims-input-border)',
-                padding: '12px 14px',
+                border: '1px solid var(--aiims-border-card)',
+                backgroundColor: isLocked
+                  ? 'var(--aiims-bg-card-subtle, #f9fafb)'
+                  : 'var(--aiims-bg-card)',
                 fontSize: '13px',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                color: 'var(--aiims-input-text)',
-                lineHeight: 1.5,
-                backgroundColor: 'var(--aiims-input-bg)',
+                color: 'var(--aiims-text-heading)',
                 outline: 'none',
-                resize: 'vertical',
               }}
             />
-
-            {/* TEST INPUT DATA DRAWER */}
-            <div
-              style={{
-                marginTop: '12px',
-                borderTop: '1px solid var(--aiims-border-subtle)',
-                paddingTop: '10px',
-              }}
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Send size={13} />}
+              onClick={handleSendDoubt}
+              disabled={isLocked || !doubtText.trim()}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '6px',
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: 'var(--aiims-text-secondary)',
-                  }}
-                >
-                  Execution Context Data (Passed into AI):
-                </span>
-                <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
-                  Editable Test Snippet
-                </span>
-              </div>
-              <textarea
-                rows={2}
-                value={testInput}
-                onChange={(e) => setTestInput(e.target.value)}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  borderRadius: '6px',
-                  border: '1px solid var(--aiims-input-border)',
-                  padding: '8px 10px',
-                  fontSize: '12px',
-                  fontFamily: 'monospace',
-                  color: 'var(--aiims-input-text)',
-                  backgroundColor: 'var(--aiims-input-bg)',
-                }}
-              />
-            </div>
+              Send
+            </Button>
+          </div>
+        )}
+      </Surface>
 
-            {/* RUN BUTTON & MODEL BADGE */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginTop: '14px',
-                flexWrap: 'wrap',
-                gap: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Badge variant="neutral">Model: {modelUsed}</Badge>
-                {executionTime !== null && (
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--aiims-text-secondary, #64748b)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                    }}
-                  >
-                    <Clock size={12} /> {executionTime}ms
-                  </span>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <Button
-                  variant="green"
-                  size="lg"
-                  onClick={handleRunAITask}
-                  disabled={isRunningAI || !promptText.trim()}
-                  icon={
-                    isRunningAI ? (
-                      <Sparkles size={16} className="animate-spin" />
-                    ) : (
-                      <Play size={16} />
-                    )
-                  }
-                >
-                  {isRunningAI ? 'Executing with AI Model...' : '▶ Run Prompt with AI & See Output'}
-                </Button>
-
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={handleSubmitForReview}
-                  disabled={isSubmittingForReview || !promptText.trim()}
-                  icon={
-                    isSubmittingForReview ? (
-                      <RotateCcw size={16} className="animate-spin" />
-                    ) : (
-                      <Send size={16} />
-                    )
-                  }
-                >
-                  {isSubmittingForReview
-                    ? 'Submitting to Evaluator...'
-                    : 'Submit for Evaluator Review'}
-                </Button>
-              </div>
-            </div>
-            {reviewSubmitSuccess && (
-              <div
-                style={{
-                  marginTop: '10px',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  backgroundColor: 'var(--aiims-mint-subtle, #d1fae5)',
-                  color: 'var(--aiims-mint-text, #065f46)',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                }}
-              >
-                ✓ {reviewSubmitSuccess}
-              </div>
-            )}
-          </Surface>
-
-          {/* 3. LIVE AI OUTPUT TERMINAL (SEEING OUTPUT HERE ITSELF) */}
-          {aiOutput && (
-            <Surface variant="bordered" radius="lg" padding="md">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '10px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Terminal size={18} color="#059669" />
-                  <span
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-text-heading)',
-                    }}
-                  >
-                    Live AI Generated Output
-                  </span>
-                  <Badge variant="success">Executed Here</Badge>
-                </div>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopyOutput}
-                  icon={isCopied ? <Check size={14} color="#059669" /> : <Copy size={14} />}
-                >
-                  {isCopied ? 'Copied' : 'Copy Output'}
-                </Button>
-              </div>
-
-              <div
-                style={{
-                  backgroundColor: '#0f172a',
-                  color: '#f8fafc',
-                  borderRadius: '8px',
-                  padding: '14px 16px',
-                  fontSize: '13px',
-                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                  lineHeight: 1.55,
-                  maxHeight: '360px',
-                  overflowY: 'auto',
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {aiOutput}
-              </div>
-            </Surface>
-          )}
-
-          {/* 4. INDIVIDUAL SCORE FOR THE TASK REPRESENTATION */}
-          {taskScore !== null && (
-            <Surface variant="mint" radius="lg" padding="lg">
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: '14px',
-                  marginBottom: '16px',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  {/* RADIAL SCORE CIRCLE */}
-                  <div
-                    style={{
-                      width: '68px',
-                      height: '68px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--aiims-bg-card)',
-                      border:
-                        taskScore >= 85
-                          ? '4px solid var(--aiims-tint-emerald-text)'
-                          : '4px solid var(--aiims-tint-amber-text)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: 'var(--aiims-shadow-card)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '20px',
-                        fontWeight: 800,
-                        color:
-                          taskScore >= 85
-                            ? 'var(--aiims-tint-emerald-text)'
-                            : 'var(--aiims-tint-amber-text)',
-                        lineHeight: 1,
-                      }}
-                    >
-                      {taskScore}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '10px',
-                        color: 'var(--aiims-text-muted)',
-                        fontWeight: 700,
-                      }}
-                    >
-                      / 100
-                    </span>
-                  </div>
-
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginBottom: '2px',
-                      }}
-                    >
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: '18px',
-                          fontWeight: 800,
-                          color: 'var(--aiims-text-heading)',
-                          fontFamily: "'Fredoka', sans-serif",
-                        }}
-                      >
-                        Individual Task Evaluation: {currentTask.difficultyLabel}
-                      </h3>
-                      <Badge variant={taskScore >= 85 ? 'success' : 'warning'}>
-                        {grade || (taskScore >= 85 ? 'Mastery' : 'Proficient')}
-                      </Badge>
-                    </div>
-                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-body)' }}>
-                      Rigorous rubric evaluation based on your submitted prompt & generated AI
-                      response.
-                    </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <Badge variant="success" icon={<Award size={12} />}>
-                    +50 XP Earned
-                  </Badge>
-                  <Badge variant="success" icon={<Zap size={12} />}>
-                    +15 AC Awarded
-                  </Badge>
-                </div>
-              </div>
-
-              {/* 4 RUBRIC BARS */}
-              {scoreBreakdown && (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '12px',
-                    backgroundColor: 'var(--aiims-bg-card)',
-                    padding: '14px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--aiims-border-card)',
-                    marginBottom: '16px',
-                    boxShadow: 'var(--aiims-shadow-card)',
-                  }}
-                >
-                  {/* Clarity */}
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--aiims-text-heading)',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <span>🎯 Clarity & Intent</span>
-                      <span>{scoreBreakdown.clarity}/25</span>
-                    </div>
-                    <div
-                      style={{
-                        height: '6px',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--aiims-border-subtle)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${(scoreBreakdown.clarity / 25) * 100}%`,
-                          backgroundColor: '#059669',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Constraints */}
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--aiims-text-heading)',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <span>🛡️ Constraints & Bounds</span>
-                      <span>{scoreBreakdown.constraints}/25</span>
-                    </div>
-                    <div
-                      style={{
-                        height: '6px',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--aiims-border-subtle)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${(scoreBreakdown.constraints / 25) * 100}%`,
-                          backgroundColor: '#0284c7',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Structure */}
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--aiims-text-heading)',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <span>📋 Output Schema</span>
-                      <span>{scoreBreakdown.structure}/25</span>
-                    </div>
-                    <div
-                      style={{
-                        height: '6px',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--aiims-border-subtle)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${(scoreBreakdown.structure / 25) * 100}%`,
-                          backgroundColor: '#7c3aed',
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Reliability */}
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        color: 'var(--aiims-text-heading)',
-                        marginBottom: '4px',
-                      }}
-                    >
-                      <span>⚡ Verification & Reliability</span>
-                      <span>{scoreBreakdown.reliability}/25</span>
-                    </div>
-                    <div
-                      style={{
-                        height: '6px',
-                        borderRadius: '3px',
-                        backgroundColor: 'var(--aiims-border-subtle)',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${(scoreBreakdown.reliability / 25) * 100}%`,
-                          backgroundColor: '#d97706',
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* STRENGTHS & IMPROVEMENTS */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                  gap: '12px',
-                  marginBottom: '14px',
-                }}
-              >
-                {strengths.length > 0 && (
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      backgroundColor: 'var(--aiims-tint-emerald-bg)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--aiims-tint-emerald-border)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        color: 'var(--aiims-tint-emerald-text)',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Demonstrated Strengths
-                    </span>
-                    <ul
-                      style={{
-                        margin: '6px 0 0',
-                        paddingLeft: '18px',
-                        fontSize: '12px',
-                        color: 'var(--aiims-tint-emerald-text)',
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {strengths.map((str, idx) => (
-                        <li key={idx}>{str}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {gaps.length > 0 && (
-                  <div
-                    style={{
-                      padding: '10px 12px',
-                      backgroundColor: 'var(--aiims-tint-amber-bg)',
-                      borderRadius: '8px',
-                      border: '1px solid var(--aiims-tint-amber-border)',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        color: 'var(--aiims-tint-amber-text)',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Target Improvements
-                    </span>
-                    <ul
-                      style={{
-                        margin: '6px 0 0',
-                        paddingLeft: '18px',
-                        fontSize: '12px',
-                        color: 'var(--aiims-tint-amber-text)',
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      {gaps.map((gap, idx) => (
-                        <li key={idx}>{gap}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* EVALUATOR PRO TIP */}
-              {evalTip && (
-                <div
-                  style={{
-                    padding: '10px 14px',
-                    backgroundColor: 'var(--aiims-tint-emerald-bg)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--aiims-tint-emerald-border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    fontSize: '12px',
-                    color: 'var(--aiims-tint-emerald-text)',
-                  }}
-                >
-                  <Lightbulb size={16} color="#d97706" style={{ flexShrink: 0 }} />
-                  <span>
-                    <strong>AI Evaluator Tip: </strong>
-                    {evalTip}
-                  </span>
-                </div>
-              )}
-
-              {/* SAVE STATUS & NEXT STEPS */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: '16px',
-                  flexWrap: 'wrap',
-                  gap: '10px',
-                }}
-              >
-                <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700 }}>
-                  ✓ Task score saved to your Learner Profile
-                </span>
-
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {activeTab !== 'advanced' && (
-                    <Button
-                      variant="green"
-                      size="md"
-                      icon={<ChevronRight size={14} />}
-                      onClick={() => setActiveTab(activeTab === 'easy' ? 'medium' : 'advanced')}
-                    >
-                      Next Difficulty: {activeTab === 'easy' ? 'Medium' : 'Advanced'} Task
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </Surface>
-          )}
-
-          {/* 5. MY SUBMISSIONS & EVALUATOR FEEDBACK SECTION */}
-          <LearnerSubmissionsSection
-            currentTaskId={currentTask.id}
-            currentTaskTitle={currentTask.title}
-            onRefreshTrigger={refreshSubmissionsKey}
-          />
-        </div>
+      {/* ========================================================
+          MY SUBMISSIONS & EVALUATOR FEEDBACK SECTION
+          ======================================================== */}
+      {assignedQuestion && (
+        <LearnerSubmissionsSection
+          currentTaskId={assignedQuestion.questionId}
+          currentTaskTitle={assignedQuestion.title}
+          onRefreshTrigger={refreshSubmissionsKey}
+        />
       )}
     </div>
   );
