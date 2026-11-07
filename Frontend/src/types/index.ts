@@ -3,8 +3,11 @@ export type ProgressionStage =
 
 export type Stream = 'TECH' | 'NON_TECH';
 
+export type LearnerTrack = 'Student' | 'Entrepreneur';
+
 export interface AcademicProfile {
   id?: string;
+  track?: LearnerTrack;
   // Academic Identity
   stream: Stream;
   streamSubCategory?: string;
@@ -34,6 +37,7 @@ export interface UserProfile {
   name: string;
   email: string;
   role: UserRole | string;
+  track?: LearnerTrack;
   college?: string;
   targetGoal: string;
   stage: ProgressionStage;

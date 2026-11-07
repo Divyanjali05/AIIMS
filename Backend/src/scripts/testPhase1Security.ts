@@ -20,6 +20,7 @@ import { AddressInfo } from 'net';
 import { app, initDatabase } from '../server';
 import { getValidatedJwtSecret, config } from '../config/env';
 import { clearRateLimitStore } from '../middleware/rateLimit.middleware';
+import { registeredUsers } from '../models/userStore';
 
 let passed = 0;
 let failed = 0;
@@ -431,25 +432,6 @@ async function runSecuritySuite() {
     const cookieHeader = webLogin.headers['set-cookie']?.find((c) => c.includes('aiims_token='));
     const tokenCookie = cookieHeader ? cookieHeader.split(';')[0] : '';
 
-    // 6B: Mobile client login with X-Client: mobile returns token in JSON body
-    const mobileLogin = await makeRequest(testServer, {
-      method: 'POST',
-      path: '/api/auth/login',
-      headers: {
-        'x-client': 'mobile',
-      },
-      body: {
-        email: 'alex.ai@example.com',
-        password: 'password123',
-      },
-    });
-    assert('Mobile login returns HTTP 200 OK', mobileLogin.status === 200);
-    assert(
-      'Mobile login returns signed JWT token in JSON body',
-      typeof mobileLogin.body?.token === 'string' && mobileLogin.body.token.length > 20
-    );
-    const mobileToken = mobileLogin.body?.token;
-
     // 6C: Invalid password returns HTTP 401
     const invalidPwRes = await makeRequest(testServer, {
       method: 'POST',
@@ -476,23 +458,6 @@ async function runSecuritySuite() {
     assert(
       'Cookie-authenticated profile matches user',
       cookieProfileRes.body?.email === 'alex.ai@example.com'
-    );
-
-    // 6E: Authenticated request using Bearer token (mobile client) succeeds
-    const bearerProfileRes = await makeRequest(testServer, {
-      method: 'GET',
-      path: '/api/users/profile',
-      headers: {
-        Authorization: `Bearer ${mobileToken}`,
-      },
-    });
-    assert(
-      'Bearer-authenticated request to /api/users/profile returns HTTP 200 OK',
-      bearerProfileRes.status === 200
-    );
-    assert(
-      'Bearer-authenticated profile matches user',
-      bearerProfileRes.body?.email === 'alex.ai@example.com'
     );
 
     // 6F: CSRF protection: cookie-authenticated mutation with invalid Origin fails with HTTP 403
@@ -529,6 +494,10 @@ async function runSecuritySuite() {
     const logoutRes = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/logout',
+      headers: {
+        Cookie: tokenCookie,
+        Origin: 'http://localhost:3000',
+      },
     });
     assert('Logout returns HTTP 200 OK', logoutRes.status === 200);
     assert(
@@ -538,6 +507,47 @@ async function runSecuritySuite() {
           (c) => c.includes('aiims_token=;') || c.includes('aiims_token=')
         )
       )
+    );
+
+    // Reset device binding on in-memory fixture so mobile login test is unblocked
+    if (registeredUsers['alex.ai@example.com']) {
+      delete (registeredUsers['alex.ai@example.com'] as any).deviceBinding;
+    }
+
+    // 6B: Mobile client login with X-Client: mobile returns token in JSON body
+    const mobileLogin = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/auth/login',
+      headers: {
+        'x-client': 'mobile',
+      },
+      body: {
+        email: 'alex.ai@example.com',
+        password: 'password123',
+      },
+    });
+    assert('Mobile login returns HTTP 200 OK', mobileLogin.status === 200);
+    assert(
+      'Mobile login returns signed JWT token in JSON body',
+      typeof mobileLogin.body?.token === 'string' && mobileLogin.body.token.length > 20
+    );
+    const mobileToken = mobileLogin.body?.token;
+
+    // 6E: Authenticated request using Bearer token (mobile client) succeeds
+    const bearerProfileRes = await makeRequest(testServer, {
+      method: 'GET',
+      path: '/api/users/profile',
+      headers: {
+        Authorization: `Bearer ${mobileToken}`,
+      },
+    });
+    assert(
+      'Bearer-authenticated request to /api/users/profile returns HTTP 200 OK',
+      bearerProfileRes.status === 200
+    );
+    assert(
+      'Bearer-authenticated profile matches user',
+      bearerProfileRes.body?.email === 'alex.ai@example.com'
     );
 
     // 6I: Unauthenticated request to protected route is rejected

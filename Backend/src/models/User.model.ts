@@ -56,6 +56,7 @@ export interface IUser extends Document {
   inviteTokenExpires?: Date;
   totp: ITotp;
   deviceBinding?: IDeviceBinding;
+  track?: 'Student' | 'Entrepreneur';
   college: string;
   targetGoal: string;
   stage: string;
@@ -205,6 +206,11 @@ const UserSchema: Schema = new Schema(
       resetBy: { type: String, default: null },
     },
     college: { type: String, default: 'Engineering & Technology College' },
+    track: {
+      type: String,
+      enum: ['Student', 'Entrepreneur'],
+      default: 'Student',
+    },
     targetGoal: { type: String, default: 'Master AI Intelligence & Mentoring' },
     stage: { type: String, default: 'Knowing' },
     xpPoints: { type: Number, default: 100 },

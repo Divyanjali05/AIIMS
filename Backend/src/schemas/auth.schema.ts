@@ -12,6 +12,8 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+export type LearnerTrack = 'Student' | 'Entrepreneur';
+
 export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Please enter your full name.'),
@@ -22,6 +24,19 @@ export const registerSchema = z
       .regex(/[A-Z]/, 'Password must contain at least one uppercase letter.')
       .regex(/[0-9]/, 'Password must contain at least one number.'),
     confirmPassword: z.string().optional(),
+    track: z.preprocess(
+      (val) => {
+        if (typeof val === 'string') {
+          const lower = val.trim().toLowerCase();
+          if (lower === 'student') return 'Student';
+          if (lower === 'entrepreneur') return 'Entrepreneur';
+        }
+        return val;
+      },
+      z.enum(['Student', 'Entrepreneur'] as const, {
+        message: 'Track is required. Please select Student or Entrepreneur.',
+      })
+    ),
     instituteId: z.string().optional(),
     instituteName: z.string().optional(),
     stream: z.enum(['TECH', 'NON_TECH'] as const),

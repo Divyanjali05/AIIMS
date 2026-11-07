@@ -63,6 +63,7 @@ export const formatUserState = (dbUser: IUser) => {
       name: dbUser.name,
       email: dbUser.email,
       role: dbUser.role,
+      track: dbUser.track || 'Student',
       college: dbUser.college || 'Engineering & Technology College',
       targetGoal: dbUser.targetGoal,
       stage: dbUser.stage,

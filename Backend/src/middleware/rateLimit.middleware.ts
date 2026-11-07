@@ -76,6 +76,13 @@ export const authRateLimiter = createRateLimiter({
   message: 'Too many authentication attempts. Please try again later.',
 });
 
+// 1b. Registration Rate Limiter: dedicated limit (default: 15 attempts per hour per IP)
+export const registrationRateLimiter = createRateLimiter({
+  windowMs: config.registrationRateLimitWindowMs || 60 * 60 * 1000,
+  max: config.registrationRateLimitMax || 15,
+  message: 'Too many registration attempts. Please try again later.',
+});
+
 // 2. Account Deletion Rate Limiter: max 5 deletion requests per 15 minutes per IP
 export const accountDeletionRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,

@@ -6,12 +6,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
  */
 export type Stream = 'TECH' | 'NON_TECH';
 
-export type EducationLevel =
-  | 'SCHOOL'
-  | 'UNDERGRADUATE'
-  | 'POSTGRADUATE'
-  | 'RESEARCH'
-  | 'GRADUATE';
+export type EducationLevel = 'SCHOOL' | 'UNDERGRADUATE' | 'POSTGRADUATE' | 'RESEARCH' | 'GRADUATE';
 
 export type TechSubCategory =
   | 'CS_IT'
@@ -62,6 +57,7 @@ export interface IStudentProfile extends Document {
   // Personal
   fullName: string;
   displayName?: string;
+  track: 'Student' | 'Entrepreneur';
 
   // Academic Identity
   instituteId?: Types.ObjectId;
@@ -101,10 +97,16 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
       ref: 'User',
       required: true,
       unique: true, // One profile per user
-      index: true
+      index: true,
     },
     fullName: { type: String, required: true, trim: true },
     displayName: { type: String, trim: true },
+    track: {
+      type: String,
+      enum: ['Student', 'Entrepreneur'],
+      required: true,
+      default: 'Student',
+    },
 
     // Academic Identity
     instituteId: { type: Schema.Types.ObjectId, ref: 'Institute', index: true },
@@ -116,17 +118,17 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
       type: String,
       enum: ['TECH', 'NON_TECH'],
       required: true,
-      index: true
+      index: true,
     },
     streamSubCategory: {
       type: String,
-      required: true
+      required: true,
     },
     educationLevel: {
       type: String,
       enum: ['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'],
       required: true,
-      index: true
+      index: true,
     },
     programId: { type: String, required: true, index: true },
     programName: { type: String, required: true },
@@ -142,18 +144,37 @@ const StudentProfileSchema = new Schema<IStudentProfile>(
     // AI Context
     aiFamiliarity: {
       type: String,
-      enum: ['NEW_TO_AI', 'EXPLORING_AI', 'REGULAR_USER', 'ADVANCED_USER', 'AI_ML_LEARNER', 'AI_ML_PROFESSIONAL']
+      enum: [
+        'NEW_TO_AI',
+        'EXPLORING_AI',
+        'REGULAR_USER',
+        'ADVANCED_USER',
+        'AI_ML_LEARNER',
+        'AI_ML_PROFESSIONAL',
+      ],
     },
     aiUsageContexts: { type: [String], default: [] },
     primaryGoal: {
       type: String,
-      enum: ['LEARN_AI', 'USE_AI_FOR_STUDIES', 'BUILD_SOFTWARE', 'SOLVE_PROBLEMS', 'RESEARCH', 'CAREER_PREPARATION', 'ENTREPRENEURSHIP', 'PRODUCTIVITY', 'CREATIVE_WORK', 'EXPLORE_AI', 'OTHER']
+      enum: [
+        'LEARN_AI',
+        'USE_AI_FOR_STUDIES',
+        'BUILD_SOFTWARE',
+        'SOLVE_PROBLEMS',
+        'RESEARCH',
+        'CAREER_PREPARATION',
+        'ENTREPRENEURSHIP',
+        'PRODUCTIVITY',
+        'CREATIVE_WORK',
+        'EXPLORE_AI',
+        'OTHER',
+      ],
     },
 
-    isComplete: { type: Boolean, default: false }
+    isComplete: { type: Boolean, default: false },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 
@@ -162,4 +183,7 @@ StudentProfileSchema.index({ stream: 1, educationLevel: 1 });
 StudentProfileSchema.index({ instituteId: 1, stream: 1 });
 StudentProfileSchema.index({ programId: 1, specializationId: 1, stream: 1 });
 
-export const StudentProfile = mongoose.model<IStudentProfile>('StudentProfile', StudentProfileSchema);
+export const StudentProfile = mongoose.model<IStudentProfile>(
+  'StudentProfile',
+  StudentProfileSchema
+);

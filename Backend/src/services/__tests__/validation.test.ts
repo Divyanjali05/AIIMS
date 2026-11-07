@@ -58,6 +58,7 @@ describe('Zod Runtime Request Validation Suite', () => {
         email: 'alex.dev@aiims.edu',
         password: 'Password123!',
         confirmPassword: 'Password123!',
+        track: 'Student' as const,
         stream: 'TECH' as const,
         educationLevel: 'UNDERGRADUATE' as const,
         programId: 'btech',
@@ -134,6 +135,24 @@ describe('Zod Runtime Request Validation Suite', () => {
         expect(result.success).toBe(false);
         if (!result.success) {
           expect(result.error.issues.some((i) => i.path.includes('confirmPassword'))).toBe(true);
+        }
+      });
+
+      it('rejects missing track', () => {
+        const payloadWithoutTrack = { ...validRegisterPayload };
+        delete (payloadWithoutTrack as any).track;
+        const result = registerSchema.safeParse(payloadWithoutTrack);
+        expect(result.success).toBe(false);
+      });
+
+      it('accepts Entrepreneur track in registration payload', () => {
+        const result = registerSchema.safeParse({
+          ...validRegisterPayload,
+          track: 'Entrepreneur',
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.track).toBe('Entrepreneur');
         }
       });
 

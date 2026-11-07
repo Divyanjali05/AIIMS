@@ -290,6 +290,7 @@ export interface RegistrationPayload {
   email: string;
   password: string;
   confirmPassword?: string;
+  track: 'Student' | 'Entrepreneur';
   // Step 2: Academics
   instituteId?: string;
   instituteName?: string;
@@ -384,7 +385,7 @@ interface LearnerContextType {
   }>;
   register: (
     data: RegistrationPayload
-  ) => Promise<{ success: boolean; error?: string; field?: string }>;
+  ) => Promise<{ success: boolean; error?: string; code?: string; field?: string }>;
   logout: () => void;
   markNotificationRead: (id: string) => void;
   clearNotifications: () => void;
@@ -1822,7 +1823,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const register = async (
     payload: RegistrationPayload
-  ): Promise<{ success: boolean; error?: string; field?: string }> => {
+  ): Promise<{ success: boolean; error?: string; code?: string; field?: string }> => {
     try {
       const res = await apiFetch(`${getApiBaseUrl()}/auth/register`, {
         method: 'POST',
@@ -1834,6 +1835,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return {
           success: false,
           error: resData.error || 'Registration failed.',
+          code: resData.code,
           field: resData.field,
         };
       }
@@ -1842,7 +1844,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       setIsAuthenticated(true);
       const defaultMode: AudienceMode =
-        payload.primaryGoal === 'ENTREPRENEURSHIP' ? 'entrepreneur' : 'student';
+        payload.track === 'Entrepreneur' || payload.primaryGoal === 'ENTREPRENEURSHIP'
+          ? 'entrepreneur'
+          : 'student';
       if (resData.state) {
         setState({
           ...initialLearnerState,

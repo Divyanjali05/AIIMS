@@ -15,6 +15,7 @@ import {
   Loader2,
   Sun,
   Moon,
+  Briefcase,
 } from 'lucide-react';
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -102,6 +103,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [errorField, setErrorField] = useState('');
 
   // ── Step 1: Account ──────────────────────────────────────────────────────
+  const [track, setTrack] = useState<'Student' | 'Entrepreneur' | ''>('Student');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -208,13 +210,34 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   // ── Step validation ───────────────────────────────────────────────────────
   const validateStep1 = (): string | null => {
-    if (!name.trim() || name.trim().length < 2) return 'Please enter your full name.';
-    if (!email.trim() || !email.includes('@') || !email.includes('.'))
+    if (!track || !['Student', 'Entrepreneur'].includes(track)) {
+      setErrorField('track');
+      return 'Please select your track (Student or Entrepreneur).';
+    }
+    if (!name.trim() || name.trim().length < 2) {
+      setErrorField('name');
+      return 'Please enter your full name.';
+    }
+    if (!email.trim() || !email.includes('@') || !email.includes('.')) {
+      setErrorField('email');
       return 'Enter a valid email address.';
-    if (!password || password.length < 8) return 'Password must be at least 8 characters long.';
-    if (!/[A-Z]/.test(password)) return 'Password must include at least one uppercase letter.';
-    if (!/[0-9]/.test(password)) return 'Password must include at least one number.';
-    if (password !== confirmPassword) return 'Passwords do not match.';
+    }
+    if (!password || password.length < 8) {
+      setErrorField('password');
+      return 'Password must be at least 8 characters long.';
+    }
+    if (!/[A-Z]/.test(password)) {
+      setErrorField('password');
+      return 'Password must include at least one uppercase letter.';
+    }
+    if (!/[0-9]/.test(password)) {
+      setErrorField('password');
+      return 'Password must include at least one number.';
+    }
+    if (password !== confirmPassword) {
+      setErrorField('confirmPassword');
+      return 'Passwords do not match.';
+    }
     return null;
   };
 
@@ -271,6 +294,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       email: email.trim().toLowerCase(),
       password,
       confirmPassword,
+      track: (track || 'Student') as 'Student' | 'Entrepreneur',
       instituteId: selectedInstitute?._id?.startsWith('inst-') ? undefined : selectedInstitute?._id,
       instituteName: selectedInstitute?.name || '',
       stream,
@@ -297,7 +321,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         setErrorMessage(res.error || 'Registration failed. Please try again.');
         if (res.field) setErrorField(res.field);
         // Navigate back to the relevant step if error is field-specific
-        if (res.field && ['name', 'email', 'password', 'confirmPassword'].includes(res.field))
+        if (
+          res.field &&
+          ['name', 'email', 'password', 'confirmPassword', 'track'].includes(res.field)
+        )
           setStep(1);
         else if (
           res.field &&
@@ -665,6 +692,164 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Mandatory Learner Track Selection */}
+              <div style={fieldGroupStyle}>
+                <label
+                  style={{
+                    ...labelStyle,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span>
+                    Select Learner Track <span style={{ color: '#EF4444' }}>*</span>
+                  </span>
+                  {track && (
+                    <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 650 }}>
+                      ✓ {track} Track Selected
+                    </span>
+                  )}
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    id="track-student-btn"
+                    onClick={() => {
+                      setTrack('Student');
+                      if (errorField === 'track') setErrorField('');
+                      setErrorMessage('');
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.2s',
+                      border:
+                        track === 'Student'
+                          ? '2px solid #5B4BFF'
+                          : errorField === 'track'
+                            ? '1.5px solid #F87171'
+                            : isDarkMode
+                              ? '1.5px solid var(--aiims-input-border, #2c3b63)'
+                              : '1.5px solid #E2E8F0',
+                      backgroundColor:
+                        track === 'Student'
+                          ? isDarkMode
+                            ? 'rgba(91, 75, 255, 0.18)'
+                            : 'rgba(91, 75, 255, 0.08)'
+                          : isDarkMode
+                            ? 'var(--aiims-input-bg, #111a36)'
+                            : '#ffffff',
+                    }}
+                  >
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}
+                    >
+                      <GraduationCap
+                        size={18}
+                        color={track === 'Student' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'}
+                      />
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          color:
+                            track === 'Student' ? '#5B4BFF' : 'var(--aiims-text-heading, #0F172A)',
+                        }}
+                      >
+                        Student
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--aiims-text-secondary, #64748B)',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      College & university academics, career & AI skills
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    id="track-entrepreneur-btn"
+                    onClick={() => {
+                      setTrack('Entrepreneur');
+                      if (errorField === 'track') setErrorField('');
+                      setErrorMessage('');
+                    }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.2s',
+                      border:
+                        track === 'Entrepreneur'
+                          ? '2px solid #5B4BFF'
+                          : errorField === 'track'
+                            ? '1.5px solid #F87171'
+                            : isDarkMode
+                              ? '1.5px solid var(--aiims-input-border, #2c3b63)'
+                              : '1.5px solid #E2E8F0',
+                      backgroundColor:
+                        track === 'Entrepreneur'
+                          ? isDarkMode
+                            ? 'rgba(91, 75, 255, 0.18)'
+                            : 'rgba(91, 75, 255, 0.08)'
+                          : isDarkMode
+                            ? 'var(--aiims-input-bg, #111a36)'
+                            : '#ffffff',
+                    }}
+                  >
+                    <div
+                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}
+                    >
+                      <Briefcase
+                        size={18}
+                        color={
+                          track === 'Entrepreneur' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'
+                        }
+                      />
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          color:
+                            track === 'Entrepreneur'
+                              ? '#5B4BFF'
+                              : 'var(--aiims-text-heading, #0F172A)',
+                        }}
+                      >
+                        Entrepreneur
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color: 'var(--aiims-text-secondary, #64748B)',
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      Founders & innovators building and scaling ventures
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               {/* Full Name */}
               <div style={fieldGroupStyle}>
                 <label style={labelStyle}>Full Name</label>

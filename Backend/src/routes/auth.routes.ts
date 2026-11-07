@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateStudent, requireAuth, requireRole } from '../middleware/auth.middleware';
 import {
   authRateLimiter,
+  registrationRateLimiter,
   accountDeletionRateLimiter,
   totpRateLimiter,
   generalApiRateLimiter,
@@ -34,7 +35,7 @@ const router = Router();
 router.get('/config/public', getPublicConfig);
 
 router.post('/auth/login', authRateLimiter, validateBody(loginSchema), login);
-router.post('/auth/register', authRateLimiter, validateBody(registerSchema), register);
+router.post('/auth/register', registrationRateLimiter, validateBody(registerSchema), register);
 router.post('/auth/logout', authenticateStudent, logout);
 router.post('/auth/set-password', authRateLimiter, setPassword);
 

@@ -301,11 +301,13 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
+  const requestId = (req.headers['x-request-id'] as string) || crypto.randomUUID();
   const {
     name,
     email,
     password,
     confirmPassword,
+    track,
     instituteId,
     instituteName,
     stream,
@@ -323,69 +325,116 @@ export const register = async (req: Request, res: Response) => {
     primaryGoal,
   } = req.body;
 
+  // Mandatory track validation (Student or Entrepreneur)
+  const normalizedTrack =
+    typeof track === 'string' && track.trim().toLowerCase() === 'entrepreneur'
+      ? 'Entrepreneur'
+      : typeof track === 'string' && track.trim().toLowerCase() === 'student'
+        ? 'Student'
+        : undefined;
+
+  if (!normalizedTrack) {
+    return res.status(400).json({
+      error: 'Track is required. Please select Student or Entrepreneur.',
+      code: 'INVALID_INPUT',
+      field: 'track',
+    });
+  }
+
   // Account validation
   if (!email || !email.trim() || !email.includes('@') || !email.includes('.')) {
-    return res.status(400).json({ error: 'Enter a valid email address.', field: 'email' });
+    return res.status(400).json({
+      error: 'Enter a valid email address.',
+      code: 'INVALID_INPUT',
+      field: 'email',
+    });
   }
   if (!name || !name.trim() || name.trim().length < 2) {
-    return res.status(400).json({ error: 'Please enter your full name.', field: 'name' });
+    return res.status(400).json({
+      error: 'Please enter your full name.',
+      code: 'INVALID_INPUT',
+      field: 'name',
+    });
   }
   if (!password || password.length < 8) {
-    return res
-      .status(400)
-      .json({ error: 'Password must be at least 8 characters long.', field: 'password' });
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters long.',
+      code: 'INVALID_INPUT',
+      field: 'password',
+    });
   }
   if (!/[A-Z]/.test(password)) {
-    return res
-      .status(400)
-      .json({ error: 'Password must contain at least one uppercase letter.', field: 'password' });
+    return res.status(400).json({
+      error: 'Password must contain at least one uppercase letter.',
+      code: 'INVALID_INPUT',
+      field: 'password',
+    });
   }
   if (!/[0-9]/.test(password)) {
-    return res
-      .status(400)
-      .json({ error: 'Password must contain at least one number.', field: 'password' });
+    return res.status(400).json({
+      error: 'Password must contain at least one number.',
+      code: 'INVALID_INPUT',
+      field: 'password',
+    });
   }
   if (confirmPassword && password !== confirmPassword) {
-    return res.status(400).json({ error: 'Passwords do not match.', field: 'confirmPassword' });
+    return res.status(400).json({
+      error: 'Passwords do not match.',
+      code: 'INVALID_INPUT',
+      field: 'confirmPassword',
+    });
   }
 
   // Academic identity validation
   if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
-    return res
-      .status(400)
-      .json({ error: 'Please select a valid academic stream.', field: 'stream' });
+    return res.status(400).json({
+      error: 'Please select a valid academic stream.',
+      code: 'INVALID_INPUT',
+      field: 'stream',
+    });
   }
   if (
     !educationLevel ||
     !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
   ) {
-    return res
-      .status(400)
-      .json({ error: 'Please select a valid education level.', field: 'educationLevel' });
+    return res.status(400).json({
+      error: 'Please select a valid education level.',
+      code: 'INVALID_INPUT',
+      field: 'educationLevel',
+    });
   }
   if (!programId) {
-    return res
-      .status(400)
-      .json({ error: 'Please select your degree or program.', field: 'programId' });
+    return res.status(400).json({
+      error: 'Please select your degree or program.',
+      code: 'INVALID_INPUT',
+      field: 'programId',
+    });
   }
   if (!specializationId) {
-    return res
-      .status(400)
-      .json({ error: 'Please select your branch or specialization.', field: 'specializationId' });
+    return res.status(400).json({
+      error: 'Please select your branch or specialization.',
+      code: 'INVALID_INPUT',
+      field: 'specializationId',
+    });
   }
   if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > 7) {
-    return res
-      .status(400)
-      .json({ error: 'Please enter a valid year of study (1–7).', field: 'yearOfStudy' });
+    return res.status(400).json({
+      error: 'Please enter a valid year of study (1–7).',
+      code: 'INVALID_INPUT',
+      field: 'yearOfStudy',
+    });
   }
   if (!admissionYear || Number(admissionYear) < 1990 || Number(admissionYear) > 2030) {
-    return res
-      .status(400)
-      .json({ error: 'Please enter a valid admission year.', field: 'admissionYear' });
+    return res.status(400).json({
+      error: 'Please enter a valid admission year.',
+      code: 'INVALID_INPUT',
+      field: 'admissionYear',
+    });
   }
   if (!expectedGraduationYear || Number(expectedGraduationYear) < Number(admissionYear)) {
     return res.status(400).json({
       error: 'Expected graduation year must be after admission year.',
+      code: 'INVALID_INPUT',
       field: 'expectedGraduationYear',
     });
   }
@@ -400,20 +449,34 @@ export const register = async (req: Request, res: Response) => {
   if (!taxonomyCheck.valid) {
     return res.status(400).json({
       error: taxonomyCheck.reason || 'Invalid academic combination.',
+      code: 'INVALID_INPUT',
       field: 'specializationId',
     });
+  }
+
+  // Step 7: Discard invalid institute ID if not a valid database ObjectId
+  let cleanInstituteId: mongoose.Types.ObjectId | undefined = undefined;
+  if (instituteId && typeof instituteId === 'string' && instituteId.trim().length > 0) {
+    const trimmed = instituteId.trim();
+    if (mongoose.Types.ObjectId.isValid(trimmed) && !trimmed.startsWith('inst-')) {
+      cleanInstituteId = new mongoose.Types.ObjectId(trimmed);
+    } else {
+      console.info(`[Auth] [${requestId}] Non-ObjectId instituteId discarded: "${trimmed}"`);
+    }
   }
 
   const normalizedEmail = email.trim().toLowerCase();
   const displayName = name.trim();
   const programInfo = PROGRAMS.find((p) => p.id === programId);
 
-  // Check MongoDB connection
+  // Check MongoDB connection (fallback in-memory store)
   if (mongoose.connection.readyState !== 1) {
     if (registeredUsers[normalizedEmail]) {
-      return res
-        .status(400)
-        .json({ error: 'An account with this email already exists. Please sign in.' });
+      return res.status(400).json({
+        error: 'An account with this email already exists. Please sign in.',
+        code: 'EMAIL_ALREADY_EXISTS',
+        field: 'email',
+      });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const stableId = new mongoose.Types.ObjectId().toHexString();
@@ -423,8 +486,12 @@ export const register = async (req: Request, res: Response) => {
       name: displayName,
       email: normalizedEmail,
       role: 'learner',
+      track: normalizedTrack,
       college: instituteName || 'Unknown Institute',
-      targetGoal: 'Explore AI Architectures & Intelligence',
+      targetGoal:
+        normalizedTrack === 'Entrepreneur'
+          ? 'Build & Scale AI Ventures'
+          : 'Explore AI Architectures & Intelligence',
       stage: 'Knowing',
       xpPoints: 100,
       aiimsCredits: 0,
@@ -454,7 +521,12 @@ export const register = async (req: Request, res: Response) => {
     const baseState = formatUserState(new User(newUser) as IUser);
     return res.status(201).json({
       ...(isMobileClient(req) ? { token } : {}),
-      user: { ...newUser, id: newUser.id, aiimsCredits: newUser.aiimsCredits },
+      user: {
+        ...newUser,
+        id: newUser.id,
+        aiimsCredits: newUser.aiimsCredits,
+        track: normalizedTrack,
+      },
       state: {
         ...baseState,
         academicProfile: {
@@ -463,6 +535,7 @@ export const register = async (req: Request, res: Response) => {
           specializationName,
           educationLevel,
           yearOfStudy: Number(yearOfStudy),
+          track: normalizedTrack,
         },
       },
     });
@@ -471,22 +544,45 @@ export const register = async (req: Request, res: Response) => {
   try {
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res
-        .status(400)
-        .json({ error: 'An account with this email already exists. Please sign in.' });
+      return res.status(400).json({
+        error: 'An account with this email already exists. Please sign in.',
+        code: 'EMAIL_ALREADY_EXISTS',
+        field: 'email',
+      });
     }
 
-    const dbUser = await User.create({
-      name: displayName,
-      email: normalizedEmail,
-      password,
-      role: 'learner',
-      college: instituteName || 'Unknown Institute',
-      targetGoal: 'Explore AI Architectures & Intelligence',
-      stage: 'Knowing',
-      xpPoints: 100,
-      aiimsCredits: 0,
-    });
+    let dbUser: IUser;
+    try {
+      dbUser = await User.create({
+        name: displayName,
+        email: normalizedEmail,
+        password,
+        role: 'learner',
+        track: normalizedTrack,
+        college: instituteName || 'Unknown Institute',
+        targetGoal:
+          normalizedTrack === 'Entrepreneur'
+            ? 'Build & Scale AI Ventures'
+            : 'Explore AI Architectures & Intelligence',
+        stage: 'Knowing',
+        xpPoints: 100,
+        aiimsCredits: 0,
+      });
+    } catch (userCreateErr: any) {
+      console.error(`[Auth] [${requestId}] User creation database failure:`, userCreateErr);
+      if (userCreateErr?.code === 11000) {
+        return res.status(400).json({
+          error: 'An account with this email already exists. Please sign in.',
+          code: 'EMAIL_ALREADY_EXISTS',
+          field: 'email',
+        });
+      }
+      return res.status(500).json({
+        error: 'Database operation failed during user registration.',
+        code: 'DATABASE_FAILURE',
+        requestId,
+      });
+    }
 
     // Record welcome bonus authoritatively in CreditLedger and User document
     const welcomeResult = await creditsLedgerService
@@ -501,7 +597,7 @@ export const register = async (req: Request, res: Response) => {
         idempotencyKey: `welcome::${String(dbUser._id)}`,
       })
       .catch((e) => {
-        console.warn('[Auth] Welcome ledger entry warning:', e.message);
+        console.warn(`[Auth] [${requestId}] Welcome ledger entry warning:`, e.message);
         return null;
       });
 
@@ -521,7 +617,7 @@ export const register = async (req: Request, res: Response) => {
 
       cohortDoc = await Cohort.findOneAndUpdate(
         {
-          instituteId: instituteId ? new mongoose.Types.ObjectId(String(instituteId)) : undefined,
+          ...(cleanInstituteId ? { instituteId: cleanInstituteId } : {}),
           stream,
           educationLevel,
           programId,
@@ -543,12 +639,13 @@ export const register = async (req: Request, res: Response) => {
         { upsert: true, returnDocument: 'after' }
       );
     } catch (cohortErr) {
-      console.warn('Cohort upsert warning:', cohortErr);
+      console.warn(`[Auth] [${requestId}] Cohort upsert warning:`, cohortErr);
     }
 
     const profileData: Record<string, unknown> = {
       userId: dbUser._id,
       fullName: displayName,
+      track: normalizedTrack,
       stream,
       streamSubCategory: streamSubCategory || (stream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE'),
       educationLevel,
@@ -561,7 +658,7 @@ export const register = async (req: Request, res: Response) => {
       expectedGraduationYear: Number(expectedGraduationYear),
       isComplete: true,
     };
-    if (instituteId) profileData.instituteId = new mongoose.Types.ObjectId(String(instituteId));
+    if (cleanInstituteId) profileData.instituteId = cleanInstituteId;
     if (instituteName) profileData.instituteName = instituteName;
     if (cohortDoc) profileData.cohortId = cohortDoc._id;
     if (aiFamiliarity) profileData.aiFamiliarity = aiFamiliarity;
@@ -569,7 +666,25 @@ export const register = async (req: Request, res: Response) => {
       profileData.aiUsageContexts = aiUsageContexts;
     if (primaryGoal) profileData.primaryGoal = primaryGoal;
 
-    const studentProfile = await StudentProfile.create(profileData);
+    let studentProfile: any;
+    try {
+      studentProfile = await StudentProfile.create(profileData);
+    } catch (profileErr: any) {
+      console.error(
+        `[Auth] [${requestId}] Profile save failure, rolling back user ${dbUser._id}:`,
+        profileErr
+      );
+      try {
+        await User.findByIdAndDelete(dbUser._id);
+      } catch (rollbackErr) {
+        console.error(`[Auth] [${requestId}] User rollback failed:`, rollbackErr);
+      }
+      return res.status(500).json({
+        error: 'Unable to save learner profile. Please try again.',
+        code: 'PROFILE_SAVE_FAILED',
+        requestId,
+      });
+    }
 
     const token = generateAuthToken(String(finalDbUser._id), finalDbUser.email);
     setAuthCookie(res, token, req);
@@ -577,11 +692,12 @@ export const register = async (req: Request, res: Response) => {
 
     return res.status(201).json({
       ...(isMobileClient(req) ? { token } : {}),
-      user: userState.profile,
+      user: { ...userState.profile, track: normalizedTrack },
       state: {
         ...userState,
         academicProfile: {
           id: String(studentProfile._id),
+          track: studentProfile.track,
           stream: studentProfile.stream,
           streamSubCategory: studentProfile.streamSubCategory,
           educationLevel: studentProfile.educationLevel,
@@ -600,18 +716,24 @@ export const register = async (req: Request, res: Response) => {
       },
     });
   } catch (err: unknown) {
-    console.error('Registration error:', err);
+    console.error(`[Auth] [${requestId}] Registration error:`, err);
     if (
       err &&
       typeof err === 'object' &&
       'code' in err &&
       (err as { code: number }).code === 11000
     ) {
-      return res
-        .status(400)
-        .json({ error: 'An account with this email already exists. Please sign in.' });
+      return res.status(400).json({
+        error: 'An account with this email already exists. Please sign in.',
+        code: 'EMAIL_ALREADY_EXISTS',
+        field: 'email',
+      });
     }
-    return res.status(500).json({ error: 'Registration failed. Please try again.' });
+    return res.status(500).json({
+      error: 'Registration failed due to an internal error. Please try again.',
+      code: 'DATABASE_FAILURE',
+      requestId,
+    });
   }
 };
 
@@ -688,7 +810,7 @@ export const logout = async (req: Request, res: Response) => {
     if (user && user.deviceBinding) {
       user.deviceBinding.activeSessionId = null;
       user.deviceBinding.lastSeenAt = new Date();
-      if (typeof user.save === 'function') {
+      if (typeof user.save === 'function' && mongoose.connection.readyState === 1) {
         await user.save();
       }
     }
@@ -729,6 +851,18 @@ export const logout = async (req: Request, res: Response) => {
     return res.json({ success: true, message: 'Signed out successfully.' });
   } catch (err) {
     console.error('Logout error:', err);
+    res.clearCookie('aiims_token', {
+      httpOnly: true,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+    res.clearCookie('aiims_csrf', {
+      httpOnly: false,
+      secure: config.nodeEnv === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
     return res.json({ success: true, message: 'Signed out.' });
   }
 };

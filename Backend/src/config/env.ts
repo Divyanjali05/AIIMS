@@ -155,6 +155,9 @@ export const config = {
   })(),
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 15,
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  registrationRateLimitMax: Number(process.env.REGISTRATION_RATE_LIMIT_MAX) || 15,
+  registrationRateLimitWindowMs:
+    Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS) || 60 * 60 * 1000,
   /** 64-char hex string → 32-byte AES-256 key for encrypting TOTP secrets at rest. */
   totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY || '',
   /** Support contact email (placeholder read from SUPPORT_EMAIL) */
