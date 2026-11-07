@@ -30,6 +30,7 @@ import {
   requestFocusNotificationPermission,
   getNotificationPermission,
 } from '../../utils/focusNotifications';
+import { FocusChallenges } from './FocusChallenges';
 
 interface FocusScreenProps {
   setActiveTab?: (tab: string) => void;
@@ -1843,7 +1844,20 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
       </Surface>
 
       {/* ======================================================== */}
-      {/* SECTION 4: CONNECTED SIGNALS (RADAR LINK)               */}
+      {/* SECTION 4: FOCUS PRACTICE CHALLENGES (RUBRIC EVALUATION) */}
+      {/* ======================================================== */}
+      {isFocusActive && (
+        <FocusChallenges
+          topicName={displayTopic}
+          track="General"
+          onChallengeCompleted={(score) => {
+            console.log(`[FocusScreen] Focus challenge completed with score: ${score}`);
+          }}
+        />
+      )}
+
+      {/* ======================================================== */}
+      {/* SECTION 5: CONNECTED SIGNALS (RADAR LINK)               */}
       {/* ======================================================== */}
       {isFocusActive && (
         <Surface variant="cyan" radius="lg" padding="lg">
@@ -1909,7 +1923,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
       )}
 
       {/* ======================================================== */}
-      {/* SECTION 5: OTHER CANDIDATE AREAS                         */}
+      {/* SECTION 6: OTHER CANDIDATE AREAS                         */}
       {/* ======================================================== */}
       {(alternativeAreas.length > 0 || showChangeSelector) && (
         <Surface variant="amber" radius="lg" padding="lg">

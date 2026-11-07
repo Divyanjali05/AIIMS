@@ -156,6 +156,22 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
     if (err.message && err.message.includes('not found')) {
       return res.status(404).json({ error: err.message });
     }
+    if (
+      err.name === 'RubricEvaluationError' ||
+      err.code === 'PROVIDER_UNAVAILABLE' ||
+      err.code === 'PROVIDER_CALL_FAILED' ||
+      err.code === 'PROVIDER_TIMEOUT' ||
+      err.code === 'PROVIDER_RATE_LIMIT' ||
+      err.code === 'PROVIDER_INVALID_CREDENTIALS' ||
+      err.code === 'VALIDATION_FAILED_AFTER_RETRY' ||
+      err.code === 'RUBRIC_EVALUATION_FAILED'
+    ) {
+      return res.status(502).json({
+        error: err.message,
+        code: err.code || 'RUBRIC_EVALUATION_FAILED',
+        details: err.details,
+      });
+    }
     return res.status(500).json({
       error: err.message || 'Failed to submit question attempt',
     });

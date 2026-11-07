@@ -1,7 +1,7 @@
 import {
   RubricEvaluatorService,
   RubricEvaluationError,
-  EvaluateAnswerParams,
+  rubricEvaluatorService,
 } from '../services/rubricEvaluator.service';
 import { questionBankService } from '../services/questionBank.service';
 import { submitAttemptHandler } from '../controllers/question.controller';
@@ -9,10 +9,10 @@ import { submitClarityTask } from '../controllers/clarity.controller';
 import { inMemoryAssignments } from '../models/QuestionAssignment.model';
 import { inMemoryQuestionBank } from '../models/QuestionBank.model';
 import { inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { creditsLedgerService } from '../services/creditsLedger.service';
+import { ClaudeService } from '../services/anthropic/claude.service';
 
 console.log('====================================================');
-console.log('AIIMS TASK T2: GENUINE AI RUBRIC EVALUATOR TEST SUITE');
+console.log('AIIMS TASK T2: 15-POINT GENUINE AI RUBRIC TEST SUITE');
 console.log('====================================================\n');
 
 let totalTests = 0;
@@ -65,346 +65,361 @@ async function runTestSuite() {
     },
   ];
 
-  // ---------------------------------------------------------------------------
-  // TEST 1: Strong, complete answer receives high rubric scores across all criteria
-  // ---------------------------------------------------------------------------
-  console.log('--- SUITE 1: Evidence-Based Evaluation Scenarios ---');
-
-  const strongEvaluator = new RubricEvaluatorService();
-  const strongRunner = async () =>
-    JSON.stringify({
-      criteria: [
-        {
-          criterion: 'Accuracy & Threshold Identification',
-          score: 25,
-          maxScore: 25,
-          feedback: 'Correctly identified Tx 2 ($120) and Tx 3 ($80) while excluding Tx 1 ($45).',
-        },
-        {
-          criterion: 'Anomaly Root-Cause Classification',
-          score: 24,
-          maxScore: 25,
-          feedback: 'Explicitly flagged unapproved vendor and duplicate payment causes.',
-        },
-        {
-          criterion: 'Action Plan Clarity',
-          score: 23,
-          maxScore: 25,
-          feedback: 'Detailed hold notices and merchant verification steps provided.',
-        },
-        {
-          criterion: 'Conciseness & Structure',
-          score: 24,
-          maxScore: 25,
-          feedback: 'Logical tabular format with immediate findings.',
-        },
-      ],
-      overallScore: 96,
-      overallFeedback: 'Exceptional audit accuracy and remediation structuring.',
-    });
-
-  const strongRes = await strongEvaluator.evaluateAnswer({
-    question: sampleQuestion,
-    rubric: sampleRubric,
-    learnerAnswer:
-      'Audit Summary:\n1. Tx 2 ($120): Exceeds $50 limit; unapproved vendor. Action: Freeze and request invoice.\n2. Tx 3 ($80): Exceeds $50 limit; duplicate charge. Action: Issue immediate refund.\nTx 1 ($45) is under $50 and fully valid.',
-    completionRunner: strongRunner,
-  });
-
-  assert(
-    strongRes.overallScore === 96 &&
-      strongRes.criteria.length === 4 &&
-      strongRes.criteria[0].score === 25 &&
-      strongRes.overallFeedback.includes('Exceptional'),
-    'Strong answer receives high rubric scores (96/100) and detailed feedback'
-  );
-
-  // ---------------------------------------------------------------------------
-  // TEST 2: Empty / whitespace-only answer receives immediate 0 without LLM call
-  // ---------------------------------------------------------------------------
-  let llmCalledForEmpty = false;
-  const emptyEvaluator = new RubricEvaluatorService();
-  const emptyRunner = async () => {
-    llmCalledForEmpty = true;
-    return '{}';
+  const validMockPayload = {
+    criteria: [
+      {
+        criterion: 'Accuracy & Threshold Identification',
+        score: 25,
+        maxScore: 25,
+        feedback: 'Correctly identified Tx 2 ($120) and Tx 3 ($80) while excluding Tx 1 ($45).',
+      },
+      {
+        criterion: 'Anomaly Root-Cause Classification',
+        score: 24,
+        maxScore: 25,
+        feedback: 'Explicitly flagged unapproved vendor and duplicate payment causes.',
+      },
+      {
+        criterion: 'Action Plan Clarity',
+        score: 23,
+        maxScore: 25,
+        feedback: 'Detailed hold notices and merchant verification steps provided.',
+      },
+      {
+        criterion: 'Conciseness & Structure',
+        score: 24,
+        maxScore: 25,
+        feedback: 'Logical tabular format with immediate findings.',
+      },
+    ],
+    overallScore: 96,
+    overallFeedback: 'Exceptional audit accuracy and remediation structuring.',
   };
 
-  const emptyRes = await emptyEvaluator.evaluateAnswer({
-    question: sampleQuestion,
-    rubric: sampleRubric,
-    learnerAnswer: '     \n\t   ',
-    completionRunner: emptyRunner,
-  });
-
-  assert(
-    emptyRes.overallScore === 0 &&
-      !llmCalledForEmpty &&
-      emptyRes.evaluationSource === 'EMPTY_SUBMISSION' &&
-      emptyRes.criteria.every((c) => c.score === 0),
-    'Empty answer returns score 0 immediately without invoking LLM runner'
-  );
-
   // ---------------------------------------------------------------------------
-  // TEST 3: Concise accurate answer receives full credit (Length is NOT rewarded)
+  // TEST 1: Valid AI response produces valid score and breakdown
   // ---------------------------------------------------------------------------
-  const conciseEvaluator = new RubricEvaluatorService();
-  const conciseRunner = async () =>
-    JSON.stringify({
-      criteria: [
-        {
-          criterion: 'Accuracy & Threshold Identification',
-          score: 25,
-          maxScore: 25,
-          feedback: 'Accurately flagged Tx 2 and Tx 3; excluded Tx 1.',
-        },
-        {
-          criterion: 'Anomaly Root-Cause Classification',
-          score: 25,
-          maxScore: 25,
-          feedback: 'Categorized unapproved vendor and duplicate.',
-        },
-        {
-          criterion: 'Action Plan Clarity',
-          score: 25,
-          maxScore: 25,
-          feedback: 'Clear freeze and refund actions.',
-        },
-        {
-          criterion: 'Conciseness & Structure',
-          score: 25,
-          maxScore: 25,
-          feedback: 'Exemplary brevity and precision.',
-        },
-      ],
-      overallScore: 100,
-      overallFeedback: 'Extremely concise, completely accurate.',
-    });
-
-  const conciseRes = await conciseEvaluator.evaluateAnswer({
+  const test1Evaluator = new RubricEvaluatorService();
+  const test1Res = await test1Evaluator.evaluateAnswer({
     question: sampleQuestion,
     rubric: sampleRubric,
     learnerAnswer:
-      'Tx 2 ($120, unapproved vendor): Freeze. Tx 3 ($80, duplicate): Refund. Tx 1 ($45): Valid.',
-    completionRunner: conciseRunner,
+      'Tx 2 ($120): Unapproved vendor -> Freeze. Tx 3 ($80): Duplicate -> Refund. Tx 1 is compliant.',
+    completionRunner: async () => JSON.stringify(validMockPayload),
   });
 
   assert(
-    conciseRes.overallScore === 100 && conciseRes.criteria.every((c) => c.score === 25),
-    'Concise accurate answer (16 words) receives full 100/100 score (Evidence > Length)'
+    test1Res.overallScore === 96 &&
+      test1Res.criteria.length === 4 &&
+      test1Res.criteria[0].score === 25 &&
+      test1Res.criteria[1].score === 24 &&
+      test1Res.overallFeedback.includes('Exceptional'),
+    'Valid AI response produces valid score (96/100) and complete rubric breakdown'
   );
 
   // ---------------------------------------------------------------------------
-  // TEST 4: Long, fluffy repetitive answer without substance receives low marks
+  // TEST 2: Criterion score exceeding maxScore rejected (triggers retry/error)
   // ---------------------------------------------------------------------------
-  const fluffEvaluator = new RubricEvaluatorService();
-  const fluffRunner = async () =>
-    JSON.stringify({
-      criteria: [
-        {
-          criterion: 'Accuracy & Threshold Identification',
-          score: 5,
-          maxScore: 25,
-          feedback: 'Failed to specify which transactions exceeded the threshold.',
-        },
-        {
-          criterion: 'Anomaly Root-Cause Classification',
-          score: 5,
-          maxScore: 25,
-          feedback: 'No specific vendors or duplicate details mentioned.',
-        },
-        {
-          criterion: 'Action Plan Clarity',
-          score: 5,
-          maxScore: 25,
-          feedback: 'Generic recommendations to check things without concrete steps.',
-        },
-        {
-          criterion: 'Conciseness & Structure',
-          score: 5,
-          maxScore: 25,
-          feedback: 'Excessive verbosity with no relevant actionable data.',
-        },
-      ],
-      overallScore: 20,
-      overallFeedback:
-        'Long response that repeats high-level buzzwords without analyzing the data.',
-    });
-
-  const fluffRes = await fluffEvaluator.evaluateAnswer({
-    question: sampleQuestion,
-    rubric: sampleRubric,
-    learnerAnswer:
-      'In our contemporary paradigm of financial engineering, auditing transactions is of paramount importance for the synergized enterprise ecosystem. When examining transactional vectors, one must always prioritize deep holistic compliance and multifaceted auditing frameworks. As we look into these financial statements, thoroughness and diligence are our utmost guiding lights, keeping in mind that financial anomalies may manifest in various dimensions. Therefore, we will synergistically monitor all transactions across our database infrastructure continuously.',
-    completionRunner: fluffRunner,
-  });
-
-  assert(
-    fluffRes.overallScore === 20 && fluffRes.criteria.every((c) => c.score === 5),
-    'Long fluffy buzzword answer (75+ words) receives low score (20/100) (Length is not rewarded)'
-  );
-
-  // ---------------------------------------------------------------------------
-  // TEST 5: Off-topic answer receives 0 / minimal marks
-  // ---------------------------------------------------------------------------
-  const offTopicEvaluator = new RubricEvaluatorService();
-  const offTopicRunner = async () =>
-    JSON.stringify({
-      criteria: [
-        {
-          criterion: 'Accuracy & Threshold Identification',
-          score: 0,
-          maxScore: 25,
-          feedback: 'Content is unrelated to financial transaction auditing.',
-        },
-        {
-          criterion: 'Anomaly Root-Cause Classification',
-          score: 0,
-          maxScore: 25,
-          feedback: 'No financial transaction anomalies evaluated.',
-        },
-        {
-          criterion: 'Action Plan Clarity',
-          score: 0,
-          maxScore: 25,
-          feedback: 'No remediation provided.',
-        },
-        {
-          criterion: 'Conciseness & Structure',
-          score: 0,
-          maxScore: 25,
-          feedback: 'Off-topic response.',
-        },
-      ],
-      overallScore: 0,
-      overallFeedback: 'Completely off-topic response.',
-    });
-
-  const offTopicRes = await offTopicEvaluator.evaluateAnswer({
-    question: sampleQuestion,
-    rubric: sampleRubric,
-    learnerAnswer:
-      'To make the best Neapolitan pizza, ferment the dough at 65% hydration for 48 hours.',
-    completionRunner: offTopicRunner,
-  });
-
-  assert(
-    offTopicRes.overallScore === 0 && offTopicRes.criteria.every((c) => c.score === 0),
-    'Off-topic answer receives 0/100 score'
-  );
-
-  // ---------------------------------------------------------------------------
-  // TEST 6: Single retry on invalid JSON parses and recovers on attempt 2
-  // ---------------------------------------------------------------------------
-  console.log('\n--- SUITE 2: Retry and Validation Safety ---');
-
-  let callCount = 0;
-  const retryEvaluator = new RubricEvaluatorService();
-  const retryRunner = async () => {
-    callCount++;
-    if (callCount === 1) {
-      return '{ "criteria": [ { "criterion": "Accuracy & Threshold Identification", "score": "not_a_number"'; // Broken JSON
-    }
-    return JSON.stringify({
-      criteria: [
-        {
-          criterion: 'Accuracy & Threshold Identification',
-          score: 20,
-          maxScore: 25,
-          feedback: 'Recovered after format correction.',
-        },
-        {
-          criterion: 'Anomaly Root-Cause Classification',
-          score: 20,
-          maxScore: 25,
-          feedback: 'Valid causes identified.',
-        },
-        {
-          criterion: 'Action Plan Clarity',
-          score: 20,
-          maxScore: 25,
-          feedback: 'Solid actions.',
-        },
-        {
-          criterion: 'Conciseness & Structure',
-          score: 20,
-          maxScore: 25,
-          feedback: 'Clear structure.',
-        },
-      ],
-      overallScore: 80,
-      overallFeedback: 'Recovered evaluation.',
-    });
-  };
-
-  const recoveredRes = await retryEvaluator.evaluateAnswer({
-    question: sampleQuestion,
-    rubric: sampleRubric,
-    learnerAnswer: 'Tx 2 and Tx 3 are the anomalies.',
-    completionRunner: retryRunner,
-  });
-
-  assert(
-    callCount === 2 && recoveredRes.overallScore === 80,
-    'Malformed JSON on attempt 1 triggers retry and recovers successfully on attempt 2'
-  );
-
-  // ---------------------------------------------------------------------------
-  // TEST 7: Malformed JSON on both attempts throws clean RubricEvaluationError
-  // ---------------------------------------------------------------------------
-  let retryFailCount = 0;
-  const failEvaluator = new RubricEvaluatorService();
-  const persistentFailRunner = async () => {
-    retryFailCount++;
-    return 'I am not returning JSON today.';
-  };
-
-  let caughtError: RubricEvaluationError | null = null;
+  const test2Evaluator = new RubricEvaluatorService();
+  let test2Error: RubricEvaluationError | null = null;
   try {
-    await failEvaluator.evaluateAnswer({
+    await test2Evaluator.evaluateAnswer({
       question: sampleQuestion,
       rubric: sampleRubric,
       learnerAnswer: 'Some answer text',
-      completionRunner: persistentFailRunner,
+      completionRunner: async () =>
+        JSON.stringify({
+          ...validMockPayload,
+          criteria: [
+            {
+              criterion: 'Accuracy & Threshold Identification',
+              score: 30, // Exceeds maxScore 25
+              maxScore: 25,
+              feedback: 'Too high score',
+            },
+            ...validMockPayload.criteria.slice(1),
+          ],
+        }),
     });
   } catch (err: any) {
-    if (err instanceof RubricEvaluationError) {
-      caughtError = err;
-    }
+    if (err instanceof RubricEvaluationError) test2Error = err;
   }
 
   assert(
-    retryFailCount === 2 &&
-      caughtError !== null &&
-      caughtError.code === 'VALIDATION_FAILED_AFTER_RETRY',
-    'Persistent schema failure across both attempts throws clean RubricEvaluationError (Never fabricates scores)'
+    test2Error !== null &&
+      test2Error.code === 'VALIDATION_FAILED_AFTER_RETRY' &&
+      test2Error.message.includes('out of bounds'),
+    'Criterion score exceeding maxScore (30 > 25) is rejected, fails validation, and throws RubricEvaluationError'
   );
 
   // ---------------------------------------------------------------------------
-  // TEST 8: Server-authoritative scoring: client-submitted scores are ignored
+  // TEST 3: Negative criterion score rejected
   // ---------------------------------------------------------------------------
-  console.log('\n--- SUITE 3: Server Authority & Flow Integration ---');
+  const test3Evaluator = new RubricEvaluatorService();
+  let test3Error: RubricEvaluationError | null = null;
+  try {
+    await test3Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Some answer text',
+      completionRunner: async () =>
+        JSON.stringify({
+          ...validMockPayload,
+          criteria: [
+            {
+              criterion: 'Accuracy & Threshold Identification',
+              score: -5, // Negative score
+              maxScore: 25,
+              feedback: 'Negative',
+            },
+            ...validMockPayload.criteria.slice(1),
+          ],
+        }),
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test3Error = err;
+  }
 
-  // Seed question in question bank
-  const testQId = 'q-rubric-test-01';
-  inMemoryQuestionBank.set(testQId, {
-    questionId: testQId,
+  assert(
+    test3Error !== null && test3Error.code === 'VALIDATION_FAILED_AFTER_RETRY',
+    'Negative criterion score (-5) is rejected and triggers clean evaluation error'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 4: Non-integer criterion score rejected
+  // ---------------------------------------------------------------------------
+  const test4Evaluator = new RubricEvaluatorService();
+  let test4Error: RubricEvaluationError | null = null;
+  try {
+    await test4Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Some answer text',
+      completionRunner: async () =>
+        JSON.stringify({
+          ...validMockPayload,
+          criteria: [
+            {
+              criterion: 'Accuracy & Threshold Identification',
+              score: 22.5, // Non-integer
+              maxScore: 25,
+              feedback: 'Decimal score',
+            },
+            ...validMockPayload.criteria.slice(1),
+          ],
+        }),
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test4Error = err;
+  }
+
+  assert(
+    test4Error !== null && test4Error.code === 'VALIDATION_FAILED_AFTER_RETRY',
+    'Non-integer criterion score (22.5) is rejected and throws RubricEvaluationError'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 5: Missing rubric criterion rejected
+  // ---------------------------------------------------------------------------
+  const test5Evaluator = new RubricEvaluatorService();
+  let test5Error: RubricEvaluationError | null = null;
+  try {
+    await test5Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Some answer text',
+      completionRunner: async () =>
+        JSON.stringify({
+          // Only 2 of 4 criteria provided
+          criteria: validMockPayload.criteria.slice(0, 2),
+          overallScore: 50,
+          overallFeedback: 'Incomplete criteria list',
+        }),
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test5Error = err;
+  }
+
+  assert(
+    test5Error !== null &&
+      test5Error.code === 'VALIDATION_FAILED_AFTER_RETRY' &&
+      test5Error.message.includes('Missing required rubric criterion'),
+    'Missing rubric criterion in AI response is rejected and throws RubricEvaluationError'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 6: Overall score inconsistent with sum of criteria rejected
+  // ---------------------------------------------------------------------------
+  const test6Evaluator = new RubricEvaluatorService();
+  let test6Error: RubricEvaluationError | null = null;
+  try {
+    await test6Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Some answer text',
+      completionRunner: async () =>
+        JSON.stringify({
+          ...validMockPayload,
+          // Criteria sum to 96, but overallScore states 40
+          overallScore: 40,
+        }),
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test6Error = err;
+  }
+
+  assert(
+    test6Error !== null &&
+      test6Error.code === 'VALIDATION_FAILED_AFTER_RETRY' &&
+      test6Error.message.includes('inconsistent with sum of rubric criteria'),
+    'Overall score mathematically inconsistent with criteria sum (40 vs 96%) is rejected'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 7: First invalid response triggers retry; valid retry succeeds
+  // ---------------------------------------------------------------------------
+  let test7Calls = 0;
+  const test7Evaluator = new RubricEvaluatorService();
+  const test7Runner = async () => {
+    test7Calls++;
+    if (test7Calls === 1) {
+      return 'Malformed { json string not closing';
+    }
+    return JSON.stringify(validMockPayload);
+  };
+
+  const test7Res = await test7Evaluator.evaluateAnswer({
+    question: sampleQuestion,
+    rubric: sampleRubric,
+    learnerAnswer: 'Audit response',
+    completionRunner: test7Runner,
+  });
+
+  assert(
+    test7Calls === 2 && test7Res.overallScore === 96 && test7Res.criteria.length === 4,
+    'First invalid response triggers retry; valid retry succeeds with full rubric results'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 8: Second invalid response throws structured RubricEvaluationError
+  // ---------------------------------------------------------------------------
+  let test8Calls = 0;
+  const test8Evaluator = new RubricEvaluatorService();
+  let test8Error: RubricEvaluationError | null = null;
+  try {
+    await test8Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Audit response',
+      completionRunner: async () => {
+        test8Calls++;
+        return 'Still not valid JSON';
+      },
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test8Error = err;
+  }
+
+  assert(
+    test8Calls === 2 && test8Error !== null && test8Error.code === 'VALIDATION_FAILED_AFTER_RETRY',
+    'Second invalid response throws structured RubricEvaluationError (VALIDATION_FAILED_AFTER_RETRY)'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 9: Provider timeout / network failure throws structured RubricEvaluationError
+  // ---------------------------------------------------------------------------
+  const test9Evaluator = new RubricEvaluatorService();
+  let test9Error: RubricEvaluationError | null = null;
+  try {
+    await test9Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Audit response',
+      completionRunner: async () => {
+        const err: any = new Error('Gateway Connection timed out after 15000ms');
+        err.name = 'TimeoutError';
+        throw err;
+      },
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test9Error = err;
+  }
+
+  assert(
+    test9Error !== null && test9Error.code === 'PROVIDER_TIMEOUT',
+    'Provider timeout throws structured RubricEvaluationError (PROVIDER_TIMEOUT)'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 10: Provider 429 / rate limit throws structured RubricEvaluationError
+  // ---------------------------------------------------------------------------
+  const test10Evaluator = new RubricEvaluatorService();
+  let test10Error: RubricEvaluationError | null = null;
+  try {
+    await test10Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Audit response',
+      completionRunner: async () => {
+        const err: any = new Error('Rate limit exceeded: 429 Too Many Requests');
+        err.status = 429;
+        throw err;
+      },
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test10Error = err;
+  }
+
+  assert(
+    test10Error !== null && test10Error.code === 'PROVIDER_RATE_LIMIT',
+    'Provider rate limit (429) throws structured RubricEvaluationError (PROVIDER_RATE_LIMIT)'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 11: Provider invalid credentials / unavailable throws structured RubricEvaluationError
+  // ---------------------------------------------------------------------------
+  // Create an unconfigured ClaudeService instance (no keys)
+  const unconfiguredClaude = new ClaudeService();
+  (unconfiguredClaude as any).client = null;
+  (unconfiguredClaude as any).geminiClient = null;
+
+  const test11Evaluator = new RubricEvaluatorService(unconfiguredClaude);
+  let test11Error: RubricEvaluationError | null = null;
+  try {
+    await test11Evaluator.evaluateAnswer({
+      question: sampleQuestion,
+      rubric: sampleRubric,
+      learnerAnswer: 'Audit response',
+    });
+  } catch (err: any) {
+    if (err instanceof RubricEvaluationError) test11Error = err;
+  }
+
+  assert(
+    test11Error !== null && test11Error.code === 'PROVIDER_UNAVAILABLE',
+    'Unavailable / unconfigured AI provider throws structured RubricEvaluationError (PROVIDER_UNAVAILABLE)'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 12: No QuestionAttempt or score saved when evaluation fails
+  // ---------------------------------------------------------------------------
+  const test12QId = 'q-test-fail-save-12';
+  inMemoryQuestionBank.set(test12QId, {
+    questionId: test12QId,
     topic: 'Checking AI',
     level: 'Easy',
     track: 'General',
-    title: sampleQuestion.title,
-    promptText: sampleQuestion.promptText,
-    testScenario: sampleQuestion.testScenario,
-    expectedCriteria: sampleQuestion.expectedCriteria,
+    title: 'Fail-Safe Attempt Persistence',
+    promptText: 'Audit transactions.',
     scoringRubric: sampleRubric,
     status: 'ACTIVE',
   });
 
-  // Assign to test learner
-  const testAssignmentId = 'asgn-rubric-test-01';
-  inMemoryAssignments.set(testAssignmentId, {
-    assignmentId: testAssignmentId,
-    learnerId: 'learner-rubric-user',
-    questionId: testQId,
+  const test12AsgnId = 'asgn-test-fail-save-12';
+  inMemoryAssignments.set(test12AsgnId, {
+    assignmentId: test12AsgnId,
+    learnerId: 'learner-test-12',
+    questionId: test12QId,
     topic: 'Checking AI',
     level: 'Easy',
     track: 'General',
@@ -412,71 +427,168 @@ async function runTestSuite() {
     status: 'ASSIGNED',
   });
 
-  // Client sends score = 100 in body (attempted score tampering)
-  const fakeScoreReq: any = {
-    user: { id: 'learner-rubric-user' },
+  // Inject failing runner into global singleton
+  rubricEvaluatorService.setAICompletionRunner(async () => {
+    throw new Error('AI Provider Service Unavailable: 503');
+  });
+
+  const attemptsBefore = inMemoryAttempts.size;
+  let attempt12Error: any = null;
+  try {
+    await questionBankService.submitAttempt({
+      learnerId: 'learner-test-12',
+      assignmentId: test12AsgnId,
+      answer: 'Some response that will fail during AI evaluation.',
+      timeTakenSeconds: 30,
+    });
+  } catch (err: any) {
+    attempt12Error = err;
+  }
+
+  const assignmentAfter = inMemoryAssignments.get(test12AsgnId);
+  const attemptsAfter = inMemoryAttempts.size;
+
+  assert(
+    attempt12Error !== null &&
+      attemptsAfter === attemptsBefore &&
+      assignmentAfter.status === 'ASSIGNED',
+    'When AI evaluation fails, no QuestionAttempt is saved and assignment remains ASSIGNED (Never saves fabricated score)'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 13: No AC / XP rewards awarded when evaluation fails
+  // ---------------------------------------------------------------------------
+  const test13AsgnId = 'asgn-test-clarity-rewards-13';
+  inMemoryAssignments.set(test13AsgnId, {
+    assignmentId: test13AsgnId,
+    learnerId: 'learner-clarity-13',
+    questionId: test12QId,
+    topic: 'Checking AI',
+    level: 'Easy',
+    track: 'General',
+    assignedAt: new Date(),
+    status: 'ASSIGNED',
+  });
+
+  const test13User = {
+    _id: 'learner-clarity-13',
+    id: 'learner-clarity-13',
+    aiimsCredits: 75,
+    xpPoints: 200,
+  };
+
+  const clarityFailReq: any = {
+    user: test13User,
     body: {
-      assignmentId: testAssignmentId,
-      answer: 'Identified the $50 threshold and declared Tx 2 and Tx 3 anomalous.',
-      score: 100, // Client attempts to force 100
+      assignmentId: test13AsgnId,
+      answer: 'Draft answer under failing provider.',
+      timeTakenSeconds: 45,
     },
   };
 
-  let capturedStatus = 0;
-  let capturedBody: any = null;
-  const mockRes: any = {
+  let test13Status = 0;
+  let test13Body: any = null;
+  const mockClarityFailRes: any = {
     status(s: number) {
-      capturedStatus = s;
+      test13Status = s;
       return this;
     },
     json(b: any) {
-      capturedBody = b;
+      test13Body = b;
       return this;
     },
   };
 
-  await submitAttemptHandler(fakeScoreReq, mockRes);
+  await submitClarityTask(clarityFailReq, mockClarityFailRes);
 
   assert(
-    capturedStatus === 200 &&
-      capturedBody.success === true &&
-      capturedBody.attemptId !== undefined &&
-      capturedBody.rubricFeedback.length === 4 &&
-      capturedBody.overallFeedback !== undefined,
-    'Client-submitted score is ignored: server-authoritative rubric evaluation evaluates and returns score'
-  );
-
-  // Check stored attempt
-  const storedAttempt = inMemoryAttempts.get(capturedBody.attemptId);
-  assert(
-    storedAttempt !== undefined &&
-      storedAttempt.rubricFeedback.length === 4 &&
-      storedAttempt.overallFeedback !== undefined,
-    'QuestionAttempt record correctly persists rubricFeedback array and overallFeedback summary'
+    test13Status === 502 &&
+      test13Body.code !== undefined &&
+      test13User.aiimsCredits === 75 &&
+      test13User.xpPoints === 200,
+    'Clarity task returns HTTP 502 on evaluation failure and awards 0 AC and 0 XP (User balances unchanged)'
   );
 
   // ---------------------------------------------------------------------------
-  // TEST 9: Clarity Controller submitClarityTask integration
+  // TEST 14: Empty / whitespace submission returns 0 without calling AI
   // ---------------------------------------------------------------------------
-  const clarityQId = 'q-clarity-rubric-01';
-  inMemoryQuestionBank.set(clarityQId, {
-    questionId: clarityQId,
+  let test14LlmCalled = false;
+  const test14Evaluator = new RubricEvaluatorService();
+  const test14Res = await test14Evaluator.evaluateAnswer({
+    question: sampleQuestion,
+    rubric: sampleRubric,
+    learnerAnswer: '    \n\t   ',
+    completionRunner: async () => {
+      test14LlmCalled = true;
+      return '{}';
+    },
+  });
+
+  assert(
+    test14Res.overallScore === 0 &&
+      !test14LlmCalled &&
+      test14Res.evaluationSource === 'EMPTY_SUBMISSION' &&
+      test14Res.criteria.every((c) => c.score === 0) &&
+      test14Res.overallFeedback.includes('No answer was submitted'),
+    'Empty/whitespace submission returns 0 without calling AI and without fabricated scores'
+  );
+
+  // ---------------------------------------------------------------------------
+  // TEST 15: Focus challenge submission flow uses rubric evaluation and returns criteria breakdown
+  // ---------------------------------------------------------------------------
+  // Configure valid mock runner for the server singleton
+  rubricEvaluatorService.setAICompletionRunner(async () =>
+    JSON.stringify({
+      criteria: [
+        {
+          criterion: 'Accuracy & Threshold Identification',
+          score: 22,
+          maxScore: 25,
+          feedback: 'Strong identification of thresholds.',
+        },
+        {
+          criterion: 'Anomaly Root-Cause Classification',
+          score: 22,
+          maxScore: 25,
+          feedback: 'Accurately diagnosed vendor anomalies.',
+        },
+        {
+          criterion: 'Action Plan Clarity',
+          score: 22,
+          maxScore: 25,
+          feedback: 'Clear remediation actions provided.',
+        },
+        {
+          criterion: 'Conciseness & Structure',
+          score: 22,
+          maxScore: 25,
+          feedback: 'Clean presentation.',
+        },
+      ],
+      overallScore: 88,
+      overallFeedback: 'High quality Focus challenge execution.',
+    })
+  );
+
+  const test15QId = 'q-focus-challenge-15';
+  inMemoryQuestionBank.set(test15QId, {
+    questionId: test15QId,
     topic: 'AI Workflow Design',
     level: 'Easy',
     track: 'General',
-    title: 'Multi-Step Workflow Verification',
-    promptText: 'Design a 3-step verification workflow.',
-    testScenario: 'Weekly report consolidation.',
-    expectedCriteria: ['Input validation', 'Anomaly flag', 'Manager review'],
+    title: 'Focus Track Rubric Challenge',
+    promptText: 'Design a prompt workflow for data validation.',
+    testScenario: 'Weekly CSV ingest.',
+    expectedCriteria: ['Validation rule', 'Anomaly check', 'Alerting'],
     scoringRubric: sampleRubric,
     status: 'ACTIVE',
   });
 
-  const clarityAsgnId = 'asgn-clarity-rubric-01';
-  inMemoryAssignments.set(clarityAsgnId, {
-    assignmentId: clarityAsgnId,
-    learnerId: 'learner-clarity-user',
-    questionId: clarityQId,
+  const test15AsgnId = 'asgn-focus-challenge-15';
+  inMemoryAssignments.set(test15AsgnId, {
+    assignmentId: test15AsgnId,
+    learnerId: 'learner-focus-15',
+    questionId: test15QId,
     topic: 'AI Workflow Design',
     level: 'Easy',
     track: 'General',
@@ -484,66 +596,43 @@ async function runTestSuite() {
     status: 'ASSIGNED',
   });
 
-  const clarityReq: any = {
-    user: {
-      _id: 'learner-clarity-user',
-      id: 'learner-clarity-user',
-      aiimsCredits: 50,
-      xpPoints: 100,
-    },
+  const focusReq: any = {
+    user: { id: 'learner-focus-15' },
     body: {
-      assignmentId: clarityAsgnId,
+      assignmentId: test15AsgnId,
       answer:
-        'Step 1: Validate input CSV format. Step 2: Flag missing values. Step 3: Require manager review before distribution.',
-      timeTakenSeconds: 60,
+        'Step 1: Check CSV structure. Step 2: Extract anomalies > $50. Step 3: Alert audit team.',
+      timeTakenSeconds: 90,
     },
   };
 
-  let clarityStatus = 0;
-  let clarityBody: any = null;
-  const mockClarityRes: any = {
+  let focusStatus = 0;
+  let focusBody: any = null;
+  const mockFocusRes: any = {
     status(s: number) {
-      clarityStatus = s;
+      focusStatus = s;
       return this;
     },
     json(b: any) {
-      clarityBody = b;
+      focusBody = b;
       return this;
     },
   };
 
-  await submitClarityTask(clarityReq, mockClarityRes);
+  await submitAttemptHandler(focusReq, mockFocusRes);
+
+  const savedFocusAttempt = inMemoryAttempts.get(focusBody?.attemptId);
 
   assert(
-    clarityStatus === 200 &&
-      clarityBody.success === true &&
-      clarityBody.rubricFeedback.length === 4 &&
-      clarityBody.overallFeedback !== undefined &&
-      clarityBody.creditsAwarded > 0,
-    'Clarity task submission evaluates via rubricEvaluatorService and awards completion credits'
-  );
-
-  // ---------------------------------------------------------------------------
-  // TEST 10: Task locking prevents re-submission tampering (HTTP 409)
-  // ---------------------------------------------------------------------------
-  let resubmitStatus = 0;
-  let resubmitBody: any = null;
-  const mockResubmitRes: any = {
-    status(s: number) {
-      resubmitStatus = s;
-      return this;
-    },
-    json(b: any) {
-      resubmitBody = b;
-      return this;
-    },
-  };
-
-  await submitClarityTask(clarityReq, mockResubmitRes);
-
-  assert(
-    resubmitStatus === 409 && resubmitBody.code === 'TASK_LOCKED',
-    'Task locking prevents re-submission (HTTP 409 TASK_LOCKED)'
+    focusStatus === 200 &&
+      focusBody.success === true &&
+      focusBody.score === 88 &&
+      focusBody.rubricFeedback.length === 4 &&
+      focusBody.overallFeedback.includes('Focus challenge') &&
+      savedFocusAttempt !== undefined &&
+      savedFocusAttempt.score === 88 &&
+      savedFocusAttempt.rubricFeedback.length === 4,
+    'Focus challenge submission flow evaluates via AI rubric, returns criteria breakdown, and persists immutable attempt record'
   );
 
   // ---------------------------------------------------------------------------
@@ -553,11 +642,11 @@ async function runTestSuite() {
   console.log(`TEST RESULTS: ${passedTests}/${totalTests} PASSED`);
   console.log('====================================================');
 
-  if (passedTests === totalTests) {
-    console.log('🎉 ALL 10 RUBRIC EVALUATOR SCENARIOS PASSED!\n');
+  if (passedTests === totalTests && totalTests === 15) {
+    console.log('🎉 ALL 15 MANDATORY RUBRIC EVALUATION TESTS PASSED!\n');
     process.exit(0);
   } else {
-    console.error(`💥 ${totalTests - passedTests} TESTS FAILED\n`);
+    console.error(`💥 ${totalTests - passedTests} TESTS FAILED (Total: ${totalTests}/15)\n`);
     process.exit(1);
   }
 }

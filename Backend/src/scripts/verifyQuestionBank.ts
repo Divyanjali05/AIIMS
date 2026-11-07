@@ -12,6 +12,7 @@
  */
 
 import { questionBankService, TARGET_MINIMUM_PER_LEVEL } from '../services/questionBank.service';
+import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
 import { similarityDetectorService } from '../services/similarityDetector.service';
 import { aiQuestionGeneratorService } from '../services/aiQuestionGenerator.service';
 import { inMemoryQuestionBank } from '../models/QuestionBank.model';
@@ -87,6 +88,41 @@ export async function runAllTests() {
   inMemoryExclusionConfig.scope = 'college';
   inMemoryExclusionConfig.exclusionDays = 30;
   await initSeedQuestions();
+
+  // Configure deterministic completion runner for offline question bank verification
+  rubricEvaluatorService.setAICompletionRunner(async (prompt: string) => {
+    const criteriaMatches = Array.from(
+      prompt.matchAll(/CRITERION: "([^"]+)" \(Max Score: (\d+) points\)/g)
+    );
+    const criteria =
+      criteriaMatches.length > 0
+        ? criteriaMatches.map((m) => {
+            const maxScore = parseInt(m[2], 10);
+            return {
+              criterion: m[1],
+              score: Math.round(maxScore * 0.9),
+              maxScore,
+              feedback: `Demonstrated competence for ${m[1]}.`,
+            };
+          })
+        : [
+            {
+              criterion: 'Clarity & Goal Alignment',
+              score: 25,
+              maxScore: 25,
+              feedback: 'Demonstrated competence.',
+            },
+          ];
+    const totalEarned = criteria.reduce((sum, c) => sum + c.score, 0);
+    const totalMax = criteria.reduce((sum, c) => sum + c.maxScore, 0);
+    const overallScore = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 90;
+
+    return JSON.stringify({
+      criteria,
+      overallScore,
+      overallFeedback: 'Verified response demonstrates required competence.',
+    });
+  });
 
   // -------------------------------------------------------------------------
   // CATEGORY 1: QUESTION MODEL AND VALIDATION (Tests 1-6)

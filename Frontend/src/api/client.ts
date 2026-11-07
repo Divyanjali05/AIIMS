@@ -1090,7 +1090,11 @@ export const apiClient = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Failed to submit attempt');
+      const error: any = new Error(err.error || 'Failed to submit attempt');
+      error.code = err.code;
+      error.details = err.details;
+      error.status = res.status;
+      throw error;
     }
     return res.json();
   },

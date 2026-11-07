@@ -32,7 +32,7 @@ export interface RubricEvaluationResult {
   overallScore: number;
   criteria: EvaluatedCriterion[];
   overallFeedback: string;
-  evaluationSource: 'AI' | 'EMPTY_SUBMISSION' | 'OFFLINE_SEMANTIC_EVIDENCE' | 'MOCK';
+  evaluationSource: 'AI' | 'EMPTY_SUBMISSION' | 'MOCK';
 }
 
 export class RubricEvaluationError extends Error {
@@ -150,34 +150,51 @@ export class RubricEvaluatorService {
             this.claude.generateCompletion(p, { maxTokens: 1200, temperature: 0.1, jsonMode: true })
         : null);
 
-    // If no AI runner or provider is available (e.g. offline dev without API keys),
-    // use deterministic semantic evidence evaluation (never length-based!).
+    // If no AI runner or provider is available, throw clean structured error.
+    // NEVER substitute keyword scoring, benchmark scoring, answer-length scoring or fabricated scores.
     if (!runner) {
-      return this.evaluateOfflineSemanticEvidence(question, effectiveRubric, cleanAnswer);
+      throw new RubricEvaluationError(
+        'AI provider is unavailable or not configured. Cannot perform rubric evaluation.',
+        'PROVIDER_UNAVAILABLE'
+      );
     }
 
     // 3. Construct LLM Prompt
     const prompt = this.buildEvaluationPrompt(question, effectiveRubric, cleanAnswer);
+
+    // Helper to categorize provider errors
+    const resolveProviderErrorCode = (err: any): string => {
+      const msg = (err?.message || '').toLowerCase();
+      if (err?.status === 429 || msg.includes('429') || msg.includes('rate limit')) {
+        return 'PROVIDER_RATE_LIMIT';
+      }
+      if (err?.name === 'TimeoutError' || msg.includes('timeout') || msg.includes('timed out')) {
+        return 'PROVIDER_TIMEOUT';
+      }
+      if (
+        msg.includes('auth') ||
+        msg.includes('api key') ||
+        msg.includes('unauthorized') ||
+        err?.status === 401
+      ) {
+        return 'PROVIDER_INVALID_CREDENTIALS';
+      }
+      return 'PROVIDER_CALL_FAILED';
+    };
 
     // 4. Attempt 1: Call completion runner
     let rawOutput: string = '';
     try {
       rawOutput = await runner(prompt);
     } catch (err: any) {
-      if (params.completionRunner || this.defaultRunner) {
-        throw new RubricEvaluationError(
-          `AI provider completion failed: ${err.message || 'Network/service error'}`,
-          'PROVIDER_CALL_FAILED',
-          err
-        );
-      }
-      console.warn(
-        `[RubricEvaluatorService] Live AI provider call failed (${err.message}). Falling back to deterministic semantic evidence evaluation.`
+      throw new RubricEvaluationError(
+        `AI provider completion failed: ${err.message || 'Network/service error'}`,
+        resolveProviderErrorCode(err),
+        err
       );
-      return this.evaluateOfflineSemanticEvidence(question, effectiveRubric, cleanAnswer);
     }
 
-    // Parse and validate with Zod
+    // Parse and validate with Zod and schema consistency
     const firstAttempt = this.parseAndValidate(rawOutput, effectiveRubric);
     if (firstAttempt.success) {
       return {
@@ -196,7 +213,7 @@ export class RubricEvaluatorService {
     } catch (err: any) {
       throw new RubricEvaluationError(
         `AI provider completion failed during retry: ${err.message || 'Network/service error'}`,
-        'PROVIDER_CALL_FAILED',
+        resolveProviderErrorCode(err),
         err
       );
     }
@@ -345,7 +362,7 @@ Please correct the formatting, ensure all numeric scores are integers within [0,
 
     const parsedData = zodResult.data;
 
-    // Match criteria against rubric and enforce bounds:
+    // Match criteria against rubric and enforce bounds (Strict: NEVER clamp! Reject invalid scores so retry fires):
     const validatedCriteria: EvaluatedCriterion[] = [];
     for (const r of rubric) {
       const matched = parsedData.criteria.find(
@@ -355,24 +372,36 @@ Please correct the formatting, ensure all numeric scores are integers within [0,
           r.criterion.toLowerCase().includes(c.criterion.toLowerCase())
       );
 
-      if (matched) {
-        const clampedScore = Math.max(0, Math.min(r.maxScore, Math.round(matched.score)));
-        validatedCriteria.push({
-          criterion: r.criterion,
-          score: clampedScore,
-          maxScore: r.maxScore,
-          feedback:
-            matched.feedback || `Demonstrated ${r.criterion} at ${clampedScore}/${r.maxScore}.`,
-        });
-      } else {
-        // Criterion missing from output - default to 0 with note
-        validatedCriteria.push({
-          criterion: r.criterion,
-          score: 0,
-          maxScore: r.maxScore,
-          feedback: `Criterion was not addressed in response.`,
-        });
+      if (!matched) {
+        return {
+          success: false,
+          error: `Missing required rubric criterion in evaluation: "${r.criterion}"`,
+        };
       }
+
+      if (typeof matched.score !== 'number' || !Number.isInteger(matched.score)) {
+        return {
+          success: false,
+          error: `Criterion "${r.criterion}" score must be an integer, got: ${matched.score}`,
+        };
+      }
+
+      if (matched.score < 0 || matched.score > r.maxScore) {
+        return {
+          success: false,
+          error: `Criterion "${r.criterion}" score ${matched.score} is out of bounds [0, ${r.maxScore}]`,
+        };
+      }
+
+      validatedCriteria.push({
+        criterion: r.criterion,
+        score: matched.score,
+        maxScore: r.maxScore,
+        feedback:
+          matched.feedback && matched.feedback.trim().length > 0
+            ? matched.feedback.trim()
+            : `Demonstrated ${r.criterion} at ${matched.score}/${r.maxScore}.`,
+      });
     }
 
     // Compute mathematically consistent overall score (0 to 100)
@@ -380,78 +409,24 @@ Please correct the formatting, ensure all numeric scores are integers within [0,
     const totalMax = validatedCriteria.reduce((sum, c) => sum + c.maxScore, 0);
     const computedOverall = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
 
+    // Enforce mathematical consistency: overallScore must match sum of criteria within rounding tolerance (+-1)
+    if (Math.abs(parsedData.overallScore - computedOverall) > 1) {
+      return {
+        success: false,
+        error: `Overall score (${parsedData.overallScore}) is inconsistent with sum of rubric criteria (${totalEarned}/${totalMax} = ${computedOverall}%)`,
+      };
+    }
+
     return {
       success: true,
       data: {
         criteria: validatedCriteria,
-        overallScore: Math.min(100, Math.max(0, computedOverall)),
+        overallScore: computedOverall,
         overallFeedback:
           parsedData.overallFeedback && parsedData.overallFeedback.trim().length > 0
             ? parsedData.overallFeedback.trim()
             : `Evaluated ${validatedCriteria.length} criteria. Total score: ${computedOverall}/100.`,
       },
-    };
-  }
-
-  /**
-   * Deterministic semantic evidence evaluation for offline / keyless testing environments.
-   * STRICT: Never uses string length to award scores! Evaluates concept match against expected criteria.
-   */
-  private evaluateOfflineSemanticEvidence(
-    question: QuestionInfo,
-    rubric: RubricCriterionInput[],
-    answer: string
-  ): RubricEvaluationResult {
-    const lowerAnswer = answer.toLowerCase();
-
-    // Collect keywords from expectedCriteria and scenario
-    const benchmarks = question.expectedCriteria || [];
-    const matchedCriteria: EvaluatedCriterion[] = [];
-
-    for (let i = 0; i < rubric.length; i++) {
-      const r = rubric[i];
-      const benchmarkText = benchmarks[i] || r.description || '';
-      const benchmarkWords = benchmarkText
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, '')
-        .split(/\s+/)
-        .filter((w) => w.length > 3);
-
-      // Count substantive conceptual word matches
-      const matchCount = benchmarkWords.filter((w) => lowerAnswer.includes(w)).length;
-      const ratio = benchmarkWords.length > 0 ? matchCount / benchmarkWords.length : 0.5;
-
-      let score = 0;
-      let feedback = '';
-
-      if (ratio >= 0.4 || lowerAnswer.includes(r.criterion.toLowerCase())) {
-        score = Math.round(r.maxScore * 0.9);
-        feedback = `Demonstrated clear evidence of ${r.criterion}.`;
-      } else if (ratio >= 0.2) {
-        score = Math.round(r.maxScore * 0.5);
-        feedback = `Partial demonstration of ${r.criterion}. Needs more concrete verification details.`;
-      } else {
-        score = Math.round(r.maxScore * 0.15);
-        feedback = `Limited or missing evidence for ${r.criterion}.`;
-      }
-
-      matchedCriteria.push({
-        criterion: r.criterion,
-        score,
-        maxScore: r.maxScore,
-        feedback,
-      });
-    }
-
-    const totalEarned = matchedCriteria.reduce((sum, c) => sum + c.score, 0);
-    const totalMax = matchedCriteria.reduce((sum, c) => sum + c.maxScore, 0);
-    const overallScore = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
-
-    return {
-      overallScore,
-      criteria: matchedCriteria,
-      overallFeedback: `Completed evidence-based rubric assessment across ${matchedCriteria.length} criteria.`,
-      evaluationSource: 'OFFLINE_SEMANTIC_EVIDENCE',
     };
   }
 }
