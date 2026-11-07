@@ -550,11 +550,17 @@ export async function runAllTests() {
   );
 
   // Test 32: Learner cannot modify scores (server-authoritative scoring)
+  const asgnForScoreTest = await questionBankService.serveQuestion({
+    learnerId: 'learner-test-32',
+    topic: 'Checking AI',
+    level: 'Easy',
+    track: 'General',
+  });
   const { res: mockRes32, state: state32 } = createMockRes();
   const submitWithFakeScoreReq: any = {
-    user: { id: 'learner-test-01' },
+    user: { id: 'learner-test-32' },
     body: {
-      assignmentId: asgn1.assignment.assignmentId,
+      assignmentId: asgnForScoreTest.assignment.assignmentId,
       answer: 'My submitted work',
       score: 100, // Client attempts to forge a 100 score
     },
@@ -564,7 +570,7 @@ export async function runAllTests() {
     32,
     'Security & Admin',
     'Learner cannot modify scores (server-authoritative rubric evaluation)',
-    state32.statusCode === 200 || state32.statusCode === 404
+    state32.statusCode === 200 && state32.data?.score !== 100
   );
 
   // Test 33: Learner cannot change question source or approval status

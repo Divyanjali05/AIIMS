@@ -180,6 +180,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
         const currentBal = latestUser?.aiimsCredits ?? req.user.aiimsCredits;
         return res.json({
           message: 'Assessment updated (reward already claimed)',
+          alreadyClaimed: true,
           earnedCredits: 0,
           evaluationResult,
           scores: evaluationResult.legacyScores,
@@ -277,6 +278,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
       message: alreadyClaimed
         ? 'Assessment updated (reward already claimed)'
         : 'Assessment completed and saved to MongoDB Atlas!',
+      alreadyClaimed: Boolean(alreadyClaimed),
       earnedCredits,
       evaluationResult,
       scores: evaluationResult.legacyScores,

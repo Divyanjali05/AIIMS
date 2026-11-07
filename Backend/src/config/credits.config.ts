@@ -17,6 +17,65 @@ export const CREDIT_RULES = {
 } as const;
 
 /**
+ * FOCUS_CHALLENGE_RULES — Per-level duration thresholds and reward tiers for Focus Practice Challenges.
+ * Approved in T3 Owner Decision Record (2026-11-07).
+ */
+export interface FocusChallengeRule {
+  fastThresholdSeconds: number;
+  normalThresholdSeconds: number;
+  fastReward: { credits: number; xp: number };
+  normalReward: { credits: number; xp: number };
+  overtimeReward: { credits: number; xp: number };
+}
+
+export const FOCUS_CHALLENGE_RULES: Record<string, FocusChallengeRule> = {
+  Easy: {
+    fastThresholdSeconds: 300,
+    normalThresholdSeconds: 600,
+    fastReward: { credits: 20, xp: 50 },
+    normalReward: { credits: 15, xp: 50 },
+    overtimeReward: { credits: 0, xp: 0 },
+  },
+  Medium: {
+    fastThresholdSeconds: 600,
+    normalThresholdSeconds: 1200,
+    fastReward: { credits: 20, xp: 50 },
+    normalReward: { credits: 15, xp: 50 },
+    overtimeReward: { credits: 0, xp: 0 },
+  },
+  Hard: {
+    fastThresholdSeconds: 900,
+    normalThresholdSeconds: 1800,
+    fastReward: { credits: 20, xp: 50 },
+    normalReward: { credits: 15, xp: 50 },
+    overtimeReward: { credits: 0, xp: 0 },
+  },
+};
+
+/**
+ * Calculates Focus challenge reward tiers authoritatively based on difficulty and server-calculated elapsed seconds.
+ */
+export const calculateFocusChallengeReward = (
+  level: string,
+  serverDurationSeconds: number
+): { credits: number; xp: number; tier: 'FAST' | 'NORMAL' | 'OVERTIME' } => {
+  const rule = FOCUS_CHALLENGE_RULES[level] || FOCUS_CHALLENGE_RULES.Easy;
+  if (serverDurationSeconds <= rule.fastThresholdSeconds) {
+    return { ...rule.fastReward, tier: 'FAST' };
+  }
+  if (serverDurationSeconds <= rule.normalThresholdSeconds) {
+    return { ...rule.normalReward, tier: 'NORMAL' };
+  }
+  return { ...rule.overtimeReward, tier: 'OVERTIME' };
+};
+
+/**
+ * Generates deterministic idempotency key for Focus Practice Challenge completion rewards.
+ */
+export const focusChallengeRewardKey = (assignmentId: string): string =>
+  `focus::challenge::${assignmentId}`;
+
+/**
  * Generates a deterministic idempotency key for a clarity task reward.
  * The key format ensures the same task for the same user only ever awards once.
  */

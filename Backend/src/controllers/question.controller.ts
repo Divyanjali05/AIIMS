@@ -16,6 +16,7 @@ import {
   QuestionStatus,
 } from '../models/QuestionBank.model';
 import { aiQuestionGeneratorService } from '../services/aiQuestionGenerator.service';
+import { creditsLedgerService } from '../services/creditsLedger.service';
 import mongoose from 'mongoose';
 
 /**
@@ -143,6 +144,8 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
       timeTakenSeconds,
     });
 
+    const currentBalance = await creditsLedgerService.getBalance(learnerId);
+
     return res.status(200).json({
       success: true,
       attemptId: result.attempt.attemptId,
@@ -150,9 +153,23 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
       rubricFeedback: result.attempt.rubricFeedback,
       overallFeedback: result.attempt.overallFeedback,
       submittedAt: result.attempt.submittedAt,
+      reward: (result as any).reward,
+      currentBalance,
     });
   } catch (err: any) {
     console.error('[QuestionController] submitAttempt error:', err);
+    if (
+      err.code === 'TASK_LOCKED' ||
+      err.status === 409 ||
+      (err.message && err.message.includes('locked')) ||
+      (err.message && err.message.includes('already been submitted'))
+    ) {
+      return res.status(409).json({
+        error: err.message || 'This task has already been submitted and is locked.',
+        code: 'TASK_LOCKED',
+        isLocked: true,
+      });
+    }
     if (err.message && err.message.includes('not found')) {
       return res.status(404).json({ error: err.message });
     }

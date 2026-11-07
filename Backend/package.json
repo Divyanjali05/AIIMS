@@ -26,6 +26,7 @@
     "test:scoring": "ts-node src/scripts/runScoringTests.ts",
     "test:rubric": "ts-node src/scripts/testRubricScoring.ts",
     "test:questionbank": "ts-node src/scripts/verifyQuestionBank.ts",
+    "test:t3": "ts-node src/scripts/verifyT3LearnerJourney.ts",
     "test:evaluation": "ts-node src/scripts/testEvaluationSystem.ts",
     "test:deletion": "ts-node src/scripts/testAccountDeletion.ts",
     "test:unit": "vitest run --config ../vitest.config.ts src/services/__tests__",

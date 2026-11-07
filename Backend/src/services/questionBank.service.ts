@@ -28,6 +28,8 @@ import { initSeedQuestions } from './seedQuestions';
 import { User } from '../models/User.model';
 import { StudentProfile } from '../models/StudentProfile.model';
 import { rubricEvaluatorService } from './rubricEvaluator.service';
+import { creditsLedgerService } from './creditsLedger.service';
+import { calculateFocusChallengeReward, focusChallengeRewardKey } from '../config/credits.config';
 
 export const TARGET_MINIMUM_PER_LEVEL = 30;
 
@@ -315,6 +317,7 @@ export class QuestionBankService {
   public async submitAttempt(params: SubmitAttemptParams): Promise<{
     attempt: any;
     assignment: any;
+    reward?: any;
   }> {
     const { learnerId, assignmentId, answer, timeTakenSeconds, creditTransactionId } = params;
 
@@ -331,6 +334,14 @@ export class QuestionBankService {
 
     if (!assignment) {
       throw new Error('Assignment not found or does not belong to learner.');
+    }
+
+    // 1b. Duplicate submission lock guard (HTTP 409)
+    if (assignment.status === 'SUBMITTED') {
+      const lockError: any = new Error('This task has already been submitted and is locked.');
+      lockError.code = 'TASK_LOCKED';
+      lockError.status = 409;
+      throw lockError;
     }
 
     // 2. Fetch Question
@@ -370,7 +381,52 @@ export class QuestionBankService {
 
     const attemptId = `att-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    // 4. Save Attempt Record (Immutable)
+    // 4. Server-Side Authoritative Timing Calculation
+    const submittedAt = new Date();
+    const assignedAt = assignment.assignedAt ? new Date(assignment.assignedAt) : submittedAt;
+    const serverDurationSeconds = Math.max(
+      0,
+      Math.floor((submittedAt.getTime() - assignedAt.getTime()) / 1000)
+    );
+
+    // 5. Calculate Reward Tiers (FOCUS_CHALLENGE_RULES)
+    const reward = calculateFocusChallengeReward(assignment.level || 'Easy', serverDurationSeconds);
+    const idempotencyKey = focusChallengeRewardKey(assignmentId);
+    let finalTxId: string | undefined = creditTransactionId;
+
+    if (reward.credits > 0) {
+      try {
+        const ledgerResult = await creditsLedgerService.executeTransaction({
+          userId: learnerId,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: reward.credits,
+          reason: `Completed Focus Challenge: ${assignment.topic} (${assignment.level}) - ${reward.tier} (+${reward.credits} AC)`,
+          source: 'FOCUS_CHALLENGE',
+          sourceId: idempotencyKey,
+          idempotencyKey,
+        });
+        if (ledgerResult.transaction?.id) {
+          finalTxId = ledgerResult.transaction.id;
+        } else {
+          finalTxId = idempotencyKey;
+        }
+      } catch (txErr: any) {
+        console.warn('[QuestionBank] Credits ledger transaction notice:', txErr.message);
+      }
+
+      if (reward.xp > 0) {
+        try {
+          if (this.isDbConnected()) {
+            await User.findByIdAndUpdate(learnerId, { $inc: { xpPoints: reward.xp } });
+          }
+        } catch (xpErr: any) {
+          console.warn('[QuestionBank] XP update notice:', xpErr.message);
+        }
+      }
+    }
+
+    // 6. Save Attempt Record (Immutable)
     const attemptRecord = {
       attemptId,
       assignmentId,
@@ -379,34 +435,35 @@ export class QuestionBankService {
       topic: question.topic,
       level: question.level,
       track: question.track,
-      startedAt: assignment.assignedAt || new Date(),
-      submittedAt: new Date(),
+      startedAt: assignedAt,
+      submittedAt,
       submittedAnswer: cleanAnswer,
       score: normalizedScore,
       rubricFeedback: rubricScores,
       overallFeedback,
       evaluationStatus: 'EVALUATED' as const,
-      timeTakenSeconds: timeTakenSeconds || 0,
-      creditTransactionId,
+      timeTakenSeconds: serverDurationSeconds,
+      creditTransactionId: reward.credits > 0 ? finalTxId : undefined,
     };
 
     let savedAttempt: any = null;
     if (this.isDbConnected()) {
       savedAttempt = await QuestionAttempt.create(attemptRecord);
       assignment.status = 'SUBMITTED';
-      assignment.completedAt = new Date();
+      assignment.completedAt = submittedAt;
       await assignment.save();
     } else {
       savedAttempt = attemptRecord;
       inMemoryAttempts.set(attemptId, attemptRecord);
       assignment.status = 'SUBMITTED';
-      assignment.completedAt = new Date();
+      assignment.completedAt = submittedAt;
       inMemoryAssignments.set(assignmentId, assignment);
     }
 
     return {
       attempt: savedAttempt,
       assignment,
+      reward,
     };
   }
 

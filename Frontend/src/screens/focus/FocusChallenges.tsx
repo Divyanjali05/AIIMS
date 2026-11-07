@@ -52,6 +52,11 @@ interface SubmissionResult {
   rubricFeedback: RubricFeedbackItem[];
   overallFeedback?: string;
   submittedAt?: string;
+  reward?: {
+    credits: number;
+    xp: number;
+    tier: 'FAST' | 'NORMAL' | 'OVERTIME';
+  };
 }
 
 export const FocusChallenges: React.FC<FocusChallengesProps> = ({
@@ -154,6 +159,7 @@ export const FocusChallenges: React.FC<FocusChallengesProps> = ({
           rubricFeedback: res.rubricFeedback || [],
           overallFeedback: res.overallFeedback,
           submittedAt: res.submittedAt,
+          reward: res.reward,
         });
         setIsTimerRunning(false);
 
@@ -578,6 +584,19 @@ export const FocusChallenges: React.FC<FocusChallengesProps> = ({
                     Overall Score
                   </span>
                 </h3>
+                {result.reward && (
+                  <div style={{ marginTop: '6px' }}>
+                    {result.reward.credits > 0 ? (
+                      <Badge variant="primary" size="sm">
+                        +{result.reward.credits} AC ({result.reward.tier})
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral" size="sm">
+                        Over-time (0 AC)
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

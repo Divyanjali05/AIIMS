@@ -199,3 +199,14 @@
   - *Option 12B*: Eliminates business disruption if a trademark cease-and-desist or registry objection is issued.
 - **Affected System Areas**:
   - Application headers, domain names, public metadata, onboarding brand copy.
+
+---
+
+### Decision 13: Focus Challenge Reward Rules & Server-Side Timing Authority
+- **Core Question**: How should Focus Practice Challenge rewards, elapsed timing, and submission idempotency be governed in Task T3 and production?
+- **Owner Resolution (Approved 2026-11-07)**:
+  - **Tiered Timing Rewards**: Centralized in `FOCUS_CHALLENGE_RULES` (Easy: $\le 5$ min: 20 AC, $\le 10$ min: 15 AC, $> 10$ min: 0 AC; Medium: $\le 10$ min: 20 AC, $\le 20$ min: 15 AC, $> 20$ min: 0 AC; Hard: $\le 15$ min: 20 AC, $\le 30$ min: 15 AC, $> 30$ min: 0 AC).
+  - **Server-Side Timing Authority**: The server authoritatively calculates duration from `submittedAt - assignedAt`, ignoring client-provided `timeTakenSeconds`.
+  - **Integrity & Idempotency**: Duplicate submissions return HTTP 409 (`TASK_LOCKED`). Over-time submissions retain full score/feedback with 0 AC awarded.
+  - **Complete Record**: See [T3_OWNER_DECISION_RECORD.md](file:///c:/Users/divya/OneDrive/Documents/AIIMS/docs/T3_OWNER_DECISION_RECORD.md).
+
