@@ -148,6 +148,7 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
       attemptId: result.attempt.attemptId,
       score: result.attempt.score,
       rubricFeedback: result.attempt.rubricFeedback,
+      overallFeedback: result.attempt.overallFeedback,
       submittedAt: result.attempt.submittedAt,
     });
   } catch (err: any) {

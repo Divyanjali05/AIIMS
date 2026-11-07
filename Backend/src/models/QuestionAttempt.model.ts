@@ -20,6 +20,7 @@ export interface IQuestionAttempt extends Document {
   submittedAnswer: string;
   score: number;
   rubricFeedback: IRubricFeedbackItem[];
+  overallFeedback?: string;
   evaluationStatus: 'PENDING' | 'EVALUATED';
   timeTakenSeconds: number;
   creditTransactionId?: string;
@@ -102,6 +103,10 @@ export const QuestionAttemptSchema = new Schema<IQuestionAttempt>(
     rubricFeedback: {
       type: [RubricFeedbackSchema],
       default: [],
+    },
+    overallFeedback: {
+      type: String,
+      default: '',
     },
     evaluationStatus: {
       type: String,

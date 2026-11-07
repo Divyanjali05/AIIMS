@@ -17,6 +17,7 @@ import { QuestionAttempt, inMemoryAttempts } from '../models/QuestionAttempt.mod
 import { questionBankService } from '../services/questionBank.service';
 import { clarityProgressionService } from '../services/clarityProgression.service';
 import { claritySubmitSchema, clarityProgressionConfigSchema } from '../schemas/clarity.schema';
+import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
 
 const claudeService = new ClaudeService();
 
@@ -304,26 +305,28 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
       return res.status(404).json({ error: 'Assigned question not found in Question Bank' });
     }
 
-    // 4. Server-authoritative Rubric Evaluation
+    // 4. Server-authoritative Genuine AI Rubric Evaluation
     const cleanAnswer = answer.trim();
-    const rubricFeedback = (question.scoringRubric || []).map((rubricItem: any) => {
-      let earned = Math.round(rubricItem.maxScore * 0.85); // competent baseline
-      if (cleanAnswer.length < 30) {
-        earned = Math.round(rubricItem.maxScore * 0.4);
-      } else if (cleanAnswer.length > 120) {
-        earned = rubricItem.maxScore;
-      }
-      return {
-        criterion: rubricItem.criterion,
-        score: earned,
-        maxScore: rubricItem.maxScore,
-        comment: `Demonstrated ${rubricItem.criterion} at ${Math.round((earned / rubricItem.maxScore) * 100)}% benchmark.`,
-      };
+    const evaluation = await rubricEvaluatorService.evaluateAnswer({
+      question: {
+        title: question.title,
+        promptText: question.promptText,
+        testScenario: question.testScenario,
+        expectedCriteria: question.expectedCriteria,
+      },
+      rubric: question.scoringRubric,
+      learnerAnswer: cleanAnswer,
     });
 
-    const totalEarned = rubricFeedback.reduce((sum: number, r: any) => sum + r.score, 0);
-    const totalMax = rubricFeedback.reduce((sum: number, r: any) => sum + r.maxScore, 0);
-    const score = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 85;
+    const rubricFeedback = evaluation.criteria.map((c) => ({
+      criterion: c.criterion,
+      score: c.score,
+      maxScore: c.maxScore,
+      comment: c.feedback,
+    }));
+
+    const score = evaluation.overallScore;
+    const overallFeedback = evaluation.overallFeedback;
 
     const attemptId = `att-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -341,6 +344,7 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
       submittedAnswer: cleanAnswer,
       score,
       rubricFeedback,
+      overallFeedback,
       evaluationStatus: 'EVALUATED' as const,
       timeTakenSeconds: timeTakenSeconds || 0,
     };
@@ -407,6 +411,7 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
       attemptId,
       score,
       rubricFeedback,
+      overallFeedback,
       submittedAt: attemptRecord.submittedAt,
       timeTakenSeconds: attemptRecord.timeTakenSeconds,
       isLocked: true,
@@ -508,6 +513,7 @@ export const getActiveClarityTask = async (req: AuthenticatedRequest, res: Respo
                 attemptId: attempt.attemptId,
                 score: attempt.score,
                 rubricFeedback: attempt.rubricFeedback,
+                overallFeedback: attempt.overallFeedback,
                 submittedAnswer: attempt.submittedAnswer,
                 timeTakenSeconds: attempt.timeTakenSeconds,
                 submittedAt: attempt.submittedAt,

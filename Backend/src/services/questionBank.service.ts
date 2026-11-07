@@ -27,6 +27,7 @@ import { aiQuestionGeneratorService } from './aiQuestionGenerator.service';
 import { initSeedQuestions } from './seedQuestions';
 import { User } from '../models/User.model';
 import { StudentProfile } from '../models/StudentProfile.model';
+import { rubricEvaluatorService } from './rubricEvaluator.service';
 
 export const TARGET_MINIMUM_PER_LEVEL = 30;
 
@@ -344,27 +345,28 @@ export class QuestionBankService {
       throw new Error('Assigned question not found in Question Bank.');
     }
 
-    // 3. Server-authoritative Scoring based on rubric
+    // 3. Server-authoritative Genuine AI Rubric Evaluation
     const cleanAnswer = answer.trim();
-    const rubricScores = question.scoringRubric.map((r: any) => {
-      // Deterministic evidence-based grading
-      let earned = Math.round(r.maxScore * 0.85); // Baseline competent demonstration
-      if (cleanAnswer.length < 30) {
-        earned = Math.round(r.maxScore * 0.4); // Incomplete demonstration
-      } else if (cleanAnswer.length > 100) {
-        earned = r.maxScore; // Thorough demonstration
-      }
-      return {
-        criterion: r.criterion,
-        score: earned,
-        maxScore: r.maxScore,
-        comment: `Demonstrated ${r.criterion} at ${Math.round((earned / r.maxScore) * 100)}% standard.`,
-      };
+    const evaluation = await rubricEvaluatorService.evaluateAnswer({
+      question: {
+        title: question.title,
+        promptText: question.promptText,
+        testScenario: question.testScenario,
+        expectedCriteria: question.expectedCriteria,
+      },
+      rubric: question.scoringRubric,
+      learnerAnswer: cleanAnswer,
     });
 
-    const totalEarned = rubricScores.reduce((sum: number, r: any) => sum + r.score, 0);
-    const totalMax = rubricScores.reduce((sum: number, r: any) => sum + r.maxScore, 0);
-    const normalizedScore = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 80;
+    const rubricScores = evaluation.criteria.map((c) => ({
+      criterion: c.criterion,
+      score: c.score,
+      maxScore: c.maxScore,
+      comment: c.feedback,
+    }));
+
+    const normalizedScore = evaluation.overallScore;
+    const overallFeedback = evaluation.overallFeedback;
 
     const attemptId = `att-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -382,6 +384,7 @@ export class QuestionBankService {
       submittedAnswer: cleanAnswer,
       score: normalizedScore,
       rubricFeedback: rubricScores,
+      overallFeedback,
       evaluationStatus: 'EVALUATED' as const,
       timeTakenSeconds: timeTakenSeconds || 0,
       creditTransactionId,

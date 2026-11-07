@@ -606,4 +606,41 @@ Return valid JSON adhering strictly to:
     }
     throw lastErr;
   }
+
+  /**
+   * Returns true if either Anthropic or Gemini AI client is configured with a valid key.
+   */
+  public hasAvailableProvider(): boolean {
+    return Boolean(this.client || this.geminiClient);
+  }
+
+  /**
+   * Generates a raw text/JSON completion using the configured provider (Anthropic or Gemini).
+   */
+  public async generateCompletion(
+    prompt: string,
+    options?: { maxTokens?: number; temperature?: number; jsonMode?: boolean }
+  ): Promise<string> {
+    const maxTokens = options?.maxTokens ?? 1200;
+    const temperature = options?.temperature ?? 0.1;
+    const jsonMode = options?.jsonMode ?? false;
+
+    if (this.client) {
+      const res = await this.client.messages.create({
+        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+        max_tokens: maxTokens,
+        temperature,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      return res.content[0].type === 'text' ? res.content[0].text : '';
+    }
+
+    if (this.geminiClient) {
+      return this.generateWithGemini(prompt, maxTokens, temperature, jsonMode);
+    }
+
+    throw new Error('No AI provider configured (neither Anthropic nor Gemini).');
+  }
 }
+
+export const claudeService = new ClaudeService();

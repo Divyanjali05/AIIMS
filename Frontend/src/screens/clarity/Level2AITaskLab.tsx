@@ -82,6 +82,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
     attemptId: string;
     score: number;
     rubricFeedback: any[];
+    overallFeedback?: string;
     submittedAt?: string;
     timeTakenSeconds?: number;
     creditsAwarded?: number;
@@ -137,6 +138,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
             attemptId: res.attempt.attemptId,
             score: res.attempt.score,
             rubricFeedback: res.attempt.rubricFeedback || [],
+            overallFeedback: res.attempt.overallFeedback || '',
             submittedAt: res.attempt.submittedAt,
             timeTakenSeconds: res.attempt.timeTakenSeconds || 0,
           });
@@ -277,6 +279,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
           attemptId: res.attemptId,
           score: res.score,
           rubricFeedback: res.rubricFeedback || [],
+          overallFeedback: res.overallFeedback || '',
           submittedAt: res.submittedAt,
           timeTakenSeconds: res.timeTakenSeconds,
           creditsAwarded: res.creditsAwarded,
@@ -1119,6 +1122,51 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
                   Consecutive high scores: {submissionResult.progression.consecutiveHighScores}/2
                 </p>
               )}
+            </div>
+          )}
+
+          {/* AI Mentor Overall Evaluation Summary */}
+          {submissionResult.overallFeedback && (
+            <div
+              style={{
+                marginBottom: '16px',
+                padding: '14px 16px',
+                borderRadius: '8px',
+                backgroundColor: 'rgba(124, 58, 237, 0.08)',
+                border: '1px solid rgba(124, 58, 237, 0.25)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '6px',
+                }}
+              >
+                <Sparkles size={16} color="var(--aiims-primary, #7c3aed)" />
+                <span
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    color: 'var(--aiims-primary, #7c3aed)',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  AI Mentor Evaluation
+                </span>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                  color: 'var(--aiims-text-heading)',
+                }}
+              >
+                {submissionResult.overallFeedback}
+              </p>
             </div>
           )}
 
