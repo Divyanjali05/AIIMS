@@ -7,6 +7,7 @@ import { config } from '../config/env';
 import { User, IUser } from '../models/User.model';
 import { StudentProfile } from '../models/StudentProfile.model';
 import { Cohort } from '../models/Cohort.model';
+import { CreditLedger } from '../models/CreditLedger.model';
 import { mockUser } from '../models/aiims.models';
 import { Submission, memorySubmissions } from '../models/Submission.model';
 import { writeAuditLog } from '../models/AuditLog.model';
@@ -675,9 +676,18 @@ export const register = async (req: Request, res: Response) => {
         profileErr
       );
       try {
-        await User.findByIdAndDelete(dbUser._id);
+        if (dbUser?._id) {
+          const userIdStr = String(dbUser._id);
+          await User.findByIdAndDelete(dbUser._id);
+          await CreditLedger.deleteMany({ userId: userIdStr });
+          if (cohortDoc?._id) {
+            await Cohort.findByIdAndUpdate(cohortDoc._id, { $inc: { studentCount: -1 } }).catch(
+              () => {}
+            );
+          }
+        }
       } catch (rollbackErr) {
-        console.error(`[Auth] [${requestId}] User rollback failed:`, rollbackErr);
+        console.error(`[Auth] [${requestId}] User & Ledger rollback failed:`, rollbackErr);
       }
       return res.status(500).json({
         error: 'Unable to save learner profile. Please try again.',

@@ -19,9 +19,14 @@
 
 import http from 'http';
 import { AddressInfo } from 'net';
+import mongoose from 'mongoose';
 import { app } from '../server';
 import { clearRateLimitStore } from '../middleware/rateLimit.middleware';
 import { registeredUsers } from '../models/userStore';
+import { config } from '../config/env';
+import { User } from '../models/User.model';
+import { StudentProfile } from '../models/StudentProfile.model';
+import { CreditLedger } from '../models/CreditLedger.model';
 
 let passed = 0;
 let failed = 0;
@@ -128,10 +133,32 @@ function getValidPayload(
 
 async function runRegistrationDiagnosisSuite() {
   console.log('===============================================================');
-  console.log('📝 AIIMS T1: REGISTRATION DIAGNOSIS & TRACK FIX TEST SUITE');
+  console.log('📝 AIIMS T-B: REGISTRATION DIAGNOSIS & ROLLBACK TEST SUITE');
   console.log('===============================================================\n');
 
   clearRateLimitStore();
+
+  const rawUri = config.mongodbUri || process.env.MONGODB_URI;
+  if (rawUri) {
+    try {
+      const testDbName = process.env.MONGODB_TEST_DB || 'aiims_test';
+      console.log(`  (Connecting to MongoDB test database: "${testDbName}")...`);
+      await mongoose.connect(rawUri, {
+        dbName: testDbName,
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 5000,
+      });
+      if (mongoose.connection.readyState === 1) {
+        console.log('  (MongoDB test database connected successfully)\n');
+        // Initial cleanup of any prior test accounts matching pattern
+        await User.deleteMany({ email: /^regdiag_.*@example\.com$/ });
+      }
+    } catch (err: any) {
+      console.warn(
+        `  (MongoDB test connection notice: ${err.message}) - running fallback checks\n`
+      );
+    }
+  }
 
   const testServer = http.createServer(app);
   await new Promise<void>((resolve) => testServer.listen(0, resolve));
@@ -144,7 +171,7 @@ async function runRegistrationDiagnosisSuite() {
     // -------------------------------------------------------------------------
     console.log('── SUITE 1: Valid Registration & Mandatory Track Selection ────');
 
-    const studentEmail = `student_${Date.now()}@example.com`;
+    const studentEmail = `regdiag_student_${Date.now()}@example.com`;
     const studentPayload = getValidPayload(studentEmail, 'Student');
     const studentRes = await makeRequest(testServer, {
       method: 'POST',
@@ -167,7 +194,7 @@ async function runRegistrationDiagnosisSuite() {
     );
     assert('Welcome grant credits credited (500 AC)', studentRes.body?.user?.aiimsCredits === 500);
 
-    const entEmail = `entrepreneur_${Date.now()}@example.com`;
+    const entEmail = `regdiag_entrepreneur_${Date.now()}@example.com`;
     const entPayload = getValidPayload(entEmail, 'Entrepreneur');
     const entRes = await makeRequest(testServer, {
       method: 'POST',
@@ -194,7 +221,7 @@ async function runRegistrationDiagnosisSuite() {
     // -------------------------------------------------------------------------
     console.log('\n── SUITE 2: Non-ObjectId Institute ID Discard & Continuity ────');
 
-    const weirdInstituteIdEmail = `weird_inst_${Date.now()}@example.com`;
+    const weirdInstituteIdEmail = `regdiag_weird_inst_${Date.now()}@example.com`;
     const weirdInstPayload = getValidPayload(
       weirdInstituteIdEmail,
       'Student',
@@ -212,7 +239,7 @@ async function runRegistrationDiagnosisSuite() {
       `Status: ${weirdInstRes.status}, Body: ${JSON.stringify(weirdInstRes.body)}`
     );
 
-    const emptyInstituteIdEmail = `empty_inst_${Date.now()}@example.com`;
+    const emptyInstituteIdEmail = `regdiag_empty_inst_${Date.now()}@example.com`;
     const emptyInstPayload = getValidPayload(emptyInstituteIdEmail, 'Student', '');
     const emptyInstRes = await makeRequest(testServer, {
       method: 'POST',
@@ -275,7 +302,7 @@ async function runRegistrationDiagnosisSuite() {
     // -------------------------------------------------------------------------
     console.log('\n── SUITE 4: Duplicate Email & Specific Error Codes ─────────────');
 
-    const duplicateEmail = `duplicate_${Date.now()}@example.com`;
+    const duplicateEmail = `regdiag_duplicate_${Date.now()}@example.com`;
     const firstReg = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/register',
@@ -331,7 +358,7 @@ async function runRegistrationDiagnosisSuite() {
     );
 
     // 5B: Verify registration route is NOT blocked when login rate limit is exhausted
-    const postLoginExhaustionEmail = `unblocked_reg_${Date.now()}@example.com`;
+    const postLoginExhaustionEmail = `regdiag_unblocked_reg_${Date.now()}@example.com`;
     const unblockedRegRes = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/register',
@@ -351,14 +378,14 @@ async function runRegistrationDiagnosisSuite() {
       await makeRequest(testServer, {
         method: 'POST',
         path: '/api/auth/register',
-        body: getValidPayload(`ratelimit_${i}_${Date.now()}@example.com`, 'Student'),
+        body: getValidPayload(`regdiag_ratelimit_${i}_${Date.now()}@example.com`, 'Student'),
       });
     }
 
     const exhaustedRegRes = await makeRequest(testServer, {
       method: 'POST',
       path: '/api/auth/register',
-      body: getValidPayload(`ratelimit_exceeded_${Date.now()}@example.com`, 'Student'),
+      body: getValidPayload(`regdiag_ratelimit_exceeded_${Date.now()}@example.com`, 'Student'),
     });
 
     assert(
@@ -375,7 +402,120 @@ async function runRegistrationDiagnosisSuite() {
     );
 
     clearRateLimitStore();
+
+    // -------------------------------------------------------------------------
+    // SUITE 6: Profile Creation Failure Rollback & Ledger Integrity
+    // -------------------------------------------------------------------------
+    console.log('\n── SUITE 6: Profile Creation Failure Rollback & Ledger Integrity ──');
+
+    if (mongoose.connection.readyState === 1) {
+      // 6A: Create a control user to verify other users' data remains completely untouched
+      const controlEmail = `regdiag_control_${Date.now()}@example.com`;
+      const controlPayload = getValidPayload(controlEmail, 'Student');
+      const controlRes = await makeRequest(testServer, {
+        method: 'POST',
+        path: '/api/auth/register',
+        body: controlPayload,
+      });
+
+      assert('Control user registered successfully (HTTP 201)', controlRes.status === 201);
+      const controlUserDoc = await User.findOne({ email: controlEmail });
+      assert('Control user exists in MongoDB', Boolean(controlUserDoc));
+
+      const controlLedgerRecords = await CreditLedger.find({ userId: String(controlUserDoc?._id) });
+      assert(
+        'Control user has initial welcome grant in CreditLedger',
+        controlLedgerRecords.length === 1 && controlLedgerRecords[0].amount === 500
+      );
+
+      const totalLedgerCountBefore = await CreditLedger.countDocuments();
+
+      // 6B: Induce StudentProfile.create failure
+      const originalStudentProfileCreate = StudentProfile.create;
+      StudentProfile.create = (async () => {
+        throw new Error('SIMULATED_STUDENT_PROFILE_CREATION_FAILURE');
+      }) as any;
+
+      const failingEmail = `regdiag_failing_${Date.now()}@example.com`;
+      const failingPayload = getValidPayload(failingEmail, 'Student');
+
+      let failingRes: any;
+      try {
+        failingRes = await makeRequest(testServer, {
+          method: 'POST',
+          path: '/api/auth/register',
+          body: failingPayload,
+        });
+      } finally {
+        // Always restore original StudentProfile.create immediately
+        StudentProfile.create = originalStudentProfileCreate;
+      }
+
+      // 6C: Assert clean HTTP error response
+      assert(
+        'Profile creation failure returns HTTP 500',
+        failingRes.status === 500,
+        `Status: ${failingRes.status}`
+      );
+      assert(
+        'Profile creation failure returns code PROFILE_SAVE_FAILED',
+        failingRes.body?.code === 'PROFILE_SAVE_FAILED'
+      );
+      assert(
+        'Profile creation failure returns meaningful user-friendly error message',
+        failingRes.body?.error === 'Unable to save learner profile. Please try again.'
+      );
+
+      // 6D: Assert user document was rolled back (deleted)
+      const rolledBackUser = await User.findOne({ email: failingEmail });
+      assert(
+        'Failing user document was rolled back and does not exist in MongoDB',
+        rolledBackUser === null
+      );
+
+      // 6E: Assert no orphaned CreditLedger records were left behind
+      const totalLedgerCountAfter = await CreditLedger.countDocuments();
+      assert(
+        'Total CreditLedger count is unchanged (no orphaned ledger entries created)',
+        totalLedgerCountAfter === totalLedgerCountBefore
+      );
+
+      // 6F: Assert other users (control user) were NOT touched
+      const preservedControlUser = await User.findOne({ email: controlEmail });
+      assert(
+        'Control user remains intact after rollback of another user',
+        preservedControlUser !== null
+      );
+      assert(
+        'Control user credit balance remains intact (500 AC)',
+        preservedControlUser?.aiimsCredits === 500
+      );
+
+      const preservedControlLedger = await CreditLedger.find({
+        userId: String(controlUserDoc?._id),
+      });
+      assert(
+        'Control user CreditLedger entry remains intact',
+        preservedControlLedger.length === 1 && preservedControlLedger[0].amount === 500
+      );
+    } else {
+      console.log('  ⚠️ Skipping Suite 6 MongoDB assertions: Running in offline fallback mode.');
+    }
   } finally {
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const testUsers = await User.find({ email: /^regdiag_.*@example\.com$/ });
+        const userIds = testUsers.map((u) => String(u._id));
+        await User.deleteMany({ email: /^regdiag_.*@example\.com$/ });
+        if (userIds.length > 0) {
+          await CreditLedger.deleteMany({ userId: { $in: userIds } });
+          await StudentProfile.deleteMany({ userId: { $in: userIds } });
+        }
+      } catch (cleanupErr: any) {
+        console.warn('Test data cleanup notice:', cleanupErr.message);
+      }
+      await mongoose.disconnect();
+    }
     await new Promise<void>((resolve) => testServer.close(() => resolve()));
   }
 
