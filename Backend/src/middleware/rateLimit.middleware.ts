@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { rateLimit, MemoryStore } from 'express-rate-limit';
-import { config } from '../config/env';
+import { config, resolveLoginRateLimitConfig, type LoginRateLimitConfig } from '../config/env';
 
 /**
  * Registry of active in-memory stores for testing teardown and cleanup.
@@ -75,6 +75,32 @@ export const authRateLimiter = createRateLimiter({
   max: config.authRateLimitMax || 15,
   message: 'Too many authentication attempts. Please try again later.',
 });
+
+/**
+ * Factory for dedicated login rate limiter so unit tests can instantiate
+ * isolated environment-specific limiters cleanly without mutating production config.
+ */
+export const createLoginRateLimiter = (
+  envOrConfig: NodeJS.ProcessEnv | LoginRateLimitConfig = {
+    environment: config.loginRateLimitEnvironment,
+    max: config.loginRateLimitMax,
+    windowMs: config.loginRateLimitWindowMs,
+  }
+) => {
+  const resolved: LoginRateLimitConfig =
+    'max' in envOrConfig && 'windowMs' in envOrConfig && typeof envOrConfig.max === 'number'
+      ? (envOrConfig as LoginRateLimitConfig)
+      : resolveLoginRateLimitConfig(envOrConfig as NodeJS.ProcessEnv);
+
+  return createRateLimiter({
+    windowMs: resolved.windowMs,
+    max: resolved.max,
+    message: 'Too many authentication attempts. Please try again later.',
+  });
+};
+
+// 1a. Dedicated Login Rate Limiter: 30/15m in explicit local development, 15/15m in production
+export const loginRateLimiter = createLoginRateLimiter();
 
 // 1b. Registration Rate Limiter: dedicated limit (default: 15 attempts per hour per IP)
 export const registrationRateLimiter = createRateLimiter({

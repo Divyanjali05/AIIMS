@@ -109,22 +109,25 @@ describe('Zod Runtime Request Validation Suite', () => {
         expect(result.success).toBe(false);
       });
 
-      it('rejects passwords without an uppercase letter', () => {
+      it('accepts simple passwords of at least 8 characters without uppercase or numbers', () => {
         const result = registerSchema.safeParse({
           ...validRegisterPayload,
-          password: 'password123!',
-          confirmPassword: 'password123!',
+          password: 'simplepassphrase',
+          confirmPassword: 'simplepassphrase',
         });
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(true);
       });
 
-      it('rejects passwords without a number', () => {
+      it('rejects commonly used or compromised passwords', () => {
         const result = registerSchema.safeParse({
           ...validRegisterPayload,
-          password: 'PasswordABC!',
-          confirmPassword: 'PasswordABC!',
+          password: 'password123',
+          confirmPassword: 'password123',
         });
         expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.issues.some((i) => i.path.includes('password'))).toBe(true);
+        }
       });
 
       it('rejects password and confirmPassword mismatch', () => {

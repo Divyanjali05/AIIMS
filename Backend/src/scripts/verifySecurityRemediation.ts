@@ -260,6 +260,128 @@ async function runAllTests() {
     );
   }
 
+  // Test 9A: Student sends role = 'learner' (role presence must remain blocked)
+  {
+    const req: any = {
+      user: createMockStudent(),
+      body: { state: { profile: { name: 'Valid Name', role: 'learner' } } },
+    };
+    const res = createMockRes();
+    await updateLearnerState(req, res);
+    assert(
+      'Test 9A: Payload containing profile.role="learner" remains blocked (HTTP 403)',
+      res.statusCode === 403 && res.body?.code === 'ROLE_ESCALATION_FORBIDDEN',
+      `Got code ${res.statusCode}: ${JSON.stringify(res.body)}`
+    );
+  }
+
+  // Test 9B: Sanitized ordinary sync persists editable slices without overwriting Clarity/Focus/Radar/Investigation server fields
+  {
+    const mockUser: any = createMockStudent();
+    mockUser.clarity = {
+      status: 'in_progress',
+      selectedAreas: ['Prompt Engineering'],
+      selectedTopic: 'Structured Prompting',
+      completedTopics: ['Structured Prompting'],
+      reflections: {},
+      taskScores: { 'Structured Prompting': { easy: { score: 95, grade: 'Exemplary' } } },
+      trialRunsUsed: 1,
+    };
+    mockUser.focus = {
+      status: 'active',
+      selectedTrack: 'Deep Prompting',
+      history: ['sess-1'],
+      sessionHistory: [{ id: 'sess-1', actualFocusSeconds: 1500, status: 'completed' }],
+    };
+    mockUser.radar = {
+      status: 'available',
+      investigatedSignalIds: ['sig-server-01'],
+      followedSignalIds: ['sig-server-01'],
+      savedSignalIds: [],
+      dismissedSignalIds: [],
+    };
+    mockUser.investigation = {
+      status: 'completed',
+      selectedSignalId: 'sig-server-01',
+      userNotes: {},
+    };
+
+    const req: any = {
+      user: mockUser,
+      body: {
+        state: {
+          profile: {
+            name: 'Priya Updated',
+            college: 'IIT Bombay',
+            targetGoal: 'Build Safe Agents',
+            stage: 'Understanding',
+          },
+          radar: {
+            savedSignalIds: ['sig-client-02'],
+            dismissedSignalIds: ['sig-client-03'],
+            lastViewedRadar: '2026-11-10',
+            radarProgress: 50,
+          },
+          investigation: {
+            selectedSignalId: 'sig-server-01',
+            userNotes: { 'sig-server-01': 'Reviewed agent safety impact' },
+          },
+          aiWallet: {
+            userTools: [
+              {
+                toolId: 'tool-chatgpt',
+                addedAt: '2026-11-10',
+                familiarity: 'proficient',
+                primaryCategory: 'Reasoning & Writing',
+              },
+            ],
+            dismissedRecommendations: ['rec-01'],
+          },
+          notifications: [
+            {
+              id: 'n-1',
+              title: 'Sync Check',
+              message: 'Read notification',
+              timestamp: 'Just now',
+              targetTab: 'home',
+              read: true,
+            },
+          ],
+        },
+      },
+    };
+    const res = createMockRes();
+    await updateLearnerState(req, res);
+
+    const preservedClarity =
+      res.body?.state?.clarity?.taskScores?.['Structured Prompting']?.easy?.score === 95;
+    const preservedFocus =
+      res.body?.state?.focus?.selectedTrack === 'Deep Prompting' &&
+      res.body?.state?.focus?.sessionHistory?.length === 1;
+    const preservedRadarServer =
+      res.body?.state?.radar?.investigatedSignalIds?.includes('sig-server-01') &&
+      res.body?.state?.radar?.savedSignalIds?.includes('sig-client-02');
+    const preservedInvestigation =
+      res.body?.state?.investigation?.status === 'completed' &&
+      res.body?.state?.investigation?.userNotes?.['sig-server-01'] ===
+        'Reviewed agent safety impact';
+    const updatedWalletAndNotif =
+      res.body?.state?.aiWallet?.userTools?.length === 1 &&
+      res.body?.state?.notifications?.[0]?.read === true;
+
+    assert(
+      'Test 9B: Ordinary sanitized sync succeeds (HTTP 200) and preserves Clarity, Focus, Radar, and Investigation server fields',
+      res.statusCode === 200 &&
+        res.body?.state?.profile?.name === 'Priya Updated' &&
+        preservedClarity &&
+        preservedFocus &&
+        preservedRadarServer &&
+        preservedInvestigation &&
+        updatedWalletAndNotif,
+      `Got status ${res.statusCode}: clarity=${preservedClarity}, focus=${preservedFocus}, radar=${preservedRadarServer}, inv=${preservedInvestigation}`
+    );
+  }
+
   // =========================================================================
   // SUITE 2: AI WALLET AUTHENTICATION & ACCESS CONTROL
   // =========================================================================

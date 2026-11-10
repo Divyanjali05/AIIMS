@@ -19,6 +19,8 @@ import { runColorContrastTestSuite } from '../../../Frontend/src/services/__test
 import { runEvaluationFrontendTestSuite } from '../../../Frontend/src/services/__tests__/evaluationFrontend.test';
 import { runHomeAndDesignSystemTestSuite } from '../../../Frontend/src/services/__tests__/homeAndDesignSystem.test';
 import { runAndroidAndMobileExperienceTests } from '../../../Frontend/src/services/__tests__/androidAndMobileExperience.test';
+import { runPasswordSecurityTestSuite } from '../../../Frontend/src/services/__tests__/passwordSecurity.test';
+import { runLearnerStateSyncTestSuite } from '../../../Frontend/src/services/__tests__/learnerStateSync.test';
 
 interface SuiteResult {
   id: string;
@@ -151,6 +153,40 @@ const suiteDefinitions: SuiteDefinition[] = [
           name: r.name,
           passed: r.passed,
           detail: r.error,
+        })),
+      };
+    },
+  },
+  {
+    id: 'passwordSecurity',
+    name: 'Simplified Password Security & Strength Assessment',
+    execute: () => {
+      const res = runPasswordSecurityTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'learnerStateSync',
+    name: 'Learner-State Sync Sanitization & Contract',
+    execute: () => {
+      const res = runLearnerStateSyncTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
         })),
       };
     },

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserProfile,
   AcademicProfile,
@@ -13,6 +13,7 @@ import {
   FocusSessionRecord,
 } from '../types';
 import { apiClient, apiFetch, getApiBaseUrl, setAuthToken } from '../api/client';
+import { buildWritableLearnerStatePayload } from '../utils/learnerStateSync';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 import { playSessionCompleteSound, playBreakCompleteSound } from '../utils/focusAudio';
 import { sendFocusNotification } from '../utils/focusNotifications';
@@ -399,6 +400,8 @@ const LOCAL_STORAGE_KEY = 'aiims_learner_state_v3';
 export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const isHydratingRef = useRef<boolean>(true);
+  const lastSyncedPayloadRef = useRef<string | null>(null);
 
   const [state, setState] = useState<LearnerState>(() => {
     try {
@@ -462,6 +465,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Restore session on mount via /auth/me endpoint using httpOnly cookie or mobile bearer token
   useEffect(() => {
     let isMounted = true;
+    isHydratingRef.current = true;
     apiClient
       .getMe()
       .then(async (res) => {
@@ -475,8 +479,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
               if (loaded.profile && loaded.credits) {
                 loaded.credits.balance = loaded.profile.aiimsCredits;
               }
+              lastSyncedPayloadRef.current = JSON.stringify(
+                buildWritableLearnerStatePayload(loaded)
+              );
               setState(loaded);
             } else if (isMounted && res.state) {
+              lastSyncedPayloadRef.current = JSON.stringify(
+                buildWritableLearnerStatePayload(res.state)
+              );
               setState(res.state);
             }
           } catch (stateErr) {
@@ -485,6 +495,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
               stateErr
             );
             if (isMounted && res.state) {
+              lastSyncedPayloadRef.current = JSON.stringify(
+                buildWritableLearnerStatePayload(res.state)
+              );
               setState(res.state);
             }
           }
@@ -500,6 +513,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       })
       .finally(() => {
         if (isMounted) {
+          isHydratingRef.current = false;
           setIsAuthLoading(false);
         }
       });
@@ -522,12 +536,25 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Failed to save learner state to localStorage', e);
     }
 
-    // Auto-sync to MongoDB Atlas if authenticated
-    if (isAuthenticated) {
+    // Auto-sync writable fields to MongoDB Atlas if authenticated and not hydrating
+    if (isAuthenticated && !isHydratingRef.current) {
+      const writablePayload = buildWritableLearnerStatePayload(state);
+      const serializedPayload = JSON.stringify(writablePayload);
+      if (serializedPayload === lastSyncedPayloadRef.current) {
+        return;
+      }
+
       const timer = setTimeout(() => {
-        apiClient.syncLearnerState(state).catch((err) => {
-          console.warn('Background MongoDB sync warning:', err);
-        });
+        apiClient
+          .syncLearnerState(writablePayload)
+          .then((res) => {
+            if (res && res.success) {
+              lastSyncedPayloadRef.current = serializedPayload;
+            }
+          })
+          .catch((err) => {
+            console.warn('Background MongoDB sync warning:', err);
+          });
       }, 800);
 
       return () => clearTimeout(timer);
@@ -1546,6 +1573,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const resetState = () => {
+    lastSyncedPayloadRef.current = null;
     setState(initialLearnerState);
     localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
@@ -1782,11 +1810,14 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (data.token) {
         setAuthToken(data.token);
       }
-      setIsAuthenticated(true);
+      isHydratingRef.current = false;
       const userObj = data.user || data.state?.profile;
       if (data.state) {
+        lastSyncedPayloadRef.current = JSON.stringify(buildWritableLearnerStatePayload(data.state));
+        setIsAuthenticated(true);
         setState(data.state);
       } else if (data.user) {
+        setIsAuthenticated(true);
         setState((prev) => ({
           ...prev,
           profile: {
@@ -1794,6 +1825,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             ...data.user,
           },
         }));
+      } else {
+        setIsAuthenticated(true);
       }
       return { success: true, user: userObj };
     } catch (err: any) {
@@ -1842,21 +1875,25 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (resData.token) {
         setAuthToken(resData.token);
       }
-      setIsAuthenticated(true);
+      isHydratingRef.current = false;
       const defaultMode: AudienceMode =
         payload.track === 'Entrepreneur' || payload.primaryGoal === 'ENTREPRENEURSHIP'
           ? 'entrepreneur'
           : 'student';
       if (resData.state) {
-        setState({
+        const nextState: LearnerState = {
           ...initialLearnerState,
           ...resData.state,
           aiWallet: {
             ...(resData.state.aiWallet || initialLearnerState.aiWallet),
             audienceMode: resData.state.aiWallet?.audienceMode || defaultMode,
           },
-        });
+        };
+        lastSyncedPayloadRef.current = JSON.stringify(buildWritableLearnerStatePayload(nextState));
+        setIsAuthenticated(true);
+        setState(nextState);
       } else if (resData.user) {
+        setIsAuthenticated(true);
         setState((prev) => ({
           ...prev,
           profile: { ...prev.profile, ...resData.user },
@@ -1866,6 +1903,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             audienceMode: prev.aiWallet?.audienceMode || defaultMode,
           },
         }));
+      } else {
+        setIsAuthenticated(true);
       }
       return { success: true };
     } catch (err: any) {
@@ -1897,6 +1936,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     apiClient.logout().catch((err) => {
       console.warn('Backend logout warning:', err);
     });
+    lastSyncedPayloadRef.current = null;
     setAuthToken(null);
     setIsAuthenticated(false);
     setState(initialLearnerState);

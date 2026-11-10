@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isCommonPassword } from '../utils/passwordSecurity';
 
 export const loginSchema = z.object({
   email: z
@@ -21,8 +22,9 @@ export const registerSchema = z
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters long.')
-      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter.')
-      .regex(/[0-9]/, 'Password must contain at least one number.'),
+      .refine((val) => !isCommonPassword(val), {
+        message: 'This password is too common or easily guessed. Please choose a more secure password.',
+      }),
     confirmPassword: z.string().optional(),
     track: z.preprocess(
       (val) => {

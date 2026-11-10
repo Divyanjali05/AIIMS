@@ -188,6 +188,110 @@ describe('Prompt 2 Security Remediation Test Suite', () => {
       expect(res.statusCode).toBe(200);
       expect(res.body?.state?.profile?.name).toBe('Updated Name');
     });
+
+    it('rejects role: "learner" presence with HTTP 403 ROLE_ESCALATION_FORBIDDEN', async () => {
+      const req: any = {
+        user: createMockStudent(),
+        body: { state: { profile: { name: 'Valid Name', role: 'learner' } } },
+      };
+      const res = createMockRes();
+      await updateLearnerState(req, res);
+      expect(res.statusCode).toBe(403);
+      expect(res.body?.code).toBe('ROLE_ESCALATION_FORBIDDEN');
+    });
+
+    it('persists sanitized learner slices while preserving Clarity, Focus, Radar, and Investigation server fields', async () => {
+      const mockUser: any = createMockStudent();
+      mockUser.clarity = {
+        status: 'in_progress',
+        selectedAreas: ['Prompt Engineering'],
+        selectedTopic: 'Structured Prompting',
+        completedTopics: ['Structured Prompting'],
+        reflections: {},
+        taskScores: { 'Structured Prompting': { easy: { score: 92 } } },
+        trialRunsUsed: 1,
+      };
+      mockUser.focus = {
+        status: 'active',
+        selectedTrack: 'Deep Prompting',
+        history: ['sess-1'],
+        sessionHistory: [{ id: 'sess-1', actualFocusSeconds: 1500, status: 'completed' }],
+      };
+      mockUser.radar = {
+        status: 'available',
+        investigatedSignalIds: ['sig-server-01'],
+        followedSignalIds: ['sig-server-01'],
+        savedSignalIds: [],
+        dismissedSignalIds: [],
+      };
+      mockUser.investigation = {
+        status: 'completed',
+        selectedSignalId: 'sig-server-01',
+        userNotes: {},
+      };
+
+      const req: any = {
+        user: mockUser,
+        body: {
+          state: {
+            profile: {
+              name: 'Priya Updated',
+              college: 'IIT Bombay',
+              targetGoal: 'Build Safe Agents',
+              stage: 'Understanding',
+            },
+            radar: {
+              savedSignalIds: ['sig-client-02'],
+              dismissedSignalIds: ['sig-client-03'],
+              lastViewedRadar: '2026-11-10',
+              radarProgress: 50,
+            },
+            investigation: {
+              selectedSignalId: 'sig-server-01',
+              userNotes: { 'sig-server-01': 'Reviewed agent safety impact' },
+            },
+            aiWallet: {
+              userTools: [
+                {
+                  toolId: 'tool-chatgpt',
+                  addedAt: '2026-11-10',
+                  familiarity: 'proficient',
+                  primaryCategory: 'Reasoning & Writing',
+                },
+              ],
+              dismissedRecommendations: ['rec-01'],
+            },
+            notifications: [
+              {
+                id: 'n-1',
+                title: 'Sync Check',
+                message: 'Read notification',
+                timestamp: 'Just now',
+                targetTab: 'home',
+                read: true,
+              },
+            ],
+          },
+        },
+      };
+
+      const res = createMockRes();
+      await updateLearnerState(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body?.state?.profile?.name).toBe('Priya Updated');
+      expect(res.body?.state?.clarity?.taskScores?.['Structured Prompting']?.easy?.score).toBe(92);
+      expect(res.body?.state?.focus?.selectedTrack).toBe('Deep Prompting');
+      expect(res.body?.state?.focus?.sessionHistory?.length).toBe(1);
+      expect(res.body?.state?.radar?.investigatedSignalIds).toContain('sig-server-01');
+      expect(res.body?.state?.radar?.savedSignalIds).toContain('sig-client-02');
+      expect(res.body?.state?.investigation?.status).toBe('completed');
+      expect(res.body?.state?.investigation?.userNotes?.['sig-server-01']).toBe(
+        'Reviewed agent safety impact'
+      );
+      expect(res.body?.state?.aiWallet?.userTools?.length).toBe(1);
+      expect(res.body?.state?.notifications?.[0]?.read).toBe(true);
+    });
   });
 
   describe('AI Wallet Security & Ownership Enforcement', () => {

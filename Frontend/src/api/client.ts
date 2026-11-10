@@ -1,5 +1,9 @@
 import { Capacitor } from '@capacitor/core';
 import { getDeviceHeaders } from '../utils/deviceIdentifier';
+import {
+  buildWritableLearnerStatePayload,
+  type LearnerStateSyncInput,
+} from '../utils/learnerStateSync';
 
 /**
  * Dynamic API Base URL resolution for Web and Android environments.
@@ -267,11 +271,12 @@ export const apiClient = {
     return res.json();
   },
 
-  async syncLearnerState(state: unknown) {
+  async syncLearnerState(state: LearnerStateSyncInput) {
+    const safeState = buildWritableLearnerStatePayload(state);
     const res = await apiFetch(`${API_BASE}/learner/state`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ state }),
+      body: JSON.stringify({ state: safeState }),
     });
     return res.json();
   },

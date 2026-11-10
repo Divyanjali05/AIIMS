@@ -318,8 +318,8 @@ async function runSecuritySuite() {
       firstLogin.headers['x-ratelimit-remaining'] !== undefined
     );
 
-    // Exceed rate limit by triggering requests up to limit
-    const limit = config.authRateLimitMax;
+    // Exceed rate limit by triggering requests up to configured login limit
+    const limit = config.loginRateLimitMax;
     console.log(`  (Testing exhaustion of ${limit} auth limit slots)...`);
     for (let i = 0; i < limit - 1; i++) {
       await makeRequest(testServer, {

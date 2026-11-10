@@ -14,6 +14,8 @@ import { runFeatureAccessTestSuite } from './featureAccess.test';
 import { runThemeQualityChecks } from './theme.test';
 import { runColorContrastTestSuite } from './colorContrast.test';
 import { runEvaluationFrontendTestSuite } from './evaluationFrontend.test';
+import { runPasswordSecurityTestSuite } from './passwordSecurity.test';
+import { runLearnerStateSyncTestSuite } from './learnerStateSync.test';
 
 declare const process: {
   exit: (code?: number) => never;
@@ -108,6 +110,40 @@ const suiteDefinitions: SuiteDefinition[] = [
     name: 'Evaluation Frontend, Send Button Guardian & Role Redirects',
     execute: () => {
       const res = runEvaluationFrontendTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'passwordSecurity',
+    name: 'Simplified Password Security & Strength Assessment',
+    execute: () => {
+      const res = runPasswordSecurityTestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results.map((r) => ({
+          name: r.name,
+          passed: r.passed,
+          detail: r.detail,
+        })),
+      };
+    },
+  },
+  {
+    id: 'learnerStateSync',
+    name: 'Learner-State Sync Sanitization & Contract',
+    execute: () => {
+      const res = runLearnerStateSyncTestSuite();
       return {
         passedCount: res.passedCount,
         failedCount: res.failedCount,

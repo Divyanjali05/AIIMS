@@ -40,6 +40,7 @@ import {
   getExpectedGraduationYears,
 } from '../../config/academicTaxonomy';
 import { apiClient } from '../../api/client';
+import { calculatePasswordStrength, isCommonPassword } from '../../utils/passwordSecurity';
 
 interface RegisterScreenProps {
   onSuccess?: () => void;
@@ -112,17 +113,20 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Password strength
-  const passwordStrength = (() => {
-    if (!password) return { score: 0, label: '', color: '' };
-    let s = 0;
-    if (password.length >= 8) s++;
-    if (/[A-Z]/.test(password)) s++;
-    if (/[0-9]/.test(password)) s++;
-    if (/[^A-Za-z0-9]/.test(password)) s++;
-    const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-    const colors = ['', '#EF4444', '#F59E0B', '#3B82F6', '#10B981'];
-    return { score: s, label: labels[s], color: colors[s] };
-  })();
+  const passwordStrength = calculatePasswordStrength(password);
+
+  // Step 1 validity guard (disables Continue when invalid)
+  const isStep1Valid = Boolean(
+    track &&
+    name.trim().length >= 2 &&
+    email.trim().length > 0 &&
+    email.includes('@') &&
+    email.includes('.') &&
+    password.length >= 8 &&
+    !isCommonPassword(password) &&
+    confirmPassword.length > 0 &&
+    confirmPassword === password
+  );
 
   // ── Step 2: Academics ─────────────────────────────────────────────────────
   const [instituteQuery, setInstituteQuery] = useState('');
@@ -226,13 +230,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       setErrorField('password');
       return 'Password must be at least 8 characters long.';
     }
-    if (!/[A-Z]/.test(password)) {
+    if (isCommonPassword(password)) {
       setErrorField('password');
-      return 'Password must include at least one uppercase letter.';
+      return 'This password is too common or easily guessed. Please choose a more secure password.';
     }
-    if (!/[0-9]/.test(password)) {
-      setErrorField('password');
-      return 'Password must include at least one number.';
+    if (!confirmPassword) {
+      setErrorField('confirmPassword');
+      return 'Please confirm your password.';
     }
     if (password !== confirmPassword) {
       setErrorField('confirmPassword');
@@ -868,7 +872,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   }}
                   placeholder="Jane Doe"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errorField === 'name') setErrorField('');
+                    if (errorMessage) setErrorMessage('');
+                  }}
                   disabled={isLoading}
                 />
               </div>
@@ -891,14 +899,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   }}
                   placeholder="you@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (errorField === 'email') setErrorField('');
+                    if (errorMessage) setErrorMessage('');
+                  }}
                   disabled={isLoading}
                 />
               </div>
 
               {/* Password */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Password</label>
+                <label style={labelStyle} htmlFor="reg-password">Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="reg-password"
@@ -910,14 +922,23 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       borderColor:
                         errorField === 'password'
                           ? '#F87171'
-                          : isDarkMode
-                            ? 'var(--aiims-input-border, #2c3b63)'
-                            : '#E2E8F0',
+                          : password && isCommonPassword(password)
+                            ? '#F87171'
+                            : password && password.length >= 8
+                              ? '#10B981'
+                              : isDarkMode
+                                ? 'var(--aiims-input-border, #2c3b63)'
+                                : '#E2E8F0',
                     }}
-                    placeholder="Min 8 chars, 1 uppercase, 1 number"
+                    placeholder="At least 8 characters"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (errorField === 'password') setErrorField('');
+                      if (errorMessage) setErrorMessage('');
+                    }}
                     disabled={isLoading}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -932,7 +953,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       border: 'none',
                       color: '#94A3B8',
                       cursor: 'pointer',
-                      padding: '4px',
+                      padding: '6px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -941,16 +962,73 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
+                {/* Password helper & validation status */}
+                {!password ? (
+                  <span
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--aiims-text-secondary, #64748B)',
+                      marginTop: '4px',
+                    }}
+                  >
+                    Must be at least 8 characters long
+                  </span>
+                ) : isCommonPassword(password) ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '5px',
+                      color: '#EF4444',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                    <span>This password is too common or easily guessed.</span>
+                  </div>
+                ) : password.length < 8 ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '5px',
+                      color: 'var(--aiims-text-secondary, #64748B)',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <span>At least 8 characters required ({password.length}/8)</span>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginTop: '5px',
+                      color: '#10B981',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <Check size={14} style={{ flexShrink: 0 }} />
+                    <span>At least 8 characters</span>
+                  </div>
+                )}
+
                 {/* Password strength indicator */}
                 {password && (
-                  <div style={{ marginTop: '6px' }}>
-                    <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
-                      {[1, 2, 3, 4].map((s) => (
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{ display: 'flex', gap: '5px', marginBottom: '4px' }}>
+                      {[1, 2, 3].map((s) => (
                         <div
                           key={s}
                           style={{
                             flex: 1,
-                            height: '3px',
+                            height: '4px',
                             borderRadius: '4px',
                             background:
                               s <= passwordStrength.score
@@ -958,14 +1036,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                                 : isDarkMode
                                   ? 'var(--aiims-border-card, #202b4d)'
                                   : '#E2E8F0',
-                            transition: 'all 0.2s',
+                            transition: 'all 0.25s ease',
                           }}
                         />
                       ))}
                     </div>
                     {passwordStrength.label && (
                       <span
-                        style={{ fontSize: '11px', color: passwordStrength.color, fontWeight: 600 }}
+                        style={{
+                          fontSize: '12px',
+                          color: passwordStrength.color,
+                          fontWeight: 600,
+                          transition: 'color 0.2s',
+                        }}
                       >
                         {passwordStrength.label} password
                       </span>
@@ -976,7 +1059,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               {/* Confirm Password */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Confirm Password</label>
+                <label style={labelStyle} htmlFor="reg-confirm-password">Confirm Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     id="reg-confirm-password"
@@ -986,18 +1069,25 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       ...inputStyle,
                       paddingRight: '42px',
                       borderColor:
-                        confirmPassword && confirmPassword !== password
-                          ? '#F87171'
-                          : confirmPassword && confirmPassword === password
-                            ? '#10B981'
+                        !confirmPassword
+                          ? errorField === 'confirmPassword'
+                            ? '#F87171'
                             : isDarkMode
                               ? 'var(--aiims-input-border, #2c3b63)'
-                              : '#E2E8F0',
+                              : '#E2E8F0'
+                          : confirmPassword === password
+                            ? '#10B981'
+                            : '#EF4444',
                     }}
-                    placeholder="Re-enter password"
+                    placeholder="Confirm your password"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      if (errorField === 'confirmPassword') setErrorField('');
+                      if (errorMessage) setErrorMessage('');
+                    }}
                     disabled={isLoading}
+                    autoComplete="new-password"
                   />
                   <button
                     type="button"
@@ -1012,7 +1102,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       border: 'none',
                       color: '#94A3B8',
                       cursor: 'pointer',
-                      padding: '4px',
+                      padding: '6px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1021,6 +1111,41 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
+                {/* Confirm Password match / mismatch indicator */}
+                {confirmPassword && (
+                  confirmPassword === password ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '6px',
+                        color: '#10B981',
+                        fontSize: '12px',
+                        fontWeight: 550,
+                      }}
+                    >
+                      <CheckCircle size={14} style={{ flexShrink: 0 }} />
+                      <span>Passwords match</span>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        marginTop: '6px',
+                        color: '#EF4444',
+                        fontSize: '12px',
+                        fontWeight: 550,
+                      }}
+                    >
+                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                      <span>Passwords do not match</span>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </div>
@@ -1601,9 +1726,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             <button
               type="button"
               className="reg-btn-primary"
-              style={btnPrimary}
+              style={{
+                ...btnPrimary,
+                opacity: (step === 1 && !isStep1Valid) || isLoading ? 0.6 : 1,
+                cursor: (step === 1 && !isStep1Valid) || isLoading ? 'not-allowed' : 'pointer',
+              }}
               onClick={handleNextStep}
-              disabled={isLoading}
+              disabled={isLoading || (step === 1 && !isStep1Valid)}
             >
               Continue <ArrowRight size={16} />
             </button>

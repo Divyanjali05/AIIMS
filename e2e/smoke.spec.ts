@@ -152,8 +152,8 @@ test.describe('AIIMS E2E Smoke Tests', () => {
     // Form inputs on Step 1
     const nameInput = page.getByPlaceholder('Jane Doe');
     const emailInput = page.getByPlaceholder('you@example.com');
-    const passwordInput = page.getByPlaceholder('Min 8 chars, 1 uppercase, 1 number');
-    const confirmPasswordInput = page.getByPlaceholder('Re-enter password');
+    const passwordInput = page.getByPlaceholder(/at least 8 characters/i);
+    const confirmPasswordInput = page.getByPlaceholder(/confirm your password/i);
     const continueBtn = page.getByRole('button', { name: /continue/i });
 
     await expect(nameInput).toBeVisible();
@@ -183,10 +183,10 @@ test.describe('AIIMS E2E Smoke Tests', () => {
     await continueBtn.click();
     await expect(page.getByText(/password must be at least 8 characters/i)).toBeVisible();
 
-    // Validation: Missing uppercase
+    // Validation: Common/compromised password
     await passwordInput.fill('password123');
     await continueBtn.click();
-    await expect(page.getByText(/password must include at least one uppercase letter/i)).toBeVisible();
+    await expect(page.getByText(/too common or easily guessed/i)).toBeVisible();
 
     // Validation: Password mismatch
     await passwordInput.fill('Password123!');

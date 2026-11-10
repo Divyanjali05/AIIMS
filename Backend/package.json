@@ -21,6 +21,7 @@
     "seed:tools": "ts-node src/scripts/seedToolCatalog.ts",
     "test:phase2a": "ts-node src/scripts/testPhase2A.ts",
     "test:registration": "ts-node src/scripts/testRegistrationDiagnosis.ts",
+    "test:password": "ts-node src/scripts/testPasswordRegistration.ts",
     "test:security": "ts-node src/scripts/testPhase1Security.ts",
     "test:security:remediation": "ts-node src/scripts/verifySecurityRemediation.ts",
     "test:scoring": "ts-node src/scripts/runScoringTests.ts",

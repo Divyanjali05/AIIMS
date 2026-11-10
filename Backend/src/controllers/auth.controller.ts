@@ -18,6 +18,7 @@ import { recordDeviceResetAudit } from '../models/DeviceResetAudit.model';
 import { formatUserState, STARTING_CREDITS } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { PROGRAMS, validateAcademicCombination } from '../config/academicTaxonomy';
+import { isCommonPassword } from '../utils/passwordSecurity';
 
 import { generateCsrfToken } from '../middleware/csrf.middleware';
 
@@ -364,16 +365,9 @@ export const register = async (req: Request, res: Response) => {
       field: 'password',
     });
   }
-  if (!/[A-Z]/.test(password)) {
+  if (isCommonPassword(password)) {
     return res.status(400).json({
-      error: 'Password must contain at least one uppercase letter.',
-      code: 'INVALID_INPUT',
-      field: 'password',
-    });
-  }
-  if (!/[0-9]/.test(password)) {
-    return res.status(400).json({
-      error: 'Password must contain at least one number.',
+      error: 'This password is too common or easily guessed. Please choose a more secure password.',
       code: 'INVALID_INPUT',
       field: 'password',
     });
@@ -1029,6 +1023,9 @@ export const setPassword = async (req: Request, res: Response) => {
   const { email, inviteToken, currentPassword, newPassword } = req.body;
   if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
     return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+  }
+  if (isCommonPassword(newPassword)) {
+    return res.status(400).json({ error: 'This password is too common or easily guessed. Please choose a more secure password.' });
   }
 
   const normalizedEmail = (email || '').toLowerCase().trim();

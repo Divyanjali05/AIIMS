@@ -336,9 +336,10 @@ async function runRegistrationDiagnosisSuite() {
 
     clearRateLimitStore();
 
-    // 5A: Exhaust login rate limit (15 attempts)
-    console.log('  (Simulating 15 failed login attempts)...');
-    for (let i = 0; i < 15; i++) {
+    // 5A: Exhaust login rate limit using environment-configured max attempts
+    const loginLimit = config.loginRateLimitMax;
+    console.log(`  (Simulating ${loginLimit} failed login attempts)...`);
+    for (let i = 0; i < loginLimit; i++) {
       await makeRequest(testServer, {
         method: 'POST',
         path: '/api/auth/login',
@@ -351,7 +352,10 @@ async function runRegistrationDiagnosisSuite() {
       path: '/api/auth/login',
       body: { email: 'wrong@example.com', password: 'wrong' },
     });
-    assert('16th login attempt is rate limited with HTTP 429', exhaustedLoginRes.status === 429);
+    assert(
+      `Attempt #${loginLimit + 1} login is rate limited with HTTP 429`,
+      exhaustedLoginRes.status === 429
+    );
     assert(
       'Login rate limit code is RATE_LIMIT_EXCEEDED',
       exhaustedLoginRes.body?.code === 'RATE_LIMIT_EXCEEDED'
