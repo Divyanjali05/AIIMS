@@ -19,6 +19,7 @@ export interface EvaluateAnswerParams {
   rubric: RubricCriterionInput[];
   learnerAnswer: string;
   completionRunner?: (prompt: string) => Promise<string>;
+  disableRetries?: boolean;
 }
 
 export interface EvaluatedCriterion {
@@ -68,9 +69,17 @@ export const rubricEvaluationResponseSchema = z.object({
 export class RubricEvaluatorService {
   private claude: ClaudeService;
   private defaultRunner?: (prompt: string) => Promise<string>;
+  private disableRetries: boolean = false;
 
   constructor(customClaudeService?: ClaudeService) {
     this.claude = customClaudeService || claudeService;
+  }
+
+  /**
+   * Configures whether retry attempts are disabled (e.g. for strict controlled live runs).
+   */
+  public setDisableRetries(disabled: boolean): void {
+    this.disableRetries = disabled;
   }
 
   /**
@@ -203,6 +212,15 @@ export class RubricEvaluatorService {
         overallFeedback: firstAttempt.data.overallFeedback,
         evaluationSource: this.defaultRunner || params.completionRunner ? 'MOCK' : 'AI',
       };
+    }
+
+    // In controlled mode, automatic retries are strictly disabled
+    if (this.disableRetries || params.disableRetries) {
+      throw new RubricEvaluationError(
+        `AI rubric evaluation failed schema validation (retries disabled in controlled mode): ${firstAttempt.error}`,
+        'VALIDATION_FAILED',
+        { firstAttemptError: firstAttempt.error }
+      );
     }
 
     // 5. Attempt 2 (Retry once): Provide targeted error feedback to the model

@@ -1,7 +1,7 @@
 # AIIMS – T3 Owner Decision Record
 
-**Decision Status:** APPROVED  
-**Decision Date:** 2026-11-07  
+**Decision Status:** APPROVED
+**Decision Date:** 2026-11-07
 **Scope:** Focus Challenge rewards, server-side timing authority, and submission integrity for Task T3
 
 ---
@@ -58,3 +58,4 @@ Per-level thresholds are configured centrally in `Backend/src/config/credits.con
 - **Decision Date:** 2026-11-07
 - **Approval:** **APPROVED**
 - **Status:** Ratified for Task T3 end-to-end execution.
+

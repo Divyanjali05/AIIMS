@@ -27,6 +27,13 @@ export const getCreditCosts = async (_req: AuthenticatedRequest, res: Response) 
         unit: 'AC',
         description: 'Timed focus and restorative break intervals (Free)',
       },
+      focusChallenge: {
+        cost: 0,
+        rewardFast: 20,
+        rewardNormal: 15,
+        unit: 'AC',
+        description: 'Focus Practice Challenges (Fast: +20 AC, Normal: +15 AC, Overtime: 0 AC)',
+      },
       toolMatching: {
         cost: 0,
         unit: 'AC',

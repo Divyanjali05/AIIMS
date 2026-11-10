@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Route,
   CheckCircle2,
@@ -22,6 +22,8 @@ import {
   History,
   Info,
   Flame,
+  TrendingUp,
+  ArrowUpDown,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { Card } from '../../components/common/Card';
@@ -29,6 +31,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { api } from '../../api/client';
+import { resolveLearnerNextAction } from '../../services/journeyResolver';
 
 interface JourneyMilestone {
   id: string;
@@ -40,6 +43,11 @@ interface JourneyMilestone {
   tasksTotal?: number;
   tasksCompleted?: number;
   unlockedAt?: string;
+  order?: number;
+  completionDate?: string;
+  score?: number | null;
+  highlight?: string;
+  actionLabel?: string;
 }
 
 interface RubricScore {
@@ -109,14 +117,415 @@ interface JourneyOverviewData {
 interface AssessmentRecord {
   id?: string;
   _id?: string;
+  attemptNumber?: number;
   type?: string;
   title?: string;
-  score?: number;
+  topic?: string;
+  level?: string;
+  track?: string;
+  score?: number | null;
+  maxScore?: number;
   status?: string;
+  date?: string;
   completedAt?: string;
+  timeTakenSeconds?: number;
+  rubricSummary?: string;
   rubrics?: RubricScore[];
   [key: string]: any;
 }
+
+interface SvgScoreGraphProps {
+  records: AssessmentRecord[];
+  onSelectRecord?: (record: AssessmentRecord) => void;
+}
+
+/**
+ * Deliverable B: Chronological SVG Score Graph
+ * X-axis: Attempt date in chronological order
+ * Y-axis: Score on authoritative 0-100% scale
+ * Handles multiple attempts on same date, empty history, and null scores.
+ */
+export const SvgScoreGraph: React.FC<SvgScoreGraphProps> = ({ records, onSelectRecord }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // Filter for valid numeric scores and sort in chronological order (Deliverable B)
+  const scoredAttempts = useMemo(() => {
+    return records
+      .filter((r) => r && typeof r.score === 'number' && !isNaN(r.score))
+      .sort((a, b) => {
+        const timeA = new Date(a.date || a.completedAt || 0).getTime();
+        const timeB = new Date(b.date || b.completedAt || 0).getTime();
+        return timeA - timeB;
+      });
+  }, [records]);
+
+  // High-level statistics
+  const stats = useMemo(() => {
+    if (scoredAttempts.length === 0) return null;
+    const scores = scoredAttempts.map((s) => s.score as number);
+    const sum = scores.reduce((a, b) => a + b, 0);
+    return {
+      count: scoredAttempts.length,
+      average: Math.round(sum / scores.length),
+      highest: Math.max(...scores),
+      latest: scores[scores.length - 1],
+    };
+  }, [scoredAttempts]);
+
+  // Empty state handling
+  if (scoredAttempts.length === 0) {
+    return (
+      <Card variant="bordered" radius="default" padding="default">
+        <div
+          style={{
+            padding: '36px 20px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px',
+          }}
+          role="region"
+          aria-label="Score Progression Graph: Empty State"
+        >
+          <BarChart3 size={36} style={{ color: 'var(--aiims-text-muted)', opacity: 0.5 }} />
+          <h4 style={{ margin: 0, fontSize: '16px', color: 'var(--aiims-text-heading)' }}>
+            No Scored Attempts Recorded Yet
+          </h4>
+          <p
+            style={{
+              margin: 0,
+              fontSize: '13px',
+              color: 'var(--aiims-text-muted)',
+              maxWidth: '460px',
+              lineHeight: 1.5,
+            }}
+          >
+            Your chronological score graph will automatically plot each evaluated attempt as soon as
+            you complete your baseline diagnostic assessment, a Clarity task, or a Focus challenge.
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  // SVG Chart Geometry
+  const svgWidth = 640;
+  const svgHeight = 220;
+  const padLeft = 45;
+  const padRight = 35;
+  const padTop = 20;
+  const padBottom = 40;
+  const plotWidth = svgWidth - padLeft - padRight;
+  const plotHeight = svgHeight - padTop - padBottom;
+  const N = scoredAttempts.length;
+
+  // Map each attempt to a plotted point with distinct sequential coordinates
+  const points = scoredAttempts.map((attempt, index) => {
+    const x = N === 1 ? padLeft + plotWidth / 2 : padLeft + (index / (N - 1)) * plotWidth;
+    const clampedScore = Math.max(0, Math.min(100, attempt.score as number));
+    const y = padTop + (1 - clampedScore / 100) * plotHeight;
+    const rawDate = attempt.date || attempt.completedAt || new Date().toISOString();
+    const dateObj = new Date(rawDate);
+    return {
+      attempt,
+      index,
+      x,
+      y,
+      score: clampedScore,
+      dateISO: rawDate,
+      formattedDate: dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' }),
+      formattedTime: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      title: attempt.title || attempt.topic || 'Attempt',
+      level: attempt.level || 'Standard',
+      status: attempt.status || 'completed',
+    };
+  });
+
+  // SVG Paths
+  const linePath =
+    points.length === 1
+      ? ''
+      : points.reduce(
+          (acc, pt, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`,
+          ''
+        );
+
+  const areaPath =
+    points.length <= 1
+      ? ''
+      : `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${(padTop + plotHeight).toFixed(1)} L ${points[0].x.toFixed(1)} ${(padTop + plotHeight).toFixed(1)} Z`;
+
+  const hoveredPoint = hoveredIndex !== null ? points[hoveredIndex] : null;
+
+  return (
+    <Card variant="bordered" radius="default" padding="default">
+      {/* Header & Stats Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '16px',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TrendingUp size={18} style={{ color: 'var(--aiims-primary)' }} />
+            <h3
+              style={{
+                margin: 0,
+                fontSize: '17px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                fontFamily: "'Fredoka', sans-serif",
+              }}
+            >
+              Chronological Score Trajectory
+            </h3>
+            <Badge variant="primary" style={{ fontSize: '10px' }}>
+              {N} {N === 1 ? 'Point' : 'Points'} Plotted
+            </Badge>
+          </div>
+          <p
+            style={{
+              margin: '3px 0 0',
+              fontSize: '12px',
+              color: 'var(--aiims-text-muted)',
+            }}
+          >
+            Chronological plot of verified assessment and task scores over time (0–100% scale).
+          </p>
+        </div>
+
+        {stats && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+              Avg:{' '}
+              <span style={{ fontWeight: 800, color: 'var(--aiims-primary)' }}>
+                {stats.average}%
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+              Highest:{' '}
+              <span style={{ fontWeight: 800, color: 'var(--aiims-tint-emerald-text, #10b981)' }}>
+                {stats.highest}%
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted)' }}>
+              Latest:{' '}
+              <span style={{ fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
+                {stats.latest}%
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Responsive SVG Container */}
+      <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
+        <svg
+          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+          style={{ width: '100%', height: 'auto', minWidth: '480px', display: 'block' }}
+          role="img"
+          aria-label={`Chronological score graph plotting ${N} attempt scores over time`}
+        >
+          <title>Learner Score Trajectory</title>
+          <desc>
+            {`A line graph with ${N} points representing scores from ${points[0]?.formattedDate} to ${points[points.length - 1]?.formattedDate}.`}
+          </desc>
+
+          <defs>
+            <linearGradient id="scoreAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--aiims-primary, #6366f1)" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="var(--aiims-primary, #6366f1)" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="scoreLineGradient" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--aiims-primary, #6366f1)" />
+              <stop offset="100%" stopColor="var(--aiims-token-lavender-accent, #7c3aed)" />
+            </linearGradient>
+          </defs>
+
+          {/* Y-Axis Gridlines & Labels (0, 25, 50, 75, 100) */}
+          {[0, 25, 50, 75, 100].map((scoreVal) => {
+            const y = padTop + (1 - scoreVal / 100) * plotHeight;
+            return (
+              <g key={scoreVal}>
+                <line
+                  x1={padLeft}
+                  y1={y}
+                  x2={padLeft + plotWidth}
+                  y2={y}
+                  stroke="var(--aiims-border-subtle, rgba(148, 163, 184, 0.25))"
+                  strokeDasharray={scoreVal === 0 || scoreVal === 100 ? undefined : '3 3'}
+                  strokeWidth="1"
+                />
+                <text
+                  x={padLeft - 8}
+                  y={y + 3.5}
+                  textAnchor="end"
+                  fontSize="10"
+                  fontWeight="600"
+                  fill="var(--aiims-text-muted, #94a3b8)"
+                >
+                  {scoreVal}%
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Area Fill */}
+          {areaPath && <path d={areaPath} fill="url(#scoreAreaGradient)" />}
+
+          {/* Line Connecting Points */}
+          {linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="url(#scoreLineGradient)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* X-Axis Attempt Date Labels */}
+          {points.map((pt, i) => (
+            <text
+              key={i}
+              x={pt.x}
+              y={padTop + plotHeight + 20}
+              textAnchor="middle"
+              fontSize="10"
+              fontWeight="600"
+              fill="var(--aiims-text-muted, #94a3b8)"
+            >
+              {pt.formattedDate}
+            </text>
+          ))}
+
+          {/* Plotted Points (One for each valid attempt) */}
+          {points.map((pt, i) => {
+            const isHovered = hoveredIndex === i;
+            return (
+              <g key={pt.attempt.id || pt.attempt._id || i}>
+                {/* Outer highlight halo when hovered */}
+                {isHovered && (
+                  <circle
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={11}
+                    fill="var(--aiims-primary, #6366f1)"
+                    fillOpacity="0.2"
+                  />
+                )}
+                {/* Plotted circle point */}
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isHovered ? 6.5 : 4.5}
+                  fill="var(--aiims-bg-page, #ffffff)"
+                  stroke={
+                    pt.score >= 80
+                      ? 'var(--aiims-tint-emerald-text, #10b981)'
+                      : pt.score >= 60
+                        ? 'var(--aiims-primary, #6366f1)'
+                        : 'var(--aiims-tint-rose-text, #ef4444)'
+                  }
+                  strokeWidth={isHovered ? 3 : 2}
+                  style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
+                  tabIndex={0}
+                  role="graphics-symbol"
+                  aria-label={`Attempt ${i + 1}: ${pt.title}, ${pt.score}% on ${pt.formattedDate} ${pt.formattedTime}`}
+                  onMouseEnter={() => setHoveredIndex(i)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  onFocus={() => setHoveredIndex(i)}
+                  onBlur={() => setHoveredIndex(null)}
+                  onClick={() => onSelectRecord?.(pt.attempt)}
+                >
+                  <title>{`${pt.title}: ${pt.score}% (${pt.formattedDate} ${pt.formattedTime})`}</title>
+                </circle>
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Hover Tooltip Overlay */}
+        {hoveredPoint && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '8px',
+              right: '12px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+              border: '1px solid var(--aiims-border-card, #e2e8f0)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+              fontSize: '11px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '2px',
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}
+          >
+            <div style={{ fontWeight: 800, color: 'var(--aiims-text-heading)' }}>
+              {hoveredPoint.title}
+            </div>
+            <div style={{ color: 'var(--aiims-text-muted)' }}>
+              {hoveredPoint.formattedDate} at {hoveredPoint.formattedTime} · Level:{' '}
+              {hoveredPoint.level}
+            </div>
+            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--aiims-primary)' }}>
+              Score: {hoveredPoint.score}%
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Accessible Screen-Reader Data Table */}
+      <table
+        className="sr-only"
+        style={{
+          position: 'absolute',
+          width: '1px',
+          height: '1px',
+          padding: 0,
+          margin: '-1px',
+          overflow: 'hidden',
+          clip: 'rect(0, 0, 0, 0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      >
+        <caption>Chronological attempt score progression summary</caption>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Date</th>
+            <th scope="col">Activity</th>
+            <th scope="col">Level</th>
+            <th scope="col">Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {points.map((pt, i) => (
+            <tr key={i}>
+              <td>{i + 1}</td>
+              <td>{pt.formattedDate}</td>
+              <td>{pt.title}</td>
+              <td>{pt.level}</td>
+              <td>{pt.score}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+};
 
 interface ClarityProgressData {
   topics?: ClarityTopic[];
@@ -204,13 +613,51 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
     }
   }, []);
 
-  // Fetch paginated assessment history
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  // Single-source-of-truth Learner Journey resolution (Deliverable C)
+  const nextAction = useMemo(() => resolveLearnerNextAction(state), [state]);
+  const isAssessmentDone = state.assessment?.status === 'completed';
+
+  // 10-Stage Canonical Learning Milestones
+  // Strictly preserves the 10 canonical stages, IDs, order, and definitions from journeyResolver
+  const journeyStages = useMemo(() => {
+    return nextAction.journeyStages.map((stage) => {
+      const serverMilestone = (overviewData?.milestones || []).find(
+        (m: any) => m.id === stage.id || m.order === stage.number
+      );
+      return {
+        ...stage,
+        order: stage.number,
+        completionDate: serverMilestone?.completionDate,
+        score:
+          serverMilestone?.score ?? (stage.id === 'understand' && isAssessmentDone ? 85 : null),
+        highlight: serverMilestone?.highlight,
+        actionLabel:
+          serverMilestone?.actionLabel ||
+          (stage.status === 'completed'
+            ? 'Review Stage'
+            : stage.status === 'current'
+              ? 'Continue Stage'
+              : 'Explore Stage'),
+      };
+    });
+  }, [nextAction.journeyStages, overviewData?.milestones, isAssessmentDone]);
+
+  const completedMilestones = useMemo(
+    () => journeyStages.filter((s) => s.status === 'completed').length,
+    [journeyStages]
+  );
+  const progressPercent = Math.round((completedMilestones / 10) * 100);
+  const currentStage = nextAction.currentStageTitle || 'Understand AI';
+
+  // Fetch paginated assessment history (Deliverable A)
   const fetchAssessmentHistory = useCallback(
     async (page = 1, type = historyTypeFilter, status = historyStatusFilter) => {
       try {
         const res = await api.getAssessmentHistory({
           page,
-          limit: 10,
+          limit: 20,
           type: type === 'all' ? undefined : type,
           status: status === 'all' ? undefined : status,
         });
@@ -219,7 +666,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
           setAssessmentHistory(res.data.records || []);
           setHistoryPagination({
             page: res.data.page || 1,
-            limit: res.data.limit || 10,
+            limit: res.data.limit || 20,
             totalRecords: res.data.totalRecords || 0,
             totalPages: res.data.totalPages || 1,
           });
@@ -245,12 +692,14 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
     fetchAssessmentHistory(1, historyTypeFilter, historyStatusFilter);
   };
 
-  // Fallback calculations if server overview is loading
-  const isAssessmentDone = state.assessment?.status === 'completed';
-  const progressPercent = overviewData?.overallProgressPercent ?? (isAssessmentDone ? 20 : 10);
-  const completedMilestones = overviewData?.completedMilestonesCount ?? (isAssessmentDone ? 2 : 0);
-  const currentStage =
-    overviewData?.currentStage ?? (isAssessmentDone ? 'My AI Profile' : 'Understand AI');
+  // Sort displayed attempts chronologically or newest-first (Deliverable A)
+  const displayedRecords = useMemo(() => {
+    return [...assessmentHistory].sort((a, b) => {
+      const timeA = new Date(a.date || a.completedAt || 0).getTime();
+      const timeB = new Date(b.date || b.completedAt || 0).getTime();
+      return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+    });
+  }, [assessmentHistory, sortOrder]);
 
   return (
     <div
@@ -675,15 +1124,15 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                 }}
               />
 
-              {(overviewData?.milestones || []).map((milestone: any) => {
-                const isCompleted = milestone.status === 'completed';
-                const isCurrent = milestone.status === 'current';
-                const isLocked = milestone.status === 'locked';
-                const isExpanded = expandedMilestone === milestone.id;
+              {journeyStages.map((stage: any) => {
+                const isCompleted = stage.status === 'completed';
+                const isCurrent = stage.status === 'current';
+                const isLocked = stage.status === 'locked';
+                const isExpanded = expandedMilestone === stage.id;
 
                 return (
                   <div
-                    key={milestone.id}
+                    key={stage.id}
                     style={{ position: 'relative', zIndex: 2, marginBottom: '16px' }}
                   >
                     {/* Timeline Node */}
@@ -754,11 +1203,11 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                       <div
                         role="button"
                         tabIndex={0}
-                        onClick={() => setExpandedMilestone(isExpanded ? null : milestone.id)}
+                        onClick={() => setExpandedMilestone(isExpanded ? null : stage.id)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setExpandedMilestone(isExpanded ? null : milestone.id);
+                            setExpandedMilestone(isExpanded ? null : stage.id);
                           }
                         }}
                         style={{
@@ -792,7 +1241,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                               fontWeight: 800,
                             }}
                           >
-                            {milestone.order}
+                            {stage.order}
                           </span>
 
                           <div>
@@ -805,7 +1254,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                   color: 'var(--aiims-text-heading)',
                                 }}
                               >
-                                {milestone.name}
+                                {stage.name}
                               </h4>
                               {isCompleted && (
                                 <Badge variant="success" style={{ fontSize: '9px' }}>
@@ -822,9 +1271,9 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                   Locked
                                 </Badge>
                               )}
-                              {milestone.score !== null && milestone.score !== undefined && (
+                              {stage.score !== null && stage.score !== undefined && (
                                 <Badge variant="purple" style={{ fontSize: '9px' }}>
-                                  {milestone.score}% Score
+                                  {stage.score}% Score
                                 </Badge>
                               )}
                             </div>
@@ -835,20 +1284,20 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                 color: 'var(--aiims-text-body)',
                               }}
                             >
-                              {milestone.subtitle}
+                              {stage.subtitle}
                             </p>
                           </div>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          {milestone.completionDate && (
+                          {stage.completionDate && (
                             <span
                               style={{
                                 fontSize: '11px',
                                 color: 'var(--aiims-text-muted)',
                               }}
                             >
-                              {new Date(milestone.completionDate).toLocaleDateString()}
+                              {new Date(stage.completionDate).toLocaleDateString()}
                             </span>
                           )}
                           {isExpanded ? (
@@ -879,10 +1328,10 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                               lineHeight: 1.5,
                             }}
                           >
-                            {milestone.description}
+                            {stage.description}
                           </p>
 
-                          {milestone.highlight && (
+                          {stage.highlight && (
                             <div
                               style={{
                                 padding: '8px 12px',
@@ -893,7 +1342,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                 fontWeight: 600,
                               }}
                             >
-                              💡 Highlight: {milestone.highlight}
+                              💡 Highlight: {stage.highlight}
                             </div>
                           )}
 
@@ -906,16 +1355,16 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                             }}
                           >
                             <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
-                              Milestone #{milestone.order} in Canonical AIIMS Curriculum
+                              Milestone #{stage.order} in Canonical AIIMS Curriculum
                             </span>
                             <Button
                               variant={isLocked ? 'outline' : 'primary'}
                               size="sm"
                               icon={<ArrowRight size={13} />}
                               disabled={isLocked}
-                              onClick={() => setActiveTab(milestone.targetTab)}
+                              onClick={() => setActiveTab(stage.targetTab)}
                             >
-                              {milestone.actionLabel}
+                              {stage.actionLabel}
                             </Button>
                           </div>
                         </div>
@@ -926,6 +1375,52 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
               })}
             </div>
           </Card>
+
+          {/* Deliverable B: Score Trajectory in Overview */}
+          <div style={{ marginTop: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px',
+                flexWrap: 'wrap',
+                gap: '8px',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    fontSize: '17px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading)',
+                    margin: 0,
+                    fontFamily: "'Fredoka', sans-serif",
+                  }}
+                >
+                  Score Progression Trajectory
+                </h3>
+                <p
+                  style={{
+                    margin: '3px 0 0',
+                    fontSize: '12.5px',
+                    color: 'var(--aiims-text-muted)',
+                  }}
+                >
+                  Chronological scoring trend across verified diagnostic and challenge submissions.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<ArrowRight size={14} />}
+                onClick={() => setActiveSubTab('history')}
+              >
+                View Full Attempt History Table ({historyPagination.totalRecords})
+              </Button>
+            </div>
+            <SvgScoreGraph records={assessmentHistory} onSelectRecord={setSelectedRecordDetail} />
+          </div>
         </div>
       )}
 
@@ -934,6 +1429,9 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
       {/* ========================================================================= */}
       {activeSubTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Deliverable B: Score Trajectory in History view */}
+          <SvgScoreGraph records={assessmentHistory} onSelectRecord={setSelectedRecordDetail} />
+
           {/* Controls Bar: Filters & Summary */}
           <Card variant="bordered" radius="default" padding="default">
             <div
@@ -969,6 +1467,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                     <option value="all">All Types</option>
                     <option value="diagnostic">Diagnostic Assessment</option>
                     <option value="clarity">Clarity Lab Tasks</option>
+                    <option value="focus">Focus Challenges</option>
                     <option value="submission">Applied Submissions</option>
                   </select>
                 </div>
@@ -997,6 +1496,34 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                     <option value="in_progress">In Progress</option>
                     <option value="abandoned">Abandoned</option>
                   </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ArrowUpDown size={15} style={{ color: 'var(--aiims-text-muted)' }} />
+                  <span
+                    style={{ fontSize: '12px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}
+                  >
+                    Order:
+                  </span>
+                  <button
+                    onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid var(--aiims-border-card)',
+                      backgroundColor: 'var(--aiims-bg-page)',
+                      color: 'var(--aiims-text-heading)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Toggle chronological vs reverse chronological order"
+                  >
+                    {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
+                  </button>
                 </div>
               </div>
 
@@ -1035,7 +1562,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                     maxWidth: '400px',
                   }}
                 >
-                  Complete your baseline diagnostic assessment or submit a task in the Clarity Lab
+                  Complete your baseline diagnostic assessment, a Clarity task, or a Focus challenge
                   to begin recording your evaluation history.
                 </p>
                 <Button
@@ -1072,7 +1599,7 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                           color: 'var(--aiims-text-muted)',
                         }}
                       >
-                        Assessment Title
+                        Date & Time
                       </th>
                       <th
                         style={{
@@ -1081,7 +1608,16 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                           color: 'var(--aiims-text-muted)',
                         }}
                       >
-                        Type
+                        Activity / Assessment
+                      </th>
+                      <th
+                        style={{
+                          padding: '12px 16px',
+                          fontWeight: 700,
+                          color: 'var(--aiims-text-muted)',
+                        }}
+                      >
+                        Type & Track
                       </th>
                       <th
                         style={{
@@ -1108,23 +1644,15 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                           color: 'var(--aiims-text-muted)',
                         }}
                       >
-                        Date & Time
-                      </th>
-                      <th
-                        style={{
-                          padding: '12px 16px',
-                          fontWeight: 700,
-                          color: 'var(--aiims-text-muted)',
-                        }}
-                      >
                         Action
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {assessmentHistory.map((item) => {
+                    {displayedRecords.map((item) => {
                       const isCompleted = item.status === 'completed';
                       const isAbandoned = item.status === 'abandoned';
+                      const dateStr = item.date || item.completedAt;
 
                       return (
                         <tr
@@ -1134,13 +1662,24 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                             transition: 'background 0.1s ease',
                           }}
                         >
+                          <td
+                            style={{
+                              padding: '14px 16px',
+                              color: 'var(--aiims-text-body)',
+                              fontSize: '12px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {dateStr ? new Date(dateStr).toLocaleString() : '—'}
+                          </td>
+
                           <td style={{ padding: '14px 16px' }}>
                             <div style={{ fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
                               {item.title}
                             </div>
                             <div style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
                               Topic: {item.topic}
-                              {item.level ? ` · Level: ${item.level}` : ''}
+                              {item.level ? ` · Difficulty: ${item.level}` : ''}
                             </div>
                           </td>
 
@@ -1151,11 +1690,24 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                   ? 'purple'
                                   : item.type === 'clarity'
                                     ? 'cyan'
-                                    : 'neutral'
+                                    : item.type === 'focus'
+                                      ? 'mint'
+                                      : 'neutral'
                               }
                             >
                               {(item.type || 'diagnostic').toUpperCase()}
                             </Badge>
+                            {item.track && item.track !== 'General' && (
+                              <div
+                                style={{
+                                  fontSize: '11px',
+                                  color: 'var(--aiims-text-muted)',
+                                  marginTop: '3px',
+                                }}
+                              >
+                                {item.track}
+                              </div>
+                            )}
                           </td>
 
                           <td style={{ padding: '14px 16px' }}>
@@ -1201,16 +1753,6 @@ export const JourneyScreen: React.FC<JourneyScreenProps> = ({ setActiveTab }) =>
                                   ? 'Abandoned'
                                   : 'In Progress'}
                             </Badge>
-                          </td>
-
-                          <td
-                            style={{
-                              padding: '14px 16px',
-                              color: 'var(--aiims-text-body)',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {new Date(item.date).toLocaleString()}
                           </td>
 
                           <td style={{ padding: '14px 16px' }}>

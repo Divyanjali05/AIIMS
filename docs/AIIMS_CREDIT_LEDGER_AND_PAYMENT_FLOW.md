@@ -140,7 +140,8 @@ Authoritative credit costs are published via `GET /api/credits/costs`:
 | Feature / Operation | Cost (AC) | Reward (AC) | Category | Notes |
 |---|---|---|---|---|
 | **Clarity Lab Run** | 10 AC | 0 AC | USAGE | First trial per level is free; subsequent runs require 10 AC. |
-| **Focus Session** | 0 AC | 0 AC | USAGE | Free for all registered learners. |
+| **Focus Timer Session** | 0 AC | 0 AC | USAGE | Free timer sessions for all registered learners. |
+| **Focus Practice Challenge** | 0 AC | +15 to +20 AC | REWARD | Fast finish: +20 AC; Normal finish: +15 AC; Overtime: 0 AC (Owner Decision 13). |
 | **Intelligent Tool Matching** | 0 AC | 0 AC | USAGE | Free tool discovery and capability matching. |
 | **Diagnostic Assessment** | 0 AC | +50 AC | REWARD | One-time reward upon completing comprehensive assessment. |
 | **Signal Investigation** | 0 AC | +30 AC | REWARD | Awarded for deep investigation of trending AI signals. |

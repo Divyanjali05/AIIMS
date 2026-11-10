@@ -17,7 +17,7 @@ export const assessmentHistoryQuerySchema = z.object({
       const parsed = Number(val);
       return isNaN(parsed) || parsed < 1 ? 10 : Math.min(50, Math.floor(parsed));
     }),
-  type: z.enum(['all', 'diagnostic', 'clarity', 'submission']).optional().default('all'),
+  type: z.enum(['all', 'diagnostic', 'clarity', 'focus', 'submission']).optional().default('all'),
   status: z.enum(['all', 'completed', 'in_progress', 'abandoned']).optional().default('all'),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

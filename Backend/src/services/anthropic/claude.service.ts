@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../../config/env';
+import { ProviderRequestLimiter } from '../providerRequestLimiter';
 
 export interface EvidenceCriterion {
   criterion: string;
@@ -24,6 +25,8 @@ export interface OpenEndedEvaluationResult {
 export class ClaudeService {
   private client: Anthropic | null = null;
   private geminiClient: GoogleGenerativeAI | null = null;
+  private requestLimiter: ProviderRequestLimiter | null = null;
+  private controlledMode: { primaryModel: string; disableFallbacks: boolean } | null = null;
 
   constructor() {
     if (config.anthropicApiKey && config.anthropicApiKey !== 'mock-claude-key') {
@@ -34,6 +37,20 @@ export class ClaudeService {
     if (geminiKey && !geminiKey.startsWith('mock-') && geminiKey.length > 10) {
       this.geminiClient = new GoogleGenerativeAI(geminiKey);
     }
+  }
+
+  /**
+   * Attaches a ProviderRequestLimiter to enforce hard limits on outbound provider requests.
+   */
+  public setRequestLimiter(limiter: ProviderRequestLimiter | null): void {
+    this.requestLimiter = limiter;
+  }
+
+  /**
+   * Configures controlled mode for verified live runs (primary model only, no fallbacks).
+   */
+  public setControlledMode(mode: { primaryModel: string; disableFallbacks: boolean } | null): void {
+    this.controlledMode = mode;
   }
 
   /**
@@ -574,10 +591,46 @@ Return valid JSON adhering strictly to:
     jsonMode: boolean = false
   ): Promise<string> {
     if (!this.geminiClient) throw new Error('Gemini client not configured');
+
+    // Strict controlled mode: single model, no fallbacks, enforced hard limiter
+    if (this.controlledMode && this.controlledMode.disableFallbacks) {
+      const model = this.controlledMode.primaryModel || 'gemini-3.1-flash-lite';
+      const attemptNumber = this.requestLimiter
+        ? this.requestLimiter.recordAttemptBeforeOutbound('gemini', model)
+        : 0;
+
+      const startTime = Date.now();
+      try {
+        const generationConfig: any = {
+          temperature,
+          maxOutputTokens: maxTokens,
+        };
+        if (jsonMode) {
+          generationConfig.responseMimeType = 'application/json';
+        }
+        const genModel = this.geminiClient.getGenerativeModel({
+          model,
+          generationConfig,
+        });
+        const res = await genModel.generateContent(prompt);
+        const latencyMs = Date.now() - startTime;
+        if (this.requestLimiter && attemptNumber > 0) {
+          this.requestLimiter.recordSuccess(attemptNumber, latencyMs);
+        }
+        return res.response.text();
+      } catch (err: any) {
+        const latencyMs = Date.now() - startTime;
+        if (this.requestLimiter && attemptNumber > 0) {
+          this.requestLimiter.recordFailure(attemptNumber, latencyMs, err);
+        }
+        throw err;
+      }
+    }
+
     const candidateModels = Array.from(
       new Set([
         'gemini-3.1-flash-lite',
-        config.geminiModel || 'gemini-3.5-flash',
+        config.geminiModel || 'gemini-3.8-flash',
         'gemini-flash-latest',
         'gemini-3.8-flash',
         'gemini-3.5-flash-lite',
@@ -624,6 +677,14 @@ Return valid JSON adhering strictly to:
     const maxTokens = options?.maxTokens ?? 1200;
     const temperature = options?.temperature ?? 0.1;
     const jsonMode = options?.jsonMode ?? false;
+
+    // Strict controlled mode: Claude is disabled, strictly Gemini primary
+    if (this.controlledMode) {
+      if (this.geminiClient) {
+        return this.generateWithGemini(prompt, maxTokens, temperature, jsonMode);
+      }
+      throw new Error('Gemini client not configured in controlled mode');
+    }
 
     if (this.client) {
       const res = await this.client.messages.create({

@@ -36,6 +36,13 @@ interface CreditCostsResponse {
   costs: {
     clarityRun: { cost: number; freeTrialCount: number; unit: string; description: string };
     focusSession: { cost: number; unit: string; description: string };
+    focusChallenge?: {
+      cost: number;
+      rewardFast?: number;
+      rewardNormal?: number;
+      unit: string;
+      description: string;
+    };
     toolMatching: { cost: number; unit: string; description: string };
     diagnosticAssessment: {
       cost: number;
@@ -520,7 +527,42 @@ export const CreditsLedgerSection: React.FC<CreditsLedgerSectionProps> = ({
                     color: 'var(--aiims-text-heading)',
                   }}
                 >
-                  Focus Sessions & Breaks
+                  Focus Practice Challenges (Easy / Medium / Hard)
+                </td>
+                <td style={{ padding: '10px 12px' }}>
+                  <Badge variant="success" size="sm">
+                    Reward
+                  </Badge>
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-tint-emerald-text)',
+                  }}
+                >
+                  +15 to +20 AC (+50 XP)
+                </td>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    color: 'var(--aiims-text-secondary)',
+                    fontSize: '12px',
+                  }}
+                >
+                  Fast completion (first half of limit): +20 AC. Normal completion: +15 AC.
+                  Over-time: 0 AC (attempt and score retained).
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid var(--aiims-border-card)' }}>
+                <td
+                  style={{
+                    padding: '10px 12px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading)',
+                  }}
+                >
+                  Focus Challenge Timer & Breaks
                 </td>
                 <td style={{ padding: '10px 12px' }}>
                   <Badge variant="mint" size="sm">
@@ -543,7 +585,8 @@ export const CreditsLedgerSection: React.FC<CreditsLedgerSectionProps> = ({
                     fontSize: '12px',
                   }}
                 >
-                  Full Pomodoro timer, ambient sounds, and daily focus streaks are 100% free.
+                  Distraction-free challenge timer, ambient audio, and interval tracking are 100%
+                  free.
                 </td>
               </tr>
               <tr style={{ borderBottom: '1px solid var(--aiims-border-card)' }}>

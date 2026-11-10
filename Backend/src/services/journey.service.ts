@@ -81,10 +81,11 @@ export interface JourneyOverviewResult {
 export interface HistoricalAssessmentRecord {
   id: string;
   attemptNumber: number;
-  type: 'diagnostic' | 'clarity' | 'submission';
+  type: 'diagnostic' | 'clarity' | 'focus' | 'submission';
   title: string;
   topic: string;
   level?: string;
+  track?: string;
   score: number | null;
   maxScore: number;
   status: 'completed' | 'in_progress' | 'abandoned';
@@ -163,7 +164,7 @@ export interface PerformanceAnalyticsResult {
 export interface AssessmentHistoryOptions {
   page?: number;
   limit?: number;
-  type?: 'all' | 'diagnostic' | 'clarity' | 'submission';
+  type?: 'all' | 'diagnostic' | 'clarity' | 'focus' | 'submission';
   status?: 'all' | 'completed' | 'in_progress' | 'abandoned';
   startDate?: string;
   endDate?: string;
@@ -575,13 +576,18 @@ export class JourneyService {
       const count = (attemptsByTopic.get(topicKey) || 0) + 1;
       attemptsByTopic.set(topicKey, count);
 
+      const isFocus = qa.track === 'Focus' || qa.topic?.toLowerCase().includes('focus');
+      const attemptType: 'clarity' | 'focus' = isFocus ? 'focus' : 'clarity';
+      const title = isFocus ? `Focus Challenge: ${qa.topic}` : `Clarity Lab: ${qa.topic}`;
+
       allRecords.push({
         id: qa.attemptId,
         attemptNumber: count,
-        type: 'clarity',
-        title: `Clarity Lab: ${qa.topic}`,
+        type: attemptType,
+        title,
         topic: qa.topic,
         level: qa.level,
+        track: qa.track || 'General',
         score: qa.score,
         maxScore: 100,
         status: qa.evaluationStatus === 'EVALUATED' ? 'completed' : 'in_progress',

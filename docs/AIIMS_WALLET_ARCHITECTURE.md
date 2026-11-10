@@ -83,7 +83,8 @@ sequenceDiagram
 ### Invalidation & Real-Time Sync Triggers
 1. **Clarity Run Deductions:** When a learner executes a Clarity evaluation, `Level2AITaskLab.tsx` invokes the backend Clarity endpoint which atomically deducts 10 AC. The returned authoritative new balance updates `LearnerContext`.
 2. **Diagnostic Assessment Completion:** Completing the Diagnostic Assessment awards +50 AC via `creditsLedgerService.executeTransaction`. The assessment results screen and wallet reflect the updated balance immediately.
-3. **Manual Refresh Action:** The "Refresh Balance" icon button on `CreditsLedgerSection` bypasses client caches and dispatches a forced HTTP request to `/api/credits/ledger`.
+3. **Focus Practice Challenge Completion:** Completing timed Easy, Medium, or Hard focus challenges awards +20 AC (Fast Tier) or +15 AC (Normal Tier), while Overtime completions award 0 AC (per Owner Decision 13).
+4. **Manual Refresh Action:** The "Refresh Balance" icon button on `CreditsLedgerSection` bypasses client caches and dispatches a forced HTTP request to `/api/credits/ledger`.
 
 ---
 
