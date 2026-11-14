@@ -1,0 +1,652 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// 1. Core Identity, Authentication, RBAC & Learner State
+// ============================================================================
+
+model User {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String    @unique
+  password           String
+  role               String    @default("learner") // learner | evaluator | admin
+  isActive           Boolean   @default(true) @map("is_active")
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  inviteToken        String?   @map("invite_token")
+  inviteTokenExpires DateTime? @map("invite_token_expires")
+
+  // Staff 2FA (TOTP)
+  totpEncryptedSecret  String?   @map("totp_encrypted_secret")
+  totpEnabled          Boolean   @default(false) @map("totp_enabled")
+  totpPendingSetup     Boolean   @default(false) @map("totp_pending_setup")
+  totpBackupCodeHashes String[]  @default([]) @map("totp_backup_code_hashes")
+  totpFailedAttempts   Int       @default(0) @map("totp_failed_attempts")
+  totpLockedUntil      DateTime? @map("totp_locked_until")
+
+  // Single-Device Binding & Session Security
+  deviceIdHash      String?   @default("") @map("device_id_hash")
+  deviceName        String?   @default("") @map("device_name")
+  devicePlatform    String    @default("web") @map("device_platform")
+  deviceBoundAt     DateTime? @map("device_bound_at")
+  deviceLastSeenAt  DateTime? @map("device_last_seen_at")
+  activeSessionId   String?   @map("active_session_id")
+  bindingStatus     String    @default("UNBOUND") @map("binding_status")
+  deviceResetAt     DateTime? @map("device_reset_at")
+  deviceResetBy     String?   @map("device_reset_by")
+
+  // Profile, Gamification & Credits Balance (Authoritative Server-Side Counter)
+  college      String  @default("Engineering & Technology College")
+  track        String  @default("Student") // Student | Entrepreneur
+  targetGoal   String  @default("Master AI Intelligence & Mentoring") @map("target_goal")
+  stage        String  @default("Knowing")
+  xpPoints     Int     @default(100) @map("xp_points")
+  aiimsCredits Int     @default(500) @map("aiims_credits")
+
+  // Queryable assessment status mirror + Structured Module States (JSONB)
+  assessmentStatus  String @default("not_started") @map("assessment_status")
+  assessmentData    Json   @default("{\"status\":\"not_started\",\"answers\":{},\"currentQuestionIndex\":0,\"completedAt\":null,\"rewardClaimed\":false,\"scores\":{\"usageFrequency\":0,\"evaluationCapability\":0,\"workflowDesign\":0,\"strategicVision\":0,\"mentorshipReadiness\":0}}") @map("assessment_data")
+  analysisData      Json   @default("{\"status\":\"locked\",\"topCapability\":\"AI Evaluation & Critical Assessment\",\"growthArea\":\"AI Workflow Design\",\"unlockedAt\":null}") @map("analysis_data")
+  clarityData       Json   @default("{\"status\":\"locked\",\"selectedAreas\":[],\"selectedTopic\":null,\"completedTopics\":[],\"reflections\":{},\"taskScores\":{},\"trialRunsUsed\":0}") @map("clarity_data")
+  focusData         Json   @default("{\"status\":\"locked\",\"selectedTrack\":null,\"history\":[],\"activatedAt\":null,\"sessionHistory\":[],\"activeSession\":null,\"sessionConfig\":null}") @map("focus_data")
+  radarData         Json   @default("{\"status\":\"locked\",\"investigatedSignalIds\":[],\"followedSignalIds\":[],\"savedSignalIds\":[],\"dismissedSignalIds\":[],\"lastViewedRadar\":null,\"radarProgress\":0}") @map("radar_data")
+  investigationData Json   @default("{\"status\":\"locked\",\"selectedSignalId\":null,\"userNotes\":{}}") @map("investigation_data")
+  solverData        Json   @default("{\"latestWorkflow\":null,\"history\":[]}") @map("solver_data")
+  buildData         Json   @default("{\"projects\":[],\"activeProjectId\":null}") @map("build_data")
+  relevanceData     Json   @default("{\"status\":\"locked\"}") @map("relevance_data")
+  mentorData        Json   @default("{\"status\":\"locked\"}") @map("mentor_data")
+  transactionsData  Json   @default("[]") @map("transactions_data")
+  notificationsData Json   @default("[{\"id\":\"notif-init\",\"title\":\"Welcome to AIIMS Ecosystem\",\"message\":\"Begin with your baseline Capability Assessment to unlock personalized AI intelligence.\",\"timestamp\":\"Just now\",\"targetTab\":\"assessment\",\"read\":false}]") @map("notifications_data")
+  aiWalletData      Json   @default("{\"userTools\":[],\"dismissedRecommendations\":[]}") @map("ai_wallet_data")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  studentProfile       StudentProfile?
+  entrepreneurProfile  EntrepreneurProfile?
+  sessions             Session[]
+  creditLedgerEntries  CreditLedger[]
+  learnerSubmissions   Submission[]       @relation("LearnerSubmissions")
+  evaluatorSubmissions Submission[]       @relation("EvaluatorSubmissions")
+  focusSessions        FocusSession[]
+  deviceResetTargets   DeviceResetAudit[] @relation("DeviceResetTarget")
+  deviceResetAdmins    DeviceResetAudit[] @relation("DeviceResetAdmin")
+
+  @@index([role, createdAt(sort: Desc)])
+  @@index([inviteToken])
+  @@index([deviceIdHash])
+  @@index([assessmentStatus])
+  @@index([activeSessionId])
+  @@map("users")
+}
+
+// ============================================================================
+// 2. Academic Taxonomy, Institutes & Cohorts
+// ============================================================================
+
+model Institute {
+  id          String    @id @default(uuid())
+  name        String
+  code        String    @unique
+  shortName   String?   @map("short_name")
+  city        String?
+  state       String?
+  country     String    @default("India")
+  type        String    @default("COLLEGE") // UNIVERSITY | COLLEGE | INSTITUTE | SCHOOL | OTHER
+  status      String    @default("ACTIVE")  // ACTIVE | PENDING | INACTIVE
+  requestedBy String?   @map("requested_by")
+  verifiedAt  DateTime? @map("verified_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  cohorts         Cohort[]
+  studentProfiles StudentProfile[]
+
+  @@index([name])
+  @@index([status, name])
+  @@map("institutes")
+}
+
+model Cohort {
+  id                 String    @id @default(uuid())
+  instituteId        String?   @map("institute_id")
+  institute          Institute? @relation(fields: [instituteId], references: [id], onDelete: SetNull)
+  instituteName      String?   @map("institute_name")
+  stream             String    // TECH | NON_TECH
+  educationLevel     String    @map("education_level")
+  programId          String    @map("program_id")
+  programName        String    @map("program_name")
+  specializationId   String    @map("specialization_id")
+  specializationName String    @map("specialization_name")
+  admissionYear      Int       @map("admission_year")
+  graduationYear     Int       @map("graduation_year")
+  displayName        String    @map("display_name")
+  shortCode          String    @map("short_code")
+  status             String    @default("ACTIVE") // ACTIVE | GRADUATED | INACTIVE
+  studentCount       Int       @default(0) @map("student_count")
+  assessmentVersion  String    @default("v1.0") @map("assessment_version")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  studentProfiles StudentProfile[]
+
+  @@unique([instituteId, stream, educationLevel, programId, specializationId, admissionYear, graduationYear])
+  @@index([instituteId])
+  @@index([stream, educationLevel])
+  @@index([stream, programId, specializationId])
+  @@map("cohorts")
+}
+
+model StudentProfile {
+  id                     String    @id @default(uuid())
+  userId                 String    @unique @map("user_id")
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName               String    @map("full_name")
+  displayName            String?   @map("display_name")
+  track                  String    @default("Student") // Student | Entrepreneur
+  instituteId            String?   @map("institute_id")
+  institute              Institute? @relation(fields: [instituteId], references: [id], onDelete: SetNull)
+  instituteName          String?   @map("institute_name")
+  campusName             String?   @map("campus_name")
+  departmentName         String?   @map("department_name")
+  stream                 String    // TECH | NON_TECH
+  streamSubCategory      String    @map("stream_sub_category")
+  educationLevel         String    @map("education_level")
+  programId              String    @map("program_id")
+  programName            String    @map("program_name")
+  specializationId       String    @map("specialization_id")
+  specializationName     String    @map("specialization_name")
+  yearOfStudy            Int       @map("year_of_study")
+  admissionYear          Int       @map("admission_year")
+  expectedGraduationYear Int       @map("expected_graduation_year")
+  cohortId               String?   @map("cohort_id")
+  cohort                 Cohort?   @relation(fields: [cohortId], references: [id], onDelete: SetNull)
+  aiFamiliarity          String?   @map("ai_familiarity")
+  aiUsageContexts        String[]  @default([]) @map("ai_usage_contexts")
+  primaryGoal            String?   @map("primary_goal")
+  isComplete             Boolean   @default(false) @map("is_complete")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@index([instituteId])
+  @@index([cohortId])
+  @@index([stream, educationLevel])
+  @@index([instituteId, stream])
+  @@index([programId, specializationId, stream])
+  @@map("student_profiles")
+}
+
+model EntrepreneurProfile {
+  id                 String   @id @default(uuid())
+  userId             String   @unique @map("user_id")
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName           String   @map("full_name")
+  ventureName        String?  @map("venture_name")
+  industry           String   @default("Other / Interdisciplinary")
+  problemStatement   String?  @map("problem_statement")
+  ventureStage       String   @default("exploring_idea") @map("venture_stage")
+  primaryGoal        String?  @map("primary_goal")
+  skillsToDevelop    String[] @default([]) @map("skills_to_develop")
+  businessChallenges String[] @default([]) @map("business_challenges")
+  preferredSupport   String[] @default([]) @map("preferred_support")
+  isComplete         Boolean  @default(true) @map("is_complete")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([industry])
+  @@index([ventureStage])
+  @@map("entrepreneur_profiles")
+}
+
+// ============================================================================
+// 3. Authoritative Financial Credit Ledger (Dual-Ledger & Idempotency)
+// ============================================================================
+
+model CreditLedger {
+  id             String   @id @default(uuid())
+  // Nullable userId allows anonymized financial totals to persist safely if User deletes account
+  userId         String?  @map("user_id")
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type           String   // EARN | SPEND | REFUND | ADJUSTMENT
+  category       String   @default("REWARD") // TASK_USAGE | REWARD | REFUND | ADMIN | INVESTMENT
+  amount         Int
+  balanceBefore  Int      @map("balance_before")
+  balanceAfter   Int      @map("balance_after")
+  reason         String
+  source         String
+  sourceId       String?  @map("source_id")
+  idempotencyKey String?  @map("idempotency_key")
+  status         String   @default("COMPLETED") // COMPLETED | PENDING | REVERSED | FAILED
+  relatedTaskId  String?  @map("related_task_id")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([relatedTaskId])
+  @@index([source, sourceId])
+  @@map("credit_ledger")
+}
+
+// ============================================================================
+// 4. Sessions & Audit Logs
+// ============================================================================
+
+model Session {
+  id           String    @id @default(uuid())
+  sessionId    String    @unique @map("session_id")
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceIdHash String    @map("device_id_hash")
+  deviceName   String    @default("Unknown Device") @map("device_name")
+  platform     String    @default("web") // web | android | ios | other
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastSeenAt   DateTime  @default(now()) @map("last_seen_at")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  status       String    @default("ACTIVE") // ACTIVE | REVOKED | EXPIRED
+
+  @@index([userId, status])
+  @@index([userId, deviceIdHash])
+  @@index([deviceIdHash])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model DeviceResetAudit {
+  id                   String   @id @default(uuid())
+  targetUserId         String?  @map("target_user_id")
+  targetUser           User?    @relation("DeviceResetTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+  adminUserId          String?  @map("admin_user_id")
+  adminUser            User?    @relation("DeviceResetAdmin", fields: [adminUserId], references: [id], onDelete: SetNull)
+  adminEmail           String   @map("admin_email")
+  previousDeviceIdHash String   @default("") @map("previous_device_id_hash")
+  previousDeviceName   String?  @default("") @map("previous_device_name")
+  reason               String
+  resetAt              DateTime @default(now()) @map("reset_at")
+
+  @@index([targetUserId, resetAt(sort: Desc)])
+  @@index([adminUserId])
+  @@map("device_reset_audits")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actor      String
+  actorName  String?  @map("actor_name")
+  actorRole  String   @map("actor_role")
+  action     String
+  target     String?
+  targetType String?  @map("target_type")
+  time       DateTime @default(now())
+  details    Json     @default("{}")
+
+  @@index([action, time(sort: Desc)])
+  @@index([actor, time(sort: Desc)])
+  @@index([target])
+  @@index([time(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// 5. Tasks, Submissions & Focus Sessions
+// ============================================================================
+
+model Task {
+  id          String   @id @default(uuid())
+  taskId      String   @unique @map("task_id")
+  title       String
+  description String
+  category    String   @default("General AI")
+  level       Int      @default(1)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, level])
+  @@map("tasks")
+}
+
+model Submission {
+  id                String    @id @default(uuid())
+  learnerId         String    @map("learner_id")
+  learner           User      @relation("LearnerSubmissions", fields: [learnerId], references: [id], onDelete: Cascade)
+  learnerName       String?   @map("learner_name")
+  learnerEmail      String?   @map("learner_email")
+  taskId            String    @map("task_id")
+  taskTitle         String?   @map("task_title")
+  answerContent     String    @map("answer_content")
+  status            String    @default("submitted") // submitted | in_review | feedback_given | revision_requested | accepted
+  evaluatorId       String?   @map("evaluator_id")
+  evaluator         User?     @relation("EvaluatorSubmissions", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  evaluatorName     String?   @map("evaluator_name")
+  rubricScores      Json      @default("{}") @map("rubric_scores")
+  writtenFeedback   String    @default("") @map("written_feedback")
+  revisionCount     Int       @default(0) @map("revision_count")
+  statusHistory     Json      @default("[]") @map("status_history")
+  submittedAt       DateTime  @default(now()) @map("submitted_at")
+  reviewedAt        DateTime? @map("reviewed_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, submittedAt(sort: Asc)])
+  @@index([learnerId, createdAt(sort: Desc)])
+  @@index([evaluatorId, reviewedAt(sort: Desc)])
+  @@index([taskId])
+  @@map("submissions")
+}
+
+model FocusSession {
+  id                       String    @id @default(uuid())
+  sessionId                String    @unique @map("session_id")
+  learnerId                String    @map("learner_id")
+  learner                  User      @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  trackTitle               String    @default("AI Workflow Design") @map("track_title")
+  intention                String?   @default("")
+  sessionState             String    @default("focusing") @map("session_state") // idle | focusing | paused | break | completed | abandoned
+  periodType               String    @default("focus") @map("period_type") // focus | short_break | long_break
+  status                   String    @default("in_progress") // in_progress | completed | abandoned
+  focusDurationMinutes     Int       @default(25) @map("focus_duration_minutes")
+  breakDurationMinutes     Int       @default(5) @map("break_duration_minutes")
+  longBreakDurationMinutes Int       @default(15) @map("long_break_duration_minutes")
+  longBreakInterval        Int       @default(4) @map("long_break_interval")
+  enableLongBreak          Boolean   @default(true) @map("enable_long_break")
+  soundEnabled             Boolean   @default(true) @map("sound_enabled")
+  totalPeriodSeconds       Int       @default(1500) @map("total_period_seconds")
+  remainingSeconds         Int       @default(1500) @map("remaining_seconds")
+  accumulatedFocusSeconds  Int       @default(0) @map("accumulated_focus_seconds")
+  totalBreakSeconds        Int       @default(0) @map("total_break_seconds")
+  completedCycles          Int       @default(0) @map("completed_cycles")
+  startedAt                DateTime  @default(now()) @map("started_at")
+  pausedAt                 DateTime? @map("paused_at")
+  targetEndTime            DateTime? @map("target_end_time")
+  completedAt              DateTime? @map("completed_at")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@index([learnerId, status])
+  @@index([learnerId, startedAt(sort: Desc)])
+  @@index([learnerId, sessionState])
+  @@map("focus_sessions")
+}
+
+// ============================================================================
+// 6. Clarity Question Bank, Assignments, Attempts & Progression
+// ============================================================================
+
+model QuestionBank {
+  id               String    @id @default(uuid())
+  questionId       String    @unique @map("question_id")
+  topic            String
+  level            String    // Easy | Medium | Hard
+  track            String    @default("General") // General | Coding
+  title            String
+  promptText       String    @map("prompt_text")
+  hint             String?
+  testScenario     String    @map("test_scenario")
+  expectedCriteria String[]  @default([]) @map("expected_criteria")
+  scoringRubric    Json      @default("[]") @map("scoring_rubric")
+  source           String    @default("Human") // Human | AI
+  status           String    @default("ACTIVE")
+  version          Int       @default(1)
+  aiMetadata       Json?     @map("ai_metadata")
+  createdBy        String?   @map("created_by")
+  reviewedBy       String?   @map("reviewed_by")
+  reviewedAt       DateTime? @map("reviewed_at")
+  reviewNotes      String?   @map("review_notes")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  assignments QuestionAssignment[]
+  attempts    QuestionAttempt[]
+
+  @@index([topic, level, track, status])
+  @@index([source, status])
+  @@index([status])
+  @@map("question_bank")
+}
+
+model QuestionAssignment {
+  id            String    @id @default(uuid())
+  assignmentId  String    @unique @map("assignment_id")
+  learnerId     String    @map("learner_id")
+  questionId    String    @map("question_id")
+  question      QuestionBank @relation(fields: [questionId], references: [questionId], onDelete: Restrict)
+  topic         String
+  level         String
+  track         String    @default("General")
+  college       String?
+  institutionId String?   @map("institution_id")
+  cohortId      String?   @map("cohort_id")
+  assignedAt    DateTime  @default(now()) @map("assigned_at")
+  completedAt   DateTime? @map("completed_at")
+  status        String    @default("ASSIGNED") // ASSIGNED | IN_PROGRESS | SUBMITTED | ABANDONED
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  attempts QuestionAttempt[]
+
+  @@unique([learnerId, questionId])
+  @@index([learnerId, status])
+  @@index([college, questionId, assignedAt(sort: Desc)])
+  @@index([institutionId, questionId, assignedAt(sort: Desc)])
+  @@index([cohortId, questionId, assignedAt(sort: Desc)])
+  @@map("question_assignments")
+}
+
+model QuestionAttempt {
+  id                  String             @id @default(uuid())
+  attemptId           String             @unique @map("attempt_id")
+  assignmentId        String             @map("assignment_id")
+  assignment          QuestionAssignment @relation(fields: [assignmentId], references: [assignmentId], onDelete: Cascade)
+  learnerId           String             @map("learner_id")
+  questionId          String             @map("question_id")
+  question            QuestionBank       @relation(fields: [questionId], references: [questionId], onDelete: Restrict)
+  topic               String
+  level               String
+  track               String             @default("General")
+  startedAt           DateTime           @default(now()) @map("started_at")
+  submittedAt         DateTime           @default(now()) @map("submitted_at")
+  submittedAnswer     String             @map("submitted_answer")
+  score               Int                @default(0)
+  rubricFeedback      Json               @default("[]") @map("rubric_feedback")
+  overallFeedback     String?            @default("") @map("overall_feedback")
+  evaluationStatus    String             @default("EVALUATED") @map("evaluation_status")
+  timeTakenSeconds    Int                @default(0) @map("time_taken_seconds")
+  creditTransactionId String?            @map("credit_transaction_id")
+  createdAt           DateTime           @default(now()) @map("created_at")
+  updatedAt           DateTime           @updatedAt @map("updated_at")
+
+  @@index([learnerId, submittedAt(sort: Desc)])
+  @@index([questionId, submittedAt(sort: Desc)])
+  @@index([assignmentId])
+  @@map("question_attempts")
+}
+
+model InstitutionExclusionConfig {
+  id            String   @id @default(uuid())
+  configKey     String   @unique @default("GLOBAL_EXCLUSION_POLICY") @map("config_key")
+  scope         String   @default("college") // college | batch | cohort
+  exclusionDays Int      @default(30) @map("exclusion_days")
+  updatedBy     String?  @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("institution_exclusion_configs")
+}
+
+model ClarityProgressionConfig {
+  id                  String   @id @default(uuid())
+  configKey           String   @unique @default("GLOBAL_PROGRESSION_CONFIG") @map("config_key")
+  upwardThreshold     Int      @default(80) @map("upward_threshold")
+  consecutiveRequired Int      @default(2) @map("consecutive_required")
+  downwardThreshold   Int      @default(50) @map("downward_threshold")
+  updatedBy           String   @default("SYSTEM_DEFAULT") @map("updated_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("clarity_progression_configs")
+}
+
+model LearnerClarityProgression {
+  id                    String   @id @default(uuid())
+  learnerId             String   @map("learner_id")
+  topic                 String
+  currentLevel          String   @default("Easy") @map("current_level") // Easy | Medium | Hard
+  consecutiveHighScores Int      @default(0) @map("consecutive_high_scores")
+  totalAttempts         Int      @default(0) @map("total_attempts")
+  lastScore             Int?     @map("last_score")
+  history               Json     @default("[]")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([learnerId, topic])
+  @@index([learnerId])
+  @@index([topic])
+  @@map("learner_clarity_progressions")
+}
+
+// ============================================================================
+// 7. AI Tool Catalog, Evidence-First Verification & Discovery Runs
+// ============================================================================
+
+model AiTool {
+  id                  String   @id // Stable slug ID, e.g. tool-chatgpt
+  name                String
+  provider            String
+  description         String
+  shortDescription    String?  @map("short_description")
+  officialWebsite     String   @map("official_website")
+  websiteUrl          String?  @map("website_url")
+  category            String
+  categories          String[] @default([])
+  domains             String[] @default([])
+  subdomains          String[] @default([])
+  capabilities        String[] @default([])
+  useCases            String[] @default([]) @map("use_cases")
+  tasks               String[] @default([])
+  targetUsers         String[] @default([]) @map("target_users")
+  inputTypes          String[] @default([]) @map("input_types")
+  outputTypes         String[] @default([]) @map("output_types")
+  supportedPlatforms  String[] @default([]) @map("supported_platforms")
+  supportedLanguages  String[] @default([]) @map("supported_languages")
+  strengths           String[] @default([])
+  limitations         String[] @default([])
+  modelInformation    String?  @map("model_information")
+  versionInformation  String?  @map("version_information")
+  pricingDetails      Json     @map("pricing_details")
+  pricing             String?
+  learningTrack       Json     @default("[]") @map("learning_track")
+  firstSeenAt         String   @map("first_seen_at")
+  lastVerifiedAt      String   @map("last_verified_at")
+  lastUpdatedAt       String   @map("last_updated_at")
+  status              String   @default("ACTIVE")
+  verificationStatus  String   @default("VERIFIED") @map("verification_status")
+  evidenceCoverage    Float    @default(0) @map("evidence_coverage")
+  sourceUrls          String[] @default([]) @map("source_urls")
+  tags                String[] @default([])
+  iconName            String?  @map("icon_name")
+  activeStatus        Boolean  @default(true) @map("active_status")
+  taskMappings        String[] @default([]) @map("task_mappings")
+  relevantRoles       String[] @default([]) @map("relevant_roles")
+  skillLevel          String?  @map("skill_level")
+  relatedTools        String[] @default([]) @map("related_tools")
+  alternatives        String[] @default([])
+  radarTopics         String[] @default([]) @map("radar_topics")
+  clarityTopics       String[] @default([]) @map("clarity_topics")
+  focusTracks         String[] @default([]) @map("focus_tracks")
+  familiarityGuidance Json?    @map("familiarity_guidance")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  evidences        ToolEvidence[]
+  versionHistories ToolVersionHistory[]
+
+  @@index([activeStatus, verificationStatus])
+  @@index([category])
+  @@index([provider])
+  @@index([status])
+  @@map("ai_tools")
+}
+
+model ToolEvidence {
+  id                 String   @id @default(uuid())
+  toolId             String   @map("tool_id")
+  tool               AiTool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  claim              String
+  value              String
+  sourceUrl          String   @map("source_url")
+  sourceType         String   @map("source_type")
+  sourceTitle        String   @map("source_title")
+  sourceName         String?  @map("source_name")
+  title              String?
+  evidenceText       String?  @map("evidence_text")
+  credibility        String?  @default("MEDIUM")
+  publishedAt        String   @map("published_at")
+  verifiedAt         String   @map("verified_at")
+  discoveredAt       DateTime @default(now()) @map("discovered_at")
+  fetchedAt          DateTime @default(now()) @map("fetched_at")
+  confidence         Float    @default(0.9)
+  verificationStatus String   @default("PENDING") @map("verification_status")
+  structuredData     Json?    @map("structured_data")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([toolId, verificationStatus])
+  @@map("tool_evidences")
+}
+
+model ToolVersionHistory {
+  id            String   @id @default(uuid())
+  toolId        String   @map("tool_id")
+  tool          AiTool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  version       String   @default("1.0")
+  changeType    String   @map("change_type")
+  summary       String
+  changeSummary String?  @map("change_summary")
+  previousValue String?  @map("previous_value")
+  newValue      String?  @map("new_value")
+  previousData  Json?    @map("previous_data")
+  newData       Json?    @map("new_data")
+  detectedAt    String   @map("detected_at")
+  sourceUrl     String?  @map("source_url")
+  sourceUrls    String[] @default([]) @map("source_urls")
+  verifiedAt    String   @map("verified_at")
+  recordedBy    String?  @map("recorded_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([toolId, detectedAt(sort: Desc)])
+  @@index([changeType])
+  @@map("tool_version_histories")
+}
+
+model ToolDiscoveryRun {
+  id                String    @id @default(uuid())
+  startedAt         DateTime  @default(now()) @map("started_at")
+  completedAt       DateTime? @map("completed_at")
+  status            String    @default("RUNNING") // RUNNING | COMPLETED | PARTIAL | FAILED
+  source            String    @default("MANUAL_SEED") // MANUAL_SEED | ADMIN_IMPORT | ADAPTER
+  discoveredCount   Int       @default(0) @map("discovered_count")
+  newToolsCount     Int       @default(0) @map("new_tools_count")
+  updatedToolsCount Int       @default(0) @map("updated_tools_count")
+  duplicateCount    Int       @default(0) @map("duplicate_count")
+  rejectedCount     Int       @default(0) @map("rejected_count")
+  errorCount        Int       @default(0) @map("error_count")
+  runErrors         Json      @default("[]") @map("run_errors")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+  @@map("tool_discovery_runs")
+}
+

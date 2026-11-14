@@ -23,6 +23,7 @@ export interface RateLimitOptions {
   max: number;
   message?: string;
   statusCode?: number;
+  skipSuccessfulRequests?: boolean;
 }
 
 /**
@@ -35,6 +36,7 @@ export const createRateLimiter = (options: RateLimitOptions) => {
     max,
     message = 'Too many requests, please try again later.',
     statusCode = 429,
+    skipSuccessfulRequests = false,
   } = options;
 
   const store = new MemoryStore();
@@ -47,6 +49,7 @@ export const createRateLimiter = (options: RateLimitOptions) => {
     standardHeaders: 'draft-7',
     legacyHeaders: true,
     validate: false,
+    skipSuccessfulRequests,
     keyGenerator: (req: Request) => {
       const forwarded = req.headers['x-forwarded-for'];
       const ip =
@@ -70,10 +73,12 @@ export const createRateLimiter = (options: RateLimitOptions) => {
 };
 
 // 1. Auth Rate Limiter: configurable window and max requests per IP (defaults: 15 per 15 minutes)
+// Only failed authentication attempts increment the rate limit counter (skipSuccessfulRequests: true)
 export const authRateLimiter = createRateLimiter({
   windowMs: config.authRateLimitWindowMs || 15 * 60 * 1000,
   max: config.authRateLimitMax || 15,
   message: 'Too many authentication attempts. Please try again later.',
+  skipSuccessfulRequests: true,
 });
 
 /**

@@ -15,12 +15,9 @@ import { questionBankService, TARGET_MINIMUM_PER_LEVEL } from '../services/quest
 import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
 import { similarityDetectorService } from '../services/similarityDetector.service';
 import { aiQuestionGeneratorService } from '../services/aiQuestionGenerator.service';
-import { inMemoryQuestionBank } from '../models/QuestionBank.model';
-import { inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { inMemoryExclusionConfig } from '../models/InstitutionExclusionConfig.model';
+import { prisma } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { initSeedQuestions } from '../services/seedQuestions';
-import { mockUser } from '../models/aiims.models';
 import {
   adminCreateQuestionSchema,
   serveQuestionSchema,
@@ -82,11 +79,10 @@ export async function runAllTests() {
   console.log('================================================================\n');
 
   // Reset state
-  inMemoryQuestionBank.clear();
-  inMemoryAssignments.clear();
-  inMemoryAttempts.clear();
-  inMemoryExclusionConfig.scope = 'college';
-  inMemoryExclusionConfig.exclusionDays = 30;
+  installPrismaTestDouble({ connected: true });
+  await prisma.questionBank.deleteMany();
+  await prisma.questionAssignment.deleteMany();
+  await prisma.questionAttempt.deleteMany();
   await initSeedQuestions();
 
   // Configure deterministic completion runner for offline question bank verification
@@ -390,11 +386,12 @@ export async function runAllTests() {
   console.log('\n--- CATEGORY 4: AI Generation & Duplicate Detection ---');
 
   // Test 19: Generate question when bank is exhausted
-  for (const [id, q] of inMemoryQuestionBank.entries()) {
-    if (q.topic === 'Prompt Engineering & Grounding' && q.level === 'Hard') {
-      inMemoryQuestionBank.delete(id);
-    }
-  }
+  await prisma.questionBank.deleteMany({
+    where: {
+      topic: 'Prompt Engineering & Grounding',
+      level: 'Hard',
+    },
+  });
   const exhaustedServe = await questionBankService.serveQuestion({
     learnerId: 'learner-exhaustion-test',
     topic: 'Prompt Engineering & Grounding',
@@ -591,8 +588,18 @@ export async function runAllTests() {
 
   // Test 35: Existing authentication remains functional
   const { res: mockRes35, state: state35 } = createMockRes();
+  const testUserEmail = 'learner-reg@aiims.edu';
+  await prisma.user.create({
+    data: {
+      id: 'usr-reg-001',
+      email: testUserEmail,
+      name: 'Regression Learner',
+      password: 'dummy-password-hash',
+      role: 'learner',
+    },
+  });
   const mockLogoutReq: any = {
-    user: { email: mockUser.email },
+    user: { email: testUserEmail },
     headers: { authorization: 'Bearer mock-jwt-token' },
     cookies: {},
   };
@@ -618,7 +625,7 @@ export async function runAllTests() {
   const { res: mockRes37, state: state37 } = createMockRes();
   const adminResetReq: any = {
     user: { id: 'admin-001', role: 'admin' },
-    params: { userId: mockUser.email },
+    params: { userId: testUserEmail },
     body: { reason: 'Device upgraded' },
   };
   await resetUserDevice(adminResetReq, mockRes37);
@@ -643,6 +650,16 @@ export async function runAllTests() {
 
   // Test 39: Credit ledger and entitlements remain functional
   const testUserId = `user-credits-reg-${Date.now()}`;
+  await prisma.user.create({
+    data: {
+      id: testUserId,
+      email: `${testUserId}@aiims.edu`,
+      name: 'Credit Learner',
+      password: 'dummy-password-hash',
+      role: 'learner',
+      aiimsCredits: 0,
+    },
+  });
   const creditTx = await creditsLedgerService.executeTransaction({
     userId: testUserId,
     type: 'EARN',

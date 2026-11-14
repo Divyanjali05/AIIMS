@@ -32,6 +32,29 @@ export interface AcademicProfile {
   isComplete?: boolean;
 }
 
+export interface EntrepreneurProfile {
+  id?: string;
+  fullName: string;
+  ventureName?: string;
+  industry: string;
+  problemStatement?: string;
+  ventureStage: string;
+  primaryGoal?: string;
+  skillsToDevelop?: string[];
+  businessChallenges?: string[];
+  preferredSupport?: string[];
+  isComplete?: boolean;
+}
+
+export interface DeviceBindingInfo {
+  deviceIdHash?: string;
+  deviceName?: string;
+  platform?: 'web' | 'android' | 'ios' | 'other';
+  bindingStatus?: 'BOUND' | 'UNBOUND';
+  boundAt?: string | Date | null;
+  lastSeenAt?: string | Date | null;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -43,12 +66,74 @@ export interface UserProfile {
   stage: ProgressionStage;
   xpPoints: number;
   aiimsCredits: number;
+  deviceBinding?: DeviceBindingInfo;
 }
 
 export interface DimensionScore {
   dimension: string;
   score: number;
   benchmark: number;
+}
+
+export interface PersistentAILearnerProfile {
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  skillGaps: string[];
+  learningPreferences: string[];
+  improvementAreas: string[];
+  recommendedFocus: string;
+  recommendedRoles?: string[];
+  confidenceScore?: number;
+  version: number;
+  generatedAt: string;
+  generationCost: number;
+  assessmentScoreAtGeneration?: number;
+}
+
+export interface PeerBranchComparisonResult {
+  available: boolean;
+  reason?: string;
+  comparisonType: 'SAME_BRANCH_ACROSS_COLLEGES';
+  branchName?: string;
+  totalComparableRecords: number;
+  minRequiredRecords: number;
+  distinctCollegesCount?: number;
+  peerAverage?: number;
+  median?: number;
+  p90?: number;
+  capabilityAverages?: {
+    usingAI: number;
+    understandingAI: number;
+    solvingWithAI: number;
+    checkingAI: number;
+    adaptingToAI: number;
+  };
+  userScore?: number;
+  userPercentile?: number;
+  message?: string;
+}
+
+export interface CohortAllComparisonResult {
+  available: boolean;
+  reason?: string;
+  comparisonType: 'ALL_BRANCHES_COHORT';
+  totalComparableRecords: number;
+  minRequiredRecords: number;
+  cohortAverage?: number;
+  median?: number;
+  p90?: number;
+  capabilityAverages?: {
+    usingAI: number;
+    understandingAI: number;
+    solvingWithAI: number;
+    checkingAI: number;
+    adaptingToAI: number;
+  };
+  normalizationNote?: string;
+  userScore?: number;
+  userPercentile?: number;
+  message?: string;
 }
 
 export interface CapabilityGap {
@@ -617,4 +702,270 @@ export interface AdminSummaryMetrics {
     averageReviewTimeMs: number;
     averageReviewTimeFormatted: string;
   };
+}
+
+// ==========================================
+// PHASE 3: AI WALLET & 13 DOMAIN CARDS TYPES
+// ==========================================
+
+export interface DomainCardTool {
+  id: string;
+  name: string;
+  provider: string;
+  description: string;
+  capabilities: string[];
+  officialWebsite: string;
+  pricingSummary: string;
+  pricingType: string;
+  freeTierAvailable: boolean;
+  skillLevel?: string;
+  lastVerifiedAt?: string;
+}
+
+export interface DomainCard {
+  id: string;
+  title: string;
+  description: string;
+  category: TaskCategory;
+  keyCapabilities: string[];
+  subdomains: string[];
+  targetAudience: 'student' | 'entrepreneur' | 'both';
+  icon: string;
+  tools?: DomainCardTool[];
+  totalTools?: number;
+  hasFreeTier?: boolean;
+}
+
+export interface ToolUsageConfirmation {
+  id: string;
+  userId: string;
+  toolId: string;
+  toolName: string;
+  provider: string;
+  taskContext?: string;
+  notes?: string;
+  confirmedAt: string;
+  verificationMethod: 'MANUAL_LEARNER_CONFIRMATION';
+  status: 'CONFIRMED';
+  idempotencyKey?: string;
+}
+
+export interface PersonalizedRecommendationItem {
+  toolId: string;
+  name: string;
+  provider: string;
+  domain: string;
+  skillTier: 'beginner' | 'advanced';
+  pricing: {
+    type: string;
+    summary: string;
+    freeTierAvailable: boolean;
+  };
+  whyMatches: string[];
+  capabilities: string[];
+  officialWebsite: string;
+  isFreeOrLowCost: boolean;
+  lastVerifiedAt?: string;
+}
+
+export interface PersonalizedDomainMatchingResult {
+  domain: string;
+  isPersonalized: boolean;
+  profileSource: 'PERSISTENT_AI_PROFILE' | 'GENERAL_DOMAIN_FALLBACK';
+  learnerGoal: string;
+  learnerSkillLevel: string;
+  recommendations: {
+    beginner: PersonalizedRecommendationItem[];
+    advanced: PersonalizedRecommendationItem[];
+  };
+  totalMatches: number;
+}
+
+// ============================================================================
+// Phase 4: Clarity AI Task Lab Types
+// ============================================================================
+
+export interface ClarityLearningLevel {
+  id: string;
+  topic: string;
+  name: string;
+  title: string;
+  levelTier: string;
+  description: string;
+  icon: string;
+  totalQuestions: number;
+  completedQuestions: number;
+  isFirstAttemptFree: boolean;
+  progressPercentage: number;
+}
+
+export interface ClarityQuestionSummary {
+  questionId: string;
+  topic: string;
+  level: 'Easy' | 'Medium' | 'Hard';
+  track: string;
+  title: string;
+  promptText: string;
+  hint?: string | null;
+  testScenario: string;
+  expectedCriteria: string[];
+  scoringRubric: Array<{
+    criterion: string;
+    maxScore: number;
+    description: string;
+  }>;
+  learningObjective: string;
+  expectedAnswerFormat: string;
+  source: string;
+  status: string;
+  version: number;
+  userStatus: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+  lastScore?: number | null;
+  attemptId?: string | null;
+  assignmentId?: string | null;
+  isLocked: boolean;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewNotes?: string | null;
+  evaluationGuidance?: string | null;
+}
+
+export interface ClarityAttemptResult {
+  success: boolean;
+  attemptId: string;
+  score: number;
+  rubricFeedback: Array<{
+    criterion: string;
+    score: number;
+    maxScore: number;
+    comment: string;
+  }>;
+  overallFeedback: string;
+  submittedAt: string;
+  timeTakenSeconds: number;
+  isLocked: boolean;
+  creditsDeducted: number;
+  isFirstAttemptFree: boolean;
+  currentBalance: number;
+  xpAwarded: number;
+  currentXP: number;
+  progression?: any;
+}
+
+export interface ClarityProgressSummary {
+  success: boolean;
+  totalCompleted: number;
+  totalQuestions: number;
+  totalAttempts: number;
+  averageScore: number;
+  xpPoints: number;
+  aiimsCredits: number;
+  levels: {
+    understanding: { completed: number; total: number; avgScore: number };
+    workflow: { completed: number; total: number; avgScore: number };
+    aiAgents: { completed: number; total: number; avgScore: number };
+  };
+}
+
+// ============================================================================
+// Phase 5: Focus Module Practice Challenges & Timer Types
+// ============================================================================
+
+export type FocusChallengeTier = 'Easy' | 'Medium' | 'Hard';
+
+export interface FocusCategorySummary {
+  category: string;
+  displayName: string;
+  description: string;
+  whyThisMatters: string;
+  practicalApplication: string;
+  suggestedTool: string;
+  suggestedToolUrl: string;
+  questionsCount: {
+    Easy: number;
+    Medium: number;
+    Hard: number;
+    total: number;
+  };
+  completedByLearner: number;
+}
+
+export interface FocusTaskQuestion {
+  questionId: string;
+  topic: string;
+  level: FocusChallengeTier;
+  track: string;
+  title: string;
+  promptText: string;
+  hint: string;
+  testScenario: string;
+  expectedCriteria: string[];
+  scoringRubric: Array<{
+    criterion: string;
+    maxScore: number;
+    description: string;
+  }>;
+  learningObjective: string;
+  expectedAnswerFormat: string;
+  suggestedExternalTool: string;
+  suggestedExternalToolUrl: string;
+  durationSeconds: number;
+}
+
+export interface FocusAttachmentItem {
+  attachmentId: string;
+  userId?: string;
+  attemptId?: string;
+  originalFileName: string;
+  sanitizedFileName?: string;
+  objectKey: string;
+  mimeType: string;
+  fileSizeBytes: number;
+  uploadedAt: string;
+  publicUrl?: string;
+}
+
+export interface FocusAttemptResult {
+  success: boolean;
+  attemptId: string;
+  score: number;
+  rubricFeedback: Array<{
+    criterion: string;
+    score: number;
+    maxScore: number;
+    comment: string;
+  }>;
+  overallFeedback: string;
+  submittedAt: string;
+  timeTakenSeconds: number;
+  isLocked: boolean;
+  creditsDeducted: number;
+  isFirstAttemptFree: boolean;
+  currentBalance: number;
+  xpAwarded: number;
+}
+
+export interface FocusTimeData {
+  assignmentId: string;
+  startedAt: string;
+  targetEndTime: string;
+  remainingSeconds: number;
+  durationSeconds: number;
+  isExpired: boolean;
+  isLocked: boolean;
+}
+
+export interface FocusHistoryItem {
+  attemptId: string;
+  assignmentId: string;
+  questionId: string;
+  title: string;
+  category: string;
+  level: string;
+  score: number;
+  timeTakenSeconds: number;
+  submittedAt: string;
+  rubricFeedback: any[];
+  overallFeedback: string;
+  suggestedTool: string;
 }

@@ -7,10 +7,7 @@
  *   npx ts-node src/scripts/migrateWelcomeCredits500.ts
  */
 
-import mongoose from 'mongoose';
-import { config } from '../config/env';
-import { User } from '../models/User.model';
-import { CreditLedger } from '../models/CreditLedger.model';
+import { prisma, connectDatabase, disconnectDatabase } from '../config/prisma';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 
 const TOPUP_AMOUNT = 400;
@@ -31,18 +28,20 @@ export async function migrateWelcomeCredits500(dryRun = false): Promise<{
   let migrated = 0;
   let skipped = 0;
 
-  const users = await User.find({}).lean();
+  const users = await prisma.user.findMany();
   inspected = users.length;
   console.log(`Found ${inspected} total user(s) to inspect.\n`);
 
   for (const user of users) {
-    const userId = String(user._id);
+    const userId = String(user.id);
     const topupKey = `welcome-topup-500::${userId}`;
 
     // 1. Idempotency guard: check if user already received the topup
-    const alreadyTopupLedger = await CreditLedger.findOne({
-      userId,
-      idempotencyKey: topupKey,
+    const alreadyTopupLedger = await prisma.creditLedger.findFirst({
+      where: {
+        userId,
+        idempotencyKey: topupKey,
+      },
     });
 
     if (alreadyTopupLedger) {
@@ -51,10 +50,12 @@ export async function migrateWelcomeCredits500(dryRun = false): Promise<{
     }
 
     // 2. Check if user already received a 500 welcome bonus
-    const has500Welcome = await CreditLedger.findOne({
-      userId,
-      sourceId: 'WELCOME_BONUS',
-      amount: 500,
+    const has500Welcome = await prisma.creditLedger.findFirst({
+      where: {
+        userId,
+        sourceId: 'WELCOME_BONUS',
+        amount: 500,
+      },
     });
 
     if (has500Welcome) {
@@ -116,23 +117,23 @@ async function main() {
   const isDryRun = process.argv.includes('--dry-run');
 
   try {
-    if (!config.mongodbUri) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
+    const conn = await connectDatabase(3, 1000);
+    if (!conn.connected) {
+      console.warn('⚠️ PostgreSQL is not reachable. Skipping welcome credits migration.');
+      process.exit(0);
     }
-    await mongoose.connect(config.mongodbUri);
-    console.log('Connected to MongoDB database.');
+    console.log(`Connected to PostgreSQL database "${conn.databaseName || 'aiims'}".`);
 
     await migrateWelcomeCredits500(isDryRun);
-  } catch (err) {
-    console.error('Migration failed:', err);
+  } catch (err: any) {
+    console.error('Migration failed:', err?.message || err);
     process.exitCode = 1;
   } finally {
-    await mongoose.disconnect();
-    console.log('Disconnected from MongoDB.');
+    await disconnectDatabase();
+    console.log('Disconnected from PostgreSQL.');
   }
 }
 
-// Only invoke main when executed directly from the CLI
 if (require.main === module) {
   main();
 }

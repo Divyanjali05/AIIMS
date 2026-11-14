@@ -1,7 +1,7 @@
 import { AITool, ToolPricing, VerificationStatus } from '../../types';
 import { StructuredAssessment } from './toolAssessment.service';
 import { SourceItem } from './toolSource.service';
-import { ToolEvidenceItem } from '../../models/toolEvidence.model';
+import { ToolEvidenceItem } from '../../types/models';
 
 export interface VerificationResult {
   tool: AITool;
@@ -18,7 +18,11 @@ export class ToolVerificationService {
   /**
    * Verify candidate assessment against source priority rules, evidence sufficiency, and URL validation.
    */
-  public static verifyCandidate(assessment: StructuredAssessment, sourceItem: SourceItem, existingTool?: AITool): VerificationResult {
+  public static verifyCandidate(
+    assessment: StructuredAssessment,
+    sourceItem: SourceItem,
+    existingTool?: AITool
+  ): VerificationResult {
     const nowIso = new Date().toISOString();
 
     // 1. Deterministic URL Validation
@@ -38,16 +42,17 @@ export class ToolVerificationService {
 
     // Capabilities must be non-empty and substantiated
     const validCapabilities = (assessment.taxonomy.capabilities || []).filter(
-      c => typeof c === 'string' && c.trim().length > 0 && c.toLowerCase() !== 'task execution'
+      (c) => typeof c === 'string' && c.trim().length > 0 && c.toLowerCase() !== 'task execution'
     );
     const hasCapabilityEvidence = validCapabilities.length > 0;
 
     // Sufficient evidence requires valid identity, real capabilities, relevance, and no pending verification flag
-    const hasSufficientEvidence = isIdentityVerified &&
+    const hasSufficientEvidence =
+      isIdentityVerified &&
       hasCapabilityEvidence &&
       assessment.classification.isRelevant &&
       !assessment.needsVerification &&
-      (assessment.confidence >= 0.75);
+      assessment.confidence >= 0.75;
 
     // 4. Verification and Activation Status Determination
     let verificationStatus: VerificationStatus;
@@ -87,7 +92,7 @@ export class ToolVerificationService {
       trialDurationDays: assessment.pricing.trialDurationDays,
       startingPriceMonthlyUsd: assessment.pricing.startingPriceMonthlyUsd,
       verified: isOfficialSource && hasSufficientEvidence,
-      lastVerifiedAt: nowIso
+      lastVerifiedAt: nowIso,
     };
 
     // If source is secondary and claims conflict with existing verified pricing, prefer existing verified data
@@ -107,45 +112,54 @@ export class ToolVerificationService {
       officialWebsite,
       websiteUrl: officialWebsite,
       category: assessment.taxonomy.category || 'Reasoning & Writing',
-      categories: assessment.taxonomy.categories || [assessment.taxonomy.category || 'Reasoning & Writing'],
+      categories: assessment.taxonomy.categories || [
+        assessment.taxonomy.category || 'Reasoning & Writing',
+      ],
       domains: assessment.taxonomy.domains || ['Software & Technology'],
       subdomains: assessment.taxonomy.subdomains || ['AI Tools'],
       capabilities: validCapabilities,
       useCases: existingTool?.useCases || (validCapabilities.length > 0 ? ['Task execution'] : []),
-      tasks: (assessment.taxonomy.tasks || []).filter(t => t.toLowerCase() !== 'ai task automation'),
+      tasks: (assessment.taxonomy.tasks || []).filter(
+        (t) => t.toLowerCase() !== 'ai task automation'
+      ),
       strengths: existingTool?.strengths || ['High capability'],
       limitations: existingTool?.limitations || ['Requires account setup'],
       pricingDetails,
       pricing: pricingDetails.summary,
       firstSeenAt: existingTool?.firstSeenAt || sourceItem.publishedAt || nowIso,
-      lastVerifiedAt: hasSufficientEvidence ? nowIso : (existingTool?.lastVerifiedAt || nowIso),
+      lastVerifiedAt: hasSufficientEvidence ? nowIso : existingTool?.lastVerifiedAt || nowIso,
       lastUpdatedAt: nowIso,
       status: existingTool ? 'RECENTLY_UPDATED' : 'NEW',
       verificationStatus,
       sourceUrls: Array.from(new Set([...(existingTool?.sourceUrls || []), sourceItem.url])),
       tags: Array.from(new Set([...(existingTool?.tags || []), 'ai-tool', sourceItem.sourceId])),
       activeStatus,
-      taskMappings: [candidateName.toLowerCase(), ...(assessment.taxonomy.tasks || []).map(t => t.toLowerCase())]
+      taskMappings: [
+        candidateName.toLowerCase(),
+        ...(assessment.taxonomy.tasks || []).map((t) => t.toLowerCase()),
+      ],
     };
 
     // 7. Construct Supporting Evidence Records
-    const evidenceItems: Omit<ToolEvidenceItem, 'id' | 'toolId'>[] = assessment.evidence.map(e => ({
-      claim: e.claim,
-      value: e.value,
-      sourceUrl: e.sourceUrl || sourceItem.url,
-      sourceType: isOfficialSource ? 'Official Announcement' : 'Public Feed',
-      sourceTitle: sourceItem.sourceName,
-      publishedAt: sourceItem.publishedAt,
-      verifiedAt: nowIso,
-      confidence: Math.min(e.confidence || 0.85, isOfficialSource ? 1.0 : 0.80),
-      verificationStatus: isOfficialSource ? 'VERIFIED' : 'PARTIALLY_VERIFIED'
-    }));
+    const evidenceItems: Omit<ToolEvidenceItem, 'id' | 'toolId'>[] = assessment.evidence.map(
+      (e) => ({
+        claim: e.claim,
+        value: e.value,
+        sourceUrl: e.sourceUrl || sourceItem.url,
+        sourceType: isOfficialSource ? 'Official Announcement' : 'Public Feed',
+        sourceTitle: sourceItem.sourceName,
+        publishedAt: sourceItem.publishedAt,
+        verifiedAt: nowIso,
+        confidence: Math.min(e.confidence || 0.85, isOfficialSource ? 1.0 : 0.8),
+        verificationStatus: isOfficialSource ? 'VERIFIED' : 'PARTIALLY_VERIFIED',
+      })
+    );
 
     return {
       tool,
       evidenceItems,
       verificationStatus,
-      confidence: hasSufficientEvidence ? (isOfficialSource ? 0.95 : 0.80) : 0.40
+      confidence: hasSufficientEvidence ? (isOfficialSource ? 0.95 : 0.8) : 0.4,
     };
   }
 
@@ -159,6 +173,9 @@ export class ToolVerificationService {
   }
 
   private static slugify(text: string): string {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
   }
 }

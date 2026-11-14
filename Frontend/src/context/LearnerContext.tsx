@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import {
   UserProfile,
   AcademicProfile,
+  EntrepreneurProfile,
   UserToolItem,
   TaskCategory,
   ToolFamiliarity,
@@ -11,6 +12,7 @@ import {
   FocusSessionConfig,
   ActiveFocusSessionState,
   FocusSessionRecord,
+  PersistentAILearnerProfile,
 } from '../types';
 import { apiClient, apiFetch, getApiBaseUrl, setAuthToken } from '../api/client';
 import { buildWritableLearnerStatePayload } from '../utils/learnerStateSync';
@@ -50,6 +52,8 @@ export interface LearnerState {
   profile: UserProfile;
   // Academic identity (separate from learner state — set at registration)
   academicProfile?: AcademicProfile;
+  // Entrepreneur identity (set at registration for entrepreneur track)
+  entrepreneurProfile?: EntrepreneurProfile;
   assessment: {
     status: 'not_started' | 'in_progress' | 'completed';
     answers: Record<number, any>;
@@ -66,9 +70,12 @@ export interface LearnerState {
     evaluationResult?: AssessmentEvaluationResult;
   };
   analysis: {
-    status: 'locked' | 'unlocked' | 'viewed';
+    status: 'locked' | 'unlocked' | 'viewed' | 'generated';
     topCapability: string;
     growthArea: string;
+    aiProfile?: PersistentAILearnerProfile;
+    history?: PersistentAILearnerProfile[];
+    lastGeneratedAt?: string | null;
   };
   clarity: {
     status: 'locked' | 'unlocked' | 'in_progress' | 'completed';
@@ -292,20 +299,28 @@ export interface RegistrationPayload {
   password: string;
   confirmPassword?: string;
   track: 'Student' | 'Entrepreneur';
-  // Step 2: Academics
+  // Step 2: Academics (Student track)
   instituteId?: string;
   instituteName?: string;
-  stream: string;
+  stream?: string;
   streamSubCategory?: string;
-  educationLevel: string;
-  programId: string;
-  programName: string;
-  specializationId: string;
-  specializationName: string;
-  yearOfStudy: number;
-  admissionYear: number;
-  expectedGraduationYear: number;
-  // Step 3: AI Context
+  educationLevel?: string;
+  programId?: string;
+  programName?: string;
+  specializationId?: string;
+  specializationName?: string;
+  yearOfStudy?: number;
+  admissionYear?: number;
+  expectedGraduationYear?: number;
+  // Step 2: Venture Profile (Entrepreneur track)
+  ventureName?: string;
+  industry?: string;
+  problemStatement?: string;
+  ventureStage?: string;
+  // Step 3: Goals & Support
+  skillsToDevelop?: string[];
+  businessChallenges?: string[];
+  preferredSupport?: string[];
   aiFamiliarity?: string;
   aiUsageContexts?: string[];
   primaryGoal?: string;
@@ -318,6 +333,10 @@ interface LearnerContextType {
   completeAssessment: () => void;
   unlockAnalysis: () => void;
   viewAnalysis: () => void;
+  generateAIProfile: (
+    idempotencyKey?: string
+  ) => Promise<{ success: boolean; profile?: PersistentAILearnerProfile; error?: string }>;
+  refreshAIProfile: () => Promise<void>;
   selectClarityArea: (areaName: string) => void;
   setClarityTopic: (topicName: string | null) => void;
   saveClarityReflection: (topicName: string, text: string) => void;
@@ -523,7 +542,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // Sync state to scoped localStorage and MongoDB Atlas on updates
+  // Sync state to scoped localStorage and PostgreSQL on updates
   useEffect(() => {
     if (!state.profile?.email) return;
 
@@ -536,7 +555,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Failed to save learner state to localStorage', e);
     }
 
-    // Auto-sync writable fields to MongoDB Atlas if authenticated and not hydrating
+    // Auto-sync writable fields to database if authenticated and not hydrating
     if (isAuthenticated && !isHydratingRef.current) {
       const writablePayload = buildWritableLearnerStatePayload(state);
       const serializedPayload = JSON.stringify(writablePayload);
@@ -553,7 +572,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
             }
           })
           .catch((err) => {
-            console.warn('Background MongoDB sync warning:', err);
+            console.warn('Background database sync warning:', err);
           });
       }, 800);
 
@@ -746,21 +765,28 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       month: 'short',
       year: 'numeric',
     });
-    const rewardAmount = 50;
     const actionKey = 'ASSESSMENT_COMPLETION';
 
     let serverEvaluationResult: AssessmentEvaluationResult | undefined;
     let serverUpdatedBalance: number | undefined;
-    try {
-      const serverRes = await apiClient.submitAssessment(state.assessment.answers || {});
-      if (serverRes?.evaluationResult) {
-        serverEvaluationResult = serverRes.evaluationResult;
-      }
-      if (typeof serverRes?.updatedBalance === 'number') {
-        serverUpdatedBalance = serverRes.updatedBalance;
-      }
-    } catch (err) {
-      console.warn('Backend evaluation endpoint call warning, falling back to client engine:', err);
+    let chargedCredits = 100;
+    let bonusEarned = 0;
+
+    const serverRes = await apiClient.submitAssessment(state.assessment.answers || {});
+    if (serverRes?.error) {
+      throw new Error(serverRes.error);
+    }
+    if (serverRes?.evaluationResult) {
+      serverEvaluationResult = serverRes.evaluationResult;
+    }
+    if (typeof serverRes?.updatedBalance === 'number') {
+      serverUpdatedBalance = serverRes.updatedBalance;
+    }
+    if (typeof serverRes?.chargedCredits === 'number') {
+      chargedCredits = serverRes.chargedCredits;
+    }
+    if (typeof serverRes?.bonusEarned === 'number') {
+      bonusEarned = serverRes.bonusEarned;
     }
 
     setState((prev) => {
@@ -776,21 +802,34 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const newBalance =
         typeof serverUpdatedBalance === 'number'
           ? serverUpdatedBalance
-          : prev.credits.balance + rewardAmount;
+          : Math.max(0, prev.credits.balance - chargedCredits + bonusEarned);
 
-      const newTx: CreditTransactionItem = {
-        id: `tx-assessment-${Date.now()}`,
-        description: 'Assessment Completed Reward',
-        amount: rewardAmount,
-        type: 'EARN',
-        timestamp: nowStr,
-        actionKey,
-      };
+      const generatedTransactions: CreditTransactionItem[] = [];
+      if (chargedCredits > 0) {
+        generatedTransactions.push({
+          id: `tx-assessment-fee-${Date.now()}`,
+          description: 'Assessment Submission Fee (-100 AC)',
+          amount: chargedCredits,
+          type: 'SPEND',
+          timestamp: nowStr,
+          actionKey: `${actionKey}_FEE`,
+        });
+      }
+      if (bonusEarned > 0) {
+        generatedTransactions.push({
+          id: `tx-assessment-bonus-${Date.now()}`,
+          description: `Assessment High Score Bonus (+${bonusEarned} AC)`,
+          amount: bonusEarned,
+          type: 'EARN',
+          timestamp: nowStr,
+          actionKey: `${actionKey}_BONUS`,
+        });
+      }
 
       const newNotif: AppNotification = {
         id: `notif-assessment-${Date.now()}`,
         title: 'Assessment Complete',
-        message: `You completed your AI baseline assessment (+${rewardAmount} Credits)! Your analysis is now unlocked.`,
+        message: `You completed your AI baseline assessment! Your analysis is now unlocked.`,
         timestamp: 'Just now',
         targetTab: 'analysis',
         read: false,
@@ -801,7 +840,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         profile: {
           ...prev.profile,
           stage: 'Recognising',
-          xpPoints: prev.profile.xpPoints + 500,
+          xpPoints: prev.profile.xpPoints + 100,
           aiimsCredits: newBalance,
         },
         assessment: {
@@ -833,7 +872,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
         credits: {
           balance: newBalance,
-          transactions: [newTx, ...prev.credits.transactions],
+          transactions: [...generatedTransactions, ...prev.credits.transactions],
           claimedActions: [...prev.credits.claimedActions, actionKey],
         },
         aiWallet: {
@@ -884,7 +923,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const viewAnalysis = useCallback(() => {
     setState((prev) => ({
       ...prev,
-      analysis: { ...prev.analysis, status: 'viewed' },
+      analysis: {
+        ...prev.analysis,
+        status: prev.analysis.status === 'generated' ? 'generated' : 'viewed',
+      },
       clarity: {
         ...prev.clarity,
         status: prev.clarity.status === 'locked' ? 'unlocked' : prev.clarity.status,
@@ -894,6 +936,83 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status,
       },
     }));
+  }, []);
+
+  const generateAIProfile = useCallback(
+    async (
+      idempotencyKey?: string
+    ): Promise<{ success: boolean; profile?: PersistentAILearnerProfile; error?: string }> => {
+      try {
+        const res = await apiClient.generateAiProfile(idempotencyKey);
+        if (res && res.success && res.profile) {
+          setState((prev) => {
+            const newBal = typeof res.balance === 'number' ? res.balance : prev.credits.balance;
+            const updatedTransactions: CreditTransactionItem[] = res.chargedFee
+              ? [
+                  {
+                    id: `tx-profile-${Date.now()}`,
+                    description: 'AI Profile Generation Fee (-50 AC)',
+                    amount: 50,
+                    type: 'SPEND',
+                    timestamp: new Date().toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                    actionKey: 'AI_PROFILE',
+                  },
+                  ...prev.credits.transactions,
+                ]
+              : prev.credits.transactions;
+
+            return {
+              ...prev,
+              credits: {
+                ...prev.credits,
+                balance: newBal,
+                transactions: updatedTransactions,
+              },
+              profile: {
+                ...prev.profile,
+                aiimsCredits: newBal,
+              },
+              analysis: {
+                ...prev.analysis,
+                status: 'generated',
+                topCapability: res.profile.strengths?.[0] || prev.analysis.topCapability,
+                growthArea: res.profile.improvementAreas?.[0] || prev.analysis.growthArea,
+                aiProfile: res.profile,
+                lastGeneratedAt: res.profile.generatedAt,
+              },
+            };
+          });
+          return { success: true, profile: res.profile };
+        }
+        return { success: false, error: res?.error || 'Profile generation failed' };
+      } catch (err: any) {
+        return { success: false, error: err?.message || 'Network request failed' };
+      }
+    },
+    []
+  );
+
+  const refreshAIProfile = useCallback(async () => {
+    try {
+      const res = await apiClient.getAiProfile();
+      if (res && res.available && res.profile) {
+        setState((prev) => ({
+          ...prev,
+          analysis: {
+            ...prev.analysis,
+            status: 'generated',
+            aiProfile: res.profile,
+            history: res.history,
+            lastGeneratedAt: res.profile.generatedAt,
+          },
+        }));
+      }
+    } catch (err) {
+      console.warn('Failed to refresh AI profile:', err);
+    }
   }, []);
 
   const selectClarityArea = (areaName: string) => {
@@ -1898,6 +2017,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev,
           profile: { ...prev.profile, ...resData.user },
           academicProfile: resData.academicProfile || prev.academicProfile,
+          entrepreneurProfile: resData.entrepreneurProfile || prev.entrepreneurProfile,
           aiWallet: {
             ...prev.aiWallet,
             audienceMode: prev.aiWallet?.audienceMode || defaultMode,
@@ -2114,6 +2234,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         completeAssessment,
         unlockAnalysis,
         viewAnalysis,
+        generateAIProfile,
+        refreshAIProfile,
         selectClarityArea,
         setClarityTopic,
         saveClarityReflection,

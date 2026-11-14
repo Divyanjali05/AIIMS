@@ -27,6 +27,7 @@ const SENSITIVE_KEY_PATTERNS = [
   /totpencryptionkey/i,
   /invitetoken/i,
   /refreshtoken/i,
+  /database_?url/i,
   /cookie/i,
   /cookies/i,
   /set-cookie/i,
@@ -40,6 +41,7 @@ const SENSITIVE_KEY_PATTERNS = [
 const JWT_REGEX = /eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]*/g;
 const BEARER_REGEX = /Bearer\s+[a-zA-Z0-9._~+/-]+=*/gi;
 const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const DB_URI_REGEX = /postgres(?:ql)?:\/\/[^@\s]+@/gi;
 
 /**
  * Recursively redacts sensitive keys and patterns from any data structure.
@@ -55,6 +57,7 @@ export function redactSensitiveData(data: any, seen: WeakSet<object> = new WeakS
     return data
       .replace(JWT_REGEX, '[REDACTED_JWT]')
       .replace(BEARER_REGEX, 'Bearer [REDACTED]')
+      .replace(DB_URI_REGEX, 'postgresql://[REDACTED]@')
       .replace(EMAIL_REGEX, '[REDACTED_EMAIL]');
   }
 

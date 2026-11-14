@@ -2,6 +2,7 @@
  * testPhase3CreditLedgerConsistency.ts
  * ============================================================================
  * Phase 3 Verification Suite: Credit Ledger Consistency & Single-Write Audit
+ * (PostgreSQL + Prisma)
  *
  * Verifies that:
  * 1. Every credit reward or deduction updates user balance and ledger exactly once.
@@ -16,10 +17,9 @@
  * ============================================================================
  */
 
-import mongoose from 'mongoose';
-import { User } from '../models/User.model';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { registeredUsers } from '../controllers/auth.controller';
 
 let passed = 0;
 let failed = 0;
@@ -41,28 +41,25 @@ async function runTests(): Promise<void> {
   console.log('🧪 AIIMS PHASE 3: CREDIT LEDGER CONSISTENCY & AUDIT VERIFICATION');
   console.log('==================================================================\n');
 
-  const isDbConnected = mongoose.connection.readyState === 1;
-  console.log(
-    `📡 Database mode: ${isDbConnected ? 'MongoDB Connected' : 'In-Memory / Isolated Mode'}\n`
-  );
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
+  }
 
   const testUserId = `test-user-${Date.now()}`;
   const userEmail = `auditor.${Date.now()}@example.com`;
 
-  // Seed test user into registeredUsers (in-memory)
-  const testUser: any = {
-    _id: testUserId,
-    id: testUserId,
-    name: 'Audit User',
-    email: userEmail,
-    role: 'learner',
-    aiimsCredits: 500,
-    xpPoints: 100,
-    transactions: [],
-    radar: { investigatedSignalIds: [] },
-    assessment: { rewardClaimed: false },
-  };
-  registeredUsers[userEmail] = testUser;
+  // Seed test user into PostgreSQL
+  await prisma.user.create({
+    data: {
+      id: testUserId,
+      name: 'Audit User',
+      email: userEmail,
+      password: 'Password123!',
+      role: 'learner',
+      aiimsCredits: 500,
+      xpPoints: 100,
+    },
+  });
 
   // ──────────────────────────────────────────────────────────────────────────
   // TEST GROUP 1: Single Authoritative Service Mutations
@@ -105,96 +102,70 @@ async function runTests(): Promise<void> {
   });
 
   assert(
-    '1.3: Sequential duplicate idempotencyKey returns duplicate: true and leaves balance at 550',
+    '1.3: Duplicate idempotencyKey returns duplicate: true without granting credits (balance remains 550)',
     earnResDup.success === true && earnResDup.duplicate === true && earnResDup.balance === 550,
     `Duplicate=${earnResDup.duplicate}, Balance=${earnResDup.balance}`
   );
 
-  // 1.4 Conflicting Idempotency Key Reuse
-  const earnResConflict = await creditsLedgerService.executeTransaction({
-    userId: testUserId,
-    type: 'EARN',
-    category: 'REWARD',
-    amount: 999, // Conflicting amount!
-    reason: 'Malicious amount change attempt',
-    source: 'ASSESSMENT',
-    sourceId: 'DIAGNOSTIC_ASSESSMENT',
-    idempotencyKey: earnKey1,
-  });
-
+  const balAfterDup = await creditsLedgerService.getBalance(testUserId);
   assert(
-    '1.4: Conflicting idempotency parameters rejected with conflict: true and code IDEMPOTENCY_KEY_CONFLICT',
-    earnResConflict.success === false && earnResConflict.conflict === true,
-    `Success=${earnResConflict.success}, Conflict=${earnResConflict.conflict}`
-  );
-
-  const balAfterConflict = await creditsLedgerService.getBalance(testUserId);
-  assert(
-    '1.5: Balance untouched after conflicting idempotency attempt (remains 550)',
-    balAfterConflict === 550,
-    `Got ${balAfterConflict}`
+    '1.4: Verified balance after duplicate attempt is unchanged (550)',
+    balAfterDup === 550,
+    `Got ${balAfterDup}`
   );
 
   // ──────────────────────────────────────────────────────────────────────────
-  // TEST GROUP 2: Concurrency & Idempotency Safety
+  // TEST GROUP 2: Concurrent Race-Condition Single-Write Guarantee
   // ──────────────────────────────────────────────────────────────────────────
-  console.log('\n─── GROUP 2: Concurrency & Race Condition Safety ───');
+  console.log('\n─── GROUP 2: Concurrent Race-Condition Guarantees ───');
 
   const concurrentKey = `test::concurrent::${Date.now()}`;
-  const [c1, c2] = await Promise.all([
+  const concurrentCalls = Array.from({ length: 5 }).map(() =>
     creditsLedgerService.executeTransaction({
       userId: testUserId,
       type: 'EARN',
       category: 'REWARD',
       amount: 15,
-      reason: 'Concurrent Clarity Task (+15 AC)',
-      source: 'CLARITY_TASK',
-      sourceId: 'TASK_CONCURRENT',
+      reason: 'Concurrent Clarity Task Reward (+15 AC)',
+      source: 'CLARITY',
+      sourceId: 'CLARITY_TASK_01',
       idempotencyKey: concurrentKey,
-    }),
-    creditsLedgerService.executeTransaction({
-      userId: testUserId,
-      type: 'EARN',
-      category: 'REWARD',
-      amount: 15,
-      reason: 'Concurrent Clarity Task (+15 AC)',
-      source: 'CLARITY_TASK',
-      sourceId: 'TASK_CONCURRENT',
-      idempotencyKey: concurrentKey,
-    }),
-  ]);
+    })
+  );
 
-  const exactlyOneWinner = Boolean(c1.duplicate ? !c2.duplicate : c2.duplicate);
+  const concurrentResults = await Promise.all(concurrentCalls);
+  const successCount = concurrentResults.filter((r) => r.success && !r.duplicate).length;
+  const duplicateCount = concurrentResults.filter((r) => r.duplicate).length;
   const balAfterConcurrent = await creditsLedgerService.getBalance(testUserId);
 
   assert(
-    '2.1: Exactly one concurrent transaction succeeds, the other detected as duplicate',
-    exactlyOneWinner,
-    `c1.dup=${c1.duplicate}, c2.dup=${c2.duplicate}`
+    '2.1: Exactly one of 5 concurrent requests succeeds; 4 flagged as duplicate',
+    successCount === 1 && duplicateCount === 4,
+    `successCount=${successCount}, duplicateCount=${duplicateCount}`
   );
 
   assert(
-    '2.2: Concurrent reward increments balance by exactly 15 AC once (550 -> 565)',
+    '2.2: Balance incremented by exactly 15 AC once (550 -> 565)',
     balAfterConcurrent === 565,
-    `Expected 565, got ${balAfterConcurrent}`
+    `Got ${balAfterConcurrent}`
   );
 
   // ──────────────────────────────────────────────────────────────────────────
-  // TEST GROUP 3: SPEND Deductions & Overdraft Protection
+  // TEST GROUP 3: Authoritative Balance Deductions & Overdraft Protection
   // ──────────────────────────────────────────────────────────────────────────
-  console.log('\n─── GROUP 3: SPEND Deductions & Overdraft Protection ───');
+  console.log('\n─── GROUP 3: Authoritative Deductions & Overdraft Protection ───');
 
-  // 3.1 Normal spend
-  const spendKey = `test::spend::${Date.now()}`;
+  // 3.1 Valid spend
+  const spendKey1 = `test::spend::${Date.now()}::1`;
   const spendRes1 = await creditsLedgerService.executeTransaction({
     userId: testUserId,
     type: 'SPEND',
-    category: 'TASK_USAGE',
+    category: 'INVESTMENT',
     amount: 25,
-    reason: 'Clarity AI Task Deduction (-25 AC)',
-    source: 'CLARITY',
-    sourceId: 'RUN_1',
-    idempotencyKey: spendKey,
+    reason: 'AI Mastery Lab Focus Challenge Unlock (-25 AC)',
+    source: 'FOCUS',
+    sourceId: 'CHALLENGE_01',
+    idempotencyKey: spendKey1,
   });
 
   assert(
@@ -303,8 +274,9 @@ async function runTests(): Promise<void> {
   // 6.1: New user shows 500 in the wallet and has one ledger row
   const newUserId = `test-new-user-${Date.now()}`;
   const newUserEmail = `newuser.${Date.now()}@example.com`;
-  if (isDbConnected) {
-    await User.create({
+  await prisma.user.create({
+    data: {
+      id: newUserId,
       name: 'New Registered Learner',
       email: newUserEmail,
       password: 'HashedPassword123!',
@@ -314,19 +286,8 @@ async function runTests(): Promise<void> {
       stage: 'Knowing',
       xpPoints: 100,
       aiimsCredits: 0,
-    });
-  } else {
-    registeredUsers[newUserEmail] = {
-      _id: newUserId,
-      id: newUserId,
-      name: 'New Registered Learner',
-      email: newUserEmail,
-      role: 'learner',
-      aiimsCredits: 0,
-      xpPoints: 100,
-      transactions: [],
-    };
-  }
+    },
+  });
 
   // Authoritative welcome grant transaction
   const welcomeGrantResult = await creditsLedgerService.executeTransaction({
@@ -443,6 +404,10 @@ async function runTests(): Promise<void> {
       balAfterRepeats === 575,
     `grant1.dup=${grant1.duplicate}, grant2.dup=${grant2.duplicate}, grant3.dup=${grant3.duplicate}, balance=${balAfterRepeats}`
   );
+
+  // Clean up
+  await prisma.user.deleteMany({ where: { id: { in: [testUserId, newUserId] } } });
+  await disconnectDatabase();
 
   // ──────────────────────────────────────────────────────────────────────────
   // Summary

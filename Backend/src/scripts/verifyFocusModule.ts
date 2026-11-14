@@ -15,7 +15,8 @@
  */
 
 import { FocusSessionService } from '../services/focusSession.service';
-import { inMemoryFocusSessions } from '../models/FocusSession.model';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
+import { prisma } from '../config/prisma';
 
 let passed = 0;
 let failed = 0;
@@ -35,8 +36,8 @@ async function runFocusVerification() {
   console.log(' AIIMS PROMPT 6: FOCUS MODULE AUTOMATED VERIFICATION SUITE');
   console.log('================================================================\n');
 
-  // Clear in-memory state for fresh test execution
-  inMemoryFocusSessions.clear();
+  // Install test double for fresh test execution
+  installPrismaTestDouble({ connected: true });
 
   const LEARNER_A = 'learner-focus-test-user-001';
   const LEARNER_B = 'learner-focus-test-user-002';

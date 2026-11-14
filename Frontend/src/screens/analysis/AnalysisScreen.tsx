@@ -16,6 +16,10 @@ import {
   CheckCircle2,
   Target,
   ShieldCheck,
+  Brain,
+  Compass,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
@@ -23,7 +27,12 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { MentorMessage } from '../../components/common/MentorMessage';
 import { Badge } from '../../components/common/Badge';
 import { RadarChart } from '../../components/charts/RadarChart';
-import { DimensionScore } from '../../types';
+import {
+  DimensionScore,
+  PersistentAILearnerProfile,
+  PeerBranchComparisonResult,
+  CohortAllComparisonResult,
+} from '../../types';
 import {
   evaluateAssessment,
   CAPABILITY_DESCRIPTIONS,
@@ -36,8 +45,15 @@ interface AnalysisScreenProps {
 }
 
 export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) => {
-  const { state, viewAnalysis, selectClarityArea } = useLearner();
+  const { state, viewAnalysis, selectClarityArea, generateAIProfile } = useLearner();
   const [activeSubTab, setActiveSubTab] = useState<'me' | 'compare' | 'overall'>('me');
+
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+
+  const [peerBranchData, setPeerBranchData] = useState<PeerBranchComparisonResult | null>(null);
+  const [cohortAllData, setCohortAllData] = useState<CohortAllComparisonResult | null>(null);
 
   const [peerData, setPeerData] = useState<{
     available: boolean;
@@ -56,6 +72,8 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
   }>({ available: false, totalComparableRecords: 0, minRequiredRecords: 30 });
 
   const isCompleted = state.assessment.status === 'completed';
+  const currentBalance = state.credits.balance;
+  const aiProfile: PersistentAILearnerProfile | undefined = state.analysis.aiProfile;
 
   useEffect(() => {
     if (isCompleted) {
@@ -66,8 +84,40 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
           if (res) setPeerData(res);
         })
         .catch((err) => console.warn('Peer benchmarks notice:', err));
+
+      apiClient
+        .getPeerBranchComparison()
+        .then((res) => {
+          if (res) setPeerBranchData(res);
+        })
+        .catch((err) => console.warn('Peer branch comparison notice:', err));
+
+      apiClient
+        .getCohortAllComparison()
+        .then((res) => {
+          if (res) setCohortAllData(res);
+        })
+        .catch((err) => console.warn('Cohort comparison notice:', err));
     }
   }, [isCompleted, viewAnalysis]);
+
+  const handleGenerateProfile = async () => {
+    if (isGenerating || currentBalance < 50) return;
+    setIsGenerating(true);
+    setGenerationError(null);
+    try {
+      const res = await generateAIProfile();
+      if (!res.success) {
+        setGenerationError(res.error || 'Failed to generate AI Learner Profile');
+      } else {
+        setShowConfirmModal(false);
+      }
+    } catch (err: any) {
+      setGenerationError(err?.message || 'Error occurred during generation');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleExploreArea = (areaName: string) => {
     selectClarityArea(areaName);
@@ -301,7 +351,11 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               color: activeSubTab === 'compare' ? '#ffffff' : 'var(--aiims-tint-purple-text)',
             }}
           >
-            {peerData.available ? `Peer Avg: ${peerData.peerOverallAverage}/100` : 'Pending Data'}
+            {peerBranchData?.available
+              ? `Branch Avg: ${peerBranchData.peerAverage}/100`
+              : peerData.available
+                ? `Peer Avg: ${peerData.peerOverallAverage}/100`
+                : 'k ≥ 5 Guard'}
           </span>
         </Button>
 
@@ -326,7 +380,11 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
               color: activeSubTab === 'overall' ? '#ffffff' : 'var(--aiims-primary)',
             }}
           >
-            {peerData.available ? `${peerData.userPercentile}th Percentile` : 'Cohort Stats'}
+            {cohortAllData?.available
+              ? `${cohortAllData.userPercentile}th Percentile`
+              : peerData.available
+                ? `${peerData.userPercentile}th Percentile`
+                : 'k ≥ 5 Guard'}
           </span>
         </Button>
       </div>
@@ -400,6 +458,414 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 </div>
               </div>
             </div>
+          </Surface>
+
+          {/* AI LEARNER PROFILE SYNTHESIS (PHASE 2) */}
+          <Surface variant="bordered" radius="lg" padding="lg">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '12px',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    backgroundColor: 'var(--aiims-primary, #6366f1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                  }}
+                >
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3
+                    style={{
+                      fontSize: '18px',
+                      fontWeight: 800,
+                      margin: 0,
+                      color: 'var(--aiims-text-heading)',
+                    }}
+                  >
+                    AI Learner Profile Synthesis
+                  </h3>
+                  <p style={{ fontSize: '12px', margin: 0, color: 'var(--aiims-text-secondary)' }}>
+                    Deep qualitative capability synthesis powered by your 25 diagnostic answers.
+                  </p>
+                </div>
+              </div>
+              {aiProfile ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Badge variant="success">Version {aiProfile.version} · Active</Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={
+                      isGenerating ? (
+                        <Loader2 size={12} className="aiims-spin" />
+                      ) : (
+                        <RefreshCw size={12} />
+                      )
+                    }
+                    disabled={isGenerating || currentBalance < 50}
+                    onClick={() => setShowConfirmModal(true)}
+                  >
+                    Regenerate (50 AC)
+                  </Button>
+                </div>
+              ) : (
+                <Badge variant="primary">Cost: 50 AC</Badge>
+              )}
+            </div>
+
+            {!aiProfile ? (
+              <div
+                style={{
+                  padding: '24px',
+                  backgroundColor: 'var(--aiims-card-sky-bg, #f8fafc)',
+                  borderRadius: '14px',
+                  border: '1.5px dashed var(--aiims-card-sky-border, #cbd5e1)',
+                  textAlign: 'center',
+                }}
+              >
+                <Brain
+                  size={40}
+                  color="var(--aiims-primary, #6366f1)"
+                  style={{ margin: '0 auto 12px' }}
+                />
+                <h4
+                  style={{
+                    fontSize: '16px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading)',
+                    margin: '0 0 6px',
+                  }}
+                >
+                  Unlock Your Persistent AI Learner Profile
+                </h4>
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--aiims-text-secondary)',
+                    maxWidth: '520px',
+                    margin: '0 auto 16px',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Generate an AI-synthesized profile of your demonstrated strengths, cognitive blind
+                  spots, concrete skill gaps, learning preferences, and recommended AI industry
+                  tracks grounded strictly in your assessment evidence.
+                </p>
+
+                {currentBalance < 50 && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      backgroundColor: '#fee2e2',
+                      color: '#b91c1c',
+                      borderRadius: '10px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      marginBottom: '16px',
+                    }}
+                  >
+                    <AlertTriangle size={16} />
+                    Insufficient Credits: 50 AC required (Current Balance: {currentBalance} AC)
+                  </div>
+                )}
+
+                {generationError && (
+                  <div
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: '#fef2f2',
+                      color: '#991b1b',
+                      borderRadius: '10px',
+                      fontSize: '13px',
+                      marginBottom: '16px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {generationError}
+                  </div>
+                )}
+
+                <div>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    icon={
+                      isGenerating ? (
+                        <Loader2 size={16} className="aiims-spin" />
+                      ) : (
+                        <Sparkles size={16} />
+                      )
+                    }
+                    disabled={isGenerating || currentBalance < 50}
+                    onClick={() => setShowConfirmModal(true)}
+                  >
+                    {isGenerating
+                      ? 'Synthesizing AI Profile...'
+                      : 'Generate AI Learner Profile (50 AC)'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Executive Summary */}
+                <div
+                  style={{
+                    padding: '16px 20px',
+                    backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                    borderRadius: '12px',
+                    borderLeft: '4px solid var(--aiims-primary, #6366f1)',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      color: 'var(--aiims-primary)',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    Executive Capability Summary
+                  </div>
+                  <p
+                    style={{
+                      fontSize: '14px',
+                      lineHeight: 1.6,
+                      color: 'var(--aiims-text-heading)',
+                      margin: 0,
+                    }}
+                  >
+                    {aiProfile.summary}
+                  </p>
+                </div>
+
+                {/* Grid of Strengths, Weaknesses, Skill Gaps, Priorities */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '16px',
+                  }}
+                >
+                  {/* Demonstrated Strengths */}
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: '#f0fdf4',
+                      borderRadius: '12px',
+                      border: '1px solid #bbf7d0',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#166534',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                      Demonstrated Strengths
+                    </div>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontSize: '13px',
+                        color: '#14532d',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {aiProfile.strengths.map((s, idx) => (
+                        <li key={idx}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Weaknesses & Blind Spots */}
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: '#fef2f2',
+                      borderRadius: '12px',
+                      border: '1px solid #fecaca',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#991b1b',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <AlertTriangle size={16} />
+                      Weaknesses & Blind Spots
+                    </div>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontSize: '13px',
+                        color: '#7f1d1d',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {aiProfile.weaknesses.map((w, idx) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Concrete Skill Gaps */}
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: '#fffbeb',
+                      borderRadius: '12px',
+                      border: '1px solid #fde68a',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#92400e',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <Target size={16} />
+                      Concrete Skill Gaps
+                    </div>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontSize: '13px',
+                        color: '#78350f',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {aiProfile.skillGaps.map((g, idx) => (
+                        <li key={idx}>{g}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Priority Improvement Areas */}
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: '#f5f3ff',
+                      borderRadius: '12px',
+                      border: '1px solid #ddd6fe',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        color: '#5b21b6',
+                        fontWeight: 800,
+                        fontSize: '13px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <Compass size={16} />
+                      Priority Improvement Areas
+                    </div>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: '18px',
+                        fontSize: '13px',
+                        color: '#4c1d95',
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      {aiProfile.improvementAreas.map((area, idx) => (
+                        <li key={idx}>{area}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Recommended Focus & Roles Footer */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                    padding: '14px 18px',
+                    backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--aiims-border-card, #e2e8f0)',
+                  }}
+                >
+                  <div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        color: 'var(--aiims-text-secondary)',
+                      }}
+                    >
+                      Recommended Focus Track:{' '}
+                    </span>
+                    <span
+                      style={{ fontSize: '13px', fontWeight: 800, color: 'var(--aiims-primary)' }}
+                    >
+                      {aiProfile.recommendedFocus}
+                    </span>
+                    {aiProfile.recommendedRoles && aiProfile.recommendedRoles.length > 0 && (
+                      <span
+                        style={{
+                          fontSize: '12px',
+                          color: 'var(--aiims-text-secondary)',
+                          marginLeft: '12px',
+                        }}
+                      >
+                        · Recommended Roles: {aiProfile.recommendedRoles.join(', ')}
+                      </span>
+                    )}
+                  </div>
+
+                  <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)' }}>
+                    Generated: {new Date(aiProfile.generatedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            )}
           </Surface>
 
           {/* SECTION 1: CORE CAPABILITY DIMENSIONS WITH EVIDENCE & GAPS */}
@@ -1112,48 +1578,9 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
 
       {activeSubTab === 'compare' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {!peerData.available ? (
-            <Surface
-              variant="bordered"
-              radius="lg"
-              padding="lg"
-              style={{
-                textAlign: 'center',
-                backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
-              }}
-            >
-              <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
-              <h3
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading, #0f172a)',
-                  margin: '0 0 8px',
-                  fontFamily: "'Fredoka', sans-serif",
-                }}
-              >
-                Peer Benchmarks Not Available Yet
-              </h3>
-              <p
-                style={{
-                  fontSize: '14px',
-                  color: 'var(--aiims-text-secondary, #64748b)',
-                  maxWidth: '540px',
-                  margin: '0 auto 16px',
-                  lineHeight: 1.5,
-                }}
-              >
-                {peerData.message ||
-                  'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
-              </p>
-              <Badge variant="warning">
-                Completed Assessments: {peerData.totalComparableRecords} /{' '}
-                {peerData.minRequiredRecords} required
-              </Badge>
-            </Surface>
-          ) : (
+          {peerBranchData?.available ? (
             <>
-              {/* COMPARISON OVERVIEW HEADER */}
+              {/* PEER BRANCH COMPARISON (VIEW A - SAME BRANCH ACROSS COLLEGES) */}
               <Surface variant="bordered" radius="lg" padding="lg">
                 <div
                   style={{
@@ -1165,6 +1592,17 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   }}
                 >
                   <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      <Badge variant="primary">View A: Peer Comparison</Badge>
+                      <Badge variant="success">k ≥ 5 Guard Passed</Badge>
+                    </div>
                     <h2
                       style={{
                         fontSize: '22px',
@@ -1174,7 +1612,7 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                         fontFamily: "'Fredoka', sans-serif",
                       }}
                     >
-                      Peer Benchmark Comparison
+                      {peerBranchData.branchName} · Cross-College Benchmarks
                     </h2>
                     <p
                       style={{
@@ -1183,12 +1621,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                         margin: 0,
                       }}
                     >
-                      Comparing your profile dimension scores with actual completed peer assessments
-                      ({peerData.totalComparableRecords} records).
+                      Comparing your capabilities with {peerBranchData.totalComparableRecords} peers
+                      in {peerBranchData.branchName} across{' '}
+                      {peerBranchData.distinctCollegesCount || 1} colleges with strict k-anonymity.
                     </p>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '16px' }}>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     <div
                       style={{
                         padding: '10px 16px',
@@ -1209,13 +1648,13 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                       </div>
                       <div
                         style={{
-                          fontSize: '24px',
+                          fontSize: '22px',
                           fontWeight: 900,
                           color: '#4f46e5',
                           fontFamily: "'Fredoka', sans-serif",
                         }}
                       >
-                        {overallScore} / 100
+                        {peerBranchData.userScore || overallScore} / 100
                       </div>
                     </div>
 
@@ -1235,194 +1674,215 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                           textTransform: 'uppercase',
                         }}
                       >
-                        Peer Average
+                        Branch Average
                       </div>
                       <div
                         style={{
-                          fontSize: '24px',
+                          fontSize: '22px',
                           fontWeight: 900,
                           color: '#7c3aed',
                           fontFamily: "'Fredoka', sans-serif",
                         }}
                       >
-                        {peerData.peerOverallAverage} / 100
+                        {peerBranchData.peerAverage} / 100
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: '#f1f5f9',
+                        borderRadius: '12px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          color: '#475569',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Median / P90
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '18px',
+                          fontWeight: 900,
+                          color: '#334155',
+                          fontFamily: "'Fredoka', sans-serif",
+                        }}
+                      >
+                        {peerBranchData.median} / {peerBranchData.p90}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '10px 16px',
+                        backgroundColor: '#ecfdf5',
+                        borderRadius: '12px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 800,
+                          color: '#065f46',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Branch Percentile
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '22px',
+                          fontWeight: 900,
+                          color: '#059669',
+                          fontFamily: "'Fredoka', sans-serif",
+                        }}
+                      >
+                        {peerBranchData.userPercentile}th
                       </div>
                     </div>
                   </div>
                 </div>
               </Surface>
 
-              {/* VISUAL RADAR & DETAILED DIMENSION SCORE COMPARISON */}
-              <div
-                className="aiims-card-grid-2col"
-                style={{
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
-                }}
-              >
-                <Surface
-                  variant="bordered"
-                  radius="lg"
-                  padding="lg"
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-text-heading, #0f172a)',
-                      margin: '0 0 12px',
-                      textAlign: 'center',
-                      fontFamily: "'Fredoka', sans-serif",
-                    }}
-                  >
-                    Score Overlay vs Peers
-                  </h3>
-                  <RadarChart scores={radarScores} size={280} />
-                </Surface>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {(
-                    [
-                      'usingAI',
-                      'understandingAI',
-                      'solvingWithAI',
-                      'checkingAI',
-                      'adaptingToAI',
-                    ] as CapabilityKey[]
-                  ).map((key) => {
-                    const uScore = capabilities[key].score;
-                    const pScore = activePeerBenchmarks[key] || 0;
-                    const diff = uScore - pScore;
-                    return (
-                      <Surface key={key} variant="bordered" radius="md" padding="md">
+              {/* CAPABILITY COMPARISON VS BRANCH PEERS */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {(
+                  [
+                    'usingAI',
+                    'understandingAI',
+                    'solvingWithAI',
+                    'checkingAI',
+                    'adaptingToAI',
+                  ] as CapabilityKey[]
+                ).map((key) => {
+                  const uScore = capabilities[key].score;
+                  const pScore = peerBranchData.capabilityAverages?.[key] || 0;
+                  const diff = uScore - pScore;
+                  return (
+                    <Surface key={key} variant="bordered" radius="md" padding="md">
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '8px',
+                        }}
+                      >
                         <div
                           style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '8px',
+                            fontWeight: 800,
+                            fontSize: '14px',
+                            color: 'var(--aiims-text-heading, #0f172a)',
                           }}
                         >
-                          <div
+                          {capabilities[key].capabilityName}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>
+                            You: {uScore}/100
+                          </span>
+                          <span
                             style={{
-                              fontWeight: 800,
-                              fontSize: '14px',
-                              color: 'var(--aiims-text-heading, #0f172a)',
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              color: 'var(--aiims-text-secondary, #64748b)',
                             }}
                           >
-                            {capabilities[key].capabilityName}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: '#4f46e5' }}>
-                              You: {uScore}/100
-                            </span>
-                            <span
-                              style={{
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                color: 'var(--aiims-text-secondary, #64748b)',
-                              }}
-                            >
-                              Peer Avg: {pScore}/100
-                            </span>
-                            <span
-                              style={{
-                                padding: '2px 8px',
-                                borderRadius: '6px',
-                                backgroundColor:
-                                  diff >= 0
-                                    ? 'var(--aiims-card-mint-bg, #dcfce7)'
-                                    : 'var(--aiims-card-amber-bg, #fef3c7)',
-                                color: diff >= 0 ? '#15803d' : '#b45309',
-                                fontSize: '11px',
-                                fontWeight: 800,
-                              }}
-                            >
-                              {diff >= 0 ? `+${diff}` : diff} pts
-                            </span>
-                          </div>
+                            Branch Peer Avg: {pScore}/100
+                          </span>
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              backgroundColor:
+                                diff >= 0
+                                  ? 'var(--aiims-card-mint-bg, #dcfce7)'
+                                  : 'var(--aiims-card-amber-bg, #fef3c7)',
+                              color: diff >= 0 ? '#15803d' : '#b45309',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                            }}
+                          >
+                            {diff >= 0 ? `+${diff}` : diff} pts
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                color: '#4f46e5',
-                                width: '70px',
-                              }}
-                            >
-                              Your Score
-                            </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#4f46e5',
+                              width: '70px',
+                            }}
+                          >
+                            Your Score
+                          </span>
+                          <div
+                            style={{
+                              flex: 1,
+                              height: '8px',
+                              backgroundColor: 'var(--aiims-border-card, #e2e8f0)',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                            }}
+                          >
                             <div
                               style={{
-                                flex: 1,
-                                height: '8px',
-                                backgroundColor: 'var(--aiims-border-card, #e2e8f0)',
+                                width: `${uScore}%`,
+                                height: '100%',
+                                backgroundColor: '#4f46e5',
                                 borderRadius: '4px',
-                                overflow: 'hidden',
                               }}
-                            >
-                              <div
-                                style={{
-                                  width: `${uScore}%`,
-                                  height: '100%',
-                                  backgroundColor: '#4f46e5',
-                                  borderRadius: '4px',
-                                }}
-                              ></div>
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                color: '#7c3aed',
-                                width: '70px',
-                              }}
-                            >
-                              Peer Avg
-                            </span>
-                            <div
-                              style={{
-                                flex: 1,
-                                height: '8px',
-                                backgroundColor: 'var(--aiims-bg-card-hover, #f1f5f9)',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: `${pScore}%`,
-                                  height: '100%',
-                                  backgroundColor: '#a855f7',
-                                  borderRadius: '4px',
-                                }}
-                              ></div>
-                            </div>
+                            ></div>
                           </div>
                         </div>
-                      </Surface>
-                    );
-                  })}
-                </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: '#7c3aed',
+                              width: '70px',
+                            }}
+                          >
+                            Branch Avg
+                          </span>
+                          <div
+                            style={{
+                              flex: 1,
+                              height: '8px',
+                              backgroundColor: 'var(--aiims-bg-card-hover, #f1f5f9)',
+                              borderRadius: '4px',
+                              overflow: 'hidden',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: `${pScore}%`,
+                                height: '100%',
+                                backgroundColor: '#a855f7',
+                                borderRadius: '4px',
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </Surface>
+                  );
+                })}
               </div>
             </>
-          )}
-        </div>
-      )}
-
-      {activeSubTab === 'overall' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {!peerData.available ? (
+          ) : (
+            /* K-ANONYMITY SUPPRESSION NOTICE OR FALLBACK */
             <Surface
               variant="bordered"
               radius="lg"
@@ -1432,7 +1892,10 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                 backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
               }}
             >
-              <AlertTriangle size={36} color="#d97706" style={{ margin: '0 auto 12px' }} />
+              <ShieldCheck size={40} color="#6366f1" style={{ margin: '0 auto 12px' }} />
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                <Badge variant="warning">K-Anonymity Privacy Guard (k ≥ 5)</Badge>
+              </div>
               <h3
                 style={{
                   fontSize: '18px',
@@ -1442,7 +1905,290 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   fontFamily: "'Fredoka', sans-serif",
                 }}
               >
-                Cohort Overview Not Available Yet
+                Branch Comparison Under Privacy Protection
+              </h3>
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--aiims-text-secondary, #64748b)',
+                  maxWidth: '560px',
+                  margin: '0 auto 16px',
+                  lineHeight: 1.5,
+                }}
+              >
+                To protect individual learner privacy, peer comparisons for your academic branch (
+                <strong>{peerBranchData?.branchName || 'Your Branch'}</strong>) across colleges
+                require a minimum cohort of <strong>5 completed diagnostic assessments</strong>. No
+                individual or PII data is ever exposed.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+                <Badge variant="outline">
+                  Completed in Branch: {peerBranchData?.totalComparableRecords || 0} / 5 required
+                </Badge>
+              </div>
+            </Surface>
+          )}
+        </div>
+      )}
+
+      {activeSubTab === 'overall' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {cohortAllData?.available ? (
+            <>
+              {/* COHORT ALL BRANCHES COMPARISON (VIEW B) */}
+              <Surface variant="bordered" radius="lg" padding="lg">
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '20px',
+                    flexWrap: 'wrap',
+                    gap: '16px',
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      <Badge variant="primary">View B: Overall Cohort</Badge>
+                      <Badge variant="success">All Branches Normalized</Badge>
+                    </div>
+                    <h2
+                      style={{
+                        fontSize: '22px',
+                        fontWeight: 800,
+                        color: 'var(--aiims-text-heading, #0f172a)',
+                        margin: '0 0 6px',
+                        fontFamily: "'Fredoka', sans-serif",
+                      }}
+                    >
+                      Platform-Wide Cohort Intelligence
+                    </h2>
+                    <p
+                      style={{
+                        fontSize: '13px',
+                        color: 'var(--aiims-text-secondary, #64748b)',
+                        margin: 0,
+                      }}
+                    >
+                      Aggregated capability intelligence across{' '}
+                      {cohortAllData.totalComparableRecords} learners from multiple disciplines
+                      under calibrated capability weighting.
+                    </p>
+                  </div>
+                  <Badge variant="cyan" icon={<Globe size={12} />}>
+                    Total Cohort: {cohortAllData.totalComparableRecords}
+                  </Badge>
+                </div>
+
+                <div
+                  className="aiims-card-grid"
+                  style={{
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 200px), 1fr))',
+                    gap: '14px',
+                    marginBottom: '20px',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                      borderRadius: '12px',
+                      border: '1px solid var(--aiims-border-card, #e2e8f0)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: 'var(--aiims-text-secondary, #64748b)',
+                        textTransform: 'uppercase',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Cohort Average
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '24px',
+                        fontWeight: 900,
+                        color: 'var(--aiims-text-heading, #0f172a)',
+                        fontFamily: "'Fredoka', sans-serif",
+                      }}
+                    >
+                      {cohortAllData.cohortAverage}{' '}
+                      <span style={{ fontSize: '13px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
+                        / 100
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: '#4f46e5',
+                        fontWeight: 700,
+                        marginTop: '4px',
+                      }}
+                    >
+                      Your Score: {overallScore} / 100
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: '#64748b',
+                        textTransform: 'uppercase',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Cohort Median / P90
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '22px',
+                        fontWeight: 900,
+                        color: '#334155',
+                        fontFamily: "'Fredoka', sans-serif",
+                      }}
+                    >
+                      {cohortAllData.median} / {cohortAllData.p90}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: '#64748b',
+                        fontWeight: 600,
+                        marginTop: '4px',
+                      }}
+                    >
+                      P90 Benchmark Threshold
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: '16px',
+                      backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)',
+                      borderRadius: '12px',
+                      border: '1px solid var(--aiims-card-mint-border, #bbf7d0)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        color: 'var(--aiims-card-mint-text, #166534)',
+                        textTransform: 'uppercase',
+                        marginBottom: '4px',
+                      }}
+                    >
+                      Overall Percentile
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '24px',
+                        fontWeight: 900,
+                        color: '#15803d',
+                        fontFamily: "'Fredoka', sans-serif",
+                      }}
+                    >
+                      {cohortAllData.userPercentile}th{' '}
+                      <span
+                        style={{ fontSize: '13px', color: 'var(--aiims-card-mint-text, #166534)' }}
+                      >
+                        Percentile
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '12px',
+                        color: '#15803d',
+                        fontWeight: 700,
+                        marginTop: '4px',
+                      }}
+                    >
+                      Across All Disciplines
+                    </div>
+                  </div>
+                </div>
+
+                {/* NORMALIZATION DISCLAIMER */}
+                <Surface
+                  variant="highlight"
+                  radius="md"
+                  padding="md"
+                  style={{
+                    borderLeft: '4px solid #0284c7',
+                    backgroundColor: '#f0f9ff',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <ShieldCheck size={20} color="#0284c7" />
+                    <div>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: '#0369a1',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Academic Normalization Methodology
+                      </div>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#0c4a6e', lineHeight: 1.4 }}>
+                        {cohortAllData.normalizationNote ||
+                          'Capability scores across differing disciplines are mathematically normalized using standardized z-scores against baseline branch distributions to ensure rigorous, equitable comparison.'}
+                      </p>
+                    </div>
+                  </div>
+                </Surface>
+              </Surface>
+            </>
+          ) : (
+            /* K-ANONYMITY SUPPRESSION NOTICE */
+            <Surface
+              variant="bordered"
+              radius="lg"
+              padding="lg"
+              style={{
+                textAlign: 'center',
+                backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+              }}
+            >
+              <Globe size={40} color="#6366f1" style={{ margin: '0 auto 12px' }} />
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                <Badge variant="warning">K-Anonymity Privacy Guard (k ≥ 5)</Badge>
+              </div>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 800,
+                  color: 'var(--aiims-text-heading, #0f172a)',
+                  margin: '0 0 8px',
+                  fontFamily: "'Fredoka', sans-serif",
+                }}
+              >
+                Cohort Overview Under Privacy Protection
               </h3>
               <p
                 style={{
@@ -1453,159 +2199,208 @@ export const AnalysisScreen: React.FC<AnalysisScreenProps> = ({ setActiveTab }) 
                   lineHeight: 1.5,
                 }}
               >
-                {peerData.message ||
-                  'Peer benchmarks are not available yet. They will appear when enough comparable assessments have been completed.'}
+                Platform-wide cohort comparisons require at least{' '}
+                <strong>5 completed assessments</strong> across academic branches under k-anonymity
+                privacy safeguards.
               </p>
-              <Badge variant="warning">
-                Completed Assessments: {peerData.totalComparableRecords} /{' '}
-                {peerData.minRequiredRecords} required
+              <Badge variant="outline">
+                Completed Platform-Wide: {cohortAllData?.totalComparableRecords || 0} / 5 required
               </Badge>
             </Surface>
-          ) : (
-            <Surface variant="bordered" radius="lg" padding="lg">
+          )}
+        </div>
+      )}
+
+      {/* CONFIRMATION MODAL FOR 50 AC AI PROFILE GENERATION */}
+      {showConfirmModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+          onClick={() => !isGenerating && setShowConfirmModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+              borderRadius: '20px',
+              maxWidth: '500px',
+              width: '100%',
+              padding: '28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid var(--aiims-border-card, #e2e8f0)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}
+            >
+              <div
+                style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  backgroundColor: 'var(--aiims-card-violet-bg, #f3e8ff)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#7c3aed',
+                }}
+              >
+                <Sparkles size={24} />
+              </div>
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading, #0f172a)',
+                    fontFamily: "'Fredoka', sans-serif",
+                  }}
+                >
+                  Generate AI Learner Profile
+                </h3>
+                <span style={{ fontSize: '12px', color: 'var(--aiims-text-secondary, #64748b)' }}>
+                  Persistent Qualitative Capability Synthesis
+                </span>
+              </div>
+            </div>
+
+            <p
+              style={{
+                fontSize: '13px',
+                color: 'var(--aiims-text-secondary, #475569)',
+                lineHeight: 1.5,
+                margin: '0 0 16px',
+              }}
+            >
+              Our Anthropic-powered diagnostic engine will analyze your 25 assessment answers to
+              construct your persistent AI Learner Profile with strengths, concrete skill gaps,
+              blind spots, and personalized career track recommendations.
+            </p>
+
+            <div
+              style={{
+                backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                marginBottom: '16px',
+                border: '1px solid var(--aiims-border-card, #e2e8f0)',
+              }}
+            >
               <div
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '20px',
-                  flexWrap: 'wrap',
-                  gap: '16px',
+                  fontSize: '13px',
+                  marginBottom: '8px',
                 }}
               >
-                <div>
-                  <h2
-                    style={{
-                      fontSize: '22px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-text-heading, #0f172a)',
-                      margin: '0 0 6px',
-                      fontFamily: "'Fredoka', sans-serif",
-                    }}
-                  >
-                    Cohort Capability Overview
-                  </h2>
-                  <p
-                    style={{
-                      fontSize: '13px',
-                      color: 'var(--aiims-text-secondary, #64748b)',
-                      margin: 0,
-                    }}
-                  >
-                    Aggregated statistics across {peerData.totalComparableRecords} completed
-                    assessments.
-                  </p>
-                </div>
-                <Badge variant="cyan" icon={<Globe size={12} />}>
-                  Cohort Sample: {peerData.totalComparableRecords}
-                </Badge>
+                <span style={{ color: 'var(--aiims-text-secondary, #64748b)' }}>
+                  Generation Fee:
+                </span>
+                <span style={{ fontWeight: 800, color: '#b91c1c' }}>-50 AC</span>
               </div>
-
               <div
-                className="aiims-card-grid"
                 style={{
-                  gridTemplateColumns:
-                    'repeat(auto-fit, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '13px',
+                  marginBottom: '8px',
                 }}
               >
-                <div
-                  style={{
-                    padding: '16px',
-                    backgroundColor: 'var(--aiims-bg-card-hover, #f8fafc)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--aiims-border-card, #e2e8f0)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-text-secondary, #64748b)',
-                      textTransform: 'uppercase',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    Cohort Average Score
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '28px',
-                      fontWeight: 900,
-                      color: 'var(--aiims-text-heading, #0f172a)',
-                      fontFamily: "'Fredoka', sans-serif",
-                    }}
-                  >
-                    {peerData.peerOverallAverage}{' '}
-                    <span style={{ fontSize: '14px', color: 'var(--aiims-text-muted, #94a3b8)' }}>
-                      / 100
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: '#4f46e5',
-                      fontWeight: 700,
-                      marginTop: '4px',
-                    }}
-                  >
-                    Your Score: {overallScore} / 100 (
-                    {overallScore - (peerData.peerOverallAverage || 0) >= 0
-                      ? `+${overallScore - (peerData.peerOverallAverage || 0)}`
-                      : overallScore - (peerData.peerOverallAverage || 0)}
-                    )
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    padding: '16px',
-                    backgroundColor: 'var(--aiims-card-mint-bg, #f0fdf4)',
-                    borderRadius: '12px',
-                    border: '1px solid var(--aiims-card-mint-border, #bbf7d0)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-card-mint-text, #166534)',
-                      textTransform: 'uppercase',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    Your Cohort Percentile
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '28px',
-                      fontWeight: 900,
-                      color: '#15803d',
-                      fontFamily: "'Fredoka', sans-serif",
-                    }}
-                  >
-                    {peerData.userPercentile}th{' '}
-                    <span
-                      style={{ fontSize: '14px', color: 'var(--aiims-card-mint-text, #166534)' }}
-                    >
-                      Percentile
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      color: '#15803d',
-                      fontWeight: 700,
-                      marginTop: '4px',
-                    }}
-                  >
-                    Calculated from actual comparison distribution
-                  </div>
-                </div>
+                <span style={{ color: 'var(--aiims-text-secondary, #64748b)' }}>
+                  Current Balance:
+                </span>
+                <span style={{ fontWeight: 800, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                  {currentBalance} AC
+                </span>
               </div>
-            </Surface>
-          )}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: '13px',
+                  paddingTop: '8px',
+                  borderTop: '1px dashed var(--aiims-border-card, #cbd5e1)',
+                }}
+              >
+                <span style={{ fontWeight: 700, color: 'var(--aiims-text-heading, #0f172a)' }}>
+                  Remaining Balance:
+                </span>
+                <span style={{ fontWeight: 900, color: '#059669' }}>{currentBalance - 50} AC</span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '12px',
+                color: '#059669',
+                backgroundColor: '#ecfdf5',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                marginBottom: '20px',
+              }}
+            >
+              <ShieldCheck size={16} />
+              <span>Deduction is atomic and 100% refundable if AI generation fails.</span>
+            </div>
+
+            {generationError && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  backgroundColor: '#fef2f2',
+                  color: '#991b1b',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                }}
+              >
+                {generationError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <Button
+                variant="outline"
+                size="md"
+                disabled={isGenerating}
+                onClick={() => setShowConfirmModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={isGenerating || currentBalance < 50}
+                icon={
+                  isGenerating ? (
+                    <Loader2 size={16} className="aiims-spin" />
+                  ) : (
+                    <Sparkles size={16} />
+                  )
+                }
+                onClick={handleGenerateProfile}
+              >
+                {isGenerating ? 'Synthesizing Profile...' : 'Confirm & Generate (50 AC)'}
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

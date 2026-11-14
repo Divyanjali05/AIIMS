@@ -17,17 +17,13 @@
  * ============================================================================
  */
 
-import mongoose from 'mongoose';
 import { FOCUS_CHALLENGE_RULES, calculateFocusChallengeReward } from '../config/credits.config';
 import { questionBankService } from '../services/questionBank.service';
 import { initSeedQuestions } from '../services/seedQuestions';
 import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { QuestionAssignment, inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { QuestionAttempt, inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { CreditLedger } from '../models/CreditLedger.model';
-import { User } from '../models/User.model';
-import { config } from '../config/env';
+import { prisma, isDatabaseConnected, connectDatabase, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 
 interface CheckResult {
   step: number;
@@ -138,21 +134,8 @@ async function runVerification() {
 
   // --- Step 2: Database Connectivity & Seeding ---
   console.log('\n--- Step 2: Database Connectivity & Question Seeding ---');
-  let isConnected = false;
-  try {
-    const rawUri = config.mongodbUri || process.env.MONGODB_URI;
-    const testDbName = process.env.MONGODB_TEST_DB || 'aiims_test';
-
-    if (rawUri && mongoose.connection.readyState !== 1) {
-      await mongoose.connect(rawUri, {
-        dbName: testDbName,
-        serverSelectionTimeoutMS: 1500,
-        connectTimeoutMS: 1500,
-      });
-    }
-    isConnected = mongoose.connection.readyState === 1;
-  } catch (err: any) {
-    console.warn('MongoDB connect notice (falling back to memory):', err.message);
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
 
   // Seed question bank
@@ -161,30 +144,22 @@ async function runVerification() {
     2,
     'Database & Seed Initialization',
     'PASS',
-    `Database ready (connected: ${isConnected}). Question Bank catalog initialized.`
+    `Database ready (connected: true). Question Bank catalog initialized.`
   );
 
-  // Helper to create assignment in DB or in-memory
+  // Helper to create assignment in DB
   const createAssignment = async (data: any) => {
-    if (isConnected) {
-      return await QuestionAssignment.create(data);
-    } else {
-      const entry = {
-        ...data,
-        save: async () => {},
-      };
-      inMemoryAssignments.set(data.assignmentId, entry);
-      return entry;
-    }
+    return await prisma.questionAssignment.create({ data });
   };
 
   // Create a synthetic test learner for T-E
   const timestamp = Date.now();
   const testLearnerEmail = `te_learner_${timestamp}@aiims.test`;
-  let testLearner: any = null;
+  const learnerId = `usr_te_${timestamp}`;
 
-  if (isConnected) {
-    testLearner = await User.create({
+  await prisma.user.create({
+    data: {
+      id: learnerId,
       name: 'Focus Rebuild Test Learner',
       email: testLearnerEmail,
       password: 'Password123!',
@@ -195,18 +170,8 @@ async function runVerification() {
       stage: 'Explorer',
       aiimsCredits: 500,
       xpPoints: 100,
-    });
-  } else {
-    testLearner = {
-      _id: `learner_${timestamp}`,
-      id: `learner_${timestamp}`,
-      email: testLearnerEmail,
-      aiimsCredits: 500,
-      xpPoints: 100,
-    };
-  }
-
-  const learnerId = String(testLearner._id || testLearner.id);
+    },
+  });
 
   // --- Step 3: Serve Questions for Easy, Medium, and Hard ---
   console.log('\n--- Step 3: Serving Questions for Easy, Medium, and Hard ---');
@@ -235,6 +200,9 @@ async function runVerification() {
     servePassed ? 'PASS' : 'FAIL',
     `Successfully served distinct challenge levels: [${servedLevels.join(', ')}].`
   );
+
+  // Clear served assignments so subsequent manual assignment steps have clean question allocation
+  await prisma.questionAssignment.deleteMany({ where: { learnerId } });
 
   // --- Step 4: Server-Side Timing Authority & Tamper Protection ---
   console.log('\n--- Step 4: Server-Side Timing Authority & Anti-Tamper Test ---');
@@ -396,24 +364,16 @@ async function runVerification() {
 
   // --- Step 9: Ledger Reconciliation ---
   console.log('\n--- Step 9: Credit Ledger Reconciliation ---');
-  let ledgerReconciled = false;
+  const transactions = await prisma.creditLedger.findMany({ where: { userId: learnerId } });
+  const totalLedgerEarned = transactions
+    .filter((t) => t.type === 'EARN')
+    .reduce((sum, t) => sum + t.amount, 0);
 
-  if (isConnected) {
-    const transactions = await CreditLedger.find({ userId: learnerId });
-    const totalLedgerEarned = transactions
-      .filter((t) => t.type === 'EARN')
-      .reduce((sum, t) => sum + t.amount, 0);
+  const userRecord = await prisma.user.findUnique({ where: { id: learnerId } });
+  const expectedBalance = 500 + 35;
+  const actualBalance = userRecord?.aiimsCredits ?? 0;
 
-    const userRecord = await User.findById(learnerId);
-    const expectedBalance = 500 + 35;
-    const actualBalance = userRecord?.aiimsCredits ?? 0;
-
-    ledgerReconciled = actualBalance === expectedBalance && totalLedgerEarned === 35;
-  } else {
-    // In-memory ledger
-    const balance = await creditsLedgerService.getBalance(learnerId);
-    ledgerReconciled = balance >= 35;
-  }
+  const ledgerReconciled = actualBalance === expectedBalance && totalLedgerEarned === 35;
 
   recordCheck(
     9,
@@ -424,16 +384,10 @@ async function runVerification() {
 
   // --- Step 10: Cleanup ---
   console.log('\n--- Step 10: Synthetic Test Data Teardown ---');
-  if (isConnected) {
-    await QuestionAssignment.deleteMany({ learnerId });
-    await QuestionAttempt.deleteMany({ learnerId });
-    await CreditLedger.deleteMany({ userId: learnerId });
-    await User.findByIdAndDelete(learnerId);
-  } else {
-    inMemoryAssignments.delete(tamperAssignmentId);
-    inMemoryAssignments.delete(fastAssignmentId);
-    inMemoryAssignments.delete(normalAssignmentId);
-  }
+  await prisma.questionAssignment.deleteMany({ where: { learnerId } });
+  await prisma.questionAttempt.deleteMany({ where: { learnerId } });
+  await prisma.creditLedger.deleteMany({ where: { userId: learnerId } });
+  await prisma.user.delete({ where: { id: learnerId } });
 
   recordCheck(
     10,
@@ -459,16 +413,12 @@ async function runVerification() {
 }
 
 runVerification()
-  .then(() => {
-    if (mongoose.connection.readyState === 1) {
-      mongoose.disconnect();
-    }
+  .then(async () => {
+    await disconnectDatabase();
     process.exit(0);
   })
-  .catch((err) => {
+  .catch(async (err) => {
     console.error('T-E Verification fatal error:', err);
-    if (mongoose.connection.readyState === 1) {
-      mongoose.disconnect();
-    }
+    await disconnectDatabase();
     process.exit(1);
   });

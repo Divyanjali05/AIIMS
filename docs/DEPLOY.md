@@ -15,7 +15,7 @@ Configure the following environment variables in your production environment (e.
 | `NODE_ENV` | Yes | Must be set to `production` |
 | `PORT` | Optional (default: `5001`) | Network port for HTTP listener |
 | `JWT_SECRET` | Yes | 32+ character high-entropy cryptographic secret key |
-| `MONGODB_URI` | Yes | MongoDB Atlas or cluster connection URI |
+| `DATABASE_URL` | Yes | PostgreSQL connection string (e.g. `postgresql://user:pass@host:5432/aiims?schema=public`) |
 | `ALLOWED_ORIGINS` | Yes | Comma-separated list of allowed CORS origins (wildcard `*` rejected) |
 | `TOTP_ENCRYPTION_KEY` | Yes | 64-hex-character (32-byte) AES-256 key for staff 2FA secrets at rest |
 | `GEMINI_API_KEY` | Optional | Google Gemini API key for AI features |
@@ -30,16 +30,19 @@ Configure the following environment variables in your production environment (e.
 
 ---
 
-## 2. Pre-Deployment: Database Index Creation
+## 2. Pre-Deployment: PostgreSQL Schema Migration & Index Synchronization
 
-Before routing customer traffic to a newly deployed build, ensure all MongoDB indexes are created:
+Before routing customer traffic to a newly deployed build, execute database schema migrations:
 
 ```bash
-# Execute deploy-time index synchronization
+# Apply pending Prisma migrations
+npm --prefix Backend run db:migrate:deploy
+
+# Execute deploy-time index and catalog synchronization
 npm --prefix Backend run db:index
 ```
 
-This verifies and creates compound indexes for submission queues (`status + submittedAt`), learner histories (`learner + createdAt`), audit logs (`action + time`), and user roles.
+This verifies and creates all tables, compound indexes, and foreign keys across 21 domain entities.
 
 ---
 
@@ -50,8 +53,9 @@ This verifies and creates compound indexes for submission queues (`status + subm
 docker build -t aiims-backend:latest -t aiims-backend:$(git rev-parse --short HEAD) -f Backend/Dockerfile Backend
 ```
 
-### Step 2: Run Database Index Synchronization
+### Step 2: Run Database Migration & Index Synchronization
 ```bash
+docker run --rm --env-file /path/to/prod.env aiims-backend:latest npm run db:migrate:deploy
 docker run --rm --env-file /path/to/prod.env aiims-backend:latest npm run db:index
 ```
 

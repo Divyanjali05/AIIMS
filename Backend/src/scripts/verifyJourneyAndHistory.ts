@@ -20,11 +20,9 @@
  */
 
 import { JourneyService } from '../services/journey.service';
-import { registeredUsers } from '../models/userStore';
-import { inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { inMemoryLearnerClarityProgressions } from '../models/LearnerClarityProgression.model';
-import { inMemoryFocusSessions } from '../models/FocusSession.model';
+import { prisma } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
+import { toJsonInput } from '../utils/userMapper';
 import { assessmentHistoryQuerySchema } from '../schemas/journey.schema';
 
 let passed = 0;
@@ -51,249 +49,261 @@ async function runAllTests() {
   // SETUP TEST FIXTURES
   // =========================================================================
 
+  installPrismaTestDouble({ connected: true });
+
   // Learner 1: Fresh user with no history
   const freshUserId = 'usr_journey_fresh_001';
-  registeredUsers[freshUserId] = {
-    id: freshUserId,
-    _id: freshUserId,
-    email: 'fresh@aiims.edu',
-    name: 'Fresh Learner',
-    role: 'Student',
-    stage: 'Knowing',
-    aiimsCredits: 100,
-    wallet: [],
-    assessment: {
-      status: 'not_started',
-      rewardClaimed: false,
+  await prisma.user.create({
+    data: {
+      id: freshUserId,
+      email: 'fresh@aiims.edu',
+      name: 'Fresh Learner',
+      password: 'dummy-password',
+      role: 'learner',
+      stage: 'Knowing',
+      aiimsCredits: 100,
+      assessmentData: toJsonInput({ status: 'not_started', rewardClaimed: false }),
+      analysisData: toJsonInput({ status: 'locked' }),
+      clarityData: toJsonInput({ status: 'locked', completedTopics: [] }),
+      focusData: toJsonInput({ status: 'locked', selectedTrack: null }),
+      radarData: toJsonInput({ status: 'locked', investigatedSignalIds: [] }),
     },
-    analysis: {
-      status: 'locked',
-    },
-    clarity: {
-      status: 'locked',
-      completedTopics: [],
-    },
-    focus: {
-      status: 'locked',
-      selectedTrack: null,
-    },
-    radar: {
-      status: 'locked',
-      investigatedSignalIds: [],
-    },
-  } as any;
+  });
 
   // Learner 2: Experienced learner with rich progression history
   const expUserId = 'usr_journey_exp_002';
-  registeredUsers[expUserId] = {
-    id: expUserId,
-    _id: expUserId,
-    email: 'experienced@aiims.edu',
-    name: 'Experienced Learner',
-    role: 'Student',
-    stage: 'Understanding',
-    aiimsCredits: 250,
-    wallet: [
-      { toolId: 'tool-cursor', addedAt: new Date() },
-      { toolId: 'tool-claude', addedAt: new Date() },
-    ],
-    assessment: {
-      status: 'completed',
-      completedAt: new Date('2026-10-15T10:00:00Z').toISOString(),
-      scores: {
-        'Understanding AI': 4,
-        'Using AI': 5,
-        'Solving with AI': 4,
-        'Scaling with AI': 3,
-        'Adapting to AI': 4,
-      },
-      evaluationResult: {
-        totalScore: 20,
-        percentageScore: 80,
-        strongestSkill: { name: 'Using AI' },
-        roomToGrow: { name: 'Scaling with AI' },
-      },
+  await prisma.user.create({
+    data: {
+      id: expUserId,
+      email: 'experienced@aiims.edu',
+      name: 'Experienced Learner',
+      password: 'dummy-password',
+      role: 'learner',
+      stage: 'Understanding',
+      aiimsCredits: 250,
+      aiWalletData: toJsonInput({
+        userTools: [
+          { toolId: 'tool-cursor', addedAt: new Date().toISOString() },
+          { toolId: 'tool-claude', addedAt: new Date().toISOString() },
+        ],
+      }),
+      assessmentData: toJsonInput({
+        status: 'completed',
+        completedAt: new Date('2026-10-15T10:00:00Z').toISOString(),
+        scores: {
+          'Understanding AI': 4,
+          'Using AI': 5,
+          'Solving with AI': 4,
+          'Scaling with AI': 3,
+          'Adapting to AI': 4,
+        },
+        evaluationResult: {
+          totalScore: 20,
+          percentageScore: 80,
+          strongestSkill: { name: 'Using AI' },
+          roomToGrow: { name: 'Scaling with AI' },
+        },
+      }),
+      analysisData: toJsonInput({
+        status: 'viewed',
+        unlockedAt: new Date('2026-10-15T10:30:00Z').toISOString(),
+        topCapability: 'Using AI (Practical Prompting)',
+        growthArea: 'Scaling with AI (Autonomous Systems)',
+      }),
+      clarityData: toJsonInput({
+        status: 'completed',
+        completedTopics: ['Prompt Architecture', 'Tool Selection'],
+      }),
+      focusData: toJsonInput({
+        status: 'active',
+        selectedTrack: 'AI Workflow Design',
+      }),
+      radarData: toJsonInput({
+        status: 'available',
+        investigatedSignalIds: ['sig-01'],
+      }),
     },
-    analysis: {
-      status: 'viewed',
-      unlockedAt: new Date('2026-10-15T10:30:00Z').toISOString(),
-      topCapability: 'Using AI (Practical Prompting)',
-      growthArea: 'Scaling with AI (Autonomous Systems)',
-    },
-    clarity: {
-      status: 'completed',
-      completedTopics: ['Prompt Architecture', 'Tool Selection'],
-    },
-    focus: {
-      status: 'active',
-      selectedTrack: 'AI Workflow Design',
-    },
-    radar: {
-      status: 'available',
-      investigatedSignalIds: ['sig-01'],
-    },
-  } as any;
+  });
 
   // Populate Clarity Attempts for Learner 2
-  inMemoryAttempts.clear();
-  inMemoryAttempts.set('att_001', {
-    attemptId: 'att_001',
-    assignmentId: 'assign_001',
-    learnerId: expUserId,
-    questionId: 'q_001',
-    topic: 'Prompt Architecture',
-    level: 'Easy',
-    track: 'AI Engineering',
-    startedAt: new Date('2026-10-16T09:00:00Z'),
-    submittedAt: new Date('2026-10-16T09:15:00Z'),
-    submittedAnswer: 'Well-structured prompt with system boundaries.',
-    score: 90,
-    evaluationStatus: 'EVALUATED',
-    timeTakenSeconds: 900,
-    rubricFeedback: [
-      { criterion: 'Role Definition', score: 5, maxScore: 5, comment: 'Clear role' },
-      { criterion: 'Constraint Specification', score: 4, maxScore: 5, comment: 'Good boundaries' },
-    ],
+  await prisma.questionAttempt.create({
+    data: {
+      attemptId: 'att_001',
+      assignmentId: 'assign_001',
+      learnerId: expUserId,
+      questionId: 'q_001',
+      topic: 'Prompt Architecture',
+      level: 'Easy',
+      track: 'AI Engineering',
+      startedAt: new Date('2026-10-16T09:00:00Z'),
+      submittedAt: new Date('2026-10-16T09:15:00Z'),
+      submittedAnswer: 'Well-structured prompt with system boundaries.',
+      score: 90,
+      evaluationStatus: 'EVALUATED',
+      timeTakenSeconds: 900,
+      rubricFeedback: toJsonInput([
+        { criterion: 'Role Definition', score: 5, maxScore: 5, comment: 'Clear role' },
+        {
+          criterion: 'Constraint Specification',
+          score: 4,
+          maxScore: 5,
+          comment: 'Good boundaries',
+        },
+      ]),
+    },
   });
 
-  inMemoryAttempts.set('att_002', {
-    attemptId: 'att_002',
-    assignmentId: 'assign_002',
-    learnerId: expUserId,
-    questionId: 'q_002',
-    topic: 'Prompt Architecture',
-    level: 'Medium',
-    track: 'AI Engineering',
-    startedAt: new Date('2026-10-17T11:00:00Z'),
-    submittedAt: new Date('2026-10-17T11:20:00Z'),
-    submittedAnswer: 'Multi-step chain-of-thought prompt with edge case handling.',
-    score: 88,
-    evaluationStatus: 'EVALUATED',
-    timeTakenSeconds: 1200,
-    rubricFeedback: [
-      { criterion: 'Step Deconstruction', score: 5, maxScore: 5, comment: 'Exemplary reasoning' },
-      { criterion: 'Fallback Guidance', score: 4, maxScore: 5, comment: 'Strong handling' },
-    ],
+  await prisma.questionAttempt.create({
+    data: {
+      attemptId: 'att_002',
+      assignmentId: 'assign_002',
+      learnerId: expUserId,
+      questionId: 'q_002',
+      topic: 'Prompt Architecture',
+      level: 'Medium',
+      track: 'AI Engineering',
+      startedAt: new Date('2026-10-17T11:00:00Z'),
+      submittedAt: new Date('2026-10-17T11:20:00Z'),
+      submittedAnswer: 'Multi-step chain-of-thought prompt with edge case handling.',
+      score: 88,
+      evaluationStatus: 'EVALUATED',
+      timeTakenSeconds: 1200,
+      rubricFeedback: toJsonInput([
+        { criterion: 'Step Deconstruction', score: 5, maxScore: 5, comment: 'Exemplary reasoning' },
+        { criterion: 'Fallback Guidance', score: 4, maxScore: 5, comment: 'Strong handling' },
+      ]),
+    },
   });
 
-  inMemoryAttempts.set('att_003', {
-    attemptId: 'att_003',
-    assignmentId: 'assign_003',
-    learnerId: expUserId,
-    questionId: 'q_003',
-    topic: 'Tool Selection',
-    level: 'Easy',
-    track: 'AI Engineering',
-    startedAt: new Date('2026-10-18T14:00:00Z'),
-    submittedAt: new Date('2026-10-18T14:10:00Z'),
-    submittedAnswer: 'Matched tabular CSV data analysis to Julius AI.',
-    score: 60,
-    evaluationStatus: 'EVALUATED',
-    timeTakenSeconds: 600,
-    rubricFeedback: [
-      { criterion: 'Capability Alignment', score: 3, maxScore: 5, comment: 'Partial coverage' },
-    ],
+  await prisma.questionAttempt.create({
+    data: {
+      attemptId: 'att_003',
+      assignmentId: 'assign_003',
+      learnerId: expUserId,
+      questionId: 'q_003',
+      topic: 'Tool Selection',
+      level: 'Easy',
+      track: 'AI Engineering',
+      startedAt: new Date('2026-10-18T14:00:00Z'),
+      submittedAt: new Date('2026-10-18T14:10:00Z'),
+      submittedAnswer: 'Matched tabular CSV data analysis to Julius AI.',
+      score: 60,
+      evaluationStatus: 'EVALUATED',
+      timeTakenSeconds: 600,
+      rubricFeedback: toJsonInput([
+        { criterion: 'Capability Alignment', score: 3, maxScore: 5, comment: 'Partial coverage' },
+      ]),
+    },
   });
 
   // Populate Assignments for Learner 2 (one in progress, one abandoned)
-  inMemoryAssignments.clear();
-  inMemoryAssignments.set('assign_inprogress_01', {
-    assignmentId: 'assign_inprogress_01',
-    learnerId: expUserId,
-    questionId: 'q_004',
-    topic: 'Autonomous Agents',
-    level: 'Medium',
-    track: 'General',
-    status: 'IN_PROGRESS',
-    assignedAt: new Date('2026-10-20T10:00:00Z'),
+  await prisma.questionAssignment.create({
+    data: {
+      assignmentId: 'assign_inprogress_01',
+      learnerId: expUserId,
+      questionId: 'q_004',
+      topic: 'Autonomous Agents',
+      level: 'Medium',
+      track: 'General',
+      status: 'IN_PROGRESS',
+      assignedAt: new Date('2026-10-20T10:00:00Z'),
+    },
   });
 
-  inMemoryAssignments.set('assign_abandoned_01', {
-    assignmentId: 'assign_abandoned_01',
-    learnerId: expUserId,
-    questionId: 'q_005',
-    topic: 'Evaluation Rubrics',
-    level: 'Hard',
-    track: 'General',
-    status: 'ABANDONED',
-    assignedAt: new Date('2026-10-19T08:00:00Z'),
+  await prisma.questionAssignment.create({
+    data: {
+      assignmentId: 'assign_abandoned_01',
+      learnerId: expUserId,
+      questionId: 'q_005',
+      topic: 'Evaluation Rubrics',
+      level: 'Hard',
+      track: 'General',
+      status: 'ABANDONED',
+      assignedAt: new Date('2026-10-19T08:00:00Z'),
+    },
   });
 
   // Populate Clarity Progression for Learner 2
-  inMemoryLearnerClarityProgressions.clear();
-  inMemoryLearnerClarityProgressions.set(`${expUserId}::Prompt Architecture`, {
-    learnerId: expUserId,
-    topic: 'Prompt Architecture',
-    currentLevel: 'Medium',
-    consecutiveHighScores: 2,
-    totalAttempts: 2,
-    lastScore: 88,
-    history: [
-      {
-        attemptId: 'att_001',
-        score: 90,
-        level: 'Easy',
-        timestamp: new Date('2026-10-16T09:15:00Z'),
-      },
-      {
-        attemptId: 'att_002',
-        score: 88,
-        level: 'Medium',
-        timestamp: new Date('2026-10-17T11:20:00Z'),
-      },
-    ],
-  } as any);
+  await prisma.learnerClarityProgression.create({
+    data: {
+      learnerId: expUserId,
+      topic: 'Prompt Architecture',
+      currentLevel: 'Medium',
+      consecutiveHighScores: 2,
+      totalAttempts: 2,
+      lastScore: 88,
+      history: toJsonInput([
+        {
+          attemptId: 'att_001',
+          score: 90,
+          level: 'Easy',
+          timestamp: new Date('2026-10-16T09:15:00Z'),
+        },
+        {
+          attemptId: 'att_002',
+          score: 88,
+          level: 'Medium',
+          timestamp: new Date('2026-10-17T11:20:00Z'),
+        },
+      ]),
+    },
+  });
 
   // Populate Focus Sessions for Learner 2
-  inMemoryFocusSessions.clear();
   const startOfToday = new Date();
   startOfToday.setHours(9, 0, 0, 0);
 
   // Completed focus session (25 mins = 1500 sec)
-  inMemoryFocusSessions.set('foc_001', {
-    sessionId: 'foc_001',
-    learnerId: expUserId,
-    trackTitle: 'AI Workflow Design',
-    intention: 'Design rubric evaluation pipeline',
-    sessionState: 'completed',
-    status: 'completed',
-    periodType: 'focus',
-    accumulatedFocusSeconds: 1500,
-    totalBreakSeconds: 300,
-    completedCycles: 1,
-    startedAt: startOfToday,
-    completedAt: new Date(startOfToday.getTime() + 1500 * 1000),
-  } as any);
+  await prisma.focusSession.create({
+    data: {
+      sessionId: 'foc_001',
+      learnerId: expUserId,
+      trackTitle: 'AI Workflow Design',
+      intention: 'Design rubric evaluation pipeline',
+      sessionState: 'completed',
+      status: 'completed',
+      periodType: 'focus',
+      accumulatedFocusSeconds: 1500,
+      totalBreakSeconds: 300,
+      completedCycles: 1,
+      startedAt: startOfToday,
+      completedAt: new Date(startOfToday.getTime() + 1500 * 1000),
+    },
+  });
 
   // Break session (5 mins = 300 sec) — MUST NOT count towards focus time!
-  inMemoryFocusSessions.set('foc_break_001', {
-    sessionId: 'foc_break_001',
-    learnerId: expUserId,
-    trackTitle: 'AI Workflow Design',
-    sessionState: 'break',
-    status: 'in_progress',
-    periodType: 'short_break',
-    accumulatedFocusSeconds: 1500,
-    totalBreakSeconds: 300,
-    completedCycles: 1,
-    startedAt: new Date(startOfToday.getTime() + 1500 * 1000),
-    completedAt: new Date(startOfToday.getTime() + 1800 * 1000),
-  } as any);
+  await prisma.focusSession.create({
+    data: {
+      sessionId: 'foc_break_001',
+      learnerId: expUserId,
+      trackTitle: 'AI Workflow Design',
+      sessionState: 'break',
+      status: 'in_progress',
+      periodType: 'short_break',
+      accumulatedFocusSeconds: 1500,
+      totalBreakSeconds: 300,
+      completedCycles: 1,
+      startedAt: new Date(startOfToday.getTime() + 1500 * 1000),
+      completedAt: new Date(startOfToday.getTime() + 1800 * 1000),
+    },
+  });
 
   // Abandoned focus session (abandoned after 3 mins) — MUST NOT count towards completed sessions!
-  inMemoryFocusSessions.set('foc_abandoned_001', {
-    sessionId: 'foc_abandoned_001',
-    learnerId: expUserId,
-    trackTitle: 'AI Workflow Design',
-    sessionState: 'abandoned',
-    status: 'abandoned',
-    periodType: 'focus',
-    accumulatedFocusSeconds: 180,
-    totalBreakSeconds: 0,
-    completedCycles: 0,
-    startedAt: new Date(startOfToday.getTime() + 2000 * 1000),
-    completedAt: new Date(startOfToday.getTime() + 2180 * 1000),
-  } as any);
+  await prisma.focusSession.create({
+    data: {
+      sessionId: 'foc_abandoned_001',
+      learnerId: expUserId,
+      trackTitle: 'AI Workflow Design',
+      sessionState: 'abandoned',
+      status: 'abandoned',
+      periodType: 'focus',
+      accumulatedFocusSeconds: 180,
+      totalBreakSeconds: 0,
+      completedCycles: 0,
+      startedAt: new Date(startOfToday.getTime() + 2000 * 1000),
+      completedAt: new Date(startOfToday.getTime() + 2180 * 1000),
+    },
+  });
 
   // =========================================================================
   // SUITE 1: JOURNEY OVERVIEW & MILESTONES

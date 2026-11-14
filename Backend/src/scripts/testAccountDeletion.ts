@@ -19,14 +19,9 @@
 
 import http from 'http';
 import { AddressInfo } from 'net';
-import mongoose from 'mongoose';
 import { app } from '../server';
-import { User } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
-import { Submission, memorySubmissions } from '../models/Submission.model';
-import { CreditLedger } from '../models/CreditLedger.model';
-import { AuditLog, memoryAuditLogs } from '../models/AuditLog.model';
-import { registeredUsers } from '../controllers/auth.controller';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { config } from '../config/env';
 
@@ -109,6 +104,10 @@ async function runSuite() {
   console.log('🛡️  AIIMS APP STORE REQUIREMENTS & ACCOUNT DELETION TEST SUITE');
   console.log('===============================================================\n');
 
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
+  }
+
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address() as AddressInfo;
@@ -148,6 +147,7 @@ async function runSuite() {
         email: testEmail,
         password: testPassword,
         confirmPassword: testPassword,
+        track: 'Student',
         stream: 'TECH',
         educationLevel: 'UNDERGRADUATE',
         programId: 'btech',
@@ -201,11 +201,18 @@ async function runSuite() {
       writtenFeedback: 'Excellent critique of model reasoning.',
     };
 
-    if (mongoose.connection.readyState === 1) {
-      await Submission.create(personalSubmission);
-    } else {
-      memorySubmissions.push(personalSubmission);
-    }
+    await prisma.submission.create({
+      data: {
+        learnerId: userId,
+        learnerName: testName,
+        learnerEmail: testEmail,
+        taskId: 'clarity_eval_task_1',
+        taskTitle: 'Critical AI Evaluation',
+        answerContent: 'My personal confidential essay about AI bias and neural hallucination.',
+        status: 'submitted',
+        writtenFeedback: 'Excellent critique of model reasoning.',
+      },
+    });
 
     // Verify user can access profile
     const profileRes = await makeRequest(server, {
@@ -317,69 +324,41 @@ async function runSuite() {
     console.log('\n── SUITE 6: Verification — Personal Data Is Gone ───────────────');
 
     // 6A: Check User model
-    if (mongoose.connection.readyState === 1) {
-      const dbUserByEmail = await User.findOne({ email: testEmail });
-      const dbUserById = await User.findById(userId);
-      assert('DB: User document is completely removed by email', dbUserByEmail === null);
-      assert('DB: User document is completely removed by ID', dbUserById === null);
+    const dbUserByEmail = await prisma.user.findFirst({ where: { email: testEmail } });
+    const dbUserById = await prisma.user.findUnique({ where: { id: userId } });
+    assert('DB: User document is completely removed by email', dbUserByEmail === null);
+    assert('DB: User document is completely removed by ID', dbUserById === null);
 
-      // 6B: Check StudentProfile model
-      const dbProfile = await StudentProfile.findOne({
-        $or: [
-          ...(mongoose.Types.ObjectId.isValid(userId)
-            ? [{ userId: new mongoose.Types.ObjectId(userId) }]
-            : []),
-          { userId },
-        ],
-      });
-      assert('DB: StudentProfile document is completely removed', dbProfile === null);
+    // 6B: Check StudentProfile model
+    const dbProfile = await prisma.studentProfile.findFirst({ where: { userId } });
+    assert('DB: StudentProfile document is completely removed', dbProfile === null);
 
-      // 6C: Check Submissions content
-      const dbSubmissions = await Submission.find({
-        $or: [
-          ...(mongoose.Types.ObjectId.isValid(userId)
-            ? [{ learner: new mongoose.Types.ObjectId(userId) }]
-            : []),
-          { learner: userId },
-          { learnerEmail: testEmail },
-        ],
-      });
-      assert(
-        'DB: Submission answer content and personal records are purged',
-        dbSubmissions.length === 0
-      );
-    } else {
-      assert('Memory: registeredUsers entry is purged', registeredUsers[testEmail] === undefined);
-      const remainingMemSubs = memorySubmissions.filter(
-        (s) => String(s.learner) === userId || s.learnerEmail === testEmail
-      );
-      assert('Memory: Submissions for user are purged', remainingMemSubs.length === 0);
-    }
+    // 6C: Check Submissions content
+    const dbSubmissions = await prisma.submission.findMany({
+      where: {
+        OR: [{ learnerId: userId }, { learnerEmail: testEmail }],
+      },
+    });
+    assert(
+      'DB: Submission answer content and personal records are purged',
+      dbSubmissions.length === 0
+    );
 
     // 6D: Check Audit Log — MUST NOT contain personal data
     let foundAuditLog = false;
     let auditLogHasPersonalData = false;
 
-    if (mongoose.connection.readyState === 1) {
-      const logs = await AuditLog.find({ action: 'ACCOUNT_DELETION' }).sort({ time: -1 }).limit(5);
-      if (logs.length > 0) {
-        foundAuditLog = true;
-        for (const log of logs) {
-          const logStr = JSON.stringify(log);
-          if (logStr.includes(testEmail) || logStr.includes(testName)) {
-            auditLogHasPersonalData = true;
-          }
-        }
-      }
-    } else {
-      const memLogs = memoryAuditLogs.filter((l) => l.action === 'ACCOUNT_DELETION');
-      if (memLogs.length > 0) {
-        foundAuditLog = true;
-        for (const log of memLogs) {
-          const logStr = JSON.stringify(log);
-          if (logStr.includes(testEmail) || logStr.includes(testName)) {
-            auditLogHasPersonalData = true;
-          }
+    const logs = await prisma.auditLog.findMany({
+      where: { action: 'ACCOUNT_DELETION' },
+      orderBy: { time: 'desc' },
+      take: 5,
+    });
+    if (logs.length > 0) {
+      foundAuditLog = true;
+      for (const log of logs) {
+        const logStr = JSON.stringify(log);
+        if (logStr.includes(testEmail) || logStr.includes(testName)) {
+          auditLogHasPersonalData = true;
         }
       }
     }
@@ -395,16 +374,20 @@ async function runSuite() {
     // -------------------------------------------------------------------------
     console.log('\n── SUITE 7: Verification — Ledger Totals Still Balance ─────────');
 
-    let userEntries: any[] = [];
-    if (mongoose.connection.readyState === 1) {
-      userEntries = await CreditLedger.find({ userId }).sort({ createdAt: 1 });
-    } else {
-      // Reconcile via ledger service
-      const res = await creditsLedgerService.getLedgerHistory(userId, { limit: 50 });
-      userEntries = res.transactions;
-    }
+    const userEntries = await prisma.creditLedger.findMany({
+      where: {
+        idempotencyKey: {
+          in: [`welcome::${userId}`, `earn-quest-${timestamp}`, `spend-mentor-${timestamp}`],
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
     assert('Ledger entries are preserved for audit trail', userEntries.length >= 2);
+    assert(
+      'Ledger entries are irreversibly anonymised (userId is null)',
+      userEntries.every((e) => e.userId === null)
+    );
 
     let totalEarned = 0;
     let totalSpent = 0;
@@ -452,6 +435,7 @@ async function runSuite() {
         email: cookieUserEmail,
         password: testPassword,
         confirmPassword: testPassword,
+        track: 'Student',
         stream: 'NON_TECH',
         educationLevel: 'UNDERGRADUATE',
         programId: 'bba',

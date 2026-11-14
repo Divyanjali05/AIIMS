@@ -472,8 +472,9 @@ async function runSuite() {
       resHealth.status === 200 && resHealth.body?.status === 'ok'
     );
     assert(
-      '5.2: Health check includes database connection mode ("mongodb" or "fallback")',
-      resHealth.body?.database?.mode === 'mongodb' || resHealth.body?.database?.mode === 'fallback'
+      '5.2: Health check includes database connection mode ("postgresql" or "fallback")',
+      resHealth.body?.database?.mode === 'postgresql' ||
+        resHealth.body?.database?.mode === 'fallback'
     );
 
     // 5.3 Learner State Read & Write Continuity

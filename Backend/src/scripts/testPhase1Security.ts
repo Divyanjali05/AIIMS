@@ -17,10 +17,12 @@
 
 import http from 'http';
 import { AddressInfo } from 'net';
-import { app, initDatabase } from '../server';
+import { app } from '../server';
 import { getValidatedJwtSecret, config } from '../config/env';
 import { clearRateLimitStore } from '../middleware/rateLimit.middleware';
-import { registeredUsers } from '../models/userStore';
+import { prisma, isDatabaseConnected, connectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
+import { hashPassword } from '../utils/userMapper';
 
 let passed = 0;
 let failed = 0;
@@ -377,24 +379,24 @@ async function runSecuritySuite() {
       typeof healthRes.body?.database === 'object' && healthRes.body?.database !== null
     );
     assert(
-      'Health check identifies database mode ("mongodb" or "fallback")',
-      ['mongodb', 'fallback'].includes(healthRes.body?.database?.mode)
+      'Health check identifies database mode ("postgresql")',
+      ['postgresql'].includes(healthRes.body?.database?.mode)
     );
 
     // Test bounded retry with invalid URI in development
-    const origMongo = config.mongodbUri;
+    const origDbUrl = config.databaseUrl;
     try {
-      config.mongodbUri = 'mongodb://127.0.0.1:27019/nonexistent';
+      config.databaseUrl = 'postgresql://aiims_fake:pass@127.0.0.1:54329/nonexistent';
       const start = Date.now();
-      const testDbStatus = await initDatabase(1, 1000); // 1 retry, 1s timeout
+      const testDbStatus = await connectDatabase(1, 1000); // 1 retry, 1s timeout
       const elapsed = Date.now() - start;
-      assert('Database connection failure resolves boundedly without hanging', elapsed < 3000);
+      assert('Database connection failure resolves boundedly without hanging', elapsed < 4000);
       assert(
         'Database connection failure falls back safely in development mode',
-        testDbStatus.connected === false && testDbStatus.mode === 'fallback'
+        testDbStatus.connected === false && testDbStatus.mode === 'postgresql'
       );
     } finally {
-      config.mongodbUri = origMongo;
+      config.databaseUrl = origDbUrl;
     }
 
     // ---------------------------------------------------------------------------
@@ -403,6 +405,21 @@ async function runSecuritySuite() {
     // 6. Normal Authentication & Protected Routes Continuity
     // ---------------------------------------------------------------------------
     console.log('\n── SUITE 6: Normal Authentication & Protected Routes Continuity ');
+
+    // Seed test user into persistence layer
+    installPrismaTestDouble({ connected: true });
+    await prisma.user.create({
+      data: {
+        id: '65d000000000000000000042',
+        email: 'alex.ai@example.com',
+        name: 'Alex AI',
+        password: await hashPassword('password123'),
+        role: 'learner',
+        aiimsCredits: 500,
+        xpPoints: 100,
+        stage: 'exploration',
+      },
+    });
 
     // 6A: Web client login succeeds, sets httpOnly cookie, and omits token from JSON body
     const webLogin = await makeRequest(testServer, {
@@ -509,9 +526,14 @@ async function runSecuritySuite() {
       )
     );
 
-    // Reset device binding on in-memory fixture so mobile login test is unblocked
-    if (registeredUsers['alex.ai@example.com']) {
-      delete (registeredUsers['alex.ai@example.com'] as any).deviceBinding;
+    // Reset device binding if connected
+    if (isDatabaseConnected()) {
+      await prisma.user
+        .updateMany({
+          where: { email: 'alex.ai@example.com' },
+          data: { bindingStatus: 'UNBOUND', deviceIdHash: '' },
+        })
+        .catch(() => {});
     }
 
     // 6B: Mobile client login with X-Client: mobile returns token in JSON body

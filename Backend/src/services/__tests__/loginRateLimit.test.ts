@@ -1,10 +1,11 @@
 /**
  * loginRateLimit.test.ts
  * =========================================================
- * AIIMS Authentication Login Rate-Limit Environment Isolation Tests (Vitest)
+ * AIIMS Authentication Login Rate-Limit & Environment Isolation Tests (Vitest)
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { EventEmitter } from 'events';
 import {
   resolveLoginRateLimitConfig,
   LOGIN_RATE_LIMIT_WINDOW_MS,
@@ -21,6 +22,12 @@ import {
   clearRateLimitStore,
 } from '../../middleware/rateLimit.middleware';
 import authRoutes from '../../routes/auth.routes';
+import { validateBody } from '../../middleware/validate.middleware';
+import { loginSchema } from '../../schemas/auth.schema';
+import { login } from '../../controllers/auth.controller';
+import { prisma } from '../../config/prisma';
+import { installPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
+import { hashPassword } from '../../utils/userMapper';
 
 async function runMiddleware(
   middleware: any,
@@ -204,3 +211,223 @@ describe('Login Rate-Limit Policy & Environment Separation', () => {
   });
 });
 
+class MockResponse extends EventEmitter {
+  statusCode = 200;
+  headers: Record<string, any> = {};
+  body: any = null;
+
+  status(code: number) {
+    this.statusCode = code;
+    return this;
+  }
+
+  setHeader(k: string, v: any) {
+    this.headers[k.toLowerCase()] = String(v);
+    return this;
+  }
+
+  getHeader(k: string) {
+    return this.headers[k.toLowerCase()];
+  }
+
+  json(data: any) {
+    this.body = data;
+    this.emit('finish');
+    return this;
+  }
+
+  send(data: any) {
+    this.body = data;
+    this.emit('finish');
+    return this;
+  }
+
+  cookie() {
+    return this;
+  }
+}
+
+async function makeRequest(
+  path: string,
+  options: {
+    method?: string;
+    headers?: Record<string, string>;
+    body?: any;
+  } = {}
+): Promise<{ status: number; headers: { get: (k: string) => string | null }; body: any }> {
+  const req: any = {
+    method: options.method || 'POST',
+    path,
+    url: path,
+    headers: { ...(options.headers || {}) },
+    body: options.body || {},
+    ip: options.headers?.['x-forwarded-for'] || '127.0.0.1',
+    socket: { remoteAddress: '127.0.0.1' },
+  };
+
+  const res = new MockResponse();
+
+  await new Promise<void>((resolve) => {
+    res.on('finish', () => resolve());
+
+    authRateLimiter(req, res as any, (err?: any) => {
+      if (err) {
+        res.status(500).json({ error: String(err) });
+        return;
+      }
+      validateBody(loginSchema)(req, res as any, async (valErr?: any) => {
+        if (valErr) {
+          res.status(400).json({ error: String(valErr) });
+          return;
+        }
+        try {
+          await login(req, res as any);
+        } catch (e: any) {
+          res.status(500).json({ error: e?.message || 'Internal Server Error' });
+        }
+      });
+    });
+  });
+
+  return {
+    status: res.statusCode,
+    headers: {
+      get: (k: string) => res.headers[k.toLowerCase()] ?? null,
+    },
+    body: res.body,
+  };
+}
+
+describe('AIIMS Login Rate-Limit & Authentication Security Audit', () => {
+  beforeAll(async () => {
+    installPrismaTestDouble({ connected: true });
+
+    // Seed test user with known password
+    await prisma.user.create({
+      data: {
+        id: '65d000000000000000000101',
+        email: 'ratelimit.user@aiims.edu',
+        name: 'Rate Limit Tester',
+        password: await hashPassword('ValidPassword123!'),
+        role: 'learner',
+        aiimsCredits: 500,
+        xpPoints: 100,
+        stage: 'Knowing',
+      },
+    });
+  });
+
+  afterAll(async () => {
+    uninstallPrismaTestDouble();
+  });
+
+  beforeEach(() => {
+    clearRateLimitStore();
+  });
+
+  it('1. Login error messages are identical between non-existent user and wrong password (prevents account enumeration)', async () => {
+    // Non-existent user
+    const nonExistentRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: 'nobody.exists@aiims.edu',
+        password: 'SomePassword123!',
+      },
+    });
+    expect(nonExistentRes.status).toBe(401);
+    expect(nonExistentRes.body.error).toBe('Email or password is incorrect.');
+
+    // Existing user with wrong password
+    const wrongPwRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: 'ratelimit.user@aiims.edu',
+        password: 'IncorrectPassword123!',
+      },
+    });
+    expect(wrongPwRes.status).toBe(401);
+    expect(wrongPwRes.body.error).toBe('Email or password is incorrect.');
+  });
+
+  it('2. Successful login attempts do NOT increment the failure counter (skipSuccessfulRequests: true)', async () => {
+    const deviceHeaders = { 'x-device-id': 'rate-limit-test-device-1', 'x-platform': 'web' };
+
+    // Perform a successful login
+    const loginRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      headers: deviceHeaders,
+      body: {
+        email: 'ratelimit.user@aiims.edu',
+        password: 'ValidPassword123!',
+      },
+    });
+    expect(loginRes.status).toBe(200);
+    expect(loginRes.body.user?.email).toBe('ratelimit.user@aiims.edu');
+
+    // Since successful requests are skipped, remaining slots should remain unaffected.
+    // Now perform 1 failed login and verify remaining slots is max - 1 (14)
+    const failRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      headers: deviceHeaders,
+      body: {
+        email: 'ratelimit.user@aiims.edu',
+        password: 'WrongPassword!',
+      },
+    });
+    expect(failRes.status).toBe(401);
+
+    const remainingHeader = failRes.headers.get('x-ratelimit-remaining');
+    if (remainingHeader !== null) {
+      expect(Number(remainingHeader)).toBe(14); // 15 max - 1 failure = 14
+    }
+  });
+
+  it('3. Repeated failed login attempts exhaust the rate limit and return HTTP 429', async () => {
+    // Fire 15 failed logins to exhaust 15 limit slots
+    for (let i = 0; i < 15; i++) {
+      const failRes = await makeRequest('/api/auth/login', {
+        method: 'POST',
+        body: {
+          email: 'ratelimit.user@aiims.edu',
+          password: 'WrongPassword!',
+        },
+      });
+      expect(failRes.status).toBe(401);
+    }
+
+    // 16th attempt must be blocked by rate limiter
+    const blockedRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: {
+        email: 'ratelimit.user@aiims.edu',
+        password: 'ValidPassword123!',
+      },
+    });
+    expect(blockedRes.status).toBe(429);
+    expect(blockedRes.body.code).toBe('RATE_LIMIT_EXCEEDED');
+    expect(blockedRes.body.error).toContain('Too many authentication attempts');
+    expect(blockedRes.headers.get('retry-after')).toBeTruthy();
+  });
+
+  it('4. Clearing rate limit store safely restores access', async () => {
+    // Trigger a failed login
+    await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'ratelimit.user@aiims.edu', password: 'Bad' },
+    });
+
+    // Reset store
+    clearRateLimitStore();
+
+    // Next request should have full capacity restored
+    const freshRes = await makeRequest('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'ratelimit.user@aiims.edu', password: 'Bad' },
+    });
+    expect(freshRes.status).toBe(401);
+    const remaining = freshRes.headers.get('x-ratelimit-remaining');
+    if (remaining !== null) {
+      expect(Number(remaining)).toBe(14);
+    }
+  });
+});

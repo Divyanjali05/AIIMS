@@ -22,7 +22,9 @@ import { Badge } from '../../components/common/Badge';
 import { PageHeader } from '../../components/common/PageHeader';
 import { MentorMessage } from '../../components/common/MentorMessage';
 import { Level2AITaskLab } from './Level2AITaskLab';
+import { ClarityTaskLab } from './ClarityTaskLab';
 import { apiClient } from '../../api/client';
+import { Zap } from 'lucide-react';
 
 interface ClarityScreenProps {
   setActiveTab?: (tab: string) => void;
@@ -361,6 +363,7 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isDraftingAI, setIsDraftingAI] = useState<boolean>(false);
   const [reflectionNotice, setReflectionNotice] = useState<string | null>(null);
+  const [activeMode, setActiveMode] = useState<'task_lab' | 'concept_guide'>('task_lab');
 
   useEffect(() => {
     if (selectedTopic) {
@@ -488,6 +491,47 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
     );
   }
 
+  if (activeMode === 'task_lab') {
+    return (
+      <div
+        style={{
+          maxWidth: '1080px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            borderBottom: '1px solid var(--aiims-border, #e2e8f0)',
+            paddingBottom: '12px',
+          }}
+        >
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Zap size={14} />}
+            onClick={() => setActiveMode('task_lab')}
+          >
+            AI Task Lab (30 Tasks)
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<BookOpen size={14} />}
+            onClick={() => setActiveMode('concept_guide')}
+          >
+            Topic Concepts & Reflections
+          </Button>
+        </div>
+        <ClarityTaskLab />
+      </div>
+    );
+  }
+
   const availableTopics =
     state.clarity.selectedAreas && state.clarity.selectedAreas.length > 0
       ? state.clarity.selectedAreas
@@ -504,6 +548,32 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
           gap: '20px',
         }}
       >
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            borderBottom: '1px solid var(--aiims-border, #e2e8f0)',
+            paddingBottom: '12px',
+          }}
+        >
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Zap size={14} />}
+            onClick={() => setActiveMode('task_lab')}
+          >
+            AI Task Lab (30 Tasks)
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<BookOpen size={14} />}
+            onClick={() => setActiveMode('concept_guide')}
+          >
+            Topic Concepts & Reflections
+          </Button>
+        </div>
+
         <PageHeader
           icon={<Lightbulb size={24} />}
           title="What would you like to understand better?"

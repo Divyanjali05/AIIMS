@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { hashDeviceId, extractDeviceInfo } from '../../utils/deviceIdentifier';
-import { sessionService } from '../../models/Session.model';
-import { memoryDeviceResetAudits } from '../../models/DeviceResetAudit.model';
-import { registeredUsers } from '../../models/userStore';
+import { sessionService } from '../session.service';
+import { prisma } from '../../config/prisma';
+import { userRecordToIUser } from '../../utils/userMapper';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 import {
   login,
   logout,
@@ -67,42 +68,44 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
   let testUser: any;
   let adminUser: any;
 
-  beforeEach(() => {
-    sessionService.clearMemoryStore();
-    memoryDeviceResetAudits.length = 0;
+  beforeEach(async () => {
+    resetPrismaTestDouble(true);
 
-    testUser = {
-      _id: 'usr-dev-test-100',
-      id: 'usr-dev-test-100',
-      name: 'Device Test Learner',
-      email: userEmail,
-      role: 'learner',
-      password: hashedPassword,
-      college: 'Tech University',
-      isActive: true,
-      deviceBinding: {
+    const userRow = await prisma.user.create({
+      data: {
+        id: 'usr-dev-test-100',
+        name: 'Device Test Learner',
+        email: userEmail,
+        role: 'learner',
+        password: hashedPassword,
+        college: 'Tech University',
+        isActive: true,
         deviceIdHash: '',
         deviceName: '',
-        platform: 'web',
-        boundAt: null,
-        lastSeenAt: null,
-        activeSessionId: null,
+        devicePlatform: 'web',
         bindingStatus: 'UNBOUND',
       },
-    };
-    registeredUsers[userEmail] = testUser;
+    });
+    testUser = userRecordToIUser(userRow);
 
-    adminUser = {
-      _id: 'usr-dev-admin-200',
-      id: 'usr-dev-admin-200',
-      name: 'Device Test Admin',
-      email: adminEmail,
-      role: 'admin',
-      password: hashedPassword,
-      isActive: true,
-    };
-    registeredUsers[adminEmail] = adminUser;
+    const adminRow = await prisma.user.create({
+      data: {
+        id: 'usr-dev-admin-200',
+        name: 'Device Test Admin',
+        email: adminEmail,
+        role: 'admin',
+        password: hashedPassword,
+        isActive: true,
+      },
+    });
+    adminUser = userRecordToIUser(adminRow);
   });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
+  });
+
+  const getFreshUser = async (id: string) => prisma.user.findUnique({ where: { id } });
 
   it('Scenario 1: Binds account to first device on successful login', async () => {
     const req = createMockReq({
@@ -113,9 +116,10 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     await login(req, mockRes.res);
 
     expect(mockRes.statusCode).toBe(200);
-    expect(testUser.deviceBinding.bindingStatus).toBe('BOUND');
-    expect(testUser.deviceBinding.deviceIdHash).toBe(hashDeviceId(deviceA));
-    expect(testUser.deviceBinding.activeSessionId).toBeDefined();
+    const fresh = await getFreshUser(testUser.id);
+    expect(fresh?.bindingStatus).toBe('BOUND');
+    expect(fresh?.deviceIdHash).toBe(hashDeviceId(deviceA));
+    expect(fresh?.activeSessionId).toBeDefined();
   });
 
   it('Scenario 2: Device ID is hashed with SHA-256 and never stored in plaintext', () => {
@@ -147,7 +151,9 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     await login(req2, mockRes2.res);
 
     expect(mockRes2.statusCode).toBe(403);
-    expect(mockRes2.data.error).toBe('Account is active on another device.');
+    expect(mockRes2.data.error).toBe(
+      'This account is already active on another device. Please log out from that device to continue.'
+    );
     expect(mockRes2.data.code).toBe('ACCOUNT_ACTIVE_ANOTHER_DEVICE');
   });
 
@@ -159,7 +165,8 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     const mockRes1 = createMockRes();
     await login(req1, mockRes1.res);
 
-    const activeSessionId = testUser.deviceBinding.activeSessionId;
+    const fresh1 = await getFreshUser(testUser.id);
+    const activeSessionId = fresh1?.activeSessionId || '';
 
     // Rejected device B attempt
     const req2 = createMockReq({
@@ -181,7 +188,8 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     const mockRes1 = createMockRes();
     await login(req1, mockRes1.res);
 
-    const activeSessionId = testUser.deviceBinding.activeSessionId;
+    const fresh1 = await getFreshUser(testUser.id);
+    const activeSessionId = fresh1?.activeSessionId || '';
     const token = generateAuthToken(
       testUser.id,
       testUser.email,
@@ -201,9 +209,10 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
 
     const session = await sessionService.getSession(activeSessionId);
     expect(session?.status).toBe('REVOKED');
-    expect(testUser.deviceBinding.activeSessionId).toBeNull();
-    expect(testUser.deviceBinding.bindingStatus).toBe('BOUND');
-    expect(testUser.deviceBinding.deviceIdHash).toBe(hashDeviceId(deviceA));
+    const fresh2 = await getFreshUser(testUser.id);
+    expect(fresh2?.activeSessionId).toBeNull();
+    expect(fresh2?.bindingStatus).toBe('BOUND');
+    expect(fresh2?.deviceIdHash).toBe(hashDeviceId(deviceA));
   });
 
   it('Scenario 6: Different device cannot log in after logout without admin reset', async () => {
@@ -214,12 +223,13 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     });
     await login(req1, createMockRes().res);
 
+    const fresh1 = await getFreshUser(testUser.id);
     // Logout on Device A
     const token = generateAuthToken(
       testUser.id,
       testUser.email,
       testUser.role,
-      testUser.deviceBinding.activeSessionId,
+      fresh1?.activeSessionId || undefined,
       hashDeviceId(deviceA)
     );
     const logoutReq: any = createMockReq({ headers: { authorization: `Bearer ${token}` } });
@@ -250,12 +260,13 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     });
     await login(req1, createMockRes().res);
 
+    const fresh1 = await getFreshUser(testUser.id);
     // Logout
     const token = generateAuthToken(
       testUser.id,
       testUser.email,
       testUser.role,
-      testUser.deviceBinding.activeSessionId,
+      fresh1?.activeSessionId || undefined,
       hashDeviceId(deviceA)
     );
     const logoutReq: any = createMockReq({ headers: { authorization: `Bearer ${token}` } });
@@ -272,8 +283,9 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     await login(reLoginReq, reLoginRes.res);
 
     expect(reLoginRes.statusCode).toBe(200);
-    expect(testUser.deviceBinding.activeSessionId).toBeDefined();
-    const newSession = await sessionService.getSession(testUser.deviceBinding.activeSessionId);
+    const fresh2 = await getFreshUser(testUser.id);
+    expect(fresh2?.activeSessionId).toBeDefined();
+    const newSession = await sessionService.getSession(fresh2?.activeSessionId || '');
     expect(newSession?.status).toBe('ACTIVE');
   });
 
@@ -295,7 +307,8 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
       body: { email: userEmail, password: testPassword },
     });
     await login(req1, createMockRes().res);
-    const activeSessionId = testUser.deviceBinding.activeSessionId;
+    const fresh1 = await getFreshUser(testUser.id);
+    const activeSessionId = fresh1?.activeSessionId || '';
 
     // Admin reset
     const resetReq: any = createMockReq({
@@ -307,13 +320,14 @@ describe('AIIMS One Account, One Device & Session Security (Prompt 3)', () => {
     await resetUserDevice(resetReq, resetRes.res);
 
     expect(resetRes.statusCode).toBe(200);
-    expect(testUser.deviceBinding.bindingStatus).toBe('UNBOUND');
-    expect(testUser.deviceBinding.deviceIdHash).toBe('');
+    const fresh2 = await getFreshUser(testUser.id);
+    expect(fresh2?.bindingStatus).toBe('UNBOUND');
+    expect(fresh2?.deviceIdHash).toBe('');
 
     const session = await sessionService.getSession(activeSessionId);
     expect(session?.status).toBe('REVOKED');
 
-    const audit = memoryDeviceResetAudits.find((a) => a.targetUserId === testUser.id);
+    const audit = await prisma.deviceResetAudit.findFirst({ where: { targetUserId: testUser.id } });
     expect(audit).toBeDefined();
     expect(audit?.adminUserId).toBe(adminUser.id);
     expect(audit?.previousDeviceIdHash).toBe(hashDeviceId(deviceA));

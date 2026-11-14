@@ -11,15 +11,11 @@
 
 import http from 'http';
 import { AddressInfo } from 'net';
-import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { app } from '../server';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
-import { defaultTasks } from '../models/Task.model';
-import { memorySubmissions } from '../models/Submission.model';
-import { memoryAuditLogs } from '../models/AuditLog.model';
-import { registeredUsers } from '../models/userStore';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 
 let passed = 0;
 let failed = 0;
@@ -103,14 +99,8 @@ async function run() {
   console.log('🧪 AIIMS TASK SUBMISSION & EVALUATION TEST SUITE');
   console.log('===============================================================\n');
 
-  // Optional DB connection if MONGODB_URI is provided
-  if (config.mongodbUri) {
-    try {
-      await mongoose.connect(config.mongodbUri, { serverSelectionTimeoutMS: 2000 });
-      console.log('🌿 Connected to MongoDB for test verification.\n');
-    } catch {
-      console.log('⚠️ Running in offline memory fallback mode.\n');
-    }
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
 
   const server = http.createServer(app);
@@ -131,9 +121,10 @@ async function run() {
       xpPoints?: number;
       isActive?: boolean;
     }) {
-      let u: any;
-      if (mongoose.connection.readyState === 1) {
-        u = await User.create({
+      const id = `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const u = await prisma.user.create({
+        data: {
+          id,
           name: userData.name,
           email: userData.email,
           password: 'Password123!',
@@ -144,25 +135,11 @@ async function run() {
           college: 'AIIMS Test Institute',
           targetGoal: 'AI Evaluation & Learning',
           stage: 'Knowing',
-        });
-        createdUsersToClean.push(String(u._id));
-      } else {
-        u = {
-          _id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          name: userData.name,
-          email: userData.email,
-          role: userData.role,
-          isActive: userData.isActive !== false,
-          aiimsCredits: userData.aiimsCredits ?? 500,
-          xpPoints: userData.xpPoints ?? 100,
-          transactions: [],
-        };
-        u.id = u._id;
-        registeredUsers[userData.email.toLowerCase()] = u;
-      }
-      const id = String(u._id || u.id);
-      const token = createToken(id, userData.email);
-      return { id, email: userData.email, token, user: u };
+        },
+      });
+      createdUsersToClean.push(u.id);
+      const token = createToken(u.id, userData.email);
+      return { id: u.id, email: userData.email, token, user: u };
     }
 
     const admin = await createTestUser({
@@ -224,6 +201,7 @@ async function run() {
         password: 'Password123!',
         confirmPassword: 'Password123!',
         role: 'admin', // Malicious attempt to self-grant admin
+        track: 'Student',
         stream: 'TECH',
         educationLevel: 'UNDERGRADUATE',
         programId: 'btech',
@@ -335,10 +313,7 @@ async function run() {
       setPassRes.status === 200 && setPassRes.body.success === true
     );
 
-    const evalUserDoc =
-      mongoose.connection.readyState === 1
-        ? await User.findOne({ email: newEvalEmail }).lean()
-        : registeredUsers[newEvalEmail];
+    const evalUserDoc = await prisma.user.findFirst({ where: { email: newEvalEmail } });
     assert(
       'Setting permanent password clears mustChangePassword flag and invite token',
       Boolean(evalUserDoc && evalUserDoc.mustChangePassword === false && !evalUserDoc.inviteToken)
@@ -776,9 +751,7 @@ async function run() {
     );
   } finally {
     server.close();
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.disconnect();
-    }
+    await disconnectDatabase();
   }
 
   console.log('\n===============================================================');

@@ -11,9 +11,13 @@ WORKDIR /app
 
 # Copy dependency manifests
 COPY package*.json ./
+COPY prisma/ ./prisma/
 
 # Install all dependencies (including devDependencies needed for tsc build)
 RUN npm ci
+
+# Generate Prisma Client
+RUN npx prisma generate
 
 # Copy source code and TypeScript config
 COPY tsconfig.json ./
@@ -38,9 +42,10 @@ RUN apk --no-cache add wget
 
 # Copy dependency manifests
 COPY package*.json ./
+COPY prisma/ ./prisma/
 
 # Install ONLY production dependencies and clean cache
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npx prisma generate && npm cache clean --force
 
 # Copy compiled JavaScript distribution from builder stage
 COPY --from=builder /app/dist ./dist

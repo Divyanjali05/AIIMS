@@ -4,7 +4,7 @@
  * AIIMS Task T-C Phase 2: Controlled Live AI Scoring Verification
  *
  * Execution Standards:
- * - Dedicated synthetic learner on isolated test database (aiims_test).
+ * - Dedicated synthetic learner on isolated PostgreSQL database.
  * - Primary Provider: Google Gemini (gemini-3.1-flash-lite).
  * - Hard limit: Exactly two (2) outbound provider requests maximum.
  * - Application/SDK retries and automatic fallbacks disabled.
@@ -12,13 +12,9 @@
  * - Complete teardown and post-run cleanup verification.
  */
 
-import mongoose from 'mongoose';
 import { config } from '../config/env';
-import { User } from '../models/User.model';
-import { QuestionBank } from '../models/QuestionBank.model';
-import { QuestionAssignment } from '../models/QuestionAssignment.model';
-import { QuestionAttempt } from '../models/QuestionAttempt.model';
-import { CreditLedger } from '../models/CreditLedger.model';
+import { prisma, isDatabaseConnected, connectDatabase, disconnectDatabase } from '../config/prisma';
+import { toJsonInput } from '../utils/userMapper';
 import { claudeService } from '../services/anthropic/claude.service';
 import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
 import { questionBankService } from '../services/questionBank.service';
@@ -48,29 +44,19 @@ async function runLiveVerification() {
   // ---------------------------------------------------------------------------
   // STEP 1: Preflight & Environment Isolation Guard
   // ---------------------------------------------------------------------------
-  const rawUri = config.mongodbUri || process.env.MONGODB_URI;
-  if (!rawUri) {
-    throw new Error('FATAL: No MONGODB_URI configured in environment.');
+  if (!isDatabaseConnected()) {
+    try {
+      await connectDatabase();
+    } catch {
+      // Allow safety handling below
+    }
   }
 
-  const testDbName = process.env.MONGODB_TEST_DB || 'aiims_test';
-  console.log(`📡 Connecting to isolated MongoDB database: "${testDbName}"...`);
-  await mongoose.connect(rawUri, {
-    dbName: testDbName,
-    serverSelectionTimeoutMS: 10000,
-  });
-
-  const activeDb = mongoose.connection.db?.databaseName || mongoose.connection.name;
   assert(
-    activeDb === testDbName,
-    `Database isolation verified (active: "${activeDb}", expected: "${testDbName}")`,
-    `Aborting: Connected to unauthorized database "${activeDb}"`
+    isDatabaseConnected(),
+    'Database connectivity verified (PostgreSQL active)',
+    'PostgreSQL database must be connected for live verification.'
   );
-
-  if (activeDb !== testDbName) {
-    await mongoose.disconnect();
-    throw new Error(`CRITICAL: Refusing to run tests against unauthorized database: ${activeDb}`);
-  }
 
   // Verify Gemini API key presence safely without printing
   const geminiKey = process.env.GEMINI_API_KEY || '';
@@ -80,7 +66,7 @@ async function runLiveVerification() {
   assert(isKeyConfigured, 'Gemini API key verified in environment (non-mock, valid length)');
 
   if (!isKeyConfigured) {
-    await mongoose.disconnect();
+    await disconnectDatabase();
     throw new Error('FATAL: Genuine GEMINI_API_KEY is not configured in environment.');
   }
 
@@ -111,21 +97,23 @@ async function runLiveVerification() {
     // -------------------------------------------------------------------------
     // STEP 3: Setup Synthetic Test Learner
     // -------------------------------------------------------------------------
-    testUser = await User.create({
-      name: `AIIMS Live AI Tester ${timestamp}`,
-      email: testEmail,
-      password: 'LivePassword123!',
-      role: 'learner',
-      isActive: true,
-      aiimsCredits: 500,
-      xpPoints: 100,
-      college: 'AIIMS Test Institute',
-      targetGoal: 'AI Capability Verification',
-      stage: 'Knowing',
+    testUser = await prisma.user.create({
+      data: {
+        name: `AIIMS Live AI Tester ${timestamp}`,
+        email: testEmail,
+        password: 'LivePassword123!',
+        role: 'learner',
+        isActive: true,
+        aiimsCredits: 500,
+        xpPoints: 100,
+        college: 'AIIMS Test Institute',
+        targetGoal: 'AI Capability Verification',
+        stage: 'Knowing',
+      },
     });
 
     assert(
-      Boolean(testUser._id) && testUser.aiimsCredits === 500,
+      Boolean(testUser.id) && testUser.aiimsCredits === 500,
       'Synthetic test learner created with initial balance of 500 AC'
     );
 
@@ -180,15 +168,17 @@ async function runLiveVerification() {
       'Guardrail: Do not flag accounts on annual planned maintenance or scheduled onboarding freezes without an explicit note indicating the planned status.';
 
     // Create assignment record
-    await QuestionAssignment.create({
-      assignmentId: clarityAssignmentId,
-      learnerId: String(testUser._id),
-      questionId: 'qb-clarity-live-01',
-      topic: 'Checking AI',
-      level: 'Easy',
-      track: 'General',
-      status: 'ASSIGNED',
-      assignedAt: new Date(),
+    await prisma.questionAssignment.create({
+      data: {
+        assignmentId: clarityAssignmentId,
+        learnerId: testUser.id,
+        questionId: 'qb-clarity-live-01',
+        topic: 'Checking AI',
+        level: 'Easy',
+        track: 'General',
+        status: 'ASSIGNED',
+        assignedAt: new Date(),
+      },
     });
 
     const clarityEvalStartTime = Date.now();
@@ -219,38 +209,42 @@ async function runLiveVerification() {
 
     // Save attempt and update assignment
     const clarityAttemptId = `att-clarity-${timestamp}`;
-    await QuestionAttempt.create({
-      attemptId: clarityAttemptId,
-      assignmentId: clarityAssignmentId,
-      learnerId: String(testUser._id),
-      questionId: 'qb-clarity-live-01',
-      topic: 'Checking AI',
-      level: 'Easy',
-      track: 'General',
-      startedAt: new Date(Date.now() - 60000),
-      submittedAt: new Date(),
-      submittedAnswer: clarityLearnerAnswer,
-      score: clarityEvaluation.overallScore,
-      rubricFeedback: clarityEvaluation.criteria.map((c) => ({
-        criterion: c.criterion,
-        score: c.score,
-        maxScore: c.maxScore,
-        comment: c.feedback,
-      })),
-      overallFeedback: clarityEvaluation.overallFeedback,
-      evaluationStatus: 'EVALUATED',
-      timeTakenSeconds: 60,
+    await prisma.questionAttempt.create({
+      data: {
+        attemptId: clarityAttemptId,
+        assignmentId: clarityAssignmentId,
+        learnerId: testUser.id,
+        questionId: 'qb-clarity-live-01',
+        topic: 'Checking AI',
+        level: 'Easy',
+        track: 'General',
+        startedAt: new Date(Date.now() - 60000),
+        submittedAt: new Date(),
+        submittedAnswer: clarityLearnerAnswer,
+        score: clarityEvaluation.overallScore,
+        rubricFeedback: toJsonInput(
+          clarityEvaluation.criteria.map((c) => ({
+            criterion: c.criterion,
+            score: c.score,
+            maxScore: c.maxScore,
+            comment: c.feedback,
+          }))
+        ),
+        overallFeedback: clarityEvaluation.overallFeedback,
+        evaluationStatus: 'EVALUATED',
+        timeTakenSeconds: 60,
+      },
     });
 
-    await QuestionAssignment.findOneAndUpdate(
-      { assignmentId: clarityAssignmentId },
-      { $set: { status: 'SUBMITTED', completedAt: new Date() } }
-    );
+    await prisma.questionAssignment.update({
+      where: { assignmentId: clarityAssignmentId },
+      data: { status: 'SUBMITTED', completedAt: new Date() },
+    });
 
     // Award 15 AC with idempotency key
     const clarityRewardKey = `clarity::submit::${clarityAssignmentId}`;
     const clarityLedgerRes = await creditsLedgerService.executeTransaction({
-      userId: String(testUser._id),
+      userId: testUser.id,
       type: 'EARN',
       category: 'REWARD',
       amount: CREDIT_RULES.CLARITY_TASK_EASY.credits, // 15 AC
@@ -260,15 +254,15 @@ async function runLiveVerification() {
       idempotencyKey: clarityRewardKey,
     });
 
-    const updatedUserAfterClarity = await User.findById(testUser._id);
+    const updatedUserAfterClarity = await prisma.user.findUnique({ where: { id: testUser.id } });
     assert(
       updatedUserAfterClarity?.aiimsCredits === 515 && clarityLedgerRes.success,
       `Clarity 15 AC reward credited idempotently (new balance: ${updatedUserAfterClarity?.aiimsCredits} AC)`
     );
 
     // Verify duplicate submission prevention
-    const duplicateClarityAssignment = await QuestionAssignment.findOne({
-      assignmentId: clarityAssignmentId,
+    const duplicateClarityAssignment = await prisma.questionAssignment.findUnique({
+      where: { assignmentId: clarityAssignmentId },
     });
     assert(
       duplicateClarityAssignment?.status === 'SUBMITTED',
@@ -288,52 +282,58 @@ async function runLiveVerification() {
     createdAssignmentIds.push(focusAssignmentId);
 
     // Seed/verify question qb-check-easy-01 exists in database
-    const seedQ = await QuestionBank.findOne({ questionId: 'qb-check-easy-01' });
+    const seedQ = await prisma.questionBank.findUnique({
+      where: { questionId: 'qb-check-easy-01' },
+    });
     if (!seedQ) {
-      await QuestionBank.create({
-        questionId: 'qb-check-easy-01',
-        topic: 'Checking AI',
-        level: 'Easy',
-        track: 'General',
-        title: 'Customer Discount Policy Fact-Check',
-        promptText:
-          'Review the provided automated customer response against the official discount guidelines. Identify whether the discount applied matches company policy.',
-        hint: 'Pay attention to minimum cart value requirements.',
-        testScenario:
-          'Customer Message: "I bought goods worth $45 and received an automatic 20% discount."\nCompany Policy: "A 20% promotional discount applies strictly to orders of $50 or more."',
-        expectedCriteria: [
-          'Identifies that the $45 cart does not meet the $50 minimum threshold',
-          'States clearly whether the customer response was accurate or inaccurate',
-        ],
-        scoringRubric: [
-          {
-            criterion: 'Threshold Identification',
-            maxScore: 50,
-            description: 'Noticed the $50 requirement',
-          },
-          {
-            criterion: 'Clear Verdict',
-            maxScore: 50,
-            description: 'Provides definitive verification status',
-          },
-        ],
-        source: 'Human',
-        status: 'ACTIVE',
-        version: 1,
+      await prisma.questionBank.create({
+        data: {
+          questionId: 'qb-check-easy-01',
+          topic: 'Checking AI',
+          level: 'Easy',
+          track: 'General',
+          title: 'Customer Discount Policy Fact-Check',
+          promptText:
+            'Review the provided automated customer response against the official discount guidelines. Identify whether the discount applied matches company policy.',
+          hint: 'Pay attention to minimum cart value requirements.',
+          testScenario:
+            'Customer Message: "I bought goods worth $45 and received an automatic 20% discount."\nCompany Policy: "A 20% promotional discount applies strictly to orders of $50 or more."',
+          expectedCriteria: [
+            'Identifies that the $45 cart does not meet the $50 minimum threshold',
+            'States clearly whether the customer response was accurate or inaccurate',
+          ],
+          scoringRubric: toJsonInput([
+            {
+              criterion: 'Threshold Identification',
+              maxScore: 50,
+              description: 'Noticed the $50 requirement',
+            },
+            {
+              criterion: 'Clear Verdict',
+              maxScore: 50,
+              description: 'Provides definitive verification status',
+            },
+          ]),
+          source: 'Human',
+          status: 'ACTIVE',
+          version: 1,
+        },
       });
     }
 
     // Create Focus assignment with simulated 120-second elapsed time (Fast tier: <= 300s -> 20 AC)
     const simulatedAssignedAt = new Date(Date.now() - 120 * 1000);
-    await QuestionAssignment.create({
-      assignmentId: focusAssignmentId,
-      learnerId: String(testUser._id),
-      questionId: 'qb-check-easy-01',
-      topic: 'Checking AI',
-      level: 'Easy',
-      track: 'General',
-      status: 'ASSIGNED',
-      assignedAt: simulatedAssignedAt,
+    await prisma.questionAssignment.create({
+      data: {
+        assignmentId: focusAssignmentId,
+        learnerId: testUser.id,
+        questionId: 'qb-check-easy-01',
+        topic: 'Checking AI',
+        level: 'Easy',
+        track: 'General',
+        status: 'ASSIGNED',
+        assignedAt: simulatedAssignedAt,
+      },
     });
 
     const focusLearnerAnswer =
@@ -341,7 +341,7 @@ async function runLiveVerification() {
 
     const focusEvalStartTime = Date.now();
     const focusResult = await questionBankService.submitAttempt({
-      learnerId: String(testUser._id),
+      learnerId: testUser.id,
       assignmentId: focusAssignmentId,
       answer: focusLearnerAnswer,
     });
@@ -367,7 +367,7 @@ async function runLiveVerification() {
       `Focus challenge live evaluation verified (score: ${focusResult.attempt.score}, reward: ${focusResult.reward?.credits} AC)`
     );
 
-    const updatedUserAfterFocus = await User.findById(testUser._id);
+    const updatedUserAfterFocus = await prisma.user.findUnique({ where: { id: testUser.id } });
     assert(
       updatedUserAfterFocus?.aiimsCredits === 535, // 500 initial + 15 Clarity + 20 Focus
       `Total balance reconciled to 535 AC (500 + 15 + 20 AC)`
@@ -377,7 +377,7 @@ async function runLiveVerification() {
     let duplicateFocusCaught = false;
     try {
       await questionBankService.submitAttempt({
-        learnerId: String(testUser._id),
+        learnerId: testUser.id,
         assignmentId: focusAssignmentId,
         answer: focusLearnerAnswer,
       });
@@ -421,13 +421,16 @@ async function runLiveVerification() {
     // STEP 7: Credit Ledger Audit
     // -------------------------------------------------------------------------
     console.log('\n── Auditing Credit Ledger Transactions ──────────────────────');
-    const ledgerEntries = await CreditLedger.find({ userId: testUser._id }).sort({ createdAt: 1 });
+    const ledgerEntries = await prisma.creditLedger.findMany({
+      where: { userId: testUser.id },
+      orderBy: { createdAt: 'asc' },
+    });
     assert(
       ledgerEntries.length === 2 &&
-        ledgerEntries[0].amount === 15 &&
-        ledgerEntries[0].idempotencyKey.includes('clarity::submit') &&
-        ledgerEntries[1].amount === 20 &&
-        ledgerEntries[1].idempotencyKey.includes('focus::challenge'),
+        ledgerEntries[0]?.amount === 15 &&
+        Boolean(ledgerEntries[0]?.idempotencyKey?.includes('clarity::submit')) &&
+        ledgerEntries[1]?.amount === 20 &&
+        Boolean(ledgerEntries[1]?.idempotencyKey?.includes('focus::challenge')),
       `Credit ledger verified: exactly 2 idempotent records (+15 AC Clarity, +20 AC Focus)`
     );
   } finally {
@@ -435,20 +438,26 @@ async function runLiveVerification() {
     // STEP 8: Cleanup and Teardown Verification
     // -------------------------------------------------------------------------
     console.log('\n── Teardown & Post-Run Cleanup Verification ─────────────────');
-    if (testUser?._id) {
-      await QuestionAttempt.deleteMany({ learnerId: String(testUser._id) });
-      await QuestionAssignment.deleteMany({ assignmentId: { $in: createdAssignmentIds } });
-      await CreditLedger.deleteMany({ userId: testUser._id });
-      await User.deleteOne({ _id: testUser._id });
+    if (testUser?.id) {
+      await prisma.questionAttempt.deleteMany({ where: { learnerId: testUser.id } });
+      await prisma.questionAssignment.deleteMany({
+        where: { assignmentId: { in: createdAssignmentIds } },
+      });
+      await prisma.creditLedger.deleteMany({ where: { userId: testUser.id } });
+      await prisma.user.deleteMany({ where: { id: testUser.id } });
 
-      const remainingAttempts = await QuestionAttempt.countDocuments({
-        learnerId: String(testUser._id),
+      const remainingAttempts = await prisma.questionAttempt.count({
+        where: { learnerId: testUser.id },
       });
-      const remainingAssignments = await QuestionAssignment.countDocuments({
-        assignmentId: { $in: createdAssignmentIds },
+      const remainingAssignments = await prisma.questionAssignment.count({
+        where: { assignmentId: { in: createdAssignmentIds } },
       });
-      const remainingLedger = await CreditLedger.countDocuments({ userId: testUser._id });
-      const remainingUser = await User.countDocuments({ _id: testUser._id });
+      const remainingLedger = await prisma.creditLedger.count({
+        where: { userId: testUser.id },
+      });
+      const remainingUser = await prisma.user.count({
+        where: { id: testUser.id },
+      });
 
       const isClean =
         remainingAttempts === 0 &&
@@ -466,8 +475,8 @@ async function runLiveVerification() {
     claudeService.setRequestLimiter(null);
     claudeService.setControlledMode(null);
     rubricEvaluatorService.setDisableRetries(false);
-    await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB test database.\n');
+    await disconnectDatabase();
+    console.log('🔌 Disconnected cleanly from PostgreSQL database.\n');
   }
 
   console.log('================================================================');

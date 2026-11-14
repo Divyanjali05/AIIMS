@@ -17,6 +17,7 @@ import { ProblemSolverScreen } from './screens/solver/ProblemSolverScreen';
 import { BuildScreen } from './screens/build/BuildScreen';
 import { RadarSignal } from './types';
 import { Surface } from './components/common/Surface';
+import { Button } from './components/common/Button';
 import { PageHeader } from './components/common/PageHeader';
 import { MentorMessage } from './components/common/MentorMessage';
 import {
@@ -602,20 +603,23 @@ const AppContent: React.FC = () => {
                     >
                       <PageHeader
                         icon={<BarChart3 size={24} />}
-                        title="Growth Insights"
-                        description="Personalized progression trends and capability evaluation history."
+                        title="My AI Profile"
+                        description="Personalized capability progression and comparative intelligence."
                       />
                       <Surface variant="bordered" radius="lg" padding="lg">
                         <p
                           style={{
-                            margin: 0,
+                            margin: '0 0 16px 0',
                             fontSize: '14px',
                             color: 'var(--aiims-text-secondary, #64748b)',
                           }}
                         >
-                          Insights connect directly to your baseline Assessment and completed
-                          Clarity topics.
+                          Growth Insights has been consolidated into your persistent AI Learner
+                          Profile and AI Wallet.
                         </p>
+                        <Button variant="primary" onClick={() => setActiveTab('analysis')}>
+                          View My AI Profile
+                        </Button>
                       </Surface>
                     </div>
                   )}
@@ -1459,7 +1463,220 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigateTab }) => {
         </div>
       </Surface>
 
-      {/* 5. BACKEND & NETWORK CONNECTIVITY (Mobile & Android Configuration) */}
+      {/* 5. SINGLE-DEVICE BINDING & SECURITY */}
+      <Surface variant="bordered" radius="lg" padding="lg">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <Shield size={18} style={{ color: 'var(--aiims-primary)' }} />
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--aiims-text-heading)' }}>
+            Single-Device Session & Binding Security
+          </div>
+        </div>
+        <p
+          style={{
+            fontSize: '13px',
+            color: 'var(--aiims-text-secondary)',
+            margin: '0 0 16px',
+            lineHeight: 1.5,
+          }}
+        >
+          AIIMS enforces a strict One Account – One Device policy to protect your capability
+          credits, prevent concurrent credential sharing, and safeguard assessment integrity.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '12px',
+            marginBottom: '16px',
+          }}
+        >
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              border: '1px solid var(--aiims-border-subtle)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-muted)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Binding Status
+            </span>
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 800,
+                marginTop: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor:
+                    state.profile.deviceBinding?.bindingStatus === 'BOUND' ? '#10b981' : '#f59e0b',
+                }}
+              />
+              <span
+                style={{
+                  color:
+                    state.profile.deviceBinding?.bindingStatus === 'BOUND'
+                      ? 'var(--aiims-tint-emerald-text)'
+                      : 'var(--aiims-text-heading)',
+                }}
+              >
+                {state.profile.deviceBinding?.bindingStatus === 'BOUND'
+                  ? 'ACTIVE & BOUND'
+                  : 'CURRENT SESSION'}
+              </span>
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              border: '1px solid var(--aiims-border-subtle)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-muted)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Bound Device
+            </span>
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                marginTop: '4px',
+              }}
+            >
+              {state.profile.deviceBinding?.deviceName || 'Current Web Browser'}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              border: '1px solid var(--aiims-border-subtle)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-muted)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Platform / OS
+            </span>
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                marginTop: '4px',
+                textTransform: 'capitalize',
+              }}
+            >
+              {state.profile.deviceBinding?.platform ||
+                (Capacitor.isNativePlatform() ? 'Android' : 'Web Browser')}
+            </div>
+          </div>
+
+          <div
+            style={{
+              padding: '12px 14px',
+              borderRadius: '10px',
+              backgroundColor: 'var(--aiims-bg-subtle)',
+              border: '1px solid var(--aiims-border-subtle)',
+            }}
+          >
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: 'var(--aiims-text-muted)',
+                textTransform: 'uppercase',
+              }}
+            >
+              Bound At
+            </span>
+            <div
+              style={{
+                fontSize: '14px',
+                fontWeight: 800,
+                color: 'var(--aiims-text-heading)',
+                marginTop: '4px',
+              }}
+            >
+              {state.profile.deviceBinding?.boundAt
+                ? new Date(state.profile.deviceBinding.boundAt).toLocaleDateString()
+                : 'Active Session'}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '12px 14px',
+            backgroundColor: 'var(--aiims-tint-indigo-bg)',
+            borderRadius: '10px',
+            border: '1px solid var(--aiims-tint-indigo-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ fontSize: '12.5px', color: 'var(--aiims-primary)', lineHeight: 1.45 }}>
+            <strong>Need to switch to a new laptop or phone?</strong> Sign out from this device to
+            unbind your session, or contact institutional support for a remote device reset.
+          </div>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('AIIMS Device Reset Request - ' + state.profile.email)}&body=${encodeURIComponent('Hello AIIMS Support,\n\nI would like to request a device reset for my account:\nName: ' + state.profile.name + '\nEmail: ' + state.profile.email + '\nUser ID: ' + state.profile.id + '\nReason: Changing devices\n\nThank you.')}`}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--aiims-primary)',
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Mail size={13} /> Request Device Reset
+          </a>
+        </div>
+      </Surface>
+
+      {/* 6. BACKEND & NETWORK CONNECTIVITY (Mobile & Android Configuration) */}
       <Surface variant="bordered" radius="lg" padding="lg">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <Wifi size={18} style={{ color: 'var(--aiims-primary)' }} />

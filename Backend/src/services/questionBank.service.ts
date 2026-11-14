@@ -1,37 +1,16 @@
-import mongoose from 'mongoose';
-import {
-  QuestionBank,
-  IQuestionBank,
-  QuestionLevel,
-  QuestionTrack,
-  QuestionStatus,
-  inMemoryQuestionBank,
-} from '../models/QuestionBank.model';
-import {
-  QuestionAssignment,
-  IQuestionAssignment,
-  inMemoryAssignments,
-} from '../models/QuestionAssignment.model';
-import {
-  QuestionAttempt,
-  IQuestionAttempt,
-  inMemoryAttempts,
-} from '../models/QuestionAttempt.model';
-import {
-  InstitutionExclusionConfig,
-  ExclusionScope,
-  inMemoryExclusionConfig,
-  setInMemoryExclusionConfig,
-} from '../models/InstitutionExclusionConfig.model';
+import { Prisma } from '@prisma/client';
+import { prisma, isDatabaseConnected, isPrismaErrorCode } from '../config/prisma';
+import { QuestionLevel, QuestionTrack, QuestionStatus, ExclusionScope } from '../types/models';
 import { aiQuestionGeneratorService } from './aiQuestionGenerator.service';
 import { initSeedQuestions } from './seedQuestions';
-import { User } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
 import { rubricEvaluatorService } from './rubricEvaluator.service';
 import { creditsLedgerService } from './creditsLedger.service';
 import { calculateFocusChallengeReward, focusChallengeRewardKey } from '../config/credits.config';
+import { isValidId, toArray } from '../utils/id';
+import { toJsonInput } from '../utils/userMapper';
 
 export const TARGET_MINIMUM_PER_LEVEL = 30;
+const GLOBAL_EXCLUSION_KEY = 'GLOBAL_EXCLUSION_POLICY';
 
 export interface ServeQuestionParams {
   learnerId: string;
@@ -65,32 +44,22 @@ export interface QuestionBankCoverageRow {
 }
 
 export class QuestionBankService {
-  constructor() {
-    // Auto-seed baseline questions asynchronously
-    initSeedQuestions().catch(() => {});
-  }
-
-  private isDbConnected(): boolean {
-    return mongoose.connection.readyState === 1;
-  }
-
   /**
-   * Resolves learner's institutional identity from database or User object.
+   * Resolves learner's institutional identity from PostgreSQL database.
    * If learner has no verified college info, returns null (never misclassifies into another institution).
    */
   public async resolveLearnerInstitution(
     learnerId: string,
     providedCollege?: string
   ): Promise<{ college: string | null; cohortId: string | null; batch: string | null }> {
-    if (this.isDbConnected()) {
+    if (isDatabaseConnected() && isValidId(learnerId)) {
       try {
-        const profile = await StudentProfile.findOne({
-          userId: new mongoose.Types.ObjectId(learnerId),
+        const profile = await prisma.studentProfile.findUnique({
+          where: { userId: learnerId },
         });
         if (profile) {
-          const college =
-            profile.instituteName || (profile.instituteId ? String(profile.instituteId) : null);
-          const cohort = profile.cohortId ? String(profile.cohortId) : null;
+          const college = profile.instituteName || profile.instituteId || null;
+          const cohort = profile.cohortId || null;
           const batch = profile.admissionYear ? String(profile.admissionYear) : null;
           return {
             college: college ? college.trim().toUpperCase() : null,
@@ -99,7 +68,10 @@ export class QuestionBankService {
           };
         }
 
-        const user = await User.findById(learnerId);
+        const user = await prisma.user.findUnique({
+          where: { id: learnerId },
+          select: { college: true },
+        });
         if (user && user.college && user.college.trim().length > 0) {
           return {
             college: user.college.trim().toUpperCase(),
@@ -107,8 +79,8 @@ export class QuestionBankService {
             batch: null,
           };
         }
-      } catch (e) {
-        // Fallback to provided info
+      } catch {
+        // Ignore lookup error and fall back to providedCollege if valid
       }
     }
 
@@ -125,23 +97,27 @@ export class QuestionBankService {
   }
 
   /**
-   * Gets the active exclusion configuration.
+   * Gets the active exclusion configuration from PostgreSQL.
    */
   public async getExclusionConfig(): Promise<{ scope: ExclusionScope; exclusionDays: number }> {
-    if (this.isDbConnected()) {
-      try {
-        const configDoc = await InstitutionExclusionConfig.findOne().sort({ updatedAt: -1 });
-        if (configDoc) {
-          return {
-            scope: configDoc.scope,
-            exclusionDays: configDoc.exclusionDays,
-          };
-        }
-      } catch (e) {}
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
+
+    const configDoc = await prisma.institutionExclusionConfig.upsert({
+      where: { configKey: GLOBAL_EXCLUSION_KEY },
+      create: {
+        configKey: GLOBAL_EXCLUSION_KEY,
+        scope: 'college',
+        exclusionDays: 30,
+        updatedBy: 'SYSTEM_DEFAULT',
+      },
+      update: {},
+    });
+
     return {
-      scope: inMemoryExclusionConfig.scope,
-      exclusionDays: inMemoryExclusionConfig.exclusionDays,
+      scope: configDoc.scope as ExclusionScope,
+      exclusionDays: configDoc.exclusionDays,
     };
   }
 
@@ -153,24 +129,29 @@ export class QuestionBankService {
     exclusionDays: number,
     adminId?: string
   ): Promise<{ scope: ExclusionScope; exclusionDays: number; updatedAt: Date }> {
-    if (this.isDbConnected()) {
-      const updated = await InstitutionExclusionConfig.findOneAndUpdate(
-        {},
-        { scope, exclusionDays, updatedBy: adminId, updatedAt: new Date() },
-        { upsert: true, new: true }
-      );
-      return {
-        scope: updated.scope,
-        exclusionDays: updated.exclusionDays,
-        updatedAt: updated.updatedAt,
-      };
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
-    setInMemoryExclusionConfig({ scope, exclusionDays, updatedBy: adminId });
+    const updated = await prisma.institutionExclusionConfig.upsert({
+      where: { configKey: GLOBAL_EXCLUSION_KEY },
+      create: {
+        configKey: GLOBAL_EXCLUSION_KEY,
+        scope,
+        exclusionDays,
+        updatedBy: adminId ?? null,
+      },
+      update: {
+        scope,
+        exclusionDays,
+        updatedBy: adminId ?? null,
+      },
+    });
+
     return {
-      scope: inMemoryExclusionConfig.scope,
-      exclusionDays: inMemoryExclusionConfig.exclusionDays,
-      updatedAt: inMemoryExclusionConfig.updatedAt,
+      scope: updated.scope as ExclusionScope,
+      exclusionDays: updated.exclusionDays,
+      updatedAt: updated.updatedAt,
     };
   }
 
@@ -179,30 +160,23 @@ export class QuestionBankService {
    * Reloading the application does NOT create duplicate assignments.
    */
   public async getCurrentAssignment(learnerId: string): Promise<any | null> {
-    if (this.isDbConnected()) {
-      const active = await QuestionAssignment.findOne({
+    if (!isDatabaseConnected() || !learnerId) return null;
+
+    const active = await prisma.questionAssignment.findFirst({
+      where: {
         learnerId,
-        status: { $in: ['ASSIGNED', 'IN_PROGRESS'] },
-      }).sort({ assignedAt: -1 });
+        status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
+      },
+      orderBy: { assignedAt: 'desc' },
+    });
 
-      if (active) {
-        const question = await QuestionBank.findOne({ questionId: active.questionId });
-        return { assignment: active, question };
-      }
-      return null;
-    }
+    if (!active) return null;
 
-    // In-Memory lookup
-    for (const assignment of inMemoryAssignments.values()) {
-      if (
-        assignment.learnerId === learnerId &&
-        (assignment.status === 'ASSIGNED' || assignment.status === 'IN_PROGRESS')
-      ) {
-        const question = inMemoryQuestionBank.get(assignment.questionId);
-        return { assignment, question };
-      }
-    }
-    return null;
+    const question = await prisma.questionBank.findUnique({
+      where: { questionId: active.questionId },
+    });
+
+    return { assignment: active, question };
   }
 
   /**
@@ -218,6 +192,10 @@ export class QuestionBankService {
     question: any;
     source: 'BANK' | 'AI_GENERATED';
   }> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const track = params.track || 'General'; // Non-Coder Default
 
     // 1. Check if learner already has an ongoing assignment for this topic and level
@@ -297,9 +275,9 @@ export class QuestionBankService {
       topic: candidate.topic,
       level: candidate.level,
       track: candidate.track,
-      college: institution.college || undefined,
-      institutionId: undefined,
-      cohortId: institution.cohortId || undefined,
+      college: institution.college || null,
+      institutionId: null,
+      cohortId: institution.cohortId || null,
       assignedAt: new Date(),
       status: 'ASSIGNED',
     });
@@ -319,18 +297,16 @@ export class QuestionBankService {
     assignment: any;
     reward?: any;
   }> {
-    const { learnerId, assignmentId, answer, timeTakenSeconds, creditTransactionId } = params;
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
+    const { learnerId, assignmentId, answer, creditTransactionId } = params;
 
     // 1. Fetch assignment
-    let assignment: any = null;
-    if (this.isDbConnected()) {
-      assignment = await QuestionAssignment.findOne({ assignmentId, learnerId });
-    } else {
-      assignment = inMemoryAssignments.get(assignmentId);
-      if (assignment && assignment.learnerId !== learnerId) {
-        assignment = null;
-      }
-    }
+    const assignment = await prisma.questionAssignment.findFirst({
+      where: { assignmentId, learnerId },
+    });
 
     if (!assignment) {
       throw new Error('Assignment not found or does not belong to learner.');
@@ -345,12 +321,9 @@ export class QuestionBankService {
     }
 
     // 2. Fetch Question
-    let question: any = null;
-    if (this.isDbConnected()) {
-      question = await QuestionBank.findOne({ questionId: assignment.questionId });
-    } else {
-      question = inMemoryQuestionBank.get(assignment.questionId);
-    }
+    const question = await prisma.questionBank.findUnique({
+      where: { questionId: assignment.questionId },
+    });
 
     if (!question) {
       throw new Error('Assigned question not found in Question Bank.');
@@ -365,7 +338,7 @@ export class QuestionBankService {
         testScenario: question.testScenario,
         expectedCriteria: question.expectedCriteria,
       },
-      rubric: question.scoringRubric,
+      rubric: toArray(question.scoringRubric),
       learnerAnswer: cleanAnswer,
     });
 
@@ -390,7 +363,10 @@ export class QuestionBankService {
     );
 
     // 5. Calculate Reward Tiers (FOCUS_CHALLENGE_RULES)
-    const reward = calculateFocusChallengeReward(assignment.level || 'Easy', serverDurationSeconds);
+    const reward = calculateFocusChallengeReward(
+      (assignment.level as QuestionLevel) || 'Easy',
+      serverDurationSeconds
+    );
     const idempotencyKey = focusChallengeRewardKey(assignmentId);
     let finalTxId: string | undefined = creditTransactionId;
 
@@ -417,52 +393,78 @@ export class QuestionBankService {
 
       if (reward.xp > 0) {
         try {
-          if (this.isDbConnected()) {
-            await User.findByIdAndUpdate(learnerId, { $inc: { xpPoints: reward.xp } });
-          }
+          await prisma.user.update({
+            where: { id: learnerId },
+            data: { xpPoints: { increment: reward.xp } },
+          });
         } catch (xpErr: any) {
           console.warn('[QuestionBank] XP update notice:', xpErr.message);
         }
       }
     }
 
-    // 6. Save Attempt Record (Immutable)
-    const attemptRecord = {
-      attemptId,
-      assignmentId,
-      learnerId,
-      questionId: question.questionId,
-      topic: question.topic,
-      level: question.level,
-      track: question.track,
-      startedAt: assignedAt,
-      submittedAt,
-      submittedAnswer: cleanAnswer,
-      score: normalizedScore,
-      rubricFeedback: rubricScores,
-      overallFeedback,
-      evaluationStatus: 'EVALUATED' as const,
-      timeTakenSeconds: serverDurationSeconds,
-      creditTransactionId: reward.credits > 0 ? finalTxId : undefined,
-    };
+    // 6. Atomically lock assignment and persist immutable attempt record in PostgreSQL
+    const { savedAttempt, updatedAssignment } = await prisma.$transaction(async (tx) => {
+      const lockUpdate = await tx.questionAssignment.updateMany({
+        where: {
+          assignmentId,
+          learnerId,
+          status: { not: 'SUBMITTED' },
+        },
+        data: {
+          status: 'SUBMITTED',
+          completedAt: submittedAt,
+        },
+      });
 
-    let savedAttempt: any = null;
-    if (this.isDbConnected()) {
-      savedAttempt = await QuestionAttempt.create(attemptRecord);
-      assignment.status = 'SUBMITTED';
-      assignment.completedAt = submittedAt;
-      await assignment.save();
-    } else {
-      savedAttempt = attemptRecord;
-      inMemoryAttempts.set(attemptId, attemptRecord);
-      assignment.status = 'SUBMITTED';
-      assignment.completedAt = submittedAt;
-      inMemoryAssignments.set(assignmentId, assignment);
-    }
+      if (lockUpdate.count === 0) {
+        const lockError: any = new Error('This task has already been submitted and is locked.');
+        lockError.code = 'TASK_LOCKED';
+        lockError.status = 409;
+        throw lockError;
+      }
+
+      const attemptRow = await tx.questionAttempt.create({
+        data: {
+          attemptId,
+          assignmentId,
+          learnerId,
+          questionId: question.questionId,
+          topic: question.topic,
+          level: question.level,
+          track: question.track,
+          startedAt: assignedAt,
+          submittedAt,
+          submittedAnswer: cleanAnswer,
+          score: normalizedScore,
+          rubricFeedback: toJsonInput(rubricScores),
+          overallFeedback,
+          evaluationStatus: 'EVALUATED',
+          timeTakenSeconds: serverDurationSeconds,
+          creditTransactionId: reward.credits > 0 ? (finalTxId ?? null) : null,
+        },
+      });
+
+      const refreshedAssignment = await tx.questionAssignment.findUnique({
+        where: { assignmentId },
+      });
+
+      return {
+        savedAttempt: {
+          ...attemptRow,
+          rubricFeedback: toArray(attemptRow.rubricFeedback),
+        },
+        updatedAssignment: refreshedAssignment || {
+          ...assignment,
+          status: 'SUBMITTED',
+          completedAt: submittedAt,
+        },
+      };
+    });
 
     return {
       attempt: savedAttempt,
-      assignment,
+      assignment: updatedAssignment,
       reward,
     };
   }
@@ -474,24 +476,23 @@ export class QuestionBankService {
     learnerId: string,
     filters?: { topic?: string; level?: string }
   ): Promise<any[]> {
-    if (this.isDbConnected()) {
-      const query: any = { learnerId };
-      if (filters?.topic) query.topic = filters.topic;
-      if (filters?.level) query.level = filters.level;
-      return QuestionAttempt.find(query).sort({ submittedAt: -1 }).lean();
+    if (!isDatabaseConnected() || !learnerId) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
-    const results: any[] = [];
-    for (const attempt of inMemoryAttempts.values()) {
-      if (attempt.learnerId === learnerId) {
-        if (filters?.topic && attempt.topic !== filters.topic) continue;
-        if (filters?.level && attempt.level !== filters.level) continue;
-        results.push(attempt);
-      }
-    }
-    return results.sort(
-      (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
-    );
+    const where: Prisma.QuestionAttemptWhereInput = { learnerId };
+    if (filters?.topic) where.topic = filters.topic;
+    if (filters?.level) where.level = filters.level;
+
+    const rows = await prisma.questionAttempt.findMany({
+      where,
+      orderBy: { submittedAt: 'desc' },
+    });
+
+    return rows.map((r) => ({
+      ...r,
+      rubricFeedback: toArray(r.rubricFeedback),
+    }));
   }
 
   /**
@@ -499,7 +500,12 @@ export class QuestionBankService {
    * Reports Question counts and gap to target minimum (30).
    */
   public async getCoverageReport(): Promise<QuestionBankCoverageRow[]> {
-    if (inMemoryQuestionBank.size === 0) {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
+    const totalCount = await prisma.questionBank.count();
+    if (totalCount === 0) {
       await initSeedQuestions();
     }
 
@@ -517,20 +523,15 @@ export class QuestionBankService {
     for (const topic of topics) {
       for (const track of tracks) {
         for (const level of levels) {
-          let questions: any[] = [];
-          let servedCount = 0;
-
-          if (this.isDbConnected()) {
-            questions = await QuestionBank.find({ topic, track, level }).lean();
-            servedCount = await QuestionAssignment.countDocuments({ topic, track, level });
-          } else {
-            questions = Array.from(inMemoryQuestionBank.values()).filter(
-              (q) => q.topic === topic && q.track === track && q.level === level
-            );
-            servedCount = Array.from(inMemoryAssignments.values()).filter(
-              (a) => a.topic === topic && a.track === track && a.level === level
-            ).length;
-          }
+          const [questions, servedCount] = await Promise.all([
+            prisma.questionBank.findMany({
+              where: { topic, track, level },
+              select: { status: true, source: true },
+            }),
+            prisma.questionAssignment.count({
+              where: { topic, track, level },
+            }),
+          ]);
 
           const total = questions.length;
           const approved = questions.filter(
@@ -565,17 +566,15 @@ export class QuestionBankService {
   // --- Helper Methods ---
 
   public async getLearnerServedQuestionIds(learnerId: string): Promise<string[]> {
-    if (this.isDbConnected()) {
-      const assignments = await QuestionAssignment.find({ learnerId }).select('questionId').lean();
-      return assignments.map((a) => a.questionId);
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
-    const ids: string[] = [];
-    for (const a of inMemoryAssignments.values()) {
-      if (a.learnerId === learnerId) {
-        ids.push(a.questionId);
-      }
-    }
-    return ids;
+
+    const assignments = await prisma.questionAssignment.findMany({
+      where: { learnerId },
+      select: { questionId: true },
+    });
+    return assignments.map((a) => a.questionId);
   }
 
   public async getInstitutionExcludedQuestionIds(
@@ -583,31 +582,20 @@ export class QuestionBankService {
     currentLearnerId: string,
     cutoffDate: Date
   ): Promise<string[]> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const cleanCollege = college.trim().toUpperCase();
-
-    if (this.isDbConnected()) {
-      const assignments = await QuestionAssignment.find({
+    const assignments = await prisma.questionAssignment.findMany({
+      where: {
         college: cleanCollege,
-        learnerId: { $ne: currentLearnerId },
-        assignedAt: { $gte: cutoffDate },
-      })
-        .select('questionId')
-        .lean();
-      return assignments.map((a) => a.questionId);
-    }
-
-    const ids: string[] = [];
-    for (const a of inMemoryAssignments.values()) {
-      if (
-        a.college &&
-        a.college.toUpperCase() === cleanCollege &&
-        a.learnerId !== currentLearnerId &&
-        new Date(a.assignedAt).getTime() >= cutoffDate.getTime()
-      ) {
-        ids.push(a.questionId);
-      }
-    }
-    return ids;
+        learnerId: { not: currentLearnerId },
+        assignedAt: { gte: cutoffDate },
+      },
+      select: { questionId: true },
+    });
+    return assignments.map((a) => a.questionId);
   }
 
   public async findEligibleBankQuestion(
@@ -616,87 +604,111 @@ export class QuestionBankService {
     track: QuestionTrack,
     excludedIds: string[]
   ): Promise<any | null> {
-    if (inMemoryQuestionBank.size === 0) {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
+    const totalCount = await prisma.questionBank.count();
+    if (totalCount === 0) {
       await initSeedQuestions();
     }
 
     const activeStatuses: QuestionStatus[] = ['ACTIVE', 'APPROVED'];
 
-    if (this.isDbConnected()) {
-      const candidates = await QuestionBank.find({
-        topic,
-        level,
-        track,
-        status: { $in: activeStatuses },
-        questionId: { $nin: excludedIds },
-      }).lean();
-
-      if (candidates.length === 0) return null;
-      // Select randomly to avoid deterministic ordering for concurrent learners
-      const randomIndex = Math.floor(Math.random() * candidates.length);
-      return candidates[randomIndex];
+    const where: Prisma.QuestionBankWhereInput = {
+      topic,
+      level,
+      track,
+      status: { in: activeStatuses },
+    };
+    if (excludedIds.length > 0) {
+      where.questionId = { notIn: excludedIds };
     }
 
-    const inMemCandidates = Array.from(inMemoryQuestionBank.values()).filter(
-      (q) =>
-        q.topic === topic &&
-        q.level === level &&
-        q.track === track &&
-        activeStatuses.includes(q.status) &&
-        !excludedIds.includes(q.questionId)
-    );
+    const candidates = await prisma.questionBank.findMany({ where });
 
-    if (inMemCandidates.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * inMemCandidates.length);
-    return inMemCandidates[randomIndex];
+    if (candidates.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * candidates.length);
+    return candidates[randomIndex];
   }
 
   public async getAllQuestionsForTopic(topic: string): Promise<any[]> {
-    if (this.isDbConnected()) {
-      return QuestionBank.find({ topic }).lean();
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
-    if (inMemoryQuestionBank.size === 0) {
-      await initSeedQuestions();
-    }
-    return Array.from(inMemoryQuestionBank.values()).filter((q) => q.topic === topic);
+
+    return prisma.questionBank.findMany({ where: { topic } });
   }
 
   public async saveQuestion(questionData: any): Promise<any> {
-    if (this.isDbConnected()) {
-      return QuestionBank.create(questionData);
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
-    inMemoryQuestionBank.set(questionData.questionId, questionData);
-    return questionData;
+
+    const payload = {
+      questionId: questionData.questionId,
+      topic: questionData.topic,
+      level: questionData.level,
+      track: questionData.track || 'General',
+      title: questionData.title,
+      promptText: questionData.promptText,
+      hint: questionData.hint ?? null,
+      testScenario: questionData.testScenario,
+      expectedCriteria: Array.isArray(questionData.expectedCriteria)
+        ? questionData.expectedCriteria
+        : [],
+      scoringRubric: toJsonInput(questionData.scoringRubric || []),
+      source: questionData.source || 'Human',
+      status: questionData.status || 'ACTIVE',
+      version: questionData.version || 1,
+      aiMetadata: questionData.aiMetadata ? toJsonInput(questionData.aiMetadata) : Prisma.DbNull,
+      createdBy: questionData.createdBy ?? null,
+      reviewedBy: questionData.reviewedBy ?? null,
+      reviewedAt: questionData.reviewedAt ?? null,
+      reviewNotes: questionData.reviewNotes ?? null,
+    };
+
+    return prisma.questionBank.upsert({
+      where: { questionId: questionData.questionId },
+      update: {},
+      create: payload,
+    });
   }
 
   public async createAssignment(assignmentData: any): Promise<any> {
-    if (this.isDbConnected()) {
-      try {
-        return await QuestionAssignment.create(assignmentData);
-      } catch (err: any) {
-        if (err.code === 11000) {
-          // Unique index collision: return existing
-          return QuestionAssignment.findOne({
-            learnerId: assignmentData.learnerId,
-            questionId: assignmentData.questionId,
-          });
-        }
-        throw err;
-      }
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
-    // In-memory unique check on (learnerId, questionId)
-    for (const existing of inMemoryAssignments.values()) {
-      if (
-        existing.learnerId === assignmentData.learnerId &&
-        existing.questionId === assignmentData.questionId
-      ) {
-        return existing;
+    try {
+      return await prisma.questionAssignment.create({
+        data: {
+          assignmentId: assignmentData.assignmentId,
+          learnerId: assignmentData.learnerId,
+          questionId: assignmentData.questionId,
+          topic: assignmentData.topic,
+          level: assignmentData.level,
+          track: assignmentData.track || 'General',
+          college: assignmentData.college ?? null,
+          institutionId: assignmentData.institutionId ?? null,
+          cohortId: assignmentData.cohortId ?? null,
+          assignedAt: assignmentData.assignedAt || new Date(),
+          status: assignmentData.status || 'ASSIGNED',
+        },
+      });
+    } catch (err: unknown) {
+      if (isPrismaErrorCode(err, 'P2002')) {
+        return prisma.questionAssignment.findUnique({
+          where: {
+            learnerId_questionId: {
+              learnerId: assignmentData.learnerId,
+              questionId: assignmentData.questionId,
+            },
+          },
+        });
       }
+      throw err;
     }
-
-    inMemoryAssignments.set(assignmentData.assignmentId, assignmentData);
-    return assignmentData;
   }
 }
 

@@ -1,7 +1,7 @@
 /**
  * testPhase2A.ts
  * ==========================================
- * Phase 2A Test Suite
+ * Phase 2A Test Suite (PostgreSQL + Prisma)
  *
  * Tests:
  *  1.  New candidate → created as DISCOVERED (inactive)
@@ -18,22 +18,15 @@
  *  12. Invalid candidate (missing name) → rejected, error counted
  *  13. Existing 12 seeded tools are VERIFIED_SEED, active, untouched
  *
- * Usage (DB must be running, or tests run in offline mode):
+ * Usage:
  *   npx ts-node src/scripts/testPhase2A.ts
  */
 
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import path from 'path';
-import { mockToolCatalog } from '../models/aiims.models';
-import { AIToolModel } from '../models/aiTool.model';
-import { ToolEvidenceModel } from '../models/toolEvidence.model';
-import { ToolVersionHistoryModel } from '../models/toolVersionHistory.model';
-import { ToolDiscoveryRunModel } from '../models/ToolDiscoveryRun.model';
+import { SEED_TOOL_CATALOG } from '../data/aiimsCatalog';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { ToolDiscoveryService, ToolCandidate } from '../services/toolDiscovery.service';
 import { ToolVerificationService } from '../services/toolVerification.service';
-
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // ==========================================
 // TEST HARNESS
@@ -89,7 +82,6 @@ const UPDATED_CANDIDATE: ToolCandidate = {
 
 // ==========================================
 // OFFLINE (non-DB) SERVICE TESTS
-// These test the service logic without requiring MongoDB.
 // ==========================================
 
 async function runOfflineTests(discoveryService: ToolDiscoveryService): Promise<void> {
@@ -154,79 +146,99 @@ async function runDbTests(
 ): Promise<void> {
   console.log('\n── DB-backed Tests ──────────────────────────────────────────────');
 
+  // Seed default 12 catalog tools if not present
+  for (const tool of SEED_TOOL_CATALOG) {
+    await prisma.aiTool.upsert({
+      where: { id: tool.id },
+      create: {
+        id: tool.id,
+        name: tool.name,
+        category: tool.category,
+        description: tool.description,
+        capabilities: [...tool.capabilities],
+        useCases: [...tool.useCases],
+        pricing: tool.pricing,
+        websiteUrl: tool.websiteUrl,
+        officialWebsite: tool.websiteUrl || 'https://aiims.test',
+        pricingDetails: { model: tool.pricing || 'Free' },
+        firstSeenAt: new Date().toISOString(),
+        lastVerifiedAt: new Date().toISOString(),
+        lastUpdatedAt: new Date().toISOString(),
+        activeStatus: true,
+        verificationStatus: 'VERIFIED_SEED',
+        provider: tool.provider,
+      },
+      update: {},
+    });
+  }
+
   // Clean up any leftover test data from previous runs
-  await AIToolModel.deleteMany({ id: 'tool-test-nova' });
-  await ToolEvidenceModel.deleteMany({ toolId: 'tool-test-nova' });
-  await ToolVersionHistoryModel.deleteMany({ toolId: 'tool-test-nova' });
+  await prisma.aiTool.deleteMany({ where: { id: 'tool-test-nova' } });
+  await prisma.toolEvidence.deleteMany({ where: { toolId: 'tool-test-nova' } });
+  await prisma.toolVersionHistory.deleteMany({ where: { toolId: 'tool-test-nova' } });
 
   // ── T5: Discovery Run Lifecycle ────────────────────────────────────
   const run = await discoveryService.createRun('ADAPTER');
   assert('T5: Discovery run created with RUNNING status', run.status === 'RUNNING');
-  assert('T5b: Discovery run has _id', !!run._id);
+  assert('T5b: Discovery run has id', !!run.id);
 
   // ── T6: New Tool Discovery ─────────────────────────────────────────
-  const result = await discoveryService.processCandidates([TEST_CANDIDATE], String(run._id));
+  const result = await discoveryService.processCandidates([TEST_CANDIDATE], String(run.id));
   assert('T6: Run completed successfully', result.status === 'COMPLETED');
   assert('T6b: 1 new tool discovered', result.newToolsCount === 1);
   assert('T6c: 0 errors', result.errorCount === 0);
 
   // Verify the tool was created as DISCOVERED, NOT active
-  const createdTool = await AIToolModel.findOne({ id: 'tool-test-nova' }).lean();
+  const createdTool = await prisma.aiTool.findUnique({ where: { id: 'tool-test-nova' } });
   assert('T6d: Created tool exists in DB', !!createdTool);
   assert(
     'T6e: Created tool has verificationStatus DISCOVERED',
-    (createdTool as any)?.verificationStatus === 'DISCOVERED'
+    createdTool?.verificationStatus === 'DISCOVERED'
   );
   assert(
     'T6f: Created tool is NOT active (requires verification)',
-    (createdTool as any)?.activeStatus === false
+    createdTool?.activeStatus === false
   );
 
-  // ── T7: Evidence Stored ────────────────────────────────────────────
-  const evidenceDocs = await ToolEvidenceModel.find({ toolId: 'tool-test-nova' }).lean();
+  // ── T7: Evidence Stored ────────────────────────────────────
+  const evidenceDocs = await prisma.toolEvidence.findMany({ where: { toolId: 'tool-test-nova' } });
   assert('T7: Evidence document was stored', evidenceDocs.length === 1);
-  assert(
-    'T7b: Evidence starts as PENDING',
-    (evidenceDocs[0] as any).verificationStatus === 'PENDING'
-  );
+  assert('T7b: Evidence starts as PENDING', evidenceDocs[0]?.verificationStatus === 'PENDING');
   assert(
     'T7c: Evidence has correct sourceType',
-    (evidenceDocs[0] as any).sourceType === 'OFFICIAL_WEBSITE'
+    evidenceDocs[0]?.sourceType === 'OFFICIAL_WEBSITE'
   );
 
   // ── T8: Version History on New Tool ───────────────────────────────
-  const history = await ToolVersionHistoryModel.find({ toolId: 'tool-test-nova' }).lean();
+  const history = await prisma.toolVersionHistory.findMany({ where: { toolId: 'tool-test-nova' } });
   assert('T8: NEW_TOOL history entry was recorded', history.length >= 1);
-  assert(
-    'T8b: History entry changeType is NEW_TOOL',
-    (history[0] as any).changeType === 'NEW_TOOL'
-  );
+  assert('T8b: History entry changeType is NEW_TOOL', history[0]?.changeType === 'NEW_TOOL');
 
   // ── T9: Duplicate Detection (exact slug) ──────────────────────────
   const run2 = await discoveryService.createRun('ADAPTER');
-  const result2 = await discoveryService.processCandidates([TEST_CANDIDATE], String(run2._id));
-  // Same candidateId, same websiteUrl, same provider+name → should be duplicate
+  const result2 = await discoveryService.processCandidates([TEST_CANDIDATE], String(run2.id));
   assert(
     'T9: Exact duplicate (same candidateId) is not duplicated in DB',
     result2.duplicateCount === 1
   );
   assert('T9b: No new tools created for duplicate', result2.newToolsCount === 0);
 
-  const toolCount = await AIToolModel.countDocuments({ id: 'tool-test-nova' });
+  const toolCount = await prisma.aiTool.count({ where: { id: 'tool-test-nova' } });
   assert('T9c: Only 1 AITool record for this tool in DB', toolCount === 1);
 
   // ── T10: Update Detected (pricing changed) ────────────────────────
   const run3 = await discoveryService.createRun('ADAPTER');
-  const result3 = await discoveryService.processCandidates([UPDATED_CANDIDATE], String(run3._id));
+  const result3 = await discoveryService.processCandidates([UPDATED_CANDIDATE], String(run3.id));
   assert('T10: Pricing update detected', result3.updatedToolsCount === 1);
 
-  const updatedHistory = await ToolVersionHistoryModel.find({ toolId: 'tool-test-nova' }).lean();
-  const pricingHistory = updatedHistory.find((h: any) => h.changeType === 'PRICING_UPDATE');
+  const updatedHistory = await prisma.toolVersionHistory.findMany({
+    where: { toolId: 'tool-test-nova' },
+  });
+  const pricingHistory = updatedHistory.find((h) => h.changeType === 'PRICING_UPDATE');
   assert('T10b: PRICING_UPDATE version history entry recorded', !!pricingHistory);
 
   // ── T11: Verification — No Accepted Evidence → DISCOVERED ─────────
   const verifyResult = await verificationService.verifyTool('tool-test-nova');
-  // Evidence is still PENDING, so no accepted evidence yet
   assert(
     'T11: Tool with only PENDING evidence stays DISCOVERED or UNVERIFIED',
     verifyResult.status === 'DISCOVERED' || verifyResult.status === 'UNVERIFIED'
@@ -237,11 +249,10 @@ async function runDbTests(
   );
 
   // ── T12: Accept Evidence → Tool becomes VERIFIED ──────────────────
-  const evidenceDoc = await ToolEvidenceModel.findOne({ toolId: 'tool-test-nova' });
+  const evidenceDoc = await prisma.toolEvidence.findFirst({ where: { toolId: 'tool-test-nova' } });
   if (evidenceDoc) {
-    const verifyResult2 = await verificationService.acceptEvidence(String(evidenceDoc._id));
+    const verifyResult2 = await verificationService.acceptEvidence(String(evidenceDoc.id));
     assert('T12: acceptEvidence returns a VerificationResult', !!verifyResult2);
-    // Coverage may be partial (depends on keyword matching), so just check it increased
     assert(
       'T12b: Evidence coverage > 0 after accepting evidence',
       (verifyResult2?.evidenceCoverage || 0) > 0
@@ -254,42 +265,42 @@ async function runDbTests(
   const run4 = await discoveryService.createRun('ADAPTER');
   const invalidResult = await discoveryService.processCandidates(
     [{ candidateId: '', name: '', confidence: 0 }],
-    String(run4._id)
+    String(run4.id)
   );
   assert('T13: Invalid candidate (empty name/id) is rejected', invalidResult.rejectedCount === 1);
   assert('T13b: Error is recorded in run', invalidResult.errors.length > 0);
 
   // ── T14: Existing 12 Seeded Tools Are Untouched ───────────────────
-  const seededIds = mockToolCatalog.map((t) => t.id);
-  const seededTools = await AIToolModel.find({ id: { $in: seededIds } }).lean<any[]>();
+  const seededIds = SEED_TOOL_CATALOG.map((t) => t.id);
+  const seededTools = await prisma.aiTool.findMany({ where: { id: { in: seededIds } } });
   const allSeeded = seededTools.length === seededIds.length;
   assert(`T14: All ${seededIds.length} seeded tools still exist`, allSeeded);
 
   const allVerifiedSeed = seededTools.every(
-    (t) =>
+    (t: any) =>
       !t.verificationStatus ||
       t.verificationStatus === 'VERIFIED_SEED' ||
       t.verificationStatus === 'VERIFIED'
   );
-  // Note: tools seeded before Phase 2A won't have verificationStatus set yet
-  // (schema default is VERIFIED_SEED, so they either have it or default)
   assert(
     'T14b: Seeded tools have VERIFIED_SEED or VERIFIED status (or schema default)',
     allVerifiedSeed
   );
 
   const allActive = seededTools
-    .filter((t) => t.activeStatus !== undefined)
-    .every((t) => t.activeStatus !== false);
+    .filter((t: any) => t.activeStatus !== undefined)
+    .every((t: any) => t.activeStatus !== false);
   assert('T14c: Seeded tools remain active', allActive || seededTools.length === 0);
 
   // Clean up test data
-  await AIToolModel.deleteMany({ id: 'tool-test-nova' });
-  await ToolEvidenceModel.deleteMany({ toolId: 'tool-test-nova' });
-  await ToolVersionHistoryModel.deleteMany({ toolId: 'tool-test-nova' });
-  await ToolDiscoveryRunModel.deleteMany({
-    source: 'ADAPTER',
-    startedAt: { $gte: new Date(Date.now() - 60000) },
+  await prisma.aiTool.deleteMany({ where: { id: 'tool-test-nova' } });
+  await prisma.toolEvidence.deleteMany({ where: { toolId: 'tool-test-nova' } });
+  await prisma.toolVersionHistory.deleteMany({ where: { toolId: 'tool-test-nova' } });
+  await prisma.toolDiscoveryRun.deleteMany({
+    where: {
+      source: 'ADAPTER',
+      startedAt: { gte: new Date(Date.now() - 60000) },
+    },
   });
 }
 
@@ -299,7 +310,7 @@ async function runDbTests(
 
 async function main(): Promise<void> {
   console.log('═══════════════════════════════════════════════════════════');
-  console.log('  AIIMS Phase 2A — Test Suite');
+  console.log('  AIIMS Phase 2A — Test Suite (PostgreSQL + Prisma)');
   console.log('═══════════════════════════════════════════════════════════');
 
   const discoveryService = new ToolDiscoveryService();
@@ -308,22 +319,12 @@ async function main(): Promise<void> {
   // Always run offline tests (no DB needed)
   await runOfflineTests(discoveryService);
 
-  const MONGO_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
-  if (MONGO_URI) {
-    try {
-      console.log('\n🌱  Connecting to MongoDB for DB-backed tests...');
-      await mongoose.connect(MONGO_URI);
-      console.log('✅  Connected\n');
-      await runDbTests(discoveryService, verificationService);
-    } catch (err: any) {
-      console.error(`\n⚠️  DB connection failed: ${err.message}`);
-      console.log('   Skipping DB-backed tests — offline tests only.\n');
-    } finally {
-      await mongoose.disconnect();
-    }
-  } else {
-    console.log('\n⚠️  MONGO_URI not set — skipping DB-backed tests.');
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
+
+  await runDbTests(discoveryService, verificationService);
+  await disconnectDatabase();
 
   // ── Summary ─────────────────────────────────────────────────────────
   console.log('\n═══════════════════════════════════════════════════════════');

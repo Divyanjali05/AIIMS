@@ -19,14 +19,9 @@
  *   npx ts-node src/scripts/testPhase2Fix1.ts
  */
 
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-import { AIToolModel } from '../models/aiTool.model';
-import { User } from '../models/User.model';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
+import { userRecordToIUser } from '../utils/userMapper';
 import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
 import { ToolSourceService } from '../services/wallet/toolSource.service';
 import { ToolVerificationService } from '../services/wallet/toolVerification.service';
@@ -57,25 +52,15 @@ function assert(label: string, condition: boolean, detail?: string): void {
 
 async function runTests(): Promise<void> {
   console.log('===============================================================');
-  console.log('🧪 AIIMS PHASE 2 FIX 1: VERIFICATION, ACTIVATION & INTEGRITY');
+  console.log('🧪 AIIMS PHASE 2 FIX 1: VERIFICATION, ACTIVATION & INTEGRITY (PostgreSQL + Prisma)');
   console.log('===============================================================\n');
 
-  // Connect to MongoDB
-  const mongoUri = process.env.MONGODB_URI;
-  if (!mongoUri) {
-    throw new Error('MONGODB_URI not found in environment');
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
 
-  try {
-    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 2000 });
-    console.log('🌿 Connected to MongoDB Atlas.\n');
-    await ToolCatalogService.cleanInvalidDiscoveryRecords();
-    await ToolCatalogService.syncFromDatabase();
-  } catch (err: any) {
-    console.warn(
-      `⚠️  MongoDB Atlas offline notice (${err.message}). Running catalog verification in offline mode.\n`
-    );
-  }
+  await ToolCatalogService.cleanInvalidDiscoveryRecords();
+  await ToolCatalogService.syncFromDatabase();
 
   // -------------------------------------------------------------------------
   // TEST A: New unverified candidate cannot become publicly active
@@ -392,13 +377,13 @@ async function runTests(): Promise<void> {
   // -------------------------------------------------------------------------
   // TEST H: Catalog API reads from MongoDB
   // -------------------------------------------------------------------------
-  console.log('\n── TEST H: MongoDB Catalog Authoritative Source ──────────────');
-  if (mongoose.connection.readyState === 1) {
-    const dbDocCount = await AIToolModel.countDocuments();
+  console.log('\n── TEST H: PostgreSQL Catalog Authoritative Source ──────────');
+  if (isDatabaseConnected()) {
+    const dbDocCount = await prisma.aiTool.count();
     const catalogCount = ToolCatalogService.getCatalog().length;
-    assert('H.1: MongoDB contains tools collection', dbDocCount > 0, `dbDocCount=${dbDocCount}`);
+    assert('H.1: PostgreSQL contains tools collection', dbDocCount > 0, `dbDocCount=${dbDocCount}`);
     assert(
-      'H.2: ToolCatalogService synchronized with MongoDB',
+      'H.2: ToolCatalogService synchronized with PostgreSQL',
       catalogCount === dbDocCount,
       `catalogCount=${catalogCount}, dbDocCount=${dbDocCount}`
     );
@@ -413,24 +398,28 @@ async function runTests(): Promise<void> {
     console.log('\n── TEST I: User-Specific Wallet Isolation ────────────────────');
     const testUserId = `test-user-${Date.now()}`;
     const testUserEmail = `${testUserId}@example.com`;
-    await User.create({
-      name: 'Test Wallet User',
-      email: testUserEmail,
-      password: 'password123',
-      aiWallet: {
-        userTools: [
-          {
-            toolId: 'tool-notebooklm',
-            familiarity: 'practicing',
-            primaryCategory: 'Research & RAG',
-            addedAt: '2026-10-09',
-          },
-        ],
-        dismissedRecommendations: [],
+    await prisma.user.create({
+      data: {
+        id: testUserId,
+        name: 'Test Wallet User',
+        email: testUserEmail,
+        password: 'password123',
+        aiWalletData: {
+          userTools: [
+            {
+              toolId: 'tool-notebooklm',
+              familiarity: 'practicing',
+              primaryCategory: 'Research & RAG',
+              addedAt: '2026-10-09',
+            },
+          ],
+          dismissedRecommendations: [],
+        },
       },
     });
 
-    const fetchedUser = await User.findOne({ email: testUserEmail }).lean();
+    const userRow = await prisma.user.findUnique({ where: { email: testUserEmail } });
+    const fetchedUser = userRow ? userRecordToIUser(userRow) : null;
     assert(
       'I.1: User document stores personal aiWallet tool kit',
       fetchedUser?.aiWallet?.userTools?.length === 1
@@ -441,7 +430,7 @@ async function runTests(): Promise<void> {
     );
 
     // Clean up test user
-    await User.deleteOne({ email: testUserEmail });
+    await prisma.user.delete({ where: { email: testUserEmail } });
   } else {
     const catalogCount = ToolCatalogService.getCatalog().length;
     assert(
@@ -516,7 +505,7 @@ async function runTests(): Promise<void> {
   }
   console.log('===============================================================\n');
 
-  await mongoose.disconnect();
+  await disconnectDatabase();
 
   if (failed > 0) {
     process.exit(1);

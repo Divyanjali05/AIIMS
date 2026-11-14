@@ -26,10 +26,42 @@ export const claritySubmitSchema = z.object({
   idempotencyKey: z.string().trim().max(128).optional(),
 });
 
-export const clarityActiveTaskSchema = z.object({
-  topic: z.string().trim().min(1, 'topic cannot be empty'),
-  level: z.enum(['Easy', 'Medium', 'Hard']).optional(),
+export const clarityStartAttemptSchema = z.object({
+  questionId: z.string().trim().min(1, 'questionId cannot be empty'),
+});
+
+export const clarityAdminCreateQuestionSchema = z.object({
+  questionId: z.string().trim().min(1).optional(),
+  topic: z.string().trim().min(1, 'topic is required'),
+  level: z.enum(['Easy', 'Medium', 'Hard']),
   track: z.enum(['General', 'Coder']).optional().default('General'),
+  title: z.string().trim().min(3, 'title must have at least 3 characters'),
+  promptText: z.string().trim().min(10, 'promptText must have at least 10 characters'),
+  hint: z.string().trim().optional(),
+  testScenario: z.string().trim().min(10, 'testScenario must have at least 10 characters'),
+  expectedCriteria: z
+    .array(z.string().trim().min(1))
+    .min(1, 'At least 1 expected criterion is required'),
+  scoringRubric: z
+    .array(
+      z.object({
+        criterion: z.string().trim().min(1),
+        maxScore: z.number().int().positive(),
+        description: z.string().trim().min(1),
+      })
+    )
+    .min(1, 'At least 1 rubric criterion is required'),
+  status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'REJECTED', 'ACTIVE']).optional().default('DRAFT'),
+  source: z.enum(['Human', 'AI']).optional().default('Human'),
+  aiMetadata: z.record(z.string(), z.unknown()).optional(),
+  reviewNotes: z.string().trim().optional(),
+});
+
+export const clarityAdminUpdateQuestionSchema = clarityAdminCreateQuestionSchema.partial();
+
+export const clarityAdminUpdateStatusSchema = z.object({
+  status: z.enum(['DRAFT', 'REVIEW', 'APPROVED', 'REJECTED', 'ACTIVE']),
+  note: z.string().trim().max(1000).optional(),
 });
 
 export const clarityProgressionConfigSchema = z

@@ -12,13 +12,19 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'http';
 import { AddressInfo } from 'net';
-import mongoose from 'mongoose';
 import { app } from '../../server';
+import { checkDatabaseHealth, setDatabaseConnected } from '../../config/prisma';
+import { installPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 let server: http.Server;
 let baseUrl: string;
+let originalDatabaseUrl: string | undefined;
 
 beforeAll(async () => {
+  originalDatabaseUrl = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = 'postgresql://vitest:vitest@localhost:5432/aiims_vitest';
+  installPrismaTestDouble({ connected: true });
+
   server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address() as AddressInfo;
@@ -29,10 +35,17 @@ afterAll(async () => {
   if (server) {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
+  uninstallPrismaTestDouble();
+  if (originalDatabaseUrl === undefined) {
+    delete process.env.DATABASE_URL;
+  } else {
+    process.env.DATABASE_URL = originalDatabaseUrl;
+  }
 });
 
 describe('Production Observability & Health Check Endpoints', () => {
   it('GET /health returns HTTP 200 with public status and no internal secrets', async () => {
+    setDatabaseConnected(true);
     const res = await fetch(`${baseUrl}/health`);
     expect(res.status).toBe(200);
 
@@ -42,10 +55,12 @@ describe('Production Observability & Health Check Endpoints', () => {
     expect(body.version).toBeDefined();
     expect(body.database).toBeDefined();
     expect(typeof body.database.connected).toBe('boolean');
-    expect(['mongodb', 'fallback']).toContain(body.database.mode);
+    expect(body.database.mode).toBe('postgresql');
 
     // Strict leak checks: no secrets, connection strings, passwords, or tokens in health response
     const jsonStr = JSON.stringify(body);
+    expect(jsonStr).not.toContain('postgresql://');
+    expect(jsonStr).not.toContain('postgres://');
     expect(jsonStr).not.toContain('mongodb://');
     expect(jsonStr).not.toContain('mongodb+srv://');
     expect(jsonStr).not.toContain('password');
@@ -59,34 +74,40 @@ describe('Production Observability & Health Check Endpoints', () => {
     const body = await res.json();
     expect(body.status).toBe('ok');
     expect(body.service).toBe('AIIMS Backend API');
+    expect(body.database.mode).toBe('postgresql');
   });
 
-  it('GET /ready returns HTTP 200 when database is connected or 503 when disconnected', async () => {
-    const res = await fetch(`${baseUrl}/ready`);
-    const isDbConnected = mongoose.connection.readyState === 1;
+  it('GET /ready returns HTTP 200 when PostgreSQL is connected and 503 when disconnected', async () => {
+    setDatabaseConnected(true);
+    const health = await checkDatabaseHealth();
+    expect(health.connected).toBe(true);
 
-    if (isDbConnected) {
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.status).toBe('ready');
-      expect(body.database).toBe('connected');
-    } else {
-      expect(res.status).toBe(503);
-      const body = await res.json();
-      expect(body.status).toBe('not_ready');
-      expect(body.database).toBe('disconnected');
-    }
+    const readyRes = await fetch(`${baseUrl}/ready`);
+    expect(readyRes.status).toBe(200);
+    const readyBody = await readyRes.json();
+    expect(readyBody.status).toBe('ready');
+    expect(readyBody.database).toBe('connected');
+
+    setDatabaseConnected(false);
+    const disconnectedRes = await fetch(`${baseUrl}/ready`);
+    expect(disconnectedRes.status).toBe(503);
+    const disconnectedBody = await disconnectedRes.json();
+    expect(disconnectedBody.status).toBe('not_ready');
+    expect(disconnectedBody.database).toBe('disconnected');
+
+    setDatabaseConnected(true);
   });
 
   it('GET /api/ready mirrors /ready readiness semantics', async () => {
-    const res = await fetch(`${baseUrl}/api/ready`);
-    const isDbConnected = mongoose.connection.readyState === 1;
+    setDatabaseConnected(true);
+    const connectedRes = await fetch(`${baseUrl}/api/ready`);
+    expect(connectedRes.status).toBe(200);
 
-    if (isDbConnected) {
-      expect(res.status).toBe(200);
-    } else {
-      expect(res.status).toBe(503);
-    }
+    setDatabaseConnected(false);
+    const disconnectedRes = await fetch(`${baseUrl}/api/ready`);
+    expect(disconnectedRes.status).toBe(503);
+
+    setDatabaseConnected(true);
   });
 
   it('rejects oversized JSON request bodies (>1MB) with HTTP 413 Payload Too Large', async () => {

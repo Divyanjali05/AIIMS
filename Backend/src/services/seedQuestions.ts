@@ -1,10 +1,9 @@
-import {
-  QuestionBank,
-  inMemoryQuestionBank,
-  QuestionLevel,
-  QuestionTrack,
-} from '../models/QuestionBank.model';
-import mongoose from 'mongoose';
+import { prisma, isDatabaseConnected } from '../config/prisma';
+import { QuestionLevel, QuestionTrack } from '../types/models';
+import { SEED_INSTITUTES, DEFAULT_TASKS } from '../data/aiimsCatalog';
+import { toJsonInput } from '../utils/userMapper';
+import { CLARITY_30_APPROVED_QUESTIONS } from '../data/clarityQuestionBank';
+import { FOCUS_45_APPROVED_QUESTIONS } from '../data/focusQuestionBank';
 
 export interface SeedQuestionDefinition {
   questionId: string;
@@ -44,6 +43,38 @@ export const BASELINE_SEED_QUESTIONS: SeedQuestionDefinition[] = [
         criterion: 'Threshold Identification',
         maxScore: 50,
         description: 'Noticed the $50 requirement',
+      },
+      {
+        criterion: 'Clear Verdict',
+        maxScore: 50,
+        description: 'Provides definitive verification status',
+      },
+    ],
+    source: 'Human',
+    status: 'ACTIVE',
+    version: 1,
+  },
+  {
+    questionId: 'qb-check-easy-02',
+    topic: 'Checking AI',
+    level: 'Easy',
+    track: 'General',
+    title: 'Customer Return Window Verification',
+    promptText:
+      'Review the customer service return response against the store policy. Determine if the return eligibility was calculated correctly.',
+    hint: 'Check the date difference between purchase and return request.',
+    testScenario:
+      'Purchase Date: October 1. Return Requested: October 20.\nStore Policy: "Items may be returned within 14 days of purchase for a full refund."',
+    expectedCriteria: [
+      'Calculates that 19 days elapsed between purchase and return request',
+      'Identifies that the 19 days exceeds the 14-day return window',
+      'States clearly that the return should be rejected under standard policy',
+    ],
+    scoringRubric: [
+      {
+        criterion: 'Threshold Identification',
+        maxScore: 50,
+        description: 'Noticed the 14-day limit requirement',
       },
       {
         criterion: 'Clear Verdict',
@@ -426,28 +457,173 @@ export const BASELINE_SEED_QUESTIONS: SeedQuestionDefinition[] = [
 ];
 
 /**
- * Initializes baseline seed questions in memory and in MongoDB if connected.
+ * Seeds baseline questions into PostgreSQL if not already present.
  */
 export async function initSeedQuestions(): Promise<number> {
-  // 1. Populate in-memory map
-  for (const q of BASELINE_SEED_QUESTIONS) {
-    inMemoryQuestionBank.set(q.questionId, q);
+  if (!isDatabaseConnected()) {
+    return 0;
   }
 
-  // 2. If MongoDB is connected, upsert seed questions
-  if (mongoose.connection.readyState === 1) {
-    try {
-      for (const q of BASELINE_SEED_QUESTIONS) {
-        await QuestionBank.findOneAndUpdate(
-          { questionId: q.questionId },
-          { $setOnInsert: q },
-          { upsert: true, new: true }
-        );
-      }
-    } catch (e: any) {
-      console.warn('[QuestionBank] Seed question sync notice:', e.message);
+  let synced = 0;
+  try {
+    for (const q of BASELINE_SEED_QUESTIONS) {
+      await prisma.questionBank.upsert({
+        where: { questionId: q.questionId },
+        create: {
+          questionId: q.questionId,
+          topic: q.topic,
+          level: q.level,
+          track: q.track,
+          title: q.title,
+          promptText: q.promptText,
+          hint: q.hint ?? null,
+          testScenario: q.testScenario,
+          expectedCriteria: q.expectedCriteria,
+          scoringRubric: toJsonInput(q.scoringRubric),
+          source: q.source,
+          status: q.status,
+          version: q.version,
+        },
+        update: {},
+      });
+      synced++;
     }
+
+    for (const q of CLARITY_30_APPROVED_QUESTIONS) {
+      await prisma.questionBank.upsert({
+        where: { questionId: q.questionId },
+        create: {
+          questionId: q.questionId,
+          topic: q.topic,
+          level: q.level,
+          track: q.track,
+          title: q.title,
+          promptText: q.promptText,
+          hint: q.hint ?? null,
+          testScenario: q.testScenario,
+          expectedCriteria: q.expectedCriteria,
+          scoringRubric: toJsonInput(q.scoringRubric),
+          aiMetadata: toJsonInput(q.aiMetadata),
+          source: q.source,
+          status: q.status,
+          version: q.version,
+          reviewedBy: q.reviewedBy,
+          reviewedAt: new Date(q.reviewedAt),
+          reviewNotes: q.reviewNotes,
+        },
+        update: {
+          topic: q.topic,
+          level: q.level,
+          track: q.track,
+          title: q.title,
+          promptText: q.promptText,
+          hint: q.hint ?? null,
+          testScenario: q.testScenario,
+          expectedCriteria: q.expectedCriteria,
+          scoringRubric: toJsonInput(q.scoringRubric),
+          aiMetadata: toJsonInput(q.aiMetadata),
+          status: q.status,
+          version: q.version,
+          reviewedBy: q.reviewedBy,
+          reviewedAt: new Date(q.reviewedAt),
+          reviewNotes: q.reviewNotes,
+        },
+      });
+      synced++;
+    }
+
+    for (const q of FOCUS_45_APPROVED_QUESTIONS) {
+      await prisma.questionBank.upsert({
+        where: { questionId: q.questionId },
+        create: {
+          questionId: q.questionId,
+          topic: q.topic,
+          level: q.level,
+          track: q.track,
+          title: q.title,
+          promptText: q.promptText,
+          hint: q.hint ?? null,
+          testScenario: q.testScenario,
+          expectedCriteria: q.expectedCriteria,
+          scoringRubric: toJsonInput(q.scoringRubric),
+          aiMetadata: toJsonInput(q.aiMetadata),
+          source: q.source,
+          status: q.status,
+          version: q.version,
+          reviewedBy: q.reviewedBy,
+          reviewedAt: new Date(q.reviewedAt),
+          reviewNotes: q.reviewNotes,
+        },
+        update: {
+          topic: q.topic,
+          level: q.level,
+          track: q.track,
+          title: q.title,
+          promptText: q.promptText,
+          hint: q.hint ?? null,
+          testScenario: q.testScenario,
+          expectedCriteria: q.expectedCriteria,
+          scoringRubric: toJsonInput(q.scoringRubric),
+          aiMetadata: toJsonInput(q.aiMetadata),
+          status: q.status,
+          version: q.version,
+          reviewedBy: q.reviewedBy,
+          reviewedAt: new Date(q.reviewedAt),
+          reviewNotes: q.reviewNotes,
+        },
+      });
+      synced++;
+    }
+  } catch (e: any) {
+    console.warn('[QuestionBank] Seed question sync notice:', e.message);
   }
 
-  return BASELINE_SEED_QUESTIONS.length;
+  return synced;
+}
+
+/**
+ * Seeds baseline reference Institutes and Tasks into PostgreSQL if missing.
+ */
+export async function seedReferenceCatalog(): Promise<void> {
+  if (!isDatabaseConnected()) return;
+
+  try {
+    for (const inst of SEED_INSTITUTES) {
+      await prisma.institute.upsert({
+        where: { code: inst.code },
+        create: {
+          id: inst.id,
+          name: inst.name,
+          code: inst.code,
+          shortName: inst.shortName,
+          city: inst.city || null,
+          country: inst.country,
+          type: inst.type,
+          status: inst.status,
+        },
+        update: {},
+      });
+    }
+  } catch (err: any) {
+    console.warn('[SeedCatalog] Institute seed notice:', err.message);
+  }
+
+  try {
+    for (const t of DEFAULT_TASKS) {
+      await prisma.task.upsert({
+        where: { taskId: t.taskId },
+        create: {
+          taskId: t.taskId,
+          title: t.title,
+          description: t.description,
+          category: t.category,
+          level: t.level,
+          isActive: t.isActive,
+        },
+        update: {},
+      });
+    }
+  } catch (err: any) {
+    console.warn('[SeedCatalog] Task seed notice:', err.message);
+  }
 }

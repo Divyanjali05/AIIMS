@@ -1,19 +1,41 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { creditsLedgerService } from '../creditsLedger.service';
 import { ToolCatalogService } from '../wallet/toolCatalog.service';
 import { ToolMatchingService } from '../wallet/toolMatching.service';
 import { CREDIT_RULES } from '../../config/credits.config';
+import { prisma } from '../../config/prisma';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 describe('AIIMS AI Wallet & Intelligent Tool Matching', () => {
   const TEST_USER = 'vitest-wallet-learner-001';
 
   beforeEach(() => {
+    resetPrismaTestDouble(true);
     ToolCatalogService.initializeCatalog();
   });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
+  });
+
+  async function seedUser(id: string, credits: number = 0) {
+    await prisma.user.create({
+      data: {
+        id,
+        email: `${id}@vitest.aiims.edu`,
+        name: id,
+        password: 'hash',
+        role: 'learner',
+        aiimsCredits: credits,
+      },
+    });
+  }
 
   describe('Authoritative Balance & Ledger Operations', () => {
     it('initializes balance and computes earned/spent metrics correctly', async () => {
       const uId = `user-bal-${Date.now()}`;
+      await seedUser(uId, 0);
+
       const bal0 = await creditsLedgerService.getBalance(uId);
       expect(bal0).toBe(0);
 
@@ -48,6 +70,8 @@ describe('AIIMS AI Wallet & Intelligent Tool Matching', () => {
 
     it('rejects deduction when balance is insufficient (HTTP 402 invariant)', async () => {
       const uId = `user-overdraft-${Date.now()}`;
+      await seedUser(uId, 0);
+
       await creditsLedgerService.rewardCredits(
         uId,
         5,
@@ -72,6 +96,7 @@ describe('AIIMS AI Wallet & Intelligent Tool Matching', () => {
 
     it('deduplicates duplicate requests via idempotency key without double charges or rewards', async () => {
       const uId = `user-idemp-${Date.now()}`;
+      await seedUser(uId, 0);
       const idempKey = `fixed-key-${Date.now()}`;
 
       const res1 = await creditsLedgerService.rewardCredits(
@@ -100,6 +125,8 @@ describe('AIIMS AI Wallet & Intelligent Tool Matching', () => {
 
     it('automatically refunds credits when task execution encounters an unhandled failure', async () => {
       const uId = `user-refund-${Date.now()}`;
+      await seedUser(uId, 0);
+
       await creditsLedgerService.rewardCredits(
         uId,
         50,

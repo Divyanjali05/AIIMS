@@ -15,6 +15,16 @@ import {
   updateProgressionConfigHandler,
   saveTaskScore,
   suggestReflection,
+  getClarityLevels,
+  getLevelQuestions,
+  startClarityAttempt,
+  getClarityHistory,
+  getClarityProgress,
+  adminListClarityQuestions,
+  adminCreateClarityQuestion,
+  adminUpdateClarityQuestion,
+  adminUpdateClarityQuestionStatus,
+  adminGetClarityStats,
 } from '../controllers/clarity.controller';
 
 const router = Router();
@@ -22,6 +32,51 @@ const router = Router();
 // Rate limit clarity operations
 router.use('/clarity', clarityRateLimiter);
 
+// ============================================================================
+// Phase 4: Clarity AI Task Lab — Learning Levels & Learner Experience
+// ============================================================================
+router.get('/clarity/levels', requireAuth, requireClarityUnlocked, getClarityLevels);
+router.get(
+  '/clarity/levels/:level/questions',
+  requireAuth,
+  requireClarityUnlocked,
+  getLevelQuestions
+);
+router.post('/clarity/attempts/start', requireAuth, requireClarityUnlocked, startClarityAttempt);
+router.post('/clarity/attempts/submit', requireAuth, requireClarityUnlocked, submitClarityTask);
+router.get('/clarity/history', requireAuth, requireClarityUnlocked, getClarityHistory);
+router.get('/clarity/progress', requireAuth, requireClarityUnlocked, getClarityProgress);
+
+// ============================================================================
+// Phase 4: Clarity Question Bank Review & Administration (Admin RBAC)
+// ============================================================================
+router.get(
+  '/clarity/admin/questions',
+  requireAuth,
+  requireRole('admin'),
+  adminListClarityQuestions
+);
+router.post(
+  '/clarity/admin/questions',
+  requireAuth,
+  requireRole('admin'),
+  adminCreateClarityQuestion
+);
+router.patch(
+  '/clarity/admin/questions/:id',
+  requireAuth,
+  requireRole('admin'),
+  adminUpdateClarityQuestion
+);
+router.patch(
+  '/clarity/admin/questions/:id/status',
+  requireAuth,
+  requireRole('admin'),
+  adminUpdateClarityQuestionStatus
+);
+router.get('/clarity/admin/stats', requireAuth, requireRole('admin'), adminGetClarityStats);
+
+// Existing Clarity endpoints (preserved for backwards compatibility)
 router.get('/clarity/gaps', getGaps);
 router.post('/clarity/mentor-override', requireAuth, requireClarityUnlocked, mentorOverride);
 router.post(

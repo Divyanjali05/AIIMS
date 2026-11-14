@@ -1,16 +1,9 @@
-import mongoose from 'mongoose';
-import {
-  ClarityProgressionConfig,
-  IClarityProgressionConfig,
-  inMemoryClarityProgressionConfig,
-  setInMemoryClarityProgressionConfig,
-} from '../models/ClarityProgressionConfig.model';
-import {
-  LearnerClarityProgression,
-  ILearnerClarityProgression,
-  ClarityLevel,
-  inMemoryLearnerClarityProgressions,
-} from '../models/LearnerClarityProgression.model';
+import { prisma, isDatabaseConnected } from '../config/prisma';
+import { ClarityLevel, IClarityAttemptHistoryItem } from '../types/models';
+import { toArray } from '../utils/id';
+import { toJsonInput } from '../utils/userMapper';
+
+const GLOBAL_CONFIG_KEY = 'GLOBAL_PROGRESSION_CONFIG';
 
 export interface ProgressionTransitionResult {
   previousLevel: ClarityLevel;
@@ -23,10 +16,6 @@ export interface ProgressionTransitionResult {
 }
 
 export class ClarityProgressionService {
-  private isDbConnected(): boolean {
-    return mongoose.connection.readyState === 1;
-  }
-
   /**
    * Retrieves active progression configuration (thresholds and requirements).
    */
@@ -37,21 +26,29 @@ export class ClarityProgressionService {
     updatedBy: string;
     updatedAt: Date;
   }> {
-    if (this.isDbConnected()) {
-      let config = await ClarityProgressionConfig.findOne();
-      if (!config) {
-        config = await ClarityProgressionConfig.create(inMemoryClarityProgressionConfig);
-      }
-      return {
-        upwardThreshold: config.upwardThreshold,
-        consecutiveRequired: config.consecutiveRequired,
-        downwardThreshold: config.downwardThreshold,
-        updatedBy: config.updatedBy,
-        updatedAt: config.updatedAt,
-      };
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
-    return { ...inMemoryClarityProgressionConfig };
+    const config = await prisma.clarityProgressionConfig.upsert({
+      where: { configKey: GLOBAL_CONFIG_KEY },
+      create: {
+        configKey: GLOBAL_CONFIG_KEY,
+        upwardThreshold: 80,
+        consecutiveRequired: 2,
+        downwardThreshold: 50,
+        updatedBy: 'SYSTEM_DEFAULT',
+      },
+      update: {},
+    });
+
+    return {
+      upwardThreshold: config.upwardThreshold,
+      consecutiveRequired: config.consecutiveRequired,
+      downwardThreshold: config.downwardThreshold,
+      updatedBy: config.updatedBy,
+      updatedAt: config.updatedAt,
+    };
   }
 
   /**
@@ -75,33 +72,34 @@ export class ClarityProgressionService {
       throw new Error('downwardThreshold must be strictly less than upwardThreshold.');
     }
 
-    if (this.isDbConnected()) {
-      const updated = await ClarityProgressionConfig.findOneAndUpdate(
-        {},
-        {
-          upwardThreshold: updates.upwardThreshold,
-          consecutiveRequired: updates.consecutiveRequired,
-          downwardThreshold: updates.downwardThreshold,
-          updatedBy: adminId,
-          updatedAt: new Date(),
-        },
-        { upsert: true, new: true }
-      );
-      return {
-        upwardThreshold: updated.upwardThreshold,
-        consecutiveRequired: updated.consecutiveRequired,
-        downwardThreshold: updated.downwardThreshold,
-        updatedBy: updated.updatedBy,
-        updatedAt: updated.updatedAt,
-      };
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
-    setInMemoryClarityProgressionConfig({
-      ...updates,
-      updatedBy: adminId,
+    const updated = await prisma.clarityProgressionConfig.upsert({
+      where: { configKey: GLOBAL_CONFIG_KEY },
+      create: {
+        configKey: GLOBAL_CONFIG_KEY,
+        upwardThreshold: updates.upwardThreshold,
+        consecutiveRequired: updates.consecutiveRequired,
+        downwardThreshold: updates.downwardThreshold,
+        updatedBy: adminId,
+      },
+      update: {
+        upwardThreshold: updates.upwardThreshold,
+        consecutiveRequired: updates.consecutiveRequired,
+        downwardThreshold: updates.downwardThreshold,
+        updatedBy: adminId,
+      },
     });
 
-    return { ...inMemoryClarityProgressionConfig };
+    return {
+      upwardThreshold: updated.upwardThreshold,
+      consecutiveRequired: updated.consecutiveRequired,
+      downwardThreshold: updated.downwardThreshold,
+      updatedBy: updated.updatedBy,
+      updatedAt: updated.updatedAt,
+    };
   }
 
   /**
@@ -117,35 +115,31 @@ export class ClarityProgressionService {
     consecutiveHighScores: number;
     totalAttempts: number;
     lastScore?: number;
-    history: any[];
+    history: IClarityAttemptHistoryItem[];
   }> {
-    if (this.isDbConnected()) {
-      const progression = await LearnerClarityProgression.findOne({ learnerId, topic });
-      if (progression) {
-        return {
-          learnerId: progression.learnerId,
-          topic: progression.topic,
-          currentLevel: progression.currentLevel as ClarityLevel,
-          consecutiveHighScores: progression.consecutiveHighScores,
-          totalAttempts: progression.totalAttempts,
-          lastScore: progression.lastScore,
-          history: progression.history || [],
-        };
-      }
-    } else {
-      const key = `${learnerId}::${topic}`;
-      const memory = inMemoryLearnerClarityProgressions.get(key);
-      if (memory) {
-        return {
-          learnerId: memory.learnerId,
-          topic: memory.topic,
-          currentLevel: memory.currentLevel,
-          consecutiveHighScores: memory.consecutiveHighScores,
-          totalAttempts: memory.totalAttempts,
-          lastScore: memory.lastScore,
-          history: memory.history || [],
-        };
-      }
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
+    const progression = await prisma.learnerClarityProgression.findUnique({
+      where: {
+        learnerId_topic: {
+          learnerId,
+          topic,
+        },
+      },
+    });
+
+    if (progression) {
+      return {
+        learnerId: progression.learnerId,
+        topic: progression.topic,
+        currentLevel: progression.currentLevel as ClarityLevel,
+        consecutiveHighScores: progression.consecutiveHighScores,
+        totalAttempts: progression.totalAttempts,
+        lastScore: progression.lastScore ?? undefined,
+        history: toArray<IClarityAttemptHistoryItem>(progression.history),
+      };
     }
 
     // Default starting state
@@ -174,6 +168,10 @@ export class ClarityProgressionService {
     score: number,
     attemptId: string
   ): Promise<ProgressionTransitionResult> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const config = await this.getProgressionConfig();
     const currentProgression = await this.getLearnerProgression(learnerId, topic);
 
@@ -195,7 +193,6 @@ export class ClarityProgressionService {
           consecutiveHigh = 0; // reset streak upon level advancement
           direction = 'UP';
         } else if (previousLevel === 'Hard') {
-          // Cannot progress beyond Hard boundary
           nextLevel = 'Hard';
           direction = 'NONE';
         }
@@ -203,7 +200,7 @@ export class ClarityProgressionService {
     }
     // 2. Downward progression rule
     else if (score < config.downwardThreshold) {
-      consecutiveHigh = 0; // Streak reset on drop
+      consecutiveHigh = 0;
       if (previousLevel === 'Hard') {
         nextLevel = 'Medium';
         direction = 'DOWN';
@@ -211,52 +208,50 @@ export class ClarityProgressionService {
         nextLevel = 'Easy';
         direction = 'DOWN';
       } else if (previousLevel === 'Easy') {
-        // Cannot drop below Easy boundary
         nextLevel = 'Easy';
         direction = 'NONE';
       }
     }
-    // 3. Neutral zone (e.g. 50 <= score <= 79)
+    // 3. Neutral zone
     else {
-      consecutiveHigh = 0; // Streak reset on neutral score
+      consecutiveHigh = 0;
       direction = 'NONE';
     }
 
-    const historyEntry = {
+    const historyEntry: IClarityAttemptHistoryItem = {
       attemptId,
       score,
       level: previousLevel,
-      timestamp: new Date(),
+      timestamp: new Date().toISOString(),
     };
 
     const totalAttempts = currentProgression.totalAttempts + 1;
+    const updatedHistory = [...(currentProgression.history || []), historyEntry];
 
-    // Persist progression state
-    if (this.isDbConnected()) {
-      await LearnerClarityProgression.findOneAndUpdate(
-        { learnerId, topic },
-        {
-          currentLevel: nextLevel,
-          consecutiveHighScores: consecutiveHigh,
-          totalAttempts,
-          lastScore: score,
-          $push: { history: historyEntry },
+    await prisma.learnerClarityProgression.upsert({
+      where: {
+        learnerId_topic: {
+          learnerId,
+          topic,
         },
-        { upsert: true, new: true }
-      );
-    } else {
-      const key = `${learnerId}::${topic}`;
-      const record = {
+      },
+      create: {
         learnerId,
         topic,
         currentLevel: nextLevel,
         consecutiveHighScores: consecutiveHigh,
         totalAttempts,
         lastScore: score,
-        history: [...(currentProgression.history || []), historyEntry],
-      };
-      inMemoryLearnerClarityProgressions.set(key, record);
-    }
+        history: toJsonInput(updatedHistory),
+      },
+      update: {
+        currentLevel: nextLevel,
+        consecutiveHighScores: consecutiveHigh,
+        totalAttempts,
+        lastScore: score,
+        history: toJsonInput(updatedHistory),
+      },
+    });
 
     return {
       previousLevel,

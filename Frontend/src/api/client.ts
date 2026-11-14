@@ -263,7 +263,7 @@ export const apiClient = {
     return res.json();
   },
 
-  // 1. Learner State Full Sync (MongoDB Atlas)
+  // 1. Learner State Full Sync (PostgreSQL)
   async getLearnerState() {
     const res = await apiFetch(`${API_BASE}/learner/state`, {
       headers: getAuthHeaders(),
@@ -344,6 +344,41 @@ export const apiClient = {
 
   async getOverallAnalysis() {
     const res = await apiFetch(`${API_BASE}/analysis/overall`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  // Phase 2: AI Learner Profile & Comparative Intelligence
+  async generateAiProfile(idempotencyKey?: string) {
+    const res = await apiFetch(`${API_BASE}/analysis/generate-profile`, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ idempotencyKey }),
+    });
+    return res.json();
+  },
+
+  async getAiProfile() {
+    const res = await apiFetch(`${API_BASE}/analysis/ai-profile`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getPeerBranchComparison(branch?: string) {
+    const query = branch ? `?branch=${encodeURIComponent(branch)}` : '';
+    const res = await apiFetch(`${API_BASE}/analysis/comparative/peer-branch${query}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getCohortAllComparison() {
+    const res = await apiFetch(`${API_BASE}/analysis/comparative/cohort-all`, {
       headers: getAuthHeaders(),
     });
     return res.json();
@@ -647,6 +682,60 @@ export const apiClient = {
     return res.json();
   },
 
+  async getDomainCards() {
+    const res = await apiFetch(`${API_BASE}/wallet/domain-cards`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async executeWalletOperation(payload?: {
+    operationName?: string;
+    idempotencyKey?: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    const res = await apiFetch(`${API_BASE}/wallet/operate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload || {}),
+    });
+    return res.json();
+  },
+
+  async confirmToolUsage(payload: {
+    toolId: string;
+    taskContext?: string;
+    notes?: string;
+    idempotencyKey?: string;
+  }) {
+    const res = await apiFetch(`${API_BASE}/wallet/confirm-usage`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+
+  async getToolConfirmations() {
+    const res = await apiFetch(`${API_BASE}/wallet/confirmations`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getPersonalizedMatching(params?: {
+    domain?: string;
+    freeOnly?: boolean;
+    preferredSkillLevel?: 'beginner' | 'intermediate' | 'advanced';
+  }) {
+    const res = await apiFetch(`${API_BASE}/wallet/personalized-match`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params || {}),
+    });
+    return res.json();
+  },
+
   // 10. Academic Module
   async searchInstitutes(query: string, limit?: number) {
     const params = new URLSearchParams();
@@ -858,6 +947,111 @@ export const apiClient = {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(params),
+    });
+    return res.json();
+  },
+
+  // --- Phase 4: Clarity AI Task Lab Methods ---
+  async getClarityLevels() {
+    const res = await apiFetch(`${API_BASE}/clarity/levels`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getClarityLevelQuestions(level: string) {
+    const res = await apiFetch(
+      `${API_BASE}/clarity/levels/${encodeURIComponent(level)}/questions`,
+      {
+        headers: getAuthHeaders(),
+      }
+    );
+    return res.json();
+  },
+
+  async startClarityAttempt(questionId: string) {
+    const res = await apiFetch(`${API_BASE}/clarity/attempts/start`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ questionId }),
+    });
+    return res.json();
+  },
+
+  async submitClarityAttemptPhase4(params: {
+    assignmentId: string;
+    answer: string;
+    timeTakenSeconds?: number;
+    idempotencyKey?: string;
+  }) {
+    const res = await apiFetch(`${API_BASE}/clarity/attempts/submit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    return res.json();
+  },
+
+  async getClarityHistory(topic?: string) {
+    const query = topic ? `?topic=${encodeURIComponent(topic)}` : '';
+    const res = await apiFetch(`${API_BASE}/clarity/history${query}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getClarityProgress() {
+    const res = await apiFetch(`${API_BASE}/clarity/progress`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminListClarityQuestions(filters?: { topic?: string; level?: string; status?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.topic) params.append('topic', filters.topic);
+    if (filters?.level) params.append('level', filters.level);
+    if (filters?.status) params.append('status', filters.status);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await apiFetch(`${API_BASE}/clarity/admin/questions${qs}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminCreateClarityQuestion(payload: any) {
+    const res = await apiFetch(`${API_BASE}/clarity/admin/questions`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+
+  async adminUpdateClarityQuestion(id: string, payload: any) {
+    const res = await apiFetch(`${API_BASE}/clarity/admin/questions/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    return res.json();
+  },
+
+  async adminUpdateClarityQuestionStatus(id: string, status: string, note?: string) {
+    const res = await apiFetch(
+      `${API_BASE}/clarity/admin/questions/${encodeURIComponent(id)}/status`,
+      {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status, note }),
+      }
+    );
+    return res.json();
+  },
+
+  async adminGetClarityStats() {
+    const res = await apiFetch(`${API_BASE}/clarity/admin/stats`, {
+      headers: getAuthHeaders(),
     });
     return res.json();
   },
@@ -1280,6 +1474,118 @@ export const apiClient = {
       headers: getAuthHeaders(),
       body: JSON.stringify(config),
     });
+    return res.json();
+  },
+
+  // 17B. Phase 5: Focus Practice Challenges & Server-Timed Tasks
+  async getFocusCategories() {
+    const res = await apiFetch(`${API_BASE}/focus/categories`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getFocusCategoryQuestions(category: string, level?: string) {
+    const qs = level ? `?level=${encodeURIComponent(level)}` : '';
+    const res = await apiFetch(
+      `${API_BASE}/focus/categories/${encodeURIComponent(category)}/questions${qs}`,
+      { headers: getAuthHeaders() }
+    );
+    return res.json();
+  },
+
+  async startFocusTask(category: string, level: string, questionId?: string) {
+    const res = await apiFetch(`${API_BASE}/focus/attempts/start`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ category, level, questionId }),
+    });
+    return res.json();
+  },
+
+  async getFocusTimeRemaining(assignmentId: string) {
+    const res = await apiFetch(
+      `${API_BASE}/focus/attempts/${encodeURIComponent(assignmentId)}/time`,
+      { headers: getAuthHeaders() }
+    );
+    return res.json();
+  },
+
+  async uploadFocusAttachment(data: {
+    assignmentId: string;
+    fileName: string;
+    mimeType: string;
+    fileBase64?: string;
+    content?: string;
+  }) {
+    const res = await apiFetch(`${API_BASE}/focus/attempts/upload`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async submitFocusTask(data: {
+    assignmentId: string;
+    answer: string;
+    timeTakenSeconds?: number;
+    attachments?: any[];
+    idempotencyKey?: string;
+  }) {
+    const res = await apiFetch(`${API_BASE}/focus/attempts/submit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async getFocusTaskHistory() {
+    const res = await apiFetch(`${API_BASE}/focus/attempts/history`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async getFocusTaskProgress() {
+    const res = await apiFetch(`${API_BASE}/focus/attempts/progress`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminListFocusQuestions(params?: { category?: string; level?: string; status?: string }) {
+    const query = new URLSearchParams();
+    if (params?.category) query.set('category', params.category);
+    if (params?.level) query.set('level', params.level);
+    if (params?.status) query.set('status', params.status);
+    const qs = query.toString();
+
+    const res = await apiFetch(`${API_BASE}/focus/admin/questions${qs ? `?${qs}` : ''}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminCreateFocusQuestion(data: any) {
+    const res = await apiFetch(`${API_BASE}/focus/admin/questions`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  async adminUpdateFocusStatus(questionId: string, status: string, reviewNotes?: string) {
+    const res = await apiFetch(
+      `${API_BASE}/focus/admin/questions/${encodeURIComponent(questionId)}/status`,
+      {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status, reviewNotes }),
+      }
+    );
     return res.json();
   },
 

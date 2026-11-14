@@ -16,14 +16,8 @@
 
 import { clarityProgressionService } from '../services/clarityProgression.service';
 import { questionBankService } from '../services/questionBank.service';
-import { inMemoryQuestionBank } from '../models/QuestionBank.model';
-import { inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { inMemoryLearnerClarityProgressions } from '../models/LearnerClarityProgression.model';
-import {
-  inMemoryClarityProgressionConfig,
-  setInMemoryClarityProgressionConfig,
-} from '../models/ClarityProgressionConfig.model';
+import { prisma } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import {
   runTask,
@@ -50,6 +44,8 @@ async function runClarityVerification() {
   console.log('\n================================================================');
   console.log(' AIIMS PROMPT 5: CLARITY MODULE AUTOMATED VERIFICATION SUITE');
   console.log('================================================================\n');
+
+  installPrismaTestDouble({ connected: true });
 
   const testUserId = `learner-clarity-${Date.now()}`;
   const testTopic = 'Checking AI';
@@ -150,7 +146,9 @@ async function runClarityVerification() {
   assert(runTrialRes?.isLocked === false, '3.4 Task remains unlocked after Run action');
 
   // Verify assignment is NOT marked SUBMITTED after Run
-  const asgnAfterRun = inMemoryAssignments.get(serveRes.assignment.assignmentId);
+  const asgnAfterRun = await prisma.questionAssignment.findUnique({
+    where: { assignmentId: serveRes.assignment.assignmentId },
+  });
   assert(
     asgnAfterRun?.status !== 'SUBMITTED',
     '3.5 Run action DOES NOT submit or complete the assignment'
@@ -232,7 +230,9 @@ async function runClarityVerification() {
   assert(submitRes?.xpAwarded === 50, '4.6 50 XP points awarded for completing task');
 
   // Verify assignment in store is now SUBMITTED
-  const asgnAfterSubmit = inMemoryAssignments.get(serveRes.assignment.assignmentId);
+  const asgnAfterSubmit = await prisma.questionAssignment.findUnique({
+    where: { assignmentId: serveRes.assignment.assignmentId },
+  });
   assert(asgnAfterSubmit?.status === 'SUBMITTED', '4.7 Assignment status updated to SUBMITTED');
   assert(!!asgnAfterSubmit?.completedAt, '4.8 completedAt timestamp recorded upon submission');
 
@@ -456,7 +456,7 @@ async function runClarityVerification() {
   assert(adminResConfig?.config?.consecutiveRequired === 3, '6.7 Updated consecutiveRequired is 3');
 
   // Restore defaults
-  setInMemoryClarityProgressionConfig({
+  await clarityProgressionService.updateProgressionConfig('admin-1', {
     upwardThreshold: 80,
     consecutiveRequired: 2,
     downwardThreshold: 50,

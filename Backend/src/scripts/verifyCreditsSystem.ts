@@ -1,7 +1,7 @@
-import mongoose from 'mongoose';
+import { prisma, connectDatabase, disconnectDatabase } from '../config/prisma';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
+import { IUser } from '../types/models';
+import { userRecordToIUser, toJsonInput } from '../utils/userMapper';
 
 const API_BASE = `http://localhost:${config.port}/api`;
 
@@ -24,16 +24,14 @@ async function run() {
   console.log('   AIIMS CREDITS SYSTEM — END-TO-END VERIFICATION    ');
   console.log('====================================================\n');
 
-  // 1. Connect directly to MongoDB Atlas for ground-truth DB reads
+  // 1. Connect directly to PostgreSQL for ground-truth DB reads
   let isDbConnected = false;
-  if (config.mongodbUri) {
-    try {
-      await mongoose.connect(config.mongodbUri, { serverSelectionTimeoutMS: 2000 });
-      isDbConnected = mongoose.connection.readyState === 1;
-      console.log(`🌿 Direct MongoDB connection established: ${isDbConnected}`);
-    } catch (e: any) {
-      console.warn('MongoDB connection failed:', e.message);
-    }
+  try {
+    const conn = await connectDatabase(1, 500);
+    isDbConnected = conn.connected;
+    console.log(`🌿 Direct PostgreSQL connection established: ${isDbConnected}`);
+  } catch (e: any) {
+    console.warn('PostgreSQL connection failed:', e.message);
   }
 
   // 2. Register a unique test user
@@ -77,11 +75,15 @@ async function run() {
 
   console.log(`👤 Created test user: ${testEmail} (ID: ${userId})`);
 
+  // Helper to fetch user from DB
+  const fetchDbUser = async (): Promise<IUser | null> => {
+    if (!isDbConnected) return null;
+    const row = await prisma.user.findUnique({ where: { email: testEmail } });
+    return row ? userRecordToIUser(row) : null;
+  };
+
   // Verify initial DB balance
-  let dbUser: IUser | null = null;
-  if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
-  }
+  let dbUser: IUser | null = await fetchDbUser();
 
   const initialBalance = dbUser ? dbUser.aiimsCredits : regData.user.aiimsCredits;
   const initialXP = dbUser ? dbUser.xpPoints : regData.user.xpPoints;
@@ -94,16 +96,15 @@ async function run() {
 
   // Unlock assessment & analysis prerequisites so Clarity & Investigation endpoints can process credit rewards
   if (isDbConnected) {
-    await User.updateOne(
-      { email: testEmail },
-      {
-        $set: {
-          'assessment.status': 'completed',
-          'analysis.status': 'unlocked',
-          'investigation.status': 'unlocked',
-        },
-      }
-    );
+    await prisma.user.update({
+      where: { email: testEmail },
+      data: {
+        assessmentStatus: 'completed',
+        assessmentData: toJsonInput({ status: 'completed' }),
+        analysisData: toJsonInput({ status: 'unlocked' }),
+        investigationData: toJsonInput({ status: 'unlocked' }),
+      },
+    });
   }
   await fetch(`${API_BASE}/learner/state`, {
     method: 'PUT',
@@ -131,7 +132,7 @@ async function run() {
   const taskData1 = await taskRes1.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passTask1 =
@@ -160,7 +161,7 @@ async function run() {
   const taskData2 = await taskRes2.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passTask2 =
@@ -196,7 +197,7 @@ async function run() {
   const blockedCountTask = concurrentTasks.filter((r) => r.awarded === false).length;
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passTaskConcurrent =
@@ -222,7 +223,7 @@ async function run() {
   const invData1 = await invRes1.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passInv1 =
@@ -249,7 +250,7 @@ async function run() {
   const invData2 = await invRes2.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passInv2 =
@@ -282,7 +283,7 @@ async function run() {
   const blockedCountInv = concurrentInvs.filter((r) => r.awarded === false).length;
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passInvConcurrent =
@@ -305,7 +306,7 @@ async function run() {
   const levelData1 = await levelRes1.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passLevel1 =
@@ -329,7 +330,7 @@ async function run() {
   const levelData2 = await levelRes2.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passLevel2 =
@@ -355,7 +356,7 @@ async function run() {
   const assessData1 = await assessRes1.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passAssess1 =
@@ -381,7 +382,7 @@ async function run() {
   const assessData2 = await assessRes2.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passAssess2 =
@@ -407,7 +408,7 @@ async function run() {
   const investData1 = await investRes1.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passInvest1 =
@@ -430,7 +431,7 @@ async function run() {
   });
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    dbUser = await fetchDbUser();
   }
 
   const passInvest2 = investRes2.status === 400 && (!isDbConnected || dbUser?.aiimsCredits === 610);
@@ -478,7 +479,8 @@ async function run() {
   const tamperData = await tamperRes.json();
 
   if (isDbConnected) {
-    dbUser = await User.findOne({ email: testEmail });
+    const row = await prisma.user.findUnique({ where: { email: testEmail } });
+    if (row) dbUser = userRecordToIUser(row);
   }
 
   const tamperBlocked =
@@ -496,9 +498,9 @@ async function run() {
   let ledgerPass = true;
   let ledgerDetails = '';
   if (isDbConnected && dbUser) {
-    const txs = dbUser.transactions;
+    const txs = dbUser.transactions || [];
     // Calculate net from transactions: if welcome grant transaction is present in ledger, accumulate from 0
-    const hasWelcomeTx = txs.some((t) => t.sourceId === 'WELCOME_BONUS');
+    const hasWelcomeTx = txs.some((t: any) => t.sourceId === 'WELCOME_BONUS');
     let calculated = hasWelcomeTx ? 0 : 500;
     for (let i = txs.length - 1; i >= 0; i--) {
       const tx = txs[i];
@@ -544,13 +546,13 @@ async function run() {
   // ── CLEANUP TEST USER ──
   if (isDbConnected) {
     try {
-      await User.deleteOne({ email: testEmail });
-      await StudentProfile.deleteOne({ userId });
-      console.log(`\n🧹 Cleaned up test user ${testEmail} from MongoDB.`);
+      await prisma.user.deleteMany({ where: { email: testEmail } });
+      await prisma.studentProfile.deleteMany({ where: { userId } });
+      console.log(`\n🧹 Cleaned up test user ${testEmail} from PostgreSQL.`);
     } catch (e: any) {
       console.warn('Cleanup warning:', e.message);
     }
-    await mongoose.disconnect();
+    await disconnectDatabase();
   }
 
   console.log('\n====================================================');

@@ -49,6 +49,10 @@ import { getAssessmentToolInsights } from '../../services/assessmentToolMatcher'
 import { AssessmentPromptSuggestions } from './AssessmentPromptSuggestions';
 import { CreditsLedgerSection } from './CreditsLedgerSection';
 import { IntelligentToolMatchingSection } from './IntelligentToolMatchingSection';
+import { DomainCardsSection } from './DomainCardsSection';
+import { UsageConfirmationModal } from './UsageConfirmationModal';
+import { PersonalizedDomainMatchingView } from './PersonalizedDomainMatchingView';
+import { WalletOperationCard } from './WalletOperationCard';
 
 /**
  * Startup Toolkit Gaps — capability categories identified as essential
@@ -206,6 +210,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   // Toolkit Gaps State
   const [gapData, setGapData] = useState<any | null>(null);
 
+  // D6 Manual Confirmation State
+  const [confirmationModalTool, setConfirmationModalTool] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [confirmedToolIds, setConfirmedToolIds] = useState<string[]>([]);
+
   // Discovery Job Status State
   const [_discoveryStatus, setDiscoveryStatus] = useState<any | null>(null);
   const [isRefreshingDiscovery, setIsRefreshingDiscovery] = useState<boolean>(false);
@@ -219,13 +230,17 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       apiClient.getToolkitGaps(),
       apiClient.getDiscoveryStatus(),
       apiClient.getAdminDashboard(),
+      apiClient.getToolConfirmations(),
     ])
-      .then(([catalogData, gaps, discStatus, dash]) => {
+      .then(([catalogData, gaps, discStatus, dash, confRes]) => {
         if (isMounted) {
           if (Array.isArray(catalogData)) setCatalog(catalogData);
           if (gaps) setGapData(gaps);
           if (discStatus) setDiscoveryStatus(discStatus);
           if (dash) setAdminDashboard(dash);
+          if (confRes && Array.isArray(confRes.confirmations)) {
+            setConfirmedToolIds(confRes.confirmations.map((c: any) => c.toolId));
+          }
         }
       })
       .catch((err) => console.warn('API fetch warning:', err))
@@ -748,25 +763,29 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           },
           {
             id: 'matching',
-            label: '2. Intelligent Tool Matching',
+            label: '2. Personalized Tool Matching',
             icon: Sparkles,
             badge: undefined,
           },
           { id: 'wallet', label: '3. My Tool Stack', icon: Wallet, badge: `${userTools.length}` },
           {
             id: 'discover',
-            label: '4. Full Catalog',
+            label: '4. 13 Domain Cards & Catalog',
             icon: Compass,
             badge: `${catalog.length}`,
           },
           { id: 'compare', label: '5. Task Comparison', icon: ArrowRightLeft, badge: undefined },
           { id: 'gaps', label: '6. Toolkit Gaps', icon: BarChart2, badge: undefined },
-          {
-            id: 'admin',
-            label: '7. Pipeline',
-            icon: ShieldCheck,
-            badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
-          },
+          ...(state.profile?.role === 'admin'
+            ? [
+                {
+                  id: 'admin',
+                  label: '7. Pipeline',
+                  icon: ShieldCheck,
+                  badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
+                },
+              ]
+            : []),
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeSection === tab.id;
@@ -819,20 +838,36 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       {/* SECTION: AI CREDITS & AUTHORITATIVE LEDGER */}
       {/* ========================================================================= */}
       {activeSection === 'credits' && (
-        <CreditsLedgerSection onNavigateToMatching={() => setActiveSection('matching')} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <WalletOperationCard
+            balance={state.credits?.balance || 0}
+            onOperationComplete={() => {
+              // Balance updated
+            }}
+          />
+          <CreditsLedgerSection onNavigateToMatching={() => setActiveSection('matching')} />
+        </div>
       )}
 
       {/* ========================================================================= */}
       {/* SECTION: INTELLIGENT TOOL MATCHING */}
       {/* ========================================================================= */}
       {activeSection === 'matching' && (
-        <IntelligentToolMatchingSection
-          catalog={catalog}
-          userTools={userTools}
-          onAddTool={handleAddToolWithFeedback}
-          onOpenToolDetail={handleOpenToolDetail}
-          currentAudienceMode={currentAudienceMode}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <PersonalizedDomainMatchingView
+            onAddTool={handleAddToolWithFeedback}
+            onOpenConfirmation={(t) => setConfirmationModalTool(t)}
+            userToolIds={userTools.map((t) => t.toolId)}
+            confirmedToolIds={confirmedToolIds}
+          />
+          <IntelligentToolMatchingSection
+            catalog={catalog}
+            userTools={userTools}
+            onAddTool={handleAddToolWithFeedback}
+            onOpenToolDetail={handleOpenToolDetail}
+            currentAudienceMode={currentAudienceMode}
+          />
+        </div>
       )}
 
       {/* ========================================================================= */}
@@ -840,6 +875,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       {/* ========================================================================= */}
       {activeSection === 'discover' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* 13 Domain Cards Discovery Section */}
+          <DomainCardsSection
+            onAddTool={handleAddToolWithFeedback}
+            onOpenConfirmation={(t) => setConfirmationModalTool(t)}
+            userToolIds={userTools.map((t) => t.toolId)}
+            confirmedToolIds={confirmedToolIds}
+          />
           {/* HERO NATURAL-LANGUAGE REQUIREMENT BOX */}
           <Surface variant="gradient-hero" radius="lg" padding="lg">
             <div style={{ marginBottom: '16px' }}>
@@ -3888,6 +3930,20 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
             </div>
           </div>
         </div>
+      )}
+
+      {/* D6 Manual Usage Confirmation Modal */}
+      {confirmationModalTool && (
+        <UsageConfirmationModal
+          tool={confirmationModalTool}
+          isOpen={true}
+          onClose={() => setConfirmationModalTool(null)}
+          onSuccess={(conf: any) => {
+            const toolId = conf?.toolId || confirmationModalTool.id;
+            setConfirmedToolIds((prev) => (prev.includes(toolId) ? prev : [...prev, toolId]));
+            setConfirmationModalTool(null);
+          }}
+        />
       )}
     </div>
   );

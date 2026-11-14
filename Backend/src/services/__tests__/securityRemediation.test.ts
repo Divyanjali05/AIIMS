@@ -10,7 +10,7 @@
  *  - Zod Request Body Validation Schemas
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import bcrypt from 'bcryptjs';
 import { updateLearnerState } from '../../controllers/learner.controller';
 import {
@@ -21,8 +21,10 @@ import {
 import { overrideFocus, toggleFollowSignal } from '../../controllers/investigation.controller';
 import { login } from '../../controllers/auth.controller';
 import { getValidatedJwtSecret } from '../../config/env';
-import { registeredUsers } from '../../models/userStore';
-import { mockToolCatalog } from '../../models/aiims.models';
+import { prisma } from '../../config/prisma';
+import { SEED_TOOL_CATALOG } from '../../data/aiimsCatalog';
+import { ToolCatalogService } from '../wallet/toolCatalog.service';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 import { addToWalletSchema, updateFamiliaritySchema } from '../../schemas/wallet.schema';
 import { focusOverrideSchema, radarFollowSchema } from '../../schemas/investigation.schema';
 import { updateLearnerStateSchema } from '../../schemas/learner.schema';
@@ -93,6 +95,44 @@ function createMockStudent(id = 'student_vitest_001', role = 'Student') {
 }
 
 describe('Prompt 2 Security Remediation Test Suite', () => {
+  beforeEach(async () => {
+    resetPrismaTestDouble(true);
+    ToolCatalogService.initializeCatalog();
+
+    await prisma.user.create({
+      data: {
+        id: 'student_vitest_001',
+        email: 'student_vitest@example.com',
+        name: 'Vitest Student',
+        password: 'hash',
+        role: 'learner',
+        college: 'AIIMS Academy',
+        targetGoal: 'Master AI',
+        aiimsCredits: 100,
+        xpPoints: 50,
+        stage: 'Knowing',
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        id: 'student_vitest_123',
+        email: 'student_vitest_123@example.com',
+        name: 'Vitest Student 123',
+        password: 'hash',
+        role: 'learner',
+        college: 'AIIMS Academy',
+        targetGoal: 'Master AI',
+        aiimsCredits: 100,
+        xpPoints: 50,
+        stage: 'Knowing',
+      },
+    });
+  });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
+  });
   describe('Learner Role Escalation & State Tampering Prevention', () => {
     it('rejects attempts to escalate role to admin with HTTP 403', async () => {
       const req: any = {
@@ -323,7 +363,7 @@ describe('Prompt 2 Security Remediation Test Suite', () => {
     });
 
     it('successfully adds valid catalog tool for authenticated user', async () => {
-      const sampleTool = mockToolCatalog[0];
+      const sampleTool = SEED_TOOL_CATALOG[0];
       const req: any = {
         user: createMockStudent(),
         body: { toolId: sampleTool.id },
@@ -389,13 +429,15 @@ describe('Prompt 2 Security Remediation Test Suite', () => {
 
   describe('Plaintext Password Comparison Elimination', () => {
     it('strictly rejects passwords stored as plaintext without $2 bcrypt prefix', async () => {
-      registeredUsers['plain_vitest@aiims.edu'] = {
-        id: 'user_plain_vitest',
-        email: 'plain_vitest@aiims.edu',
-        password: 'PlainPassword123!',
-        name: 'Plain Vitest User',
-        role: 'Student',
-      } as any;
+      await prisma.user.create({
+        data: {
+          id: 'user_plain_vitest',
+          email: 'plain_vitest@aiims.edu',
+          password: 'PlainPassword123!',
+          name: 'Plain Vitest User',
+          role: 'learner',
+        },
+      });
 
       const req: any = {
         body: { email: 'plain_vitest@aiims.edu', password: 'PlainPassword123!' },
@@ -404,18 +446,19 @@ describe('Prompt 2 Security Remediation Test Suite', () => {
       const res = createMockRes();
       await login(req, res);
       expect(res.statusCode).toBe(401);
-      delete registeredUsers['plain_vitest@aiims.edu'];
     });
 
     it('authenticates valid bcrypt hashed password', async () => {
       const hashedPassword = bcrypt.hashSync('BcryptVitestPass123!', 10);
-      registeredUsers['bcrypt_vitest@aiims.edu'] = {
-        id: 'user_bcrypt_vitest',
-        email: 'bcrypt_vitest@aiims.edu',
-        password: hashedPassword,
-        name: 'Bcrypt Vitest User',
-        role: 'Student',
-      } as any;
+      await prisma.user.create({
+        data: {
+          id: 'user_bcrypt_vitest',
+          email: 'bcrypt_vitest@aiims.edu',
+          password: hashedPassword,
+          name: 'Bcrypt Vitest User',
+          role: 'learner',
+        },
+      });
 
       const req: any = {
         body: { email: 'bcrypt_vitest@aiims.edu', password: 'BcryptVitestPass123!' },
@@ -424,7 +467,6 @@ describe('Prompt 2 Security Remediation Test Suite', () => {
       const res = createMockRes();
       await login(req, res);
       expect(res.statusCode).toBe(200);
-      delete registeredUsers['bcrypt_vitest@aiims.edu'];
     });
   });
 

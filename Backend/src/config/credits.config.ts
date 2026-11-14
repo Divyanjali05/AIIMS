@@ -1,13 +1,38 @@
-import type { IUser } from '../models/User.model';
+import type { IUser } from '../types/models';
 
 export const STARTING_CREDITS = 500;
+
+/**
+ * Phase 1 Assessment Economy Rules
+ * - Assessment submission charge: 100 AC
+ * - Score strictly greater than 95%: 50 AC bonus
+ * - Score equal to or less than 95%: No bonus
+ */
+export const ASSESSMENT_RULES = {
+  SUBMISSION_CHARGE: 100,
+  HIGH_SCORE_BONUS_THRESHOLD: 95,
+  HIGH_SCORE_BONUS: 50,
+  XP_REWARD: 100,
+} as const;
+
+/**
+ * Phase 3 AI Wallet Economy Rules
+ * - Wallet operation charge: 100 AC
+ * - Manual add operation: Flagged as unresolved product decision requiring approval (not assumed).
+ */
+export const WALLET_RULES = {
+  OPERATION_CHARGE: 100,
+} as const;
 
 /**
  * CREDIT_RULES — single source of truth for all reward/cost values.
  * Change values here; do NOT scatter hardcoded amounts through route handlers.
  */
 export const CREDIT_RULES = {
-  ASSESSMENT_COMPLETION: { credits: 50, xp: 100 },
+  ASSESSMENT_SUBMISSION_FEE: { cost: 100 },
+  ASSESSMENT_HIGH_SCORE_BONUS: { credits: 50, threshold: 95 },
+  ASSESSMENT_COMPLETION: { credits: 50, xp: 100 }, // legacy compatibility mirror
+  WALLET_OPERATION: { cost: WALLET_RULES.OPERATION_CHARGE },
   LEVEL_QUEST_COMPLETION: { credits: 10, xp: 50 },
   SIGNAL_INVESTIGATION: { credits: 30, xp: 100 },
   CLARITY_TASK_EASY: { credits: 15, xp: 50 },
@@ -87,7 +112,7 @@ export const clarityTaskRewardKey = (
 ): string => `clarity::${userId}::${topic}::${difficulty}::${taskId}`;
 
 /**
- * Formats a MongoDB User document into a client-ready state payload
+ * Formats a PostgreSQL User record into a client-ready state payload
  */
 export const formatUserState = (dbUser: IUser) => {
   // Populate claimedActions from DB transactions and user state for guaranteed client idempotency
@@ -128,6 +153,7 @@ export const formatUserState = (dbUser: IUser) => {
       stage: dbUser.stage,
       xpPoints: dbUser.xpPoints,
       aiimsCredits: dbUser.aiimsCredits,
+      deviceBinding: dbUser.deviceBinding,
     },
     assessment: dbUser.assessment || {
       status: 'not_started',
@@ -189,7 +215,14 @@ export const formatUserState = (dbUser: IUser) => {
       projects: [],
       activeProjectId: null,
     },
-    relevance: { status: 'locked' },
+    relevance:
+      dbUser.relevance && (dbUser.relevance as Record<string, unknown>).status
+        ? dbUser.relevance
+        : { status: 'locked' },
+    mentor:
+      dbUser.mentor && (dbUser.mentor as Record<string, unknown>).status
+        ? dbUser.mentor
+        : { status: 'locked' },
     credits: {
       balance: dbUser.aiimsCredits,
       transactions: dbUser.transactions || [],

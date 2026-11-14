@@ -5,22 +5,18 @@
  * and ledger records survive an actual operating-system backend process shutdown and restart.
  *
  * Execution Parameters:
- * - Target Database: Persistent MongoDB Atlas ("aiims_test")
+ * - Target Database: Persistent PostgreSQL
  * - Execution Mode: Option B (Deterministic Evaluation Runner for synthetic test learner, 0 live API calls)
  * - Process Lifecycle: Process 1 (Spawn, Capture PID 1) -> Stop (Verify Exit) -> Process 2 (Spawn, Capture PID 2 != PID 1)
- * - State Parity & Lock Verification: Real MongoDB comparison & HTTP 409 TASK_LOCKED verification
+ * - State Parity & Lock Verification: Real PostgreSQL comparison & HTTP 409 TASK_LOCKED verification
  */
 
 import { spawn, execSync, ChildProcess } from 'child_process';
 import path from 'path';
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { config } from '../config/env';
-import { User } from '../models/User.model';
-import { QuestionAssignment } from '../models/QuestionAssignment.model';
-import { QuestionAttempt } from '../models/QuestionAttempt.model';
-import { QuestionBank } from '../models/QuestionBank.model';
-import { CreditLedger } from '../models/CreditLedger.model';
+import { prisma, isDatabaseConnected, connectDatabase, disconnectDatabase } from '../config/prisma';
+import { toJsonInput } from '../utils/userMapper';
 
 interface StepResult {
   step: number;
@@ -115,7 +111,7 @@ function spawnBackendProcess(envOverrides: Record<string, string> = {}): {
       ...process.env,
       PORT: String(TEST_PORT),
       NODE_ENV: 'test',
-      MONGODB_TEST_DB: 'aiims_test',
+      DATABASE_URL: process.env.DATABASE_URL || config.databaseUrl || '',
       ENABLE_TEST_DETERMINISTIC_RUNNER: 'true',
       JWT_SECRET: config.jwtSecret || 'aiims-test-jwt-secret-for-process-restart-32chars',
       ALLOWED_ORIGINS: `http://localhost:${TEST_PORT},http://127.0.0.1:${TEST_PORT}`,
@@ -143,7 +139,7 @@ function spawnBackendProcess(envOverrides: Record<string, string> = {}): {
 export async function runProcessRestartVerification(): Promise<boolean> {
   console.log('================================================================');
   console.log(' AIIMS TASK T-D — BACKEND PROCESS RESTART VERIFICATION');
-  console.log(' Target Database: aiims_test (MongoDB Atlas)');
+  console.log(' Target Database: PostgreSQL');
   console.log(' Execution Mode: Option B (Deterministic Test Runner, 0 API Calls)');
   console.log('================================================================\n');
 
@@ -163,104 +159,103 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     // -------------------------------------------------------------------------
     // STEP 1: Direct Database Preflight & Synthetic Learner Seeding
     // -------------------------------------------------------------------------
-    const rawUri = config.mongodbUri || process.env.MONGODB_URI;
-    if (!rawUri) {
-      throw new Error(
-        'FATAL: No MONGODB_URI configured. Real persistent MongoDB connection required.'
-      );
+    if (!isDatabaseConnected()) {
+      try {
+        await connectDatabase();
+      } catch {
+        // Continue
+      }
     }
 
-    console.log('📡 Connecting directly to MongoDB Atlas ("aiims_test") for preflight...');
-    await mongoose.connect(rawUri, {
-      dbName: 'aiims_test',
-      serverSelectionTimeoutMS: 15000,
-      connectTimeoutMS: 15000,
-    });
-
-    const activeDbName = mongoose.connection.db?.databaseName || mongoose.connection.name;
     assert(
-      activeDbName === 'aiims_test' || (activeDbName?.includes('test') ?? false),
-      `Target database "${activeDbName}" is not an authorized test database.`
+      isDatabaseConnected(),
+      'FATAL: PostgreSQL database must be connected for process restart verification.'
     );
 
     // Ensure seed question qb-check-easy-01 exists for Focus challenge
-    const existingQ = await QuestionBank.findOne({ questionId: 'qb-check-easy-01' });
+    const existingQ = await prisma.questionBank.findUnique({
+      where: { questionId: 'qb-check-easy-01' },
+    });
     if (!existingQ) {
-      await QuestionBank.create({
-        questionId: 'qb-check-easy-01',
-        topic: 'Checking AI',
-        level: 'Easy',
-        track: 'General',
-        title: 'Customer Discount Policy Fact-Check',
-        promptText:
-          'Review the automated customer response against discount guidelines. Identify whether discount applied matches company policy.',
-        hint: 'Pay attention to minimum cart value requirements.',
-        testScenario:
-          'Customer Message: "I bought goods worth $45 and received an automatic 20% discount."\nCompany Policy: "A 20% promotional discount applies strictly to orders of $50 or more."',
-        expectedCriteria: [
-          'Identifies that the $45 cart does not meet the $50 minimum threshold',
-          'States clearly whether the customer response was accurate or inaccurate',
-        ],
-        scoringRubric: [
-          {
-            criterion: 'Threshold Identification',
-            maxScore: 50,
-            description: 'Noticed the $50 requirement',
-          },
-          {
-            criterion: 'Clear Verdict',
-            maxScore: 50,
-            description: 'Provides definitive verification status',
-          },
-        ],
-        source: 'Human',
-        status: 'ACTIVE',
-        version: 1,
+      await prisma.questionBank.create({
+        data: {
+          questionId: 'qb-check-easy-01',
+          topic: 'Checking AI',
+          level: 'Easy',
+          track: 'General',
+          title: 'Customer Discount Policy Fact-Check',
+          promptText:
+            'Review the automated customer response against discount guidelines. Identify whether discount applied matches company policy.',
+          hint: 'Pay attention to minimum cart value requirements.',
+          testScenario:
+            'Customer Message: "I bought goods worth $45 and received an automatic 20% discount."\nCompany Policy: "A 20% promotional discount applies strictly to orders of $50 or more."',
+          expectedCriteria: [
+            'Identifies that the $45 cart does not meet the $50 minimum threshold',
+            'States clearly whether the customer response was accurate or inaccurate',
+          ],
+          scoringRubric: toJsonInput([
+            {
+              criterion: 'Threshold Identification',
+              maxScore: 50,
+              description: 'Noticed the $50 requirement',
+            },
+            {
+              criterion: 'Clear Verdict',
+              maxScore: 50,
+              description: 'Provides definitive verification status',
+            },
+          ]),
+          source: 'Human',
+          status: 'ACTIVE',
+          version: 1,
+        },
       });
     }
 
     // Seed synthetic test learner with 500 AC baseline
     const hashedPassword = await bcrypt.hash(testPassword, 10);
-    const seededUser: any = await User.create({
-      name: 'TD Restart Test Learner',
-      email: testEmail,
-      password: hashedPassword,
-      role: 'learner',
-      track: 'Student',
-      isActive: true,
-      college: 'Apex Engineering Institute',
-      targetGoal: 'AI Skills',
-      stage: 'Knowing',
-      aiimsCredits: 500,
-      xpPoints: 100,
-      assessment: {
-        status: 'completed',
-        answers: {},
-        currentQuestionIndex: 25,
-        completedAt: new Date().toISOString(),
-        rewardClaimed: true,
-        scores: {
-          usageFrequency: 80,
-          evaluationCapability: 85,
-          workflowDesign: 80,
-          strategicVision: 75,
-          mentorshipReadiness: 70,
-        },
-      },
-      analysis: {
-        status: 'viewed',
-        topCapability: 'Prompt Design',
-        growthArea: 'Autonomous Workflows',
-        unlockedAt: new Date().toISOString(),
+    const seededUser = await prisma.user.create({
+      data: {
+        name: 'TD Restart Test Learner',
+        email: testEmail,
+        password: hashedPassword,
+        role: 'learner',
+        track: 'Student',
+        isActive: true,
+        college: 'Apex Engineering Institute',
+        targetGoal: 'AI Skills',
+        stage: 'Knowing',
+        aiimsCredits: 500,
+        xpPoints: 100,
+        assessmentData: toJsonInput({
+          status: 'completed',
+          answers: {},
+          currentQuestionIndex: 25,
+          completedAt: new Date().toISOString(),
+          rewardClaimed: true,
+          scores: {
+            usageFrequency: 80,
+            evaluationCapability: 85,
+            workflowDesign: 80,
+            strategicVision: 75,
+            mentorshipReadiness: 70,
+          },
+        }),
+        analysisData: toJsonInput({
+          status: 'viewed',
+          topCapability: 'Prompt Design',
+          growthArea: 'Autonomous Workflows',
+          unlockedAt: new Date().toISOString(),
+        }),
       },
     });
 
-    testUserId = String(seededUser._id);
+    testUserId = seededUser.id;
     record(
       1,
       'Preflight Database Safety Guard & Synthetic Learner Seeding',
       'PASS',
-      `Connected to persistent "${activeDbName}"; Seeded learner ID: ${testUserId} (${testEmail}) with initial 500 AC`
+      `Connected to persistent PostgreSQL; Seeded learner ID: ${testUserId} (${testEmail}) with initial 500 AC`
     );
 
     // -------------------------------------------------------------------------
@@ -388,8 +383,8 @@ export async function runProcessRestartVerification(): Promise<boolean> {
       `Expected Fast tier with 20 AC, got tier ${focusSubmitData.reward?.tier}, credits ${focusSubmitData.reward?.credits}`
     );
 
-    // Direct MongoDB balance check after both submissions
-    const userAfterProcess1 = await User.findById(testUserId);
+    // Direct PostgreSQL balance check after both submissions
+    const userAfterProcess1 = await prisma.user.findUnique({ where: { id: testUserId } });
     assert(
       userAfterProcess1?.aiimsCredits === 535,
       `Expected persisted balance 535 AC (500 + 15 + 20), got ${userAfterProcess1?.aiimsCredits}`
@@ -403,12 +398,16 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     );
 
     // -------------------------------------------------------------------------
-    // STEP 6: Pre-Restart Snapshot & Direct MongoDB Persistence Audit
+    // STEP 6: Pre-Restart Snapshot & Direct PostgreSQL Persistence Audit
     // -------------------------------------------------------------------------
-    const clarityAsgnPre = await QuestionAssignment.findOne({ assignmentId: clarityAssignmentId });
-    const focusAsgnPre = await QuestionAssignment.findOne({ assignmentId: focusAssignmentId });
-    const attemptsPre = await QuestionAttempt.find({ learnerId: testUserId });
-    const ledgerPre = await CreditLedger.find({ userId: testUserId });
+    const clarityAsgnPre = await prisma.questionAssignment.findUnique({
+      where: { assignmentId: clarityAssignmentId },
+    });
+    const focusAsgnPre = await prisma.questionAssignment.findUnique({
+      where: { assignmentId: focusAssignmentId },
+    });
+    const attemptsPre = await prisma.questionAttempt.findMany({ where: { learnerId: testUserId } });
+    const ledgerPre = await prisma.creditLedger.findMany({ where: { userId: testUserId } });
 
     assert(clarityAsgnPre?.status === 'SUBMITTED', 'Clarity assignment not SUBMITTED in DB');
     assert(focusAsgnPre?.status === 'SUBMITTED', 'Focus assignment not SUBMITTED in DB');
@@ -423,9 +422,9 @@ export async function runProcessRestartVerification(): Promise<boolean> {
 
     record(
       6,
-      'Pre-Restart MongoDB Snapshot Captured',
+      'Pre-Restart PostgreSQL Snapshot Captured',
       'PASS',
-      `Snapshot verified in MongoDB: Balance=535 AC; 2 Assignments (Both locked); 2 Attempts; 2 Ledger entries`
+      `Snapshot verified in PostgreSQL: Balance=535 AC; 2 Assignments (Both locked); 2 Attempts; 2 Ledger entries`
     );
 
     // -------------------------------------------------------------------------
@@ -454,17 +453,14 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     }
     assert(portClosed, `Port ${TEST_PORT} still responding after Process 1 termination`);
 
-    // Confirm MongoDB database remains available and unaffected
-    assert(
-      mongoose.connection.readyState === 1,
-      'MongoDB connection dropped during process termination'
-    );
+    // Confirm PostgreSQL database remains available and unaffected
+    assert(isDatabaseConnected(), 'PostgreSQL connection dropped during process termination');
 
     record(
       7,
       'First Process Hard Termination Evidence',
       'PASS',
-      `Process 1 (PID ${process1Pid}) verified terminated; Port ${TEST_PORT} connection refused; MongoDB connection intact`
+      `Process 1 (PID ${process1Pid}) verified terminated; Port ${TEST_PORT} connection refused; PostgreSQL connection intact`
     );
 
     // -------------------------------------------------------------------------
@@ -526,13 +522,19 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     );
 
     // -------------------------------------------------------------------------
-    // STEP 10: State Parity & MongoDB Persistence Comparison
+    // STEP 10: State Parity & PostgreSQL Persistence Comparison
     // -------------------------------------------------------------------------
-    const userPost = await User.findById(testUserId);
-    const clarityAsgnPost = await QuestionAssignment.findOne({ assignmentId: clarityAssignmentId });
-    const focusAsgnPost = await QuestionAssignment.findOne({ assignmentId: focusAssignmentId });
-    const attemptsPost = await QuestionAttempt.find({ learnerId: testUserId });
-    const ledgerPost = await CreditLedger.find({ userId: testUserId });
+    const userPost = await prisma.user.findUnique({ where: { id: testUserId } });
+    const clarityAsgnPost = await prisma.questionAssignment.findUnique({
+      where: { assignmentId: clarityAssignmentId },
+    });
+    const focusAsgnPost = await prisma.questionAssignment.findUnique({
+      where: { assignmentId: focusAssignmentId },
+    });
+    const attemptsPost = await prisma.questionAttempt.findMany({
+      where: { learnerId: testUserId },
+    });
+    const ledgerPost = await prisma.creditLedger.findMany({ where: { userId: testUserId } });
 
     assert(
       userPost?.aiimsCredits === 535,
@@ -615,7 +617,7 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     );
 
     // Confirm balance did not increase after duplicate attempts
-    const userAfterDupes = await User.findById(testUserId);
+    const userAfterDupes = await prisma.user.findUnique({ where: { id: testUserId } });
     assert(
       userAfterDupes?.aiimsCredits === 535,
       `Balance increased after duplicate attempts! Expected 535 AC, found ${userAfterDupes?.aiimsCredits}`
@@ -639,9 +641,8 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     });
     assert(nextServeRes.ok, `Next question serve failed with status ${nextServeRes.status}`);
     const nextServeData = (await nextServeRes.json()) as any;
-    const nextQuestionId = nextServeData.question?.questionId;
 
-    // Verify question repetition prevention (must not serve the already answered qb-check-easy-01 if other questions exist, or creates distinct assignment)
+    // Verify question repetition prevention
     assert(
       nextServeData.assignmentId !== focusAssignmentId,
       'New serve returned previously completed assignmentId'
@@ -686,21 +687,25 @@ export async function runProcessRestartVerification(): Promise<boolean> {
     }
 
     if (testUserId) {
-      await User.deleteMany({ _id: testUserId });
-      await QuestionAssignment.deleteMany({ learnerId: testUserId });
-      await QuestionAttempt.deleteMany({ learnerId: testUserId });
-      await CreditLedger.deleteMany({ userId: testUserId });
+      await prisma.user.deleteMany({ where: { id: testUserId } });
+      await prisma.questionAssignment.deleteMany({ where: { learnerId: testUserId } });
+      await prisma.questionAttempt.deleteMany({ where: { learnerId: testUserId } });
+      await prisma.creditLedger.deleteMany({ where: { userId: testUserId } });
     }
 
     // Also clean up by test email pattern
-    await User.deleteMany({ email: /^td_restart_learner_.*@aiims\.test$/ });
+    await prisma.user.deleteMany({ where: { email: { startsWith: 'td_restart_learner_' } } });
 
-    const remainingUsers = await User.countDocuments({ email: testEmail });
-    const remainingAssignments = await QuestionAssignment.countDocuments({
-      assignmentId: { $in: [clarityAssignmentId, focusAssignmentId] },
+    const remainingUsers = await prisma.user.count({ where: { email: testEmail } });
+    const remainingAssignments = await prisma.questionAssignment.count({
+      where: { assignmentId: { in: [clarityAssignmentId, focusAssignmentId].filter(Boolean) } },
     });
-    const remainingAttempts = await QuestionAttempt.countDocuments({ learnerId: testUserId });
-    const remainingLedger = await CreditLedger.countDocuments({ userId: testUserId });
+    const remainingAttempts = testUserId
+      ? await prisma.questionAttempt.count({ where: { learnerId: testUserId } })
+      : 0;
+    const remainingLedger = testUserId
+      ? await prisma.creditLedger.count({ where: { userId: testUserId } })
+      : 0;
 
     const cleanupClean =
       remainingUsers === 0 &&
@@ -712,13 +717,11 @@ export async function runProcessRestartVerification(): Promise<boolean> {
       13,
       'Automated Teardown & Post-Cleanup Database Audit',
       cleanupClean ? 'PASS' : 'FAIL',
-      `Remaining records in aiims_test: Users=${remainingUsers}, Assignments=${remainingAssignments}, Attempts=${remainingAttempts}, Ledger=${remainingLedger}`
+      `Remaining records in PostgreSQL: Users=${remainingUsers}, Assignments=${remainingAssignments}, Attempts=${remainingAttempts}, Ledger=${remainingLedger}`
     );
 
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.disconnect();
-      console.log('📡 Disconnected cleanly from MongoDB Atlas.');
-    }
+    await disconnectDatabase();
+    console.log('📡 Disconnected cleanly from PostgreSQL.');
   }
 }
 

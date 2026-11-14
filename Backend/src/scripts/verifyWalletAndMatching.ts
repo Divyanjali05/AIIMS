@@ -24,8 +24,8 @@ import {
   calculateFocusChallengeReward,
 } from '../config/credits.config';
 import { AITool } from '../types';
-import mongoose from 'mongoose';
-import { config } from '../config/env';
+import { prisma, isDatabaseConnected, checkDatabaseHealth } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 
 let passed = 0;
 let failed = 0;
@@ -45,11 +45,36 @@ async function runWalletAndMatchingVerification() {
   console.log(' AIIMS PROMPT 7: AI WALLET & INTELLIGENT MATCHING TEST SUITE');
   console.log('================================================================\n');
 
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
+  }
+
   // Initialize tool catalog
   ToolCatalogService.initializeCatalog();
 
   const TEST_USER_1 = `wallet-test-user-${Date.now()}-1`;
   const TEST_USER_2 = `wallet-test-user-${Date.now()}-2`;
+
+  await prisma.user.create({
+    data: {
+      id: TEST_USER_1,
+      email: `${TEST_USER_1}@aiims.test`,
+      name: 'Wallet Test User 1',
+      password: 'hash',
+      role: 'learner',
+      aiimsCredits: 0,
+    },
+  });
+  await prisma.user.create({
+    data: {
+      id: TEST_USER_2,
+      email: `${TEST_USER_2}@aiims.test`,
+      name: 'Wallet Test User 2',
+      password: 'hash',
+      role: 'learner',
+      aiimsCredits: 0,
+    },
+  });
 
   // -------------------------------------------------------------
   // SUITE 1: Authoritative Balance & Initial Ledger State
@@ -478,6 +503,16 @@ async function runWalletAndMatchingVerification() {
   console.log('\n── SUITE 11: Security, Learner Ownership & Admin Protection ────');
 
   const TEST_USER_3 = `wallet-test-user-${Date.now()}-3`;
+  await prisma.user.create({
+    data: {
+      id: TEST_USER_3,
+      email: `${TEST_USER_3}@aiims.test`,
+      name: 'Wallet Test User 3',
+      password: 'hash',
+      role: 'learner',
+      aiimsCredits: 0,
+    },
+  });
   const user3History = await creditsLedgerService.getLedgerHistory(TEST_USER_3);
   assert(
     '11.1 Fresh User 3 has exactly 0 transactions (strict isolation from User 1)',
@@ -603,21 +638,10 @@ async function runWalletAndMatchingVerification() {
   // SUITE 14: Isolated Database Environment Check
   // -------------------------------------------------------------
   console.log('\n── SUITE 14: Environment & Database Preflight Check ────────────');
-  let isDbConnected = false;
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      await mongoose.connect(config.mongodbUri, {
-        serverSelectionTimeoutMS: 2000,
-        connectTimeoutMS: 2000,
-      });
-    }
-    isDbConnected = mongoose.connection.readyState === 1;
-  } catch (err: any) {
-    console.log(
-      `  ℹ Notice: Database connection timed out in sandbox (${err.message}). In-memory verified.`
-    );
-    isDbConnected = false;
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
+  const isDbConnected = await checkDatabaseHealth();
   assert(`14.1 Database environment state verified (connected: ${isDbConnected})`, true);
 
   // -------------------------------------------------------------

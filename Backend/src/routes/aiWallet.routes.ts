@@ -9,6 +9,9 @@ import {
   matchToolSchema,
   compareToolsSchema,
   registerSourceSchema,
+  walletOperationSchema,
+  confirmUsageSchema,
+  personalizedMatchSchema,
 } from '../schemas/wallet.schema';
 import {
   searchTools,
@@ -16,6 +19,7 @@ import {
   getCatalog,
   getToolById,
   getTaxonomy,
+  getDomainCards,
   compareTools,
   getGaps,
   triggerDiscovery,
@@ -29,6 +33,10 @@ import {
   getRecommendations,
   addToWallet,
   updateFamiliarity,
+  executeWalletOperation,
+  confirmToolUsage,
+  getUserConfirmations,
+  getPersonalizedToolMatching,
   getDiscoveryRuns,
   getToolEvidenceAdmin,
   getToolHistoryAdmin,
@@ -49,6 +57,7 @@ router.post('/wallet/match', validateBody(matchToolSchema), matchTools);
 router.get('/wallet/catalog', getCatalog);
 router.get('/wallet/tools/:id', getToolById);
 router.get('/wallet/taxonomy', getTaxonomy);
+router.get('/wallet/domain-cards', getDomainCards);
 router.post('/wallet/compare', validateBody(compareToolsSchema), compareTools);
 router.get('/wallet/gaps', getGaps);
 router.get('/wallet/tools/new', getNewTools);
@@ -68,6 +77,26 @@ router.post(
   validateBody(updateFamiliaritySchema),
   updateFamiliarity
 );
+router.post(
+  '/wallet/operate',
+  requireAuth,
+  validateBody(walletOperationSchema),
+  executeWalletOperation
+);
+router.post(
+  '/wallet/confirm-usage',
+  requireAuth,
+  validateBody(confirmUsageSchema),
+  confirmToolUsage
+);
+router.get('/wallet/confirmations', requireAuth, getUserConfirmations);
+router.post(
+  '/wallet/personalized-match',
+  requireAuth,
+  validateBody(personalizedMatchSchema),
+  getPersonalizedToolMatching
+);
+router.get('/wallet/personalized-matching', requireAuth, getPersonalizedToolMatching);
 router.post('/wallet/discover/trigger', requireAuth, aiExecutionRateLimiter, triggerDiscovery);
 
 // Admin-Only Discovery & Tool Management routes

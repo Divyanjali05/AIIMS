@@ -16,7 +16,8 @@ import { AddressInfo } from 'net';
 import jwt from 'jsonwebtoken';
 import { app } from '../../server';
 import { config } from '../../config/env';
-import { registeredUsers } from '../../models/userStore';
+import { prisma } from '../../config/prisma';
+import { installPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 let server: http.Server;
 let baseUrl: string;
@@ -72,46 +73,59 @@ function generateToken(
 }
 
 beforeAll(async () => {
+  installPrismaTestDouble({ connected: true });
+
   server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const addr = server.address() as AddressInfo;
   baseUrl = `http://127.0.0.1:${addr.port}`;
 
-  // Seed a test learner user in memory
-  registeredUsers['security.learner@example.com'] = {
-    _id: '65d000000000000000000099',
-    id: '65d000000000000000000099',
-    email: 'security.learner@example.com',
-    name: 'Security Test Learner',
-    passwordHash: 'dummy-hash',
-    role: 'learner',
-    aiimsCredits: 500,
-    xpPoints: 100,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  } as any;
+  // Seed a test learner user in test double
+  await prisma.user.create({
+    data: {
+      id: '65d000000000000000000099',
+      email: 'security.learner@example.com',
+      name: 'Security Test Learner',
+      password: 'dummy-hash',
+      role: 'learner',
+      aiimsCredits: 500,
+      xpPoints: 100,
+    },
+  });
 
-  // Seed a test admin user in memory
-  registeredUsers['admin@aiims.edu'] = {
-    _id: '65d000000000000000000001',
-    id: '65d000000000000000000001',
-    email: 'admin@aiims.edu',
-    name: 'Security Test Admin',
-    passwordHash: 'dummy-hash',
-    role: 'admin',
-    aiimsCredits: 1000,
-    xpPoints: 500,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  } as any;
+  // Seed a test admin user in test double
+  await prisma.user.create({
+    data: {
+      id: '65d000000000000000000001',
+      email: 'admin@aiims.edu',
+      name: 'Security Test Admin',
+      password: 'dummy-hash',
+      role: 'admin',
+      aiimsCredits: 1000,
+      xpPoints: 500,
+    },
+  });
+
+  // Seed a test task for submission testing
+  await prisma.task.create({
+    data: {
+      id: 'task-prompt-1',
+      title: 'Prompt Engineering Safety Task',
+      description: 'Design a safe prompt',
+      level: 1,
+      category: 'prompting',
+      rewardCredits: 50,
+      rewardXp: 20,
+      isActive: true,
+    },
+  });
 });
 
 afterAll(async () => {
   if (server) {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
-  delete registeredUsers['security.learner@example.com'];
-  delete registeredUsers['admin@aiims.edu'];
+  uninstallPrismaTestDouble();
 });
 
 describe('AIIMS Security Test Suite', () => {
@@ -289,6 +303,43 @@ describe('AIIMS Security Test Suite', () => {
       expect(res.status).toBe(204);
       expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:3000');
     });
+
+    it('3D: Request with newly added LAN origin http://192.168.0.68:3000 succeeds with HTTP 200 and credentials true', async () => {
+      const allowedOrigin = 'http://192.168.0.68:3000';
+      const res = await makeRequest('/api/health', {
+        headers: {
+          Origin: allowedOrigin,
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('access-control-allow-origin')).toBe(allowedOrigin);
+      expect(res.headers.get('access-control-allow-credentials')).toBe('true');
+    });
+
+    it('3E: Preflight OPTIONS request from http://192.168.0.68:3000 returns HTTP 204 with device headers allowed', async () => {
+      const allowedOrigin = 'http://192.168.0.68:3000';
+      const res = await makeRequest('/api/health', {
+        method: 'OPTIONS',
+        headers: {
+          Origin: allowedOrigin,
+          'Access-Control-Request-Method': 'POST',
+          'Access-Control-Request-Headers': 'Content-Type,X-Device-Id,X-Device-Name,X-Platform',
+        },
+      });
+      expect(res.status).toBe(204);
+      expect(res.headers.get('access-control-allow-origin')).toBe(allowedOrigin);
+      expect(res.headers.get('access-control-allow-credentials')).toBe('true');
+    });
+
+    it('3F: Request with untrusted LAN Origin http://192.168.0.99:3000 is blocked with HTTP 403 and CORS_FORBIDDEN', async () => {
+      const res = await makeRequest('/api/health', {
+        headers: {
+          Origin: 'http://192.168.0.99:3000',
+        },
+      });
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('CORS_FORBIDDEN');
+    });
   });
 
   describe('4. Cookie-Authenticated State-Changing CSRF Origin Protection', () => {
@@ -342,8 +393,10 @@ describe('AIIMS Security Test Suite', () => {
         },
         body: {
           taskId: 'task-prompt-1',
-          answerContent:
+          userPrompt:
             'A comprehensive, well-structured prompt designed to test AI safety and output consistency.',
+          aiResponse:
+            'This response adheres to strict safety boundaries and provides consistent verifiable results.',
         },
       });
       // Should not be rejected by CSRF guard (status is 201 Created or 200 OK)

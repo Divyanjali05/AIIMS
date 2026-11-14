@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isCommonPassword } from '../utils/passwordSecurity';
+import { getProgramDuration, VENTURE_STAGES } from '../config/academicTaxonomy';
 
 export const loginSchema = z.object({
   email: z
@@ -41,41 +42,156 @@ export const registerSchema = z
     ),
     instituteId: z.string().optional(),
     instituteName: z.string().optional(),
-    stream: z.enum(['TECH', 'NON_TECH'] as const),
+    stream: z.enum(['TECH', 'NON_TECH'] as const).optional(),
     streamSubCategory: z.string().optional(),
-    educationLevel: z.enum([
-      'SCHOOL',
-      'UNDERGRADUATE',
-      'POSTGRADUATE',
-      'RESEARCH',
-      'GRADUATE',
-    ] as const),
-    programId: z.string().min(1, 'Please select your degree or program.'),
+    educationLevel: z
+      .enum(['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'] as const)
+      .optional(),
+    programId: z.string().optional(),
     programName: z.string().optional(),
-    specializationId: z.string().min(1, 'Please select your branch or specialization.'),
+    specializationId: z.string().optional(),
     specializationName: z.string().optional(),
-    yearOfStudy: z.coerce
-      .number()
-      .int()
-      .min(1, 'Please enter a valid year of study (1–7).')
-      .max(7, 'Please enter a valid year of study (1–7).'),
-    admissionYear: z.coerce
-      .number()
-      .int()
-      .min(1990, 'Please enter a valid admission year.')
-      .max(2030, 'Please enter a valid admission year.'),
-    expectedGraduationYear: z.coerce.number().int(),
+    yearOfStudy: z.coerce.number().int().optional(),
+    admissionYear: z.coerce.number().int().optional(),
+    expectedGraduationYear: z.coerce.number().int().optional(),
+    // Entrepreneur-specific onboarding fields
+    ventureName: z.string().optional(),
+    industry: z.string().optional(),
+    problemStatement: z.string().optional(),
+    ventureStage: z.string().optional(),
+    skillsToDevelop: z.array(z.string()).optional(),
+    businessChallenges: z.array(z.string()).optional(),
+    preferredSupport: z.array(z.string()).optional(),
     aiFamiliarity: z.string().optional(),
     aiUsageContexts: z.array(z.string()).optional(),
     primaryGoal: z.string().optional(),
   })
-  .refine((data) => !data.confirmPassword || data.password === data.confirmPassword, {
-    message: 'Passwords do not match.',
-    path: ['confirmPassword'],
-  })
-  .refine((data) => data.expectedGraduationYear >= data.admissionYear, {
-    message: 'Expected graduation year must be after admission year.',
-    path: ['expectedGraduationYear'],
+  .superRefine((data, ctx) => {
+    // 1. Password Confirmation
+    if (data.confirmPassword && data.password !== data.confirmPassword) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Passwords do not match.',
+        path: ['confirmPassword'],
+      });
+    }
+
+    // 2. Track-specific Academic Requirements
+    if (data.track === 'Student') {
+      if (!data.stream) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please select a valid academic stream.',
+          path: ['stream'],
+        });
+      }
+      if (!data.educationLevel) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please select a valid education level.',
+          path: ['educationLevel'],
+        });
+      }
+      if (!data.programId || data.programId.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please select your degree or program.',
+          path: ['programId'],
+        });
+      }
+      if (!data.specializationId || data.specializationId.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Please select your branch or specialization.',
+          path: ['specializationId'],
+        });
+      }
+
+      const duration = data.programId ? getProgramDuration(data.programId) : 4;
+      if (
+        data.yearOfStudy === undefined ||
+        isNaN(data.yearOfStudy) ||
+        data.yearOfStudy < 1 ||
+        data.yearOfStudy > duration
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Please enter a valid year of study (1–${duration}) for this program.`,
+          path: ['yearOfStudy'],
+        });
+      }
+
+      const currentYear = new Date().getFullYear();
+      if (
+        data.admissionYear === undefined ||
+        isNaN(data.admissionYear) ||
+        data.admissionYear < 1990 ||
+        data.admissionYear > currentYear + 1
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Please enter a valid admission year (up to ${currentYear + 1}).`,
+          path: ['admissionYear'],
+        });
+      }
+      if (
+        data.expectedGraduationYear === undefined ||
+        isNaN(data.expectedGraduationYear) ||
+        (data.admissionYear !== undefined && data.expectedGraduationYear <= data.admissionYear)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Expected graduation year must be after admission year.',
+          path: ['expectedGraduationYear'],
+        });
+      }
+
+      // Cross-track validation: reject entrepreneur-only fields if supplied on Student track
+      if (data.ventureStage || data.problemStatement) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Entrepreneur venture fields are not permitted on the Student track.',
+          path: ['ventureStage'],
+        });
+      }
+    } else if (data.track === 'Entrepreneur') {
+      // Cross-track validation: reject student academic fields if supplied on Entrepreneur track
+      if (
+        data.stream ||
+        data.educationLevel ||
+        data.programId ||
+        data.specializationId ||
+        data.yearOfStudy
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Student academic fields are not permitted on the Entrepreneur track.',
+          path: ['stream'],
+        });
+      }
+
+      if (data.ventureStage && !VENTURE_STAGES.some((s) => s.value === data.ventureStage)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Invalid venture stage selected.',
+          path: ['ventureStage'],
+        });
+      }
+
+      if (
+        data.admissionYear !== undefined &&
+        data.expectedGraduationYear !== undefined &&
+        !isNaN(data.admissionYear) &&
+        !isNaN(data.expectedGraduationYear) &&
+        data.expectedGraduationYear <= data.admissionYear
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Expected graduation year must be after admission year.',
+          path: ['expectedGraduationYear'],
+        });
+      }
+    }
   });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

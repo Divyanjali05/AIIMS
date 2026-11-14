@@ -149,13 +149,62 @@ describe('Zod Runtime Request Validation Suite', () => {
       });
 
       it('accepts Entrepreneur track in registration payload', () => {
+        const {
+          stream,
+          educationLevel,
+          programId,
+          specializationId,
+          yearOfStudy,
+          admissionYear,
+          expectedGraduationYear,
+          ...basePayload
+        } = validRegisterPayload;
         const result = registerSchema.safeParse({
-          ...validRegisterPayload,
+          ...basePayload,
           track: 'Entrepreneur',
         });
         expect(result.success).toBe(true);
         if (result.success) {
           expect(result.data.track).toBe('Entrepreneur');
+        }
+      });
+
+      it('accepts Entrepreneur registration without student academic fields', () => {
+        const result = registerSchema.safeParse({
+          name: 'Priya Entrepreneur',
+          email: 'priya.founder@aiims.edu',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+          track: 'Entrepreneur',
+          aiFamiliarity: 'REGULAR_USER',
+          aiUsageContexts: ['Workflow Design', 'Productivity'],
+          primaryGoal: 'ENTREPRENEURSHIP',
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.track).toBe('Entrepreneur');
+          expect(result.data.email).toBe('priya.founder@aiims.edu');
+        }
+      });
+
+      it('rejects Student registration when academic fields are missing', () => {
+        const result = registerSchema.safeParse({
+          name: 'Student Missing Degree',
+          email: 'student.nodegree@aiims.edu',
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+          track: 'Student',
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          const fields = result.error.issues.map((i) => i.path[0]);
+          expect(fields).toContain('stream');
+          expect(fields).toContain('educationLevel');
+          expect(fields).toContain('programId');
+          expect(fields).toContain('specializationId');
+          expect(fields).toContain('yearOfStudy');
+          expect(fields).toContain('admissionYear');
+          expect(fields).toContain('expectedGraduationYear');
         }
       });
 

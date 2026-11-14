@@ -4,9 +4,12 @@ import { JourneyService } from '../services/journey.service';
 import { assessmentHistoryQuerySchema } from '../schemas/journey.schema';
 import { logger } from '../utils/logger';
 
-/**
- * Helper: Extract authenticated user ID
- */
+function isDbUnavailable(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: unknown; message?: unknown };
+  return e.code === 'DATABASE_UNAVAILABLE' || e.message === 'DATABASE_UNAVAILABLE';
+}
+
 const getUserId = (req: AuthenticatedRequest): string => {
   const user = req.user;
   if (!user) throw new Error('UNAUTHORIZED');
@@ -22,6 +25,11 @@ export const getJourneyOverview = async (req: AuthenticatedRequest, res: Respons
     const overview = await JourneyService.getJourneyOverview(userId);
     return res.status(200).json({ success: true, data: overview });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching journey overview:', err);
     if (err.message === 'LEARNER_NOT_FOUND') {
       return res
@@ -44,6 +52,11 @@ export const getAssessmentHistory = async (req: AuthenticatedRequest, res: Respo
     const result = await JourneyService.getAssessmentHistory(userId, parsedQuery);
     return res.status(200).json({ success: true, data: result });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching assessment history:', err);
     if (err.name === 'ZodError') {
       return res.status(400).json({ error: 'Invalid query parameters', details: err.errors });
@@ -63,6 +76,11 @@ export const getClarityProgress = async (req: AuthenticatedRequest, res: Respons
     const progress = await JourneyService.getClarityProgress(userId);
     return res.status(200).json({ success: true, data: progress });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching clarity progress:', err);
     return res
       .status(500)
@@ -79,6 +97,11 @@ export const getFocusActivity = async (req: AuthenticatedRequest, res: Response)
     const activity = await JourneyService.getFocusActivity(userId);
     return res.status(200).json({ success: true, data: activity });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching focus activity:', err);
     return res
       .status(500)
@@ -95,6 +118,11 @@ export const getPerformanceAnalytics = async (req: AuthenticatedRequest, res: Re
     const analytics = await JourneyService.getPerformanceAnalytics(userId);
     return res.status(200).json({ success: true, data: analytics });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching performance analytics:', err);
     return res
       .status(500)
@@ -111,6 +139,11 @@ export const getNextBestAction = async (req: AuthenticatedRequest, res: Response
     const overview = await JourneyService.getJourneyOverview(userId);
     return res.status(200).json({ success: true, data: overview.nextBestAction });
   } catch (err: any) {
+    if (isDbUnavailable(err)) {
+      return res
+        .status(503)
+        .json({ error: 'PostgreSQL database is unavailable.', code: 'DATABASE_UNAVAILABLE' });
+    }
     logger.error('Error fetching next best action:', err);
     return res.status(500).json({ error: 'Failed to fetch next action', code: 'INTERNAL_ERROR' });
   }

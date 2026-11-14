@@ -1,21 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { clarityProgressionService } from '../clarityProgression.service';
-import {
-  inMemoryClarityProgressionConfig,
-  setInMemoryClarityProgressionConfig,
-} from '../../models/ClarityProgressionConfig.model';
-import { inMemoryLearnerClarityProgressions } from '../../models/LearnerClarityProgression.model';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 describe('AIIMS Clarity Module & Progression Engine', () => {
   beforeEach(() => {
-    // Reset progression config to defaults
-    setInMemoryClarityProgressionConfig({
-      upwardThreshold: 80,
-      consecutiveRequired: 2,
-      downwardThreshold: 50,
-      updatedBy: 'SYSTEM_TEST_DEFAULT',
-    });
-    inMemoryLearnerClarityProgressions.clear();
+    resetPrismaTestDouble(true);
+  });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
   });
 
   describe('Clarity Progression Defaults & Thresholds', () => {

@@ -1,6 +1,6 @@
 /**
  * One-time migration script: Migrates existing free-text user role values
- * to the fixed enum: 'learner' | 'evaluator' | 'admin'.
+ * to the fixed enum: 'learner' | 'evaluator' | 'admin' in PostgreSQL.
  * Any existing value outside this enum maps to 'learner'.
  *
  * Usage:
@@ -8,11 +8,9 @@
  *   npx ts-node src/scripts/migrateUserRoles.ts
  */
 
-import mongoose from 'mongoose';
-import { config } from '../config/env';
-import { User, UserRole } from '../models/User.model';
+import { prisma, connectDatabase, disconnectDatabase } from '../config/prisma';
 
-const VALID_ROLES: Set<string> = new Set<UserRole>(['learner', 'evaluator', 'admin']);
+const VALID_ROLES = new Set(['learner', 'evaluator', 'admin']);
 
 export async function migrateUserRoles(dryRun = false): Promise<{
   inspected: number;
@@ -30,12 +28,12 @@ export async function migrateUserRoles(dryRun = false): Promise<{
   let migrated = 0;
   let unchanged = 0;
 
-  const users = await User.find({}).lean();
+  const users = await prisma.user.findMany();
   inspected = users.length;
   console.log(`Found ${inspected} total user record(s) to inspect.\n`);
 
   for (const user of users) {
-    const currentRole = (user as any).role;
+    const currentRole = user.role;
     const isValid = typeof currentRole === 'string' && VALID_ROLES.has(currentRole);
 
     if (isValid) {
@@ -43,11 +41,14 @@ export async function migrateUserRoles(dryRun = false): Promise<{
     } else {
       eligible++;
       console.log(
-        `[ELIGIBLE] User ${user.email} (ID: ${user._id}) has role '${currentRole}' -> will map to 'learner'`
+        `[ELIGIBLE] User ${user.email} (ID: ${user.id}) has role '${currentRole}' -> will map to 'learner'`
       );
 
       if (!dryRun) {
-        await User.updateOne({ _id: user._id }, { $set: { role: 'learner' } });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { role: 'learner' },
+        });
         migrated++;
       }
     }
@@ -58,34 +59,32 @@ export async function migrateUserRoles(dryRun = false): Promise<{
   console.log(`- Inspected: ${inspected}`);
   console.log(`- Unchanged (already valid enum): ${unchanged}`);
   console.log(`- Eligible for migration: ${eligible}`);
-  console.log(`- Migrated to 'learner': ${dryRun ? '0 (Dry Run)' : migrated}`);
+  console.log(`- Successfully migrated: ${migrated}`);
   console.log('===============================================================\n');
 
   return { inspected, eligible, migrated, unchanged };
 }
 
-// Direct CLI execution wrapper
-if (require.main === module) {
+async function runCli() {
   const isDryRun = process.argv.includes('--dry-run');
 
-  const runCli = async () => {
-    if (!config.mongodbUri) {
-      console.error('FATAL: MONGODB_URI is required to run migration.');
-      process.exit(1);
-    }
-
-    try {
-      await mongoose.connect(config.mongodbUri);
-      console.log('Connected to MongoDB database.');
-      await migrateUserRoles(isDryRun);
-      await mongoose.disconnect();
-      console.log('Database connection closed.');
+  try {
+    const conn = await connectDatabase(3, 1000);
+    if (!conn.connected) {
+      console.warn('⚠️  PostgreSQL is not reachable. Skipping role migration.');
       process.exit(0);
-    } catch (err: any) {
-      console.error('Migration failed with error:', err.message);
-      process.exit(1);
     }
-  };
+    console.log(`Connected to PostgreSQL database "${conn.databaseName || 'aiims'}".\n`);
 
+    await migrateUserRoles(isDryRun);
+    await disconnectDatabase();
+    process.exit(0);
+  } catch (err: any) {
+    console.error('❌ Migration failed:', err.message);
+    process.exit(1);
+  }
+}
+
+if (require.main === module) {
   runCli();
 }

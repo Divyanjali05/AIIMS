@@ -1,12 +1,11 @@
 import { Response } from 'express';
-import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { User } from '../models/User.model';
-import { mockUser, mockTransactions, rewardedLevelIds } from '../models/aiims.models';
-import { CreditTransaction } from '../types';
+import { prisma, isDatabaseConnected } from '../config/prisma';
+import { CreditTransactionType, CreditTransactionCategory } from '../types/models';
 import { CREDIT_RULES } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { CreditTransactionType, CreditTransactionCategory } from '../models/CreditLedger.model';
+import { userRecordToIUser } from '../utils/userMapper';
+import { isValidId } from '../utils/id';
 
 /**
  * GET /credits/costs
@@ -39,12 +38,19 @@ export const getCreditCosts = async (_req: AuthenticatedRequest, res: Response) 
         unit: 'AC',
         description: 'Intelligent tool matching and catalog recommendations (Free)',
       },
-      diagnosticAssessment: {
-        cost: 0,
-        reward: CREDIT_RULES.ASSESSMENT_COMPLETION.credits,
-        xp: CREDIT_RULES.ASSESSMENT_COMPLETION.xp,
+      walletOperation: {
+        cost: 100,
         unit: 'AC',
-        description: 'Initial AI capability diagnostic assessment',
+        description: 'Advanced AI Wallet operations and specialized tool execution (-100 AC)',
+      },
+      diagnosticAssessment: {
+        cost: 100,
+        bonusReward: 50,
+        bonusThreshold: 95,
+        xp: 100,
+        unit: 'AC',
+        description:
+          'Baseline AI capability diagnostic assessment (Cost: 100 AC, Bonus: +50 AC for score > 95%)',
       },
       signalInvestigation: {
         cost: 0,
@@ -73,6 +79,8 @@ export const getCreditCosts = async (_req: AuthenticatedRequest, res: Response) 
       integrated: false,
       message:
         'Direct credit purchases via payment gateway are currently in preview. Credits are earned exclusively through completed quests, diagnostic assessments, and investigations.',
+      notice:
+        'Direct credit purchases via payment gateway are currently in preview. Credits are earned exclusively through completed quests, diagnostic assessments, and investigations.',
     },
   });
 };
@@ -82,32 +90,29 @@ export const getCreditCosts = async (_req: AuthenticatedRequest, res: Response) 
  * Authoritative wallet balance and ledger history summary
  */
 export const getWallet = async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user) {
-    const userId = String(req.user._id || req.user.id);
-    const ledger = await creditsLedgerService.getLedgerHistory(userId, { limit: 50 });
-    return res.json({
-      balance: ledger.balance,
-      transactions:
-        req.user.transactions && req.user.transactions.length > 0
-          ? req.user.transactions
-          : ledger.transactions,
-      ledger: ledger.transactions,
-      totalEarned: ledger.totalEarned,
-      totalSpent: ledger.totalSpent,
-      totalRefunded: ledger.totalRefunded,
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
   }
-  res.json({
-    balance: mockUser.aiimsCredits,
-    transactions: mockTransactions,
-    ledger: mockTransactions,
-    totalEarned: mockTransactions
-      .filter((t: CreditTransaction) => t.type === 'EARN')
-      .reduce((a: number, c: CreditTransaction) => a + c.amount, 0),
-    totalSpent: mockTransactions
-      .filter((t: CreditTransaction) => t.type === 'SPEND')
-      .reduce((a: number, c: CreditTransaction) => a + c.amount, 0),
-    totalRefunded: 0,
+
+  const userId = String(req.user.id || req.user._id);
+  const ledger = await creditsLedgerService.getLedgerHistory(userId, { limit: 50 });
+
+  return res.json({
+    balance: ledger.balance,
+    transactions:
+      req.user.transactions && req.user.transactions.length > 0
+        ? req.user.transactions
+        : ledger.transactions,
+    ledger: ledger.transactions,
+    totalEarned: ledger.totalEarned,
+    totalSpent: ledger.totalSpent,
+    totalRefunded: ledger.totalRefunded,
   });
 };
 
@@ -117,10 +122,16 @@ export const getWallet = async (req: AuthenticatedRequest, res: Response) => {
  */
 export const getLedger = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const userId = String(req.user._id || req.user.id);
+  const userId = String(req.user.id || req.user._id);
   const type = req.query.type as CreditTransactionType | undefined;
   const category = req.query.category as CreditTransactionCategory | undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
@@ -132,7 +143,7 @@ export const getLedger = async (req: AuthenticatedRequest, res: Response) => {
     limit,
     skip,
   });
-  res.json(result);
+  return res.json(result);
 };
 
 /**
@@ -141,13 +152,19 @@ export const getLedger = async (req: AuthenticatedRequest, res: Response) => {
  */
 export const getBalance = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const userId = String(req.user._id || req.user.id);
+  const userId = String(req.user.id || req.user._id);
   const balance = await creditsLedgerService.getBalance(userId);
 
-  res.json({
+  return res.json({
     balance,
     isAuthoritative: true,
     timestamp: new Date().toISOString(),
@@ -160,13 +177,19 @@ export const getBalance = async (req: AuthenticatedRequest, res: Response) => {
  */
 export const reconcileBalance = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const userId = String(req.user._id || req.user.id);
+  const userId = String(req.user.id || req.user._id);
   const report = await creditsLedgerService.reconcileBalance(userId);
 
-  res.json(report);
+  return res.json(report);
 };
 
 /**
@@ -174,156 +197,105 @@ export const reconcileBalance = async (req: AuthenticatedRequest, res: Response)
  * Awards quest level completion credits with strict idempotency
  */
 export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const { levelId } = req.body;
   const numLevel = Number(levelId);
   if (isNaN(numLevel) || numLevel <= 0) {
     return res.status(400).json({ error: 'Valid positive levelId is required' });
   }
+
   const rewardAmount = CREDIT_RULES.LEVEL_QUEST_COMPLETION.credits;
   const xpAmount = CREDIT_RULES.LEVEL_QUEST_COMPLETION.xp;
   const sourceId = `LEVEL_0${numLevel}`;
   const altSourceId = `LEVEL_${numLevel}`;
+  const userId = String(req.user.id || req.user._id);
+  const idempotencyKey = `quest_level::${userId}::${numLevel}`;
 
-  if (req.user) {
-    const userId = String(req.user._id || req.user.id);
-    const idempotencyKey = `quest_level::${userId}::${numLevel}`;
+  // 1. Check whether already awarded in user transactions mirror (including legacy altSourceId)
+  const alreadyAwarded = req.user.transactions?.some(
+    (t) => t.sourceId === sourceId || t.sourceId === altSourceId
+  );
 
-    if (mongoose.connection.readyState === 1 && req.user._id) {
-      // 1. Check whether already awarded in user transactions
-      const alreadyAwarded = req.user.transactions?.some(
-        (t) => t.sourceId === sourceId || t.sourceId === altSourceId
-      );
-
-      if (alreadyAwarded) {
-        const currentBal = await creditsLedgerService.getBalance(userId);
-        return res.json({
-          awarded: false,
-          message: `Level 0${numLevel} credits already awarded`,
-          amount: 0,
-          currentBalance: currentBal,
-          previousBalance: currentBal,
-          newBalance: currentBal,
-        });
-      }
-
-      // Server-authoritative credit grant via CreditLedger
-      const txResult = await creditsLedgerService.executeTransaction({
-        userId,
-        type: 'EARN',
-        category: 'REWARD',
-        amount: rewardAmount,
-        reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
-        source: 'ASSESSMENT',
-        sourceId,
-        idempotencyKey,
-      });
-
-      if (!txResult.success || txResult.duplicate) {
-        const latestUser = await User.findById(req.user._id);
-        const currentBal = latestUser?.aiimsCredits ?? txResult.balance ?? req.user.aiimsCredits;
-        return res.json({
-          awarded: false,
-          message: `Level 0${numLevel} credits already awarded`,
-          amount: 0,
-          currentBalance: currentBal,
-          previousBalance: currentBal,
-          newBalance: currentBal,
-        });
-      }
-
-      // Update XP points on user document
-      const updatedUser = await User.findByIdAndUpdate(
-        req.user._id,
-        { $inc: { xpPoints: xpAmount } },
-        { returnDocument: 'after' }
-      );
-      if (updatedUser) req.user = updatedUser;
-
-      const finalBal = txResult.balance ?? req.user.aiimsCredits;
-
-      return res.json({
-        awarded: true,
-        amount: rewardAmount,
-        previousBalance: txResult.previousBalance ?? finalBal - rewardAmount,
-        newBalance: finalBal,
-        transaction: txResult.transaction,
-      });
-    }
-
-    // In-memory / offline fallback
-    const result = await creditsLedgerService.executeTransaction({
-      userId,
-      type: 'EARN',
-      category: 'REWARD',
-      amount: rewardAmount,
-      reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
-      source: 'ASSESSMENT',
-      sourceId,
-      idempotencyKey,
-    });
-
-    if (result.duplicate) {
-      return res.json({
-        awarded: false,
-        message: `Level 0${numLevel} credits already awarded`,
-        amount: 0,
-        currentBalance: result.balance,
-        previousBalance: result.previousBalance,
-        newBalance: result.newBalance,
-      });
-    }
-
-    if (!result.success) {
-      return res.status(400).json({
-        error: result.error || 'Failed to award quest level credits',
-        code: result.code || 'TRANSACTION_FAILED',
-        currentBalance: result.balance ?? req.user.aiimsCredits,
-      });
-    }
-
-    req.user.aiimsCredits = result.balance ?? (req.user.aiimsCredits || 0);
-    req.user.xpPoints = (req.user.xpPoints || 0) + xpAmount;
-
-    return res.json({
-      awarded: true,
-      amount: rewardAmount,
-      previousBalance: result.previousBalance,
-      newBalance: result.newBalance,
-      transaction: result.transaction,
-    });
-  }
-
-  // Fallback for mockUser
-  if (rewardedLevelIds.has(numLevel)) {
+  if (alreadyAwarded) {
+    const currentBal = await creditsLedgerService.getBalance(userId);
     return res.json({
       awarded: false,
       message: `Level 0${numLevel} credits already awarded`,
       amount: 0,
-      currentBalance: mockUser.aiimsCredits,
+      currentBalance: currentBal,
+      previousBalance: currentBal,
+      newBalance: currentBal,
     });
   }
 
-  const previousBalance = mockUser.aiimsCredits;
-  mockUser.aiimsCredits += rewardAmount;
-  rewardedLevelIds.add(numLevel);
-
-  const tx: CreditTransaction = {
-    id: `tx-level-${numLevel}-${Date.now()}`,
+  // 2. Server-authoritative credit grant via PostgreSQL CreditLedger
+  const txResult = await creditsLedgerService.executeTransaction({
+    userId,
     type: 'EARN',
+    category: 'REWARD',
     amount: rewardAmount,
-    description: `Completed AI Quest Level 0${numLevel} (+10 AC)`,
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    newBalance: mockUser.aiimsCredits,
+    reason: `Completed AI Quest Level 0${numLevel} (+${rewardAmount} AC)`,
     source: 'ASSESSMENT',
-  };
-  mockTransactions.unshift(tx);
+    sourceId,
+    idempotencyKey,
+  });
 
-  res.json({
+  if (txResult.code === 'DATABASE_UNAVAILABLE') {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  if (txResult.duplicate) {
+    const latestRow = isValidId(userId)
+      ? await prisma.user.findUnique({ where: { id: userId } })
+      : null;
+    const currentBal = latestRow?.aiimsCredits ?? txResult.balance ?? req.user.aiimsCredits;
+    return res.json({
+      awarded: false,
+      message: `Level 0${numLevel} credits already awarded`,
+      amount: 0,
+      currentBalance: currentBal,
+      previousBalance: currentBal,
+      newBalance: currentBal,
+    });
+  }
+
+  if (!txResult.success) {
+    return res.status(400).json({
+      error: txResult.error || 'Failed to award quest level credits',
+      code: txResult.code || 'TRANSACTION_FAILED',
+      currentBalance: txResult.balance ?? req.user.aiimsCredits,
+    });
+  }
+
+  // 3. Increment XP points atomically in PostgreSQL (without touching credits/transactions)
+  if (isValidId(userId)) {
+    const updatedRow = await prisma.user.update({
+      where: { id: userId },
+      data: { xpPoints: { increment: xpAmount } },
+    });
+    req.user = userRecordToIUser(updatedRow);
+  }
+
+  const finalBal = txResult.balance ?? req.user.aiimsCredits;
+
+  return res.json({
     awarded: true,
     amount: rewardAmount,
-    previousBalance,
-    newBalance: mockUser.aiimsCredits,
-    transaction: tx,
+    previousBalance: txResult.previousBalance ?? finalBal - rewardAmount,
+    newBalance: finalBal,
+    transaction: txResult.transaction,
   });
 };
 
@@ -332,6 +304,16 @@ export const awardLevel = async (req: AuthenticatedRequest, res: Response) => {
  * Server-authoritative atomic deduction with idempotency protection
  */
 export const investCredits = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const { amount, description, idempotencyKey: bodyKey } = req.body;
   const headerKey = req.headers['x-idempotency-key'] as string | undefined;
   const idempotencyKey = bodyKey || headerKey;
@@ -341,60 +323,49 @@ export const investCredits = async (req: AuthenticatedRequest, res: Response) =>
     return res.status(400).json({ error: 'Valid positive investment amount is required' });
   }
 
-  if (req.user) {
-    const userId = String(req.user._id || req.user.id);
+  const userId = String(req.user.id || req.user._id);
 
-    const result = await creditsLedgerService.executeTransaction({
-      userId,
-      type: 'SPEND',
-      category: 'INVESTMENT',
-      amount: numAmount,
-      reason: description || 'Invested in mentoring activity',
-      source: 'MENTOR',
-      sourceId: 'LAB_INVESTMENT',
-      idempotencyKey,
-    });
-
-    if (result.conflict) {
-      return res.status(409).json({
-        error: result.error || 'Idempotency key reuse conflict',
-      });
-    }
-
-    if (!result.success) {
-      return res.status(400).json({
-        error: 'Insufficient AIIMS Credits balance',
-        currentBalance: result.balance,
-      });
-    }
-
-    if (mongoose.connection.readyState === 1 && req.user._id) {
-      const refreshed = await User.findById(req.user._id);
-      if (refreshed) req.user = refreshed;
-    } else {
-      req.user.aiimsCredits = result.balance || 0;
-    }
-
-    return res.json({
-      balance: result.balance,
-      transaction: result.transaction,
-      isDuplicate: result.duplicate || false,
-    });
-  }
-
-  if (mockUser.aiimsCredits < numAmount) {
-    return res.status(400).json({ error: 'Insufficient AIIMS Credits balance' });
-  }
-  mockUser.aiimsCredits -= numAmount;
-  const tx: CreditTransaction = {
-    id: `tx-${Date.now()}`,
+  const result = await creditsLedgerService.executeTransaction({
+    userId,
     type: 'SPEND',
+    category: 'INVESTMENT',
     amount: numAmount,
-    description: description || 'Invested in mentoring activity',
-    timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    newBalance: mockUser.aiimsCredits,
+    reason: description || 'Invested in mentoring activity',
     source: 'MENTOR',
-  };
-  mockTransactions.unshift(tx);
-  res.json({ balance: mockUser.aiimsCredits, transaction: tx });
+    sourceId: 'LAB_INVESTMENT',
+    idempotencyKey,
+  });
+
+  if (result.code === 'DATABASE_UNAVAILABLE') {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  if (result.conflict) {
+    return res.status(409).json({
+      error: result.error || 'Idempotency key reuse conflict',
+    });
+  }
+
+  if (!result.success) {
+    return res.status(400).json({
+      error: 'Insufficient AIIMS Credits balance',
+      currentBalance: result.balance,
+    });
+  }
+
+  if (isValidId(userId)) {
+    const refreshed = await prisma.user.findUnique({ where: { id: userId } });
+    if (refreshed) {
+      req.user = userRecordToIUser(refreshed);
+    }
+  }
+
+  return res.json({
+    balance: result.balance,
+    transaction: result.transaction,
+    isDuplicate: result.duplicate || false,
+  });
 };

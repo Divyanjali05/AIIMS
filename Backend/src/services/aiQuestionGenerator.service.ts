@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config/env';
 import { aiGeneratedQuestionSchema } from '../schemas/question.schema';
 import { similarityDetectorService, QuestionComparisonTarget } from './similarityDetector.service';
-import { QuestionLevel, QuestionTrack } from '../models/QuestionBank.model';
+import { QuestionLevel, QuestionTrack } from '../types/models';
 
 export interface GeneratedQuestionPayload {
   questionId: string;
@@ -32,6 +32,7 @@ export class AIQuestionGeneratorService {
   private geminiClient: GoogleGenerativeAI | null = null;
   private anthropicClient: Anthropic | null = null;
   private activeGenerations: Map<string, Promise<GeneratedQuestionPayload>> = new Map();
+  private completionRunner?: (prompt: string) => Promise<string>;
   private maxRetries: number = 3;
 
   constructor() {
@@ -43,6 +44,20 @@ export class AIQuestionGeneratorService {
     if (config.anthropicApiKey && config.anthropicApiKey !== 'mock-claude-key') {
       this.anthropicClient = new Anthropic({ apiKey: config.anthropicApiKey });
     }
+  }
+
+  /**
+   * Allows setting a custom completion runner (e.g. for unit tests and mocks).
+   */
+  public setAICompletionRunner(runner?: (prompt: string) => Promise<string>): void {
+    this.completionRunner = runner;
+  }
+
+  /**
+   * Clears any cached in-flight generation promises (e.g. between unit test runs).
+   */
+  public clearActiveGenerations(): void {
+    this.activeGenerations.clear();
   }
 
   /**
@@ -226,6 +241,26 @@ You MUST return a valid JSON object matching this schema:
 }
 
 Return ONLY valid JSON. No markdown backticks, no prose preamble.`;
+
+    if (this.completionRunner) {
+      try {
+        const text = await this.completionRunner(systemPrompt);
+        const parsed = this.cleanAndParseJSON(text);
+        return { data: parsed, provider: 'Mock', model: 'Mock Runner' };
+      } catch (err: any) {
+        console.warn('[AIQuestionGenerator] Mock runner failed:', err.message);
+      }
+    }
+
+    const isTestEnv = process.env.NODE_ENV === 'test' || config.nodeEnv === 'test';
+    if (isTestEnv && !process.env.ENABLE_LIVE_AI_TESTS) {
+      const fallbackData = this.generateDeterministicFallback(params);
+      return {
+        data: fallbackData,
+        provider: 'AIIMS Engine',
+        model: 'AIIMS Deterministic Question Synthesizer',
+      };
+    }
 
     if (this.geminiClient) {
       try {

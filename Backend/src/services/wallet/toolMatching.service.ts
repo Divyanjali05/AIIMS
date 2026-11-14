@@ -11,6 +11,37 @@ import { RequirementUnderstandingService } from './requirementUnderstanding.serv
 import { ToolRankingService } from './toolRanking.service';
 import { ExplanationService } from './explanationService';
 
+export interface PersonalizedRecommendationItem {
+  toolId: string;
+  name: string;
+  provider: string;
+  domain: string;
+  skillTier: 'beginner' | 'advanced';
+  pricing: {
+    type: string;
+    summary: string;
+    freeTierAvailable: boolean;
+  };
+  whyMatches: string[];
+  capabilities: string[];
+  officialWebsite: string;
+  isFreeOrLowCost: boolean;
+  lastVerifiedAt?: string;
+}
+
+export interface PersonalizedDomainMatchingResult {
+  domain: string;
+  isPersonalized: boolean;
+  profileSource: 'PERSISTENT_AI_PROFILE' | 'GENERAL_DOMAIN_FALLBACK';
+  learnerGoal: string;
+  learnerSkillLevel: string;
+  recommendations: {
+    beginner: PersonalizedRecommendationItem[];
+    advanced: PersonalizedRecommendationItem[];
+  };
+  totalMatches: number;
+}
+
 /**
  * Tool Matching Service — Verified Requirement & Intent Pipeline Engine
  * Pipeline Architecture:
@@ -207,5 +238,217 @@ export class ToolMatchingService {
     }
 
     return undefined;
+  }
+
+  /**
+   * Personalized Tool Matching for Video Editing, Data Analytics, and Graphic Design.
+   * Phase 3 requirement: Match tools based on learner goals and skill level,
+   * distinguishing beginner vs advanced, highlighting free/low-cost options,
+   * and reusing the Phase 2 Persistent AI Learner Profile where available.
+   * Fallback: Provides grounded general recommendations if profile is absent (no hallucinated profiles).
+   */
+  public static getPersonalizedDomainRecommendations(params: {
+    domain?: string;
+    learnerProfile?: any;
+    targetGoal?: string;
+    skillLevel?: 'beginner' | 'intermediate' | 'advanced';
+    freeOnly?: boolean;
+  }): PersonalizedDomainMatchingResult[] {
+    const rawDomain = (params.domain || 'All').trim();
+    const isProfilePresent = Boolean(
+      params.learnerProfile &&
+      (params.learnerProfile.executiveSummary ||
+        params.learnerProfile.summary ||
+        params.learnerProfile.topCapability ||
+        params.learnerProfile.recommendedFocusTrack ||
+        params.learnerProfile.recommendedFocus ||
+        params.learnerProfile.strengths)
+    );
+
+    const goal =
+      params.targetGoal ||
+      params.learnerProfile?.targetGoal ||
+      params.learnerProfile?.recommendedFocus ||
+      params.learnerProfile?.recommendedFocusTrack ||
+      'Master industry AI workflows';
+
+    const learnerSkill =
+      params.skillLevel ||
+      params.learnerProfile?.skillLevel ||
+      (params.learnerProfile?.demonstratedStrengths?.length > 2 ||
+      params.learnerProfile?.strengths?.length > 2
+        ? 'advanced'
+        : 'beginner');
+
+    // Canonical targets: 1) Video Editing, 2) Data Analytics, 3) Graphic Design
+    const targetDomains =
+      rawDomain.toLowerCase() === 'all'
+        ? ['Video Editing', 'Data Analytics', 'Graphic Design']
+        : [rawDomain];
+
+    // Filter catalog for active & verified tools only
+    const allCatalog = ToolCatalogService.getCatalog().filter(
+      (t) =>
+        t.activeStatus &&
+        t.verificationStatus !== 'UNVERIFIED' &&
+        t.verificationStatus !== 'DISCOVERED' &&
+        t.verificationStatus !== 'REJECTED'
+    );
+
+    const results: PersonalizedDomainMatchingResult[] = [];
+
+    for (const d of targetDomains) {
+      const dLower = d.toLowerCase();
+
+      // Find candidates for this domain
+      const candidates = allCatalog.filter((t) => {
+        if (
+          params.freeOnly &&
+          t.pricingDetails.type !== 'FREE' &&
+          !t.pricingDetails.freeTierAvailable
+        ) {
+          return false;
+        }
+
+        if (dLower.includes('video')) {
+          return (
+            t.category === 'Video' ||
+            (t.domains || []).some((dm) => dm.toLowerCase().includes('video')) ||
+            t.id === 'tool-runway' ||
+            t.id === 'tool-descript'
+          );
+        }
+        if (dLower.includes('data')) {
+          return (
+            t.category === 'Data Analysis' ||
+            (t.domains || []).some((dm) => dm.toLowerCase().includes('data')) ||
+            t.id === 'tool-julius' ||
+            t.id === 'tool-chatgpt'
+          );
+        }
+        if (dLower.includes('graphic') || dLower.includes('design') || dLower.includes('image')) {
+          return (
+            t.category === 'Image & Vision' ||
+            (t.domains || []).some(
+              (dm) => dm.toLowerCase().includes('design') || dm.toLowerCase().includes('graphic')
+            ) ||
+            t.id === 'tool-midjourney' ||
+            t.id === 'tool-canva'
+          );
+        }
+
+        // Generic fallback for any other valid domain
+        return (
+          t.category.toLowerCase().includes(dLower) ||
+          (t.domains || []).some((dm) => dm.toLowerCase().includes(dLower))
+        );
+      });
+
+      // Split into beginner and advanced tiers
+      const beginnerTools: PersonalizedRecommendationItem[] = [];
+      const advancedTools: PersonalizedRecommendationItem[] = [];
+
+      for (const tool of candidates) {
+        const isBeginnerFriendly =
+          tool.skillLevel?.toLowerCase().includes('beginner') ||
+          tool.id === 'tool-canva' ||
+          tool.id === 'tool-descript' ||
+          tool.id === 'tool-gamma' ||
+          (tool.capabilities || []).some(
+            (c) => c.toLowerCase().includes('drag-and-drop') || c.toLowerCase().includes('template')
+          );
+
+        const skillTier: 'beginner' | 'advanced' = isBeginnerFriendly ? 'beginner' : 'advanced';
+
+        // Grounded explanation tailored to learner profile or general domain
+        const whyMatches: string[] = [];
+        if (isProfilePresent) {
+          whyMatches.push(`Tailored to your goal of "${goal}".`);
+          const strengths =
+            params.learnerProfile?.strengths || params.learnerProfile?.demonstratedStrengths;
+          if (Array.isArray(strengths) && strengths.length > 0) {
+            whyMatches.push(`Builds on demonstrated strength: ${strengths[0]}.`);
+          }
+          if (skillTier === 'beginner') {
+            whyMatches.push(
+              `Recommended entry-level tool with intuitive controls to accelerate workflow adoption.`
+            );
+          } else {
+            whyMatches.push(
+              `High-leverage advanced platform supporting granular parameters and production asset generation.`
+            );
+          }
+          if (tool.pricingDetails.freeTierAvailable) {
+            whyMatches.push(`Verified free tier available (${tool.pricingDetails.summary}).`);
+          } else {
+            whyMatches.push(`Commercial pro tier (${tool.pricingDetails.summary}).`);
+          }
+        } else {
+          whyMatches.push(
+            `Grounded general ${skillTier} recommendation for ${d} from the verified AIIMS catalog.`
+          );
+          if (skillTier === 'beginner') {
+            whyMatches.push(`Features accessible templates and low friction onboarding.`);
+          } else {
+            whyMatches.push(
+              `Engineered for deep customization, high fidelity, and professional control.`
+            );
+          }
+          if (tool.pricingDetails.freeTierAvailable) {
+            whyMatches.push(`Verified free tier accessible with zero upfront credit cost.`);
+          }
+        }
+
+        const item: PersonalizedRecommendationItem = {
+          toolId: tool.id,
+          name: tool.name,
+          provider: tool.provider,
+          domain: d,
+          skillTier,
+          pricing: {
+            type: tool.pricingDetails.type,
+            summary: tool.pricingDetails.summary || tool.pricing || 'Free tier available',
+            freeTierAvailable: Boolean(tool.pricingDetails.freeTierAvailable),
+          },
+          whyMatches,
+          capabilities: tool.capabilities || [],
+          officialWebsite: tool.officialWebsite || tool.websiteUrl || '',
+          isFreeOrLowCost:
+            tool.pricingDetails.type === 'FREE' ||
+            Boolean(tool.pricingDetails.freeTierAvailable) ||
+            (tool.pricingDetails.startingPriceMonthlyUsd !== undefined &&
+              tool.pricingDetails.startingPriceMonthlyUsd <= 15),
+          lastVerifiedAt: tool.pricingDetails.lastVerifiedAt || tool.lastVerifiedAt,
+        };
+
+        if (skillTier === 'beginner') {
+          beginnerTools.push(item);
+        } else {
+          advancedTools.push(item);
+        }
+      }
+
+      // If one tier is empty, populate appropriately from candidates
+      if (beginnerTools.length === 0 && advancedTools.length > 1) {
+        beginnerTools.push({ ...advancedTools.pop()!, skillTier: 'beginner' });
+      } else if (advancedTools.length === 0 && beginnerTools.length > 1) {
+        advancedTools.push({ ...beginnerTools.pop()!, skillTier: 'advanced' });
+      }
+
+      results.push({
+        domain: d,
+        isPersonalized: isProfilePresent,
+        profileSource: isProfilePresent ? 'PERSISTENT_AI_PROFILE' : 'GENERAL_DOMAIN_FALLBACK',
+        learnerGoal: goal,
+        learnerSkillLevel: learnerSkill,
+        recommendations: {
+          beginner: beginnerTools,
+          advanced: advancedTools,
+        },
+        totalMatches: beginnerTools.length + advancedTools.length,
+      });
+    }
+
+    return results;
   }
 }

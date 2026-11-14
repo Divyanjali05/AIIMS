@@ -1,28 +1,28 @@
 /**
  * focusSession.service.ts
  * =========================================================
- * Authoritative Server-Side Focus & Pomodoro Session Service
+ * Authoritative Server-Side Focus & Pomodoro Session Service (PostgreSQL + Prisma)
  *
  * Implements:
  * 1. Explicit lifecycle state machine (idle -> focusing -> paused -> break -> completed / abandoned).
  * 2. Authoritative server timekeeping (server timestamps are single source of truth).
  * 3. Single active session guarantee (rejects duplicate / concurrent sessions for same learner).
  * 4. Strict separation of focus time vs break time (breaks never count toward focus totals).
- * 5. Abandoned session exclusion from completed focus stats.
- * 6. Dual-storage synchronization (FocusSession model + User.focus mirror + in-memory fallback).
+ * 5. Abandoned session exclusion from completed focus totals.
+ * 6. Dual-storage synchronization (FocusSession table + User.focusData JSONB mirror).
  */
 
-import mongoose from 'mongoose';
+import { FocusSession as PrismaFocusSession } from '@prisma/client';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import {
-  FocusSession,
   IFocusSession,
   IFocusSessionConfig,
   FocusSessionState,
   FocusPeriodType,
-  inMemoryFocusSessions,
-} from '../models/FocusSession.model';
-import { User } from '../models/User.model';
-import { logger } from '../utils/logger';
+  FocusSessionStatus,
+} from '../types/models';
+import { toArray, toRecord } from '../utils/id';
+import { defaultFocus, toJsonInput } from '../utils/userMapper';
 
 export interface StartSessionParams {
   learnerId: string;
@@ -44,6 +44,71 @@ export interface FocusDailyStats {
   todayBreakSeconds: number;
   currentCompletedCycles: number;
   activeSession: IFocusSession | null;
+}
+
+function toFocusSessionDomain(row: PrismaFocusSession): IFocusSession {
+  return {
+    id: row.id,
+    sessionId: row.sessionId,
+    learnerId: row.learnerId,
+    trackTitle: row.trackTitle,
+    intention: row.intention,
+    sessionState: row.sessionState as FocusSessionState,
+    periodType: row.periodType as FocusPeriodType,
+    status: row.status as FocusSessionStatus,
+    focusDurationMinutes: row.focusDurationMinutes,
+    breakDurationMinutes: row.breakDurationMinutes,
+    longBreakDurationMinutes: row.longBreakDurationMinutes,
+    longBreakInterval: row.longBreakInterval,
+    enableLongBreak: row.enableLongBreak,
+    soundEnabled: row.soundEnabled,
+    totalPeriodSeconds: row.totalPeriodSeconds,
+    remainingSeconds: row.remainingSeconds,
+    accumulatedFocusSeconds: row.accumulatedFocusSeconds,
+    totalBreakSeconds: row.totalBreakSeconds,
+    completedCycles: row.completedCycles,
+    startedAt: row.startedAt,
+    pausedAt: row.pausedAt,
+    targetEndTime: row.targetEndTime,
+    completedAt: row.completedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+async function syncUserFocusData(
+  db: { user: typeof prisma.user },
+  learnerId: string,
+  patch: {
+    status?: string;
+    selectedTrack?: string;
+    activeSession?: IFocusSession | null;
+    sessionConfig?: IFocusSessionConfig;
+    prependHistoryRecord?: Record<string, any>;
+  }
+): Promise<void> {
+  const userRow = await db.user.findUnique({
+    where: { id: learnerId },
+    select: { focusData: true },
+  });
+  if (!userRow) return;
+
+  const current = { ...defaultFocus(), ...toRecord(userRow.focusData) };
+  if (patch.status !== undefined) current.status = patch.status;
+  if (patch.selectedTrack !== undefined) current.selectedTrack = patch.selectedTrack;
+  if (patch.activeSession !== undefined) current.activeSession = patch.activeSession;
+  if (patch.sessionConfig !== undefined) current.sessionConfig = patch.sessionConfig;
+  if (patch.prependHistoryRecord) {
+    current.sessionHistory = [
+      patch.prependHistoryRecord,
+      ...toArray<Record<string, any>>(current.sessionHistory),
+    ].slice(0, 100);
+  }
+
+  await db.user.update({
+    where: { id: learnerId },
+    data: { focusData: toJsonInput(current) },
+  });
 }
 
 export class FocusSessionService {
@@ -91,39 +156,29 @@ export class FocusSessionService {
    * Get learner's current active session, if any
    */
   public static async getActiveSession(learnerId: string): Promise<IFocusSession | null> {
-    if (!learnerId) return null;
+    if (!learnerId || !isDatabaseConnected()) return null;
 
-    let session: any = null;
-
-    if (mongoose.connection.readyState === 1) {
-      session = await FocusSession.findOne({
+    const row = await prisma.focusSession.findFirst({
+      where: {
         learnerId,
         status: 'in_progress',
-        sessionState: { $in: ['focusing', 'paused', 'break'] },
-      }).sort({ startedAt: -1 });
-    } else {
-      // In-memory fallback
-      for (const s of inMemoryFocusSessions.values()) {
-        if (
-          s.learnerId === learnerId &&
-          s.status === 'in_progress' &&
-          ['focusing', 'paused', 'break'].includes(s.sessionState)
-        ) {
-          session = s;
-          break;
-        }
-      }
-    }
+        sessionState: { in: ['focusing', 'paused', 'break'] },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
 
-    if (!session) return null;
+    if (!row) return null;
+
+    const session = toFocusSessionDomain(row);
 
     // Dynamically calculate live remaining seconds if actively running
     const now = Date.now();
-    if (session.sessionState === 'focusing' || session.sessionState === 'break') {
-      if (session.targetEndTime) {
-        const targetMs = new Date(session.targetEndTime).getTime();
-        session.remainingSeconds = Math.max(0, Math.ceil((targetMs - now) / 1000));
-      }
+    if (
+      (session.sessionState === 'focusing' || session.sessionState === 'break') &&
+      session.targetEndTime
+    ) {
+      const targetMs = new Date(session.targetEndTime).getTime();
+      session.remainingSeconds = Math.max(0, Math.ceil((targetMs - now) / 1000));
     }
 
     return session;
@@ -136,6 +191,10 @@ export class FocusSessionService {
     session: IFocusSession;
     isExisting: boolean;
   }> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const { learnerId } = params;
 
     // 1. Guard against duplicate active sessions
@@ -145,7 +204,7 @@ export class FocusSessionService {
     }
 
     // 2. Resolve sanitized configuration
-    const config = this.sanitizeConfig({
+    const sessionConfig = this.sanitizeConfig({
       focusDurationMinutes: params.focusDurationMinutes,
       breakDurationMinutes: params.breakDurationMinutes,
       enableLongBreak: params.enableLongBreak,
@@ -155,57 +214,50 @@ export class FocusSessionService {
     });
 
     const now = new Date();
-    const durationSeconds = config.focusDurationMinutes * 60;
+    const durationSeconds = sessionConfig.focusDurationMinutes * 60;
     const targetEndTime = new Date(now.getTime() + durationSeconds * 1000);
     const sessionId = `foc-sess-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const trackTitle = params.trackTitle?.trim() || 'AI Workflow Design';
+    const intention = params.intention?.trim() || '';
 
-    const sessionData: Partial<IFocusSession> = {
-      sessionId,
-      learnerId,
-      trackTitle: params.trackTitle?.trim() || 'AI Workflow Design',
-      intention: params.intention?.trim() || '',
-      sessionState: 'focusing' as FocusSessionState,
-      periodType: 'focus' as FocusPeriodType,
-      status: 'in_progress',
-      focusDurationMinutes: config.focusDurationMinutes,
-      breakDurationMinutes: config.breakDurationMinutes,
-      longBreakDurationMinutes: config.longBreakDurationMinutes,
-      longBreakInterval: config.longBreakInterval,
-      enableLongBreak: config.enableLongBreak,
-      soundEnabled: config.soundEnabled,
-      totalPeriodSeconds: durationSeconds,
-      remainingSeconds: durationSeconds,
-      accumulatedFocusSeconds: 0,
-      totalBreakSeconds: 0,
-      completedCycles: 0,
-      startedAt: now,
-      pausedAt: null,
-      targetEndTime,
-      completedAt: null,
-    };
-
-    let created: any;
-
-    if (mongoose.connection.readyState === 1) {
-      created = await FocusSession.create(sessionData);
-      // Dual-sync to User model
-      await User.findByIdAndUpdate(learnerId, {
-        $set: {
-          'focus.status': 'active',
-          'focus.selectedTrack': sessionData.trackTitle,
-          'focus.activeSession': created.toObject ? created.toObject() : created,
-          'focus.sessionConfig': config,
+    const created = await prisma.$transaction(async (tx) => {
+      const row = await tx.focusSession.create({
+        data: {
+          sessionId,
+          learnerId,
+          trackTitle,
+          intention,
+          sessionState: 'focusing',
+          periodType: 'focus',
+          status: 'in_progress',
+          focusDurationMinutes: sessionConfig.focusDurationMinutes,
+          breakDurationMinutes: sessionConfig.breakDurationMinutes,
+          longBreakDurationMinutes: sessionConfig.longBreakDurationMinutes,
+          longBreakInterval: sessionConfig.longBreakInterval,
+          enableLongBreak: sessionConfig.enableLongBreak,
+          soundEnabled: sessionConfig.soundEnabled,
+          totalPeriodSeconds: durationSeconds,
+          remainingSeconds: durationSeconds,
+          accumulatedFocusSeconds: 0,
+          totalBreakSeconds: 0,
+          completedCycles: 0,
+          startedAt: now,
+          pausedAt: null,
+          targetEndTime,
+          completedAt: null,
         },
       });
-    } else {
-      created = {
-        ...sessionData,
-        _id: sessionId,
-        createdAt: now,
-        updatedAt: now,
-      } as unknown as IFocusSession;
-      inMemoryFocusSessions.set(sessionId, created);
-    }
+
+      const domain = toFocusSessionDomain(row);
+      await syncUserFocusData(tx, learnerId, {
+        status: 'active',
+        selectedTrack: trackTitle,
+        activeSession: domain,
+        sessionConfig,
+      });
+
+      return domain;
+    });
 
     return { session: created, isExisting: false };
   }
@@ -214,6 +266,10 @@ export class FocusSessionService {
    * Pause active session (freezes remaining time & accumulates elapsed focus time)
    */
   public static async pauseSession(learnerId: string, sessionId?: string): Promise<IFocusSession> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const session = await this.getActiveSession(learnerId);
     if (!session) {
       throw new Error('NO_ACTIVE_FOCUS_SESSION');
@@ -235,35 +291,40 @@ export class FocusSessionService {
       remainingSeconds = Math.max(0, Math.ceil((targetMs - now) / 1000));
     }
 
-    // Accumulate elapsed focus seconds if currently in focus period
     let accumulatedFocusSeconds = session.accumulatedFocusSeconds;
     if (session.periodType === 'focus') {
       const elapsed = Math.max(0, session.totalPeriodSeconds - remainingSeconds);
       accumulatedFocusSeconds = Math.max(accumulatedFocusSeconds, elapsed);
     }
 
-    session.sessionState = 'paused';
-    session.remainingSeconds = remainingSeconds;
-    session.targetEndTime = null;
-    session.pausedAt = new Date();
-    session.accumulatedFocusSeconds = accumulatedFocusSeconds;
-
-    if (mongoose.connection.readyState === 1 && session.save) {
-      await session.save();
-      await User.findByIdAndUpdate(learnerId, {
-        $set: { 'focus.activeSession': session.toObject ? session.toObject() : session },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: {
+          sessionState: 'paused',
+          remainingSeconds,
+          targetEndTime: null,
+          pausedAt: new Date(),
+          accumulatedFocusSeconds,
+        },
       });
-    } else {
-      inMemoryFocusSessions.set(session.sessionId, session);
-    }
 
-    return session;
+      const domain = toFocusSessionDomain(row);
+      await syncUserFocusData(tx, learnerId, { activeSession: domain });
+      return domain;
+    });
+
+    return updated;
   }
 
   /**
    * Resume paused focus session
    */
   public static async resumeSession(learnerId: string, sessionId?: string): Promise<IFocusSession> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const session = await this.getActiveSession(learnerId);
     if (!session) {
       throw new Error('NO_ACTIVE_FOCUS_SESSION');
@@ -279,21 +340,24 @@ export class FocusSessionService {
 
     const now = Date.now();
     const newTargetEndTime = new Date(now + session.remainingSeconds * 1000);
+    const nextState: FocusSessionState = session.periodType === 'focus' ? 'focusing' : 'break';
 
-    session.sessionState = session.periodType === 'focus' ? 'focusing' : 'break';
-    session.targetEndTime = newTargetEndTime;
-    session.pausedAt = null;
-
-    if (mongoose.connection.readyState === 1 && session.save) {
-      await session.save();
-      await User.findByIdAndUpdate(learnerId, {
-        $set: { 'focus.activeSession': session.toObject ? session.toObject() : session },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: {
+          sessionState: nextState,
+          targetEndTime: newTargetEndTime,
+          pausedAt: null,
+        },
       });
-    } else {
-      inMemoryFocusSessions.set(session.sessionId, session);
-    }
 
-    return session;
+      const domain = toFocusSessionDomain(row);
+      await syncUserFocusData(tx, learnerId, { activeSession: domain });
+      return domain;
+    });
+
+    return updated;
   }
 
   /**
@@ -304,6 +368,10 @@ export class FocusSessionService {
     learnerId: string,
     sessionId?: string
   ): Promise<{ session: IFocusSession; record: any }> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const session = await this.getActiveSession(learnerId);
     if (!session) {
       throw new Error('NO_ACTIVE_FOCUS_SESSION');
@@ -315,55 +383,57 @@ export class FocusSessionService {
 
     const now = Date.now();
 
-    // Check remaining time if actively running
     if (session.sessionState === 'focusing' && session.targetEndTime) {
       const targetMs = new Date(session.targetEndTime).getTime();
       session.remainingSeconds = Math.max(0, Math.ceil((targetMs - now) / 1000));
     }
 
-    // Strict Duration Validation Guard:
-    // If more than 5 seconds remain, client cannot claim full completion.
-    // Must either wait for timer completion or abandon.
+    // Strict Duration Validation Guard: if more than 5 seconds remain, reject early claim
     if (session.periodType === 'focus' && session.remainingSeconds > 5) {
       throw new Error('FOCUS_DURATION_INCOMPLETE');
     }
 
     const actualFocusSeconds = session.totalPeriodSeconds;
     const newCycles = session.completedCycles + 1;
-
-    session.completedCycles = newCycles;
-    session.accumulatedFocusSeconds = Math.max(session.accumulatedFocusSeconds, actualFocusSeconds);
-    session.remainingSeconds = 0;
-    session.targetEndTime = null;
-    session.completedAt = new Date();
-    session.status = 'completed';
-    session.sessionState = 'completed';
+    const completedAt = new Date();
+    const accumulatedFocusSeconds = Math.max(session.accumulatedFocusSeconds, actualFocusSeconds);
 
     const historyRecord = {
       id: session.sessionId,
       trackTitle: session.trackTitle,
       intention: session.intention,
       focusDurationMinutes: session.focusDurationMinutes,
-      actualFocusSeconds: actualFocusSeconds,
+      actualFocusSeconds,
       breakDurationMinutes: session.breakDurationMinutes,
       startedAt: session.startedAt,
-      completedAt: session.completedAt,
+      completedAt,
       status: 'completed',
       cyclesCompleted: newCycles,
     };
 
-    if (mongoose.connection.readyState === 1 && session.save) {
-      await session.save();
-      // Push record to User.focus.sessionHistory and clear activeSession
-      await User.findByIdAndUpdate(learnerId, {
-        $set: { 'focus.activeSession': null },
-        $push: { 'focus.sessionHistory': { $each: [historyRecord], $position: 0 } },
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: {
+          completedCycles: newCycles,
+          accumulatedFocusSeconds,
+          remainingSeconds: 0,
+          targetEndTime: null,
+          completedAt,
+          status: 'completed',
+          sessionState: 'completed',
+        },
       });
-    } else {
-      inMemoryFocusSessions.set(session.sessionId, session);
-    }
 
-    return { session, record: historyRecord };
+      await syncUserFocusData(tx, learnerId, {
+        activeSession: null,
+        prependHistoryRecord: historyRecord,
+      });
+
+      return toFocusSessionDomain(row);
+    });
+
+    return { session: updated, record: historyRecord };
   }
 
   /**
@@ -373,22 +443,22 @@ export class FocusSessionService {
     learnerId: string,
     params?: { sessionId?: string; forceLongBreak?: boolean }
   ): Promise<IFocusSession> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     let session = await this.getActiveSession(learnerId);
 
-    // If no session found in progress, look up the last completed session for this learner to chain into a break
     if (!session) {
-      if (mongoose.connection.readyState === 1) {
-        session = await FocusSession.findOne({
+      const lastCompleted = await prisma.focusSession.findFirst({
+        where: {
           learnerId,
           sessionState: 'completed',
-        }).sort({ completedAt: -1 });
-      } else {
-        for (const s of inMemoryFocusSessions.values()) {
-          if (s.learnerId === learnerId && s.sessionState === 'completed') {
-            session = s;
-            break;
-          }
-        }
+        },
+        orderBy: { completedAt: 'desc' },
+      });
+      if (lastCompleted) {
+        session = toFocusSessionDomain(lastCompleted);
       }
     }
 
@@ -408,49 +478,38 @@ export class FocusSessionService {
     const targetEndTime = new Date(now.getTime() + breakSeconds * 1000);
     const breakSessionId = `foc-break-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 
-    const breakData: Partial<IFocusSession> = {
-      sessionId: breakSessionId,
-      learnerId,
-      trackTitle: session.trackTitle,
-      intention: session.intention,
-      sessionState: 'break',
-      periodType: isLong ? 'long_break' : 'short_break',
-      status: 'in_progress',
-      focusDurationMinutes: session.focusDurationMinutes,
-      breakDurationMinutes: session.breakDurationMinutes,
-      longBreakDurationMinutes: session.longBreakDurationMinutes,
-      longBreakInterval: session.longBreakInterval,
-      enableLongBreak: session.enableLongBreak,
-      soundEnabled: session.soundEnabled,
-      totalPeriodSeconds: breakSeconds,
-      remainingSeconds: breakSeconds,
-      accumulatedFocusSeconds: session.accumulatedFocusSeconds,
-      totalBreakSeconds: breakSeconds,
-      completedCycles: session.completedCycles,
-      startedAt: now,
-      pausedAt: null,
-      targetEndTime,
-      completedAt: null,
-    };
-
-    let createdBreak: any;
-
-    if (mongoose.connection.readyState === 1) {
-      createdBreak = await FocusSession.create(breakData);
-      await User.findByIdAndUpdate(learnerId, {
-        $set: {
-          'focus.activeSession': createdBreak.toObject ? createdBreak.toObject() : createdBreak,
+    const createdBreak = await prisma.$transaction(async (tx) => {
+      const row = await tx.focusSession.create({
+        data: {
+          sessionId: breakSessionId,
+          learnerId,
+          trackTitle: session!.trackTitle,
+          intention: session!.intention ?? '',
+          sessionState: 'break',
+          periodType: isLong ? 'long_break' : 'short_break',
+          status: 'in_progress',
+          focusDurationMinutes: session!.focusDurationMinutes,
+          breakDurationMinutes: session!.breakDurationMinutes,
+          longBreakDurationMinutes: session!.longBreakDurationMinutes,
+          longBreakInterval: session!.longBreakInterval,
+          enableLongBreak: session!.enableLongBreak,
+          soundEnabled: session!.soundEnabled,
+          totalPeriodSeconds: breakSeconds,
+          remainingSeconds: breakSeconds,
+          accumulatedFocusSeconds: session!.accumulatedFocusSeconds,
+          totalBreakSeconds: breakSeconds,
+          completedCycles: session!.completedCycles,
+          startedAt: now,
+          pausedAt: null,
+          targetEndTime,
+          completedAt: null,
         },
       });
-    } else {
-      createdBreak = {
-        ...breakData,
-        _id: breakSessionId,
-        createdAt: now,
-        updatedAt: now,
-      } as unknown as IFocusSession;
-      inMemoryFocusSessions.set(breakSessionId, createdBreak);
-    }
+
+      const domain = toFocusSessionDomain(row);
+      await syncUserFocusData(tx, learnerId, { activeSession: domain });
+      return domain;
+    });
 
     return createdBreak;
   }
@@ -463,6 +522,10 @@ export class FocusSessionService {
     learnerId: string,
     sessionId?: string
   ): Promise<{ session: IFocusSession; savedToHistory: boolean }> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const session = await this.getActiveSession(learnerId);
     if (!session) {
       throw new Error('NO_ACTIVE_FOCUS_SESSION');
@@ -486,13 +549,7 @@ export class FocusSessionService {
       accumulated = Math.max(accumulated, elapsed);
     }
 
-    session.status = 'abandoned';
-    session.sessionState = 'abandoned';
-    session.completedAt = new Date();
-    session.targetEndTime = null;
-    session.remainingSeconds = 0;
-    session.accumulatedFocusSeconds = accumulated;
-
+    const completedAt = new Date();
     const savedToHistory = accumulated >= 30;
 
     const historyRecord = savedToHistory
@@ -504,32 +561,46 @@ export class FocusSessionService {
           actualFocusSeconds: accumulated,
           breakDurationMinutes: session.breakDurationMinutes,
           startedAt: session.startedAt,
-          completedAt: session.completedAt,
+          completedAt,
           status: 'abandoned',
           cyclesCompleted: session.completedCycles,
         }
-      : null;
+      : undefined;
 
-    if (mongoose.connection.readyState === 1 && session.save) {
+    const resultSession = await prisma.$transaction(async (tx) => {
       if (!savedToHistory) {
-        await FocusSession.deleteOne({ sessionId: session.sessionId });
-      } else {
-        await session.save();
+        await tx.focusSession.delete({ where: { sessionId: session.sessionId } });
+        await syncUserFocusData(tx, learnerId, { activeSession: null });
+        return {
+          ...session,
+          status: 'abandoned' as FocusSessionStatus,
+          sessionState: 'abandoned' as FocusSessionState,
+          completedAt,
+          targetEndTime: null,
+          remainingSeconds: 0,
+          accumulatedFocusSeconds: accumulated,
+        };
       }
-      const updateDoc: any = { $set: { 'focus.activeSession': null } };
-      if (historyRecord) {
-        updateDoc.$push = { 'focus.sessionHistory': { $each: [historyRecord], $position: 0 } };
-      }
-      await User.findByIdAndUpdate(learnerId, updateDoc);
-    } else {
-      if (!savedToHistory) {
-        inMemoryFocusSessions.delete(session.sessionId);
-      } else {
-        inMemoryFocusSessions.set(session.sessionId, session);
-      }
-    }
 
-    return { session, savedToHistory };
+      const row = await tx.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: {
+          status: 'abandoned',
+          sessionState: 'abandoned',
+          completedAt,
+          targetEndTime: null,
+          remainingSeconds: 0,
+          accumulatedFocusSeconds: accumulated,
+        },
+      });
+      await syncUserFocusData(tx, learnerId, {
+        activeSession: null,
+        prependHistoryRecord: historyRecord,
+      });
+      return toFocusSessionDomain(row);
+    });
+
+    return { session: resultSession, savedToHistory };
   }
 
   /**
@@ -537,34 +608,37 @@ export class FocusSessionService {
    * Excludes break time and abandoned sessions from focus time totals!
    */
   public static async getDailyStats(learnerId: string): Promise<FocusDailyStats> {
+    if (!isDatabaseConnected()) {
+      return {
+        todayFocusSeconds: 0,
+        todayFocusHours: 0,
+        todayCompletedSessions: 0,
+        totalCompletedSessions: 0,
+        todayBreakSeconds: 0,
+        currentCompletedCycles: 0,
+        activeSession: null,
+      };
+    }
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    let completedSessions: any[] = [];
-    let lifetimeCompletedCount = 0;
-
-    if (mongoose.connection.readyState === 1) {
-      // Completed sessions today
-      completedSessions = await FocusSession.find({
-        learnerId,
-        status: 'completed',
-        completedAt: { $gte: startOfToday },
-      });
-
-      lifetimeCompletedCount = await FocusSession.countDocuments({
-        learnerId,
-        status: 'completed',
-      });
-    } else {
-      for (const s of inMemoryFocusSessions.values()) {
-        if (s.learnerId === learnerId && s.status === 'completed') {
-          lifetimeCompletedCount++;
-          if (new Date(s.completedAt).getTime() >= startOfToday.getTime()) {
-            completedSessions.push(s);
-          }
-        }
-      }
-    }
+    const [completedSessions, lifetimeCompletedCount, activeSession] = await Promise.all([
+      prisma.focusSession.findMany({
+        where: {
+          learnerId,
+          status: 'completed',
+          completedAt: { gte: startOfToday },
+        },
+      }),
+      prisma.focusSession.count({
+        where: {
+          learnerId,
+          status: 'completed',
+        },
+      }),
+      this.getActiveSession(learnerId),
+    ]);
 
     const todayFocusSeconds = completedSessions.reduce(
       (sum, s) => sum + (s.accumulatedFocusSeconds || s.totalPeriodSeconds || 0),
@@ -575,8 +649,6 @@ export class FocusSessionService {
       (sum, s) => sum + (s.totalBreakSeconds || 0),
       0
     );
-
-    const activeSession = await this.getActiveSession(learnerId);
 
     return {
       todayFocusSeconds,
@@ -595,38 +667,25 @@ export class FocusSessionService {
   public static async getSessionHistory(
     learnerId: string,
     filter: 'all' | 'completed' = 'all'
-  ): Promise<any[]> {
-    if (mongoose.connection.readyState === 1) {
-      const query: any = { learnerId };
-      if (filter === 'completed') {
-        query.status = 'completed';
-      } else {
-        query.$or = [
-          { status: 'completed' },
-          { status: 'abandoned', accumulatedFocusSeconds: { $gte: 30 } },
-        ];
-      }
-      return await FocusSession.find(query).sort({ startedAt: -1 }).limit(100);
-    } else {
-      const records: any[] = [];
-      for (const s of inMemoryFocusSessions.values()) {
-        if (s.learnerId === learnerId) {
-          if (filter === 'completed' && s.status === 'completed') {
-            records.push(s);
-          } else if (filter === 'all') {
-            if (
-              s.status === 'completed' ||
-              (s.status === 'abandoned' && (s.accumulatedFocusSeconds || 0) >= 30)
-            ) {
-              records.push(s);
-            }
-          }
-        }
-      }
-      return records.sort(
-        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-      );
-    }
+  ): Promise<IFocusSession[]> {
+    if (!isDatabaseConnected()) return [];
+
+    const rows = await prisma.focusSession.findMany({
+      where:
+        filter === 'completed'
+          ? { learnerId, status: 'completed' }
+          : {
+              learnerId,
+              OR: [
+                { status: 'completed' },
+                { status: 'abandoned', accumulatedFocusSeconds: { gte: 30 } },
+              ],
+            },
+      orderBy: { startedAt: 'desc' },
+      take: 100,
+    });
+
+    return rows.map(toFocusSessionDomain);
   }
 
   /**
@@ -636,14 +695,12 @@ export class FocusSessionService {
     learnerId: string,
     newConfig: Partial<IFocusSessionConfig>
   ): Promise<IFocusSessionConfig> {
-    const sanitized = this.sanitizeConfig(newConfig);
-
-    if (mongoose.connection.readyState === 1) {
-      await User.findByIdAndUpdate(learnerId, {
-        $set: { 'focus.sessionConfig': sanitized },
-      });
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
 
+    const sanitized = this.sanitizeConfig(newConfig);
+    await syncUserFocusData(prisma, learnerId, { sessionConfig: sanitized });
     return sanitized;
   }
 }

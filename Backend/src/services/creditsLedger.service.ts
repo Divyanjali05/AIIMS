@@ -1,19 +1,18 @@
-import mongoose from 'mongoose';
 import { randomUUID } from 'crypto';
-import { User, IUser, ICreditTransaction } from '../models/User.model';
+import { prisma, isDatabaseConnected, isPrismaErrorCode, withRetry } from '../config/prisma';
 import {
-  CreditLedger,
+  ICreditTransaction,
   ICreditLedger,
   CreditTransactionType,
   CreditTransactionCategory,
-  CreditTransactionStatus,
-} from '../models/CreditLedger.model';
-import { registeredUsers } from '../models/userStore';
+} from '../types/models';
+import { isSafeKey, isValidId, toArray } from '../utils/id';
+import { toJsonInput } from '../utils/userMapper';
 
 export interface ExecuteTransactionParams {
   userId: string;
   type: CreditTransactionType;
-  category?: CreditTransactionCategory;
+  category?: CreditTransactionCategory | string;
   amount: number;
   reason: string;
   source: string;
@@ -34,34 +33,11 @@ export interface TransactionResult {
   newBalance?: number;
   transaction?: {
     id?: string;
-    type?: CreditTransactionType;
+    type?: CreditTransactionType | string;
     amount?: number;
     [key: string]: unknown;
   };
 }
-
-// In-memory fallback ledger store for offline / test runner environments
-export interface MemoryLedgerEntry {
-  [key: string]: unknown;
-  id: string;
-  userId: string;
-  type: CreditTransactionType;
-  category: CreditTransactionCategory;
-  amount: number;
-  balanceBefore: number;
-  balanceAfter: number;
-  reason: string;
-  source: string;
-  sourceId?: string;
-  idempotencyKey?: string;
-  status: CreditTransactionStatus;
-  relatedTaskId?: string;
-  metadata?: Record<string, unknown>;
-  createdAt: Date;
-}
-
-const memoryLedgerStore: MemoryLedgerEntry[] = [];
-const memoryUserBalances: Map<string, number> = new Map();
 
 export class CreditsLedgerService {
   /**
@@ -80,32 +56,46 @@ export class CreditsLedgerService {
   }
 
   /**
-   * Anonymizes all credit ledger entries for a user, stripping any identifying metadata
-   * while preserving transaction types, amounts, and balance progression for audit trail consistency.
+   * Resolves a user row by UUID/id or email.
    */
-  public async anonymizeUserLedger(userId: string): Promise<void> {
-    if (!userId) return;
+  private async resolveUser(db: { user: typeof prisma.user }, userIdOrEmail: string) {
+    const clean = userIdOrEmail.trim();
+    if (!clean || !isSafeKey(clean)) return null;
 
-    if (mongoose.connection.readyState === 1) {
-      await CreditLedger.updateMany(
-        { userId },
-        {
-          $set: {
-            metadata: {},
-          },
-        }
-      );
+    if (clean.includes('@')) {
+      return db.user.findUnique({ where: { email: clean.toLowerCase() } });
     }
 
-    for (const entry of memoryLedgerStore) {
-      if (entry.userId === userId) {
-        entry.metadata = {};
-      }
+    if (isValidId(clean)) {
+      const byId = await db.user.findUnique({ where: { id: clean } });
+      if (byId) return byId;
     }
+
+    return null;
   }
 
   /**
-   * Executes a credit transaction with atomic balance checking and duplicate-request protection
+   * Anonymizes all credit ledger entries for a user, stripping identifying userId and metadata
+   * while preserving transaction types, amounts, and balance progression for financial audit consistency.
+   */
+  public async anonymizeUserLedger(userId: string): Promise<void> {
+    if (!userId || !isDatabaseConnected()) return;
+
+    const user = await this.resolveUser(prisma, userId);
+    const targetUserId = user ? user.id : userId;
+
+    await prisma.creditLedger.updateMany({
+      where: { userId: targetUserId },
+      data: {
+        userId: null,
+        metadata: toJsonInput({}),
+      },
+    });
+  }
+
+  /**
+   * Executes a credit transaction inside an atomic PostgreSQL transaction with
+   * conditional balance checks, row locking, dual-ledger synchronization, and idempotency guards.
    */
   public async executeTransaction(params: ExecuteTransactionParams): Promise<TransactionResult> {
     const {
@@ -121,42 +111,243 @@ export class CreditsLedgerService {
       metadata,
     } = params;
 
-    // 1. Strict validation
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    // 1. Strict input validation
+    if (!userId || typeof userId !== 'string' || userId.trim().length === 0 || !isSafeKey(userId)) {
       return { success: false, error: 'Valid userId is required' };
     }
-    const numAmount = Number(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
+    const rawAmount = Number(amount);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+      return { success: false, error: 'Transaction amount must be a positive number' };
+    }
+    const numAmount = Math.round(rawAmount);
+    if (numAmount <= 0) {
       return { success: false, error: 'Transaction amount must be a positive number' };
     }
     if (!['EARN', 'SPEND', 'REFUND', 'ADJUSTMENT'].includes(type)) {
       return { success: false, error: `Invalid transaction type: ${type}` };
     }
 
-    const isDbConnected = mongoose.connection.readyState === 1;
+    if (!isDatabaseConnected()) {
+      return {
+        success: false,
+        code: 'DATABASE_UNAVAILABLE',
+        error:
+          'Database is currently unavailable. Credit transactions require PostgreSQL persistence.',
+      };
+    }
 
-    // 2. Database mode execution
-    if (isDbConnected) {
-      // 2a. Check idempotency key in CreditLedger first
-      if (idempotencyKey) {
-        const existingTx = await CreditLedger.findOne({ userId, idempotencyKey });
-        if (existingTx) {
-          // Verify if parameters match
-          const matches =
-            existingTx.type === type &&
-            existingTx.amount === numAmount &&
-            existingTx.source === source;
-
-          if (matches) {
+    try {
+      return await withRetry(async () => {
+        return await prisma.$transaction(async (tx) => {
+          // 2. Resolve user record (UUID id or email)
+          const user = await this.resolveUser(tx, userId);
+          if (!user) {
             return {
-              success: true,
-              duplicate: true,
-              balance: existingTx.balanceAfter,
-              previousBalance: existingTx.balanceBefore,
-              newBalance: existingTx.balanceAfter,
-              transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx,
+              success: false,
+              code: 'USER_NOT_FOUND',
+              error: 'User account not found',
             };
+          }
+
+          const resolvedUserId = user.id;
+          const balanceBefore = user.aiimsCredits ?? 0;
+
+          // 3. Check idempotency key inside transaction
+          if (idempotencyKey) {
+            const existingTx = await tx.creditLedger.findUnique({
+              where: {
+                userId_idempotencyKey: {
+                  userId: resolvedUserId,
+                  idempotencyKey,
+                },
+              },
+            });
+
+            if (existingTx) {
+              const matches =
+                existingTx.type === type &&
+                existingTx.amount === numAmount &&
+                existingTx.source === source;
+
+              if (matches) {
+                return {
+                  success: true,
+                  duplicate: true,
+                  balance: existingTx.balanceAfter,
+                  previousBalance: existingTx.balanceBefore,
+                  newBalance: existingTx.balanceAfter,
+                  transaction: existingTx as unknown as Record<string, unknown>,
+                };
+              }
+              return {
+                success: false,
+                conflict: true,
+                code: 'IDEMPOTENCY_KEY_CONFLICT',
+                error: 'Idempotency key reuse with conflicting operation parameters',
+              };
+            }
+          }
+
+          // 4. For EARN rewards with sourceId, guarantee duplicate-reward prevention
+          // (SPEND and automatic REFUND share operationId as sourceId so only EARN is deduped by sourceId)
+          const legacyTxs = toArray<ICreditTransaction>(user.transactionsData);
+          if (type === 'EARN' && sourceId) {
+            const existingEarnLedger = await tx.creditLedger.findFirst({
+              where: {
+                userId: resolvedUserId,
+                type: 'EARN',
+                sourceId,
+              },
+            });
+            const existingEarnMirror = legacyTxs.some(
+              (t) => t.sourceId === sourceId && (t.type === 'EARN' || !t.type)
+            );
+
+            if (existingEarnLedger || existingEarnMirror) {
+              return {
+                success: true,
+                duplicate: true,
+                balance: balanceBefore,
+                previousBalance: balanceBefore,
+                newBalance: balanceBefore,
+                transaction: existingEarnLedger
+                  ? (existingEarnLedger as unknown as Record<string, unknown>)
+                  : undefined,
+              };
+            }
+          }
+
+          const txId = `tx-ledger-${Date.now()}-${randomUUID().substring(0, 8)}`;
+          const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
+          let actualBalanceBefore = balanceBefore;
+          let actualBalanceAfter = balanceBefore;
+
+          // 5. Execute atomic conditional balance mutation + dual-ledger transactionsData update
+          if (type === 'SPEND') {
+            if (balanceBefore < numAmount) {
+              return {
+                success: false,
+                code: 'INSUFFICIENT_CREDITS',
+                error: `Insufficient balance: ${balanceBefore} AC available, ${numAmount} AC requested`,
+                balance: balanceBefore,
+              };
+            }
+
+            const updated = await tx.user.updateMany({
+              where: {
+                id: resolvedUserId,
+                aiimsCredits: { gte: numAmount },
+              },
+              data: {
+                aiimsCredits: { decrement: numAmount },
+              },
+            });
+
+            if (updated.count === 0) {
+              const freshUser = await tx.user.findUnique({ where: { id: resolvedUserId } });
+              const freshBal = freshUser?.aiimsCredits ?? 0;
+              return {
+                success: false,
+                code: 'INSUFFICIENT_CREDITS',
+                error: `Insufficient balance during atomic update (current: ${freshBal} AC)`,
+                balance: freshBal,
+              };
+            }
+
+            const freshUser = await tx.user.findUnique({ where: { id: resolvedUserId } });
+            actualBalanceAfter = freshUser?.aiimsCredits ?? Math.max(0, balanceBefore - numAmount);
+            actualBalanceBefore = actualBalanceAfter + numAmount;
           } else {
+            // EARN, REFUND, or ADJUSTMENT
+            await tx.user.updateMany({
+              where: { id: resolvedUserId },
+              data: {
+                aiimsCredits: { increment: numAmount },
+              },
+            });
+
+            const freshUser = await tx.user.findUnique({ where: { id: resolvedUserId } });
+            actualBalanceAfter = freshUser?.aiimsCredits ?? balanceBefore + numAmount;
+            actualBalanceBefore = actualBalanceAfter - numAmount;
+          }
+
+          const legacyTx: ICreditTransaction = {
+            id: txId,
+            transactionType: String(category),
+            type: type === 'SPEND' ? 'SPEND' : 'EARN',
+            source,
+            sourceId,
+            amount: numAmount,
+            description: reason,
+            timestamp: nowStr,
+            previousBalance: actualBalanceBefore,
+            newBalance: actualBalanceAfter,
+          };
+
+          await tx.user.update({
+            where: { id: resolvedUserId },
+            data: {
+              transactionsData: toJsonInput([legacyTx, ...legacyTxs].slice(0, 200)),
+            },
+          });
+
+          // 6. Insert authoritative CreditLedger record inside same ACID transaction
+          const ledgerEntry = await tx.creditLedger.create({
+            data: {
+              id: txId,
+              userId: resolvedUserId,
+              type,
+              category: String(category),
+              amount: numAmount,
+              balanceBefore: actualBalanceBefore,
+              balanceAfter: actualBalanceAfter,
+              reason,
+              source,
+              sourceId: sourceId ?? null,
+              idempotencyKey: idempotencyKey ?? null,
+              status: 'COMPLETED',
+              relatedTaskId: relatedTaskId ?? null,
+              metadata: toJsonInput(this.sanitizeMetadata(metadata)),
+            },
+          });
+
+          return {
+            success: true,
+            balance: actualBalanceAfter,
+            previousBalance: actualBalanceBefore,
+            newBalance: actualBalanceAfter,
+            transaction: ledgerEntry as unknown as Record<string, unknown>,
+          };
+        });
+      });
+    } catch (err: unknown) {
+      // Handle unique constraint collision on (userId, idempotencyKey)
+      if (isPrismaErrorCode(err, 'P2002') && idempotencyKey) {
+        const user = await this.resolveUser(prisma, userId);
+        if (user) {
+          const existingTx = await prisma.creditLedger.findUnique({
+            where: {
+              userId_idempotencyKey: {
+                userId: user.id,
+                idempotencyKey,
+              },
+            },
+          });
+          if (existingTx) {
+            const matches =
+              existingTx.type === type &&
+              existingTx.amount === numAmount &&
+              existingTx.source === source;
+            if (matches) {
+              return {
+                success: true,
+                duplicate: true,
+                balance: existingTx.balanceAfter,
+                previousBalance: existingTx.balanceBefore,
+                newBalance: existingTx.balanceAfter,
+                transaction: existingTx as unknown as Record<string, unknown>,
+              };
+            }
             return {
               success: false,
               conflict: true,
@@ -167,448 +358,15 @@ export class CreditsLedgerService {
         }
       }
 
-      // 2b. Retrieve current user and balance
-      let user: IUser | null = null;
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else {
-        user = await User.findOne({ email: userId.toLowerCase().trim() });
-      }
-
-      if (user) {
-        const balanceBefore = user.aiimsCredits ?? 0;
-
-        let session: mongoose.ClientSession | null = null;
-        let useReplicaTransaction = false;
-        try {
-          const client = (
-            mongoose.connection as unknown as {
-              client?: { topology?: { description?: { type?: string } } };
-            }
-          )?.client;
-          const topologyType = client?.topology?.description?.type;
-          const isReplicaOrSharded =
-            typeof topologyType === 'string' &&
-            (topologyType.includes('Replica') || topologyType === 'Sharded');
-
-          if (isReplicaOrSharded) {
-            session = await mongoose.startSession();
-            session.startTransaction();
-            useReplicaTransaction = true;
-          }
-        } catch {
-          if (session) {
-            try {
-              await session.endSession();
-            } catch {}
-            session = null;
-          }
-          useReplicaTransaction = false;
-        }
-
-        // 2c. Atomic conditional balance update
-        let updatedUser: IUser | null = null;
-        const txId = `tx-ledger-${Date.now()}-${randomUUID().substring(0, 8)}`;
-        const nowStr = new Date().toISOString().replace('T', ' ').substring(0, 16);
-
-        const executeUserUpdate = async (
-          filter: Record<string, unknown>,
-          updatePayload: Record<string, unknown>
-        ): Promise<IUser | null> => {
-          if (useReplicaTransaction && session) {
-            try {
-              return await User.findOneAndUpdate(filter, updatePayload, {
-                session,
-                returnDocument: 'after' as const,
-              });
-            } catch (txErr: unknown) {
-              const msg = txErr instanceof Error ? txErr.message : String(txErr);
-              if (
-                msg.includes('retryable') ||
-                msg.includes('replica') ||
-                msg.includes('Transaction') ||
-                msg.includes('standalone')
-              ) {
-                try {
-                  await session.abortTransaction();
-                  await session.endSession();
-                } catch {}
-                session = null;
-                useReplicaTransaction = false;
-                return await User.findOneAndUpdate(filter, updatePayload, {
-                  returnDocument: 'after' as const,
-                });
-              }
-              throw txErr;
-            }
-          }
-          return await User.findOneAndUpdate(filter, updatePayload, {
-            returnDocument: 'after' as const,
-          });
-        };
-
-        if (type === 'SPEND') {
-          if (balanceBefore < numAmount) {
-            if (useReplicaTransaction && session) {
-              await session.abortTransaction();
-              await session.endSession();
-            }
-            return {
-              success: false,
-              code: 'INSUFFICIENT_CREDITS',
-              error: `Insufficient balance: ${balanceBefore} AC available, ${numAmount} AC requested`,
-              balance: balanceBefore,
-            };
-          }
-
-          const legacyTx: ICreditTransaction = {
-            id: txId,
-            transactionType: category,
-            type: 'SPEND',
-            source,
-            sourceId,
-            amount: numAmount,
-            description: reason,
-            timestamp: nowStr,
-            previousBalance: balanceBefore,
-            newBalance: balanceBefore - numAmount,
-          };
-
-          // Conditional atomic update: only succeeds if balance is still >= numAmount
-          updatedUser = await executeUserUpdate(
-            {
-              _id: user._id,
-              aiimsCredits: { $gte: numAmount },
-            },
-            {
-              $inc: { aiimsCredits: -numAmount },
-              $push: {
-                transactions: {
-                  $each: [legacyTx],
-                  $position: 0,
-                },
-              },
-            }
-          );
-
-          if (!updatedUser) {
-            if (useReplicaTransaction && session) {
-              await session.abortTransaction();
-              await session.endSession();
-            }
-            const freshUser = await User.findById(user._id);
-            const freshBal = freshUser?.aiimsCredits ?? balanceBefore;
-            return {
-              success: false,
-              code: 'INSUFFICIENT_CREDITS',
-              error: `Insufficient balance during atomic update (current: ${freshBal} AC)`,
-              balance: freshBal,
-            };
-          }
-        } else {
-          // EARN or REFUND: Increases balance
-          const balanceAfter = balanceBefore + numAmount;
-          const legacyTx: ICreditTransaction = {
-            id: txId,
-            transactionType: category,
-            type: type === 'REFUND' ? 'EARN' : 'EARN',
-            source,
-            sourceId,
-            amount: numAmount,
-            description: reason,
-            timestamp: nowStr,
-            previousBalance: balanceBefore,
-            newBalance: balanceAfter,
-          };
-
-          const earnFilter: Record<string, unknown> = { _id: user._id };
-          if (sourceId) {
-            earnFilter['transactions.sourceId'] = { $ne: sourceId };
-          }
-
-          updatedUser = await executeUserUpdate(earnFilter, {
-            $inc: { aiimsCredits: numAmount },
-            $push: {
-              transactions: {
-                $each: [legacyTx],
-                $position: 0,
-              },
-            },
-          });
-
-          if (!updatedUser && sourceId) {
-            if (useReplicaTransaction && session) {
-              await session.abortTransaction();
-              await session.endSession();
-            }
-            // Concurrently already awarded under this sourceId
-            const freshUser = await User.findById(user._id);
-            const freshBal = freshUser?.aiimsCredits ?? balanceBefore;
-            const existingTx =
-              (await CreditLedger.findOne({ userId, sourceId })) ||
-              (idempotencyKey ? await CreditLedger.findOne({ userId, idempotencyKey }) : null);
-            return {
-              success: true,
-              duplicate: true,
-              balance: freshBal,
-              previousBalance: freshBal,
-              newBalance: freshBal,
-              transaction: existingTx
-                ? existingTx.toJSON
-                  ? existingTx.toJSON()
-                  : existingTx
-                : undefined,
-            };
-          }
-        }
-
-        const balanceAfter = updatedUser
-          ? updatedUser.aiimsCredits
-          : type === 'SPEND'
-            ? balanceBefore - numAmount
-            : balanceBefore + numAmount;
-
-        // 2d. Record in CreditLedger collection
-        try {
-          const ledgerDoc = {
-            id: txId,
-            userId,
-            type,
-            category,
-            amount: numAmount,
-            balanceBefore,
-            balanceAfter,
-            reason,
-            source,
-            sourceId,
-            idempotencyKey,
-            status: 'COMPLETED' as const,
-            relatedTaskId,
-            metadata: this.sanitizeMetadata(metadata),
-          };
-
-          let ledgerEntry: any;
-          if (useReplicaTransaction && session) {
-            try {
-              const createdDocs = await CreditLedger.create([ledgerDoc], { session });
-              ledgerEntry = createdDocs[0];
-              await session.commitTransaction();
-              await session.endSession();
-            } catch (ledgerTxErr: unknown) {
-              const msg = ledgerTxErr instanceof Error ? ledgerTxErr.message : String(ledgerTxErr);
-              if (
-                msg.includes('retryable') ||
-                msg.includes('replica') ||
-                msg.includes('Transaction') ||
-                msg.includes('standalone')
-              ) {
-                try {
-                  await session.abortTransaction();
-                  await session.endSession();
-                } catch {}
-                session = null;
-                useReplicaTransaction = false;
-                ledgerEntry = await CreditLedger.create(ledgerDoc);
-              } else {
-                throw ledgerTxErr;
-              }
-            }
-          } else {
-            ledgerEntry = await CreditLedger.create(ledgerDoc);
-          }
-
-          return {
-            success: true,
-            balance: balanceAfter,
-            previousBalance: balanceBefore,
-            newBalance: balanceAfter,
-            transaction: ledgerEntry.toJSON ? ledgerEntry.toJSON() : ledgerEntry,
-          };
-        } catch (err: unknown) {
-          if (useReplicaTransaction && session) {
-            try {
-              await session.abortTransaction();
-              await session.endSession();
-            } catch {}
-          }
-
-          // In case of unique index violation on { userId, idempotencyKey }
-          const isDuplicateKey =
-            err &&
-            typeof err === 'object' &&
-            'code' in err &&
-            (err as { code: number }).code === 11000;
-          if (isDuplicateKey && idempotencyKey) {
-            // Revert speculative balance mutation if transaction was not used
-            if (!useReplicaTransaction) {
-              if (type === 'SPEND') {
-                await User.findByIdAndUpdate(user._id, {
-                  $inc: { aiimsCredits: numAmount },
-                  $pull: { transactions: { id: txId } },
-                });
-              } else {
-                await User.findByIdAndUpdate(user._id, {
-                  $inc: { aiimsCredits: -numAmount },
-                  $pull: { transactions: { id: txId } },
-                });
-              }
-            }
-
-            const existingTx = await CreditLedger.findOne({ userId, idempotencyKey });
-            if (existingTx) {
-              return {
-                success: true,
-                duplicate: true,
-                balance: existingTx.balanceAfter,
-                previousBalance: existingTx.balanceBefore,
-                newBalance: existingTx.balanceAfter,
-                transaction: existingTx.toJSON ? existingTx.toJSON() : existingTx,
-              };
-            }
-          }
-
-          // Non-duplicate error: revert speculative balance mutation and legacy transaction entry
-          if (!useReplicaTransaction) {
-            if (type === 'SPEND') {
-              await User.findByIdAndUpdate(user._id, {
-                $inc: { aiimsCredits: numAmount },
-                $pull: { transactions: { id: txId } },
-              });
-            } else {
-              await User.findByIdAndUpdate(user._id, {
-                $inc: { aiimsCredits: -numAmount },
-                $pull: { transactions: { id: txId } },
-              });
-            }
-          }
-
-          console.error(
-            '[CreditsLedgerService] Failed to record ledger entry; balance unchanged:',
-            err
-          );
-          return {
-            success: false,
-            error: 'Failed to record credit ledger entry; balance unchanged',
-            balance: balanceBefore,
-            previousBalance: balanceBefore,
-            newBalance: balanceBefore,
-          };
-        }
-      }
-      // If user is not found in MongoDB (e.g. synthetic test runner unit learner ID, offline test user),
-      // smoothly transition to Section 3 in-memory fallback execution rather than throwing CastError.
-    }
-
-    // 3. In-memory / offline fallback execution
-    if (!memoryUserBalances.has(userId)) {
-      if (registeredUsers) {
-        for (const k of Object.keys(registeredUsers)) {
-          const u = registeredUsers[k];
-          if (String(u._id || u.id) === userId && typeof u.aiimsCredits === 'number') {
-            memoryUserBalances.set(userId, u.aiimsCredits);
-            break;
-          }
-        }
-      }
-    }
-
-    let currentBal = memoryUserBalances.get(userId) ?? 0;
-
-    if (idempotencyKey) {
-      const existing = memoryLedgerStore.find(
-        (e) => e.userId === userId && e.idempotencyKey === idempotencyKey
+      console.error(
+        '[CreditsLedgerService] Transaction failed and rolled back cleanly:',
+        err instanceof Error ? err.message : err
       );
-      if (existing) {
-        const matches =
-          existing.type === type && existing.amount === numAmount && existing.source === source;
-
-        if (matches) {
-          return {
-            success: true,
-            duplicate: true,
-            balance: existing.balanceAfter,
-            previousBalance: existing.balanceBefore,
-            newBalance: existing.balanceAfter,
-            transaction: existing,
-          };
-        } else {
-          return {
-            success: false,
-            conflict: true,
-            code: 'IDEMPOTENCY_KEY_CONFLICT',
-            error: 'Idempotency key reuse with conflicting operation parameters',
-          };
-        }
-      }
+      return {
+        success: false,
+        error: 'Failed to record credit ledger entry; balance unchanged',
+      };
     }
-
-    const balanceBefore = currentBal;
-    if (type === 'SPEND') {
-      if (currentBal < numAmount) {
-        return {
-          success: false,
-          code: 'INSUFFICIENT_CREDITS',
-          error: `Insufficient balance: ${currentBal} AC available, ${numAmount} AC requested`,
-          balance: currentBal,
-        };
-      }
-      currentBal -= numAmount;
-    } else {
-      currentBal += numAmount;
-    }
-
-    memoryUserBalances.set(userId, currentBal);
-
-    const memTx: MemoryLedgerEntry = {
-      id: `tx-mem-${Date.now()}-${randomUUID().substring(0, 8)}`,
-      userId,
-      type,
-      category,
-      amount: numAmount,
-      balanceBefore,
-      balanceAfter: currentBal,
-      reason,
-      source,
-      sourceId,
-      idempotencyKey,
-      status: 'COMPLETED',
-      relatedTaskId,
-      metadata: this.sanitizeMetadata(metadata),
-      createdAt: new Date(),
-    };
-
-    memoryLedgerStore.unshift(memTx);
-
-    if (registeredUsers) {
-      for (const k of Object.keys(registeredUsers)) {
-        const u = registeredUsers[k];
-        if (String(u._id || u.id) === userId) {
-          u.aiimsCredits = currentBal;
-          if (!u.transactions) u.transactions = [];
-          u.transactions.unshift({
-            id: memTx.id,
-            transactionType: category,
-            type: type === 'SPEND' ? 'SPEND' : 'EARN',
-            source,
-            sourceId,
-            amount: numAmount,
-            description: reason,
-            timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-            previousBalance: balanceBefore,
-            newBalance: currentBal,
-          });
-          break;
-        }
-      }
-    }
-
-    return {
-      success: true,
-      balance: currentBal,
-      previousBalance: balanceBefore,
-      newBalance: currentBal,
-      transaction: memTx,
-    };
   }
 
   /**
@@ -620,7 +378,7 @@ export class CreditsLedgerService {
       limit?: number;
       skip?: number;
       type?: CreditTransactionType;
-      category?: CreditTransactionCategory;
+      category?: CreditTransactionCategory | string;
     }
   ): Promise<{
     transactions: Array<{
@@ -635,7 +393,12 @@ export class CreditsLedgerService {
     totalSpent: number;
     totalRefunded: number;
   }> {
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      userId.trim().length === 0 ||
+      !isDatabaseConnected()
+    ) {
       return {
         transactions: [],
         total: 0,
@@ -646,100 +409,80 @@ export class CreditsLedgerService {
       };
     }
 
-    const isDbConnected = mongoose.connection.readyState === 1;
     const limit = Math.min(100, Math.max(1, options?.limit || 50));
     const skip = Math.max(0, options?.skip || 0);
 
-    if (isDbConnected) {
-      let user: IUser | null = null;
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else {
-        user = await User.findOne({ email: userId.toLowerCase().trim() });
-      }
+    const user = await this.resolveUser(prisma, userId);
+    const resolvedUserId = user ? user.id : userId;
 
-      const query: Record<string, unknown> = { userId };
-      if (options?.type) {
-        query.type = options.type;
-      }
-      if (options?.category) {
-        query.category = options.category;
-      }
+    const whereClause: {
+      userId: string;
+      type?: string;
+      category?: string;
+    } = { userId: resolvedUserId };
+    if (options?.type) whereClause.type = options.type;
+    if (options?.category) whereClause.category = String(options.category);
 
-      const [transactions, total, allEntries] = await Promise.all([
-        CreditLedger.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-        CreditLedger.countDocuments(query),
-        CreditLedger.find({ userId }).lean(),
-      ]);
+    const [transactions, total, allEntries] = await Promise.all([
+      prisma.creditLedger.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.creditLedger.count({ where: whereClause }),
+      prisma.creditLedger.findMany({
+        where: { userId: resolvedUserId },
+        select: { type: true, amount: true },
+      }),
+    ]);
 
-      if (total > 0 || user) {
-        const balance = user?.aiimsCredits ?? 0;
-        let finalTxs = transactions;
-        let finalTotal = total;
+    const balance = user?.aiimsCredits ?? 0;
+    let finalTxs: Array<Record<string, unknown>> = transactions as unknown as Array<
+      Record<string, unknown>
+    >;
+    let finalTotal = total;
 
-        if (transactions.length === 0 && user?.transactions && user.transactions.length > 0) {
-          const mapped = user.transactions
-            .filter((t) => (!options?.type ? true : t.type === options.type))
-            .map((t) => ({
-              id: t.id,
-              userId,
-              type: t.type || 'EARN',
-              category: t.transactionType || 'REWARD',
-              amount: t.amount,
-              balanceBefore: t.previousBalance ?? 0,
-              balanceAfter: t.newBalance ?? 0,
-              reason: t.description,
-              source: t.source || 'SYSTEM',
-              sourceId: t.sourceId,
-              status: 'COMPLETED',
-              createdAt: new Date(t.timestamp || Date.now()),
-            }));
-          finalTxs = mapped.slice(skip, skip + limit);
-          finalTotal = mapped.length;
-        }
-
-        let totalEarned = 0;
-        let totalSpent = 0;
-        let totalRefunded = 0;
-
-        for (const entry of allEntries) {
-          if (entry.type === 'EARN') totalEarned += entry.amount;
-          else if (entry.type === 'SPEND') totalSpent += entry.amount;
-          else if (entry.type === 'REFUND') totalRefunded += entry.amount;
-        }
-
-        return {
-          transactions: finalTxs,
-          total: finalTotal,
-          balance,
-          totalEarned,
-          totalSpent,
-          totalRefunded,
-        };
-      }
+    const legacyTxs = user ? toArray<ICreditTransaction>(user.transactionsData) : [];
+    if (transactions.length === 0 && legacyTxs.length > 0) {
+      const mapped = legacyTxs
+        .filter((t) => (!options?.type ? true : t.type === options.type))
+        .map((t) => ({
+          id: t.id,
+          userId: resolvedUserId,
+          type: t.type || 'EARN',
+          category: t.transactionType || 'REWARD',
+          amount: t.amount,
+          balanceBefore: t.previousBalance ?? 0,
+          balanceAfter: t.newBalance ?? 0,
+          reason: t.description,
+          source: t.source || 'SYSTEM',
+          sourceId: t.sourceId,
+          status: 'COMPLETED',
+          createdAt: new Date(t.timestamp || Date.now()),
+        }));
+      finalTxs = mapped.slice(skip, skip + limit);
+      finalTotal = mapped.length;
     }
 
-    // In-memory fallback
-    const userEntries = memoryLedgerStore.filter((e) => e.userId === userId);
-    let filtered = options?.type ? userEntries.filter((e) => e.type === options.type) : userEntries;
-    if (options?.category) {
-      filtered = filtered.filter((e) => e.category === options.category);
-    }
-
-    const balance = memoryUserBalances.get(userId) ?? 0;
     let totalEarned = 0;
     let totalSpent = 0;
     let totalRefunded = 0;
 
-    for (const e of userEntries) {
-      if (e.type === 'EARN') totalEarned += e.amount;
-      else if (e.type === 'SPEND') totalSpent += e.amount;
-      else if (e.type === 'REFUND') totalRefunded += e.amount;
+    for (const entry of allEntries) {
+      if (entry.type === 'EARN') totalEarned += entry.amount;
+      else if (entry.type === 'SPEND') totalSpent += entry.amount;
+      else if (entry.type === 'REFUND') totalRefunded += entry.amount;
     }
 
     return {
-      transactions: filtered.slice(skip, skip + limit),
-      total: filtered.length,
+      transactions: finalTxs as Array<{
+        id?: string;
+        type?: CreditTransactionType | string;
+        amount: number;
+        [key: string]: unknown;
+      }>,
+      total: finalTotal,
       balance,
       totalEarned,
       totalSpent,
@@ -751,32 +494,17 @@ export class CreditsLedgerService {
    * Retrieves server-authoritative balance for a user
    */
   public async getBalance(userId: string): Promise<number> {
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      userId.trim().length === 0 ||
+      !isDatabaseConnected()
+    ) {
       return 0;
     }
-    const isDbConnected = mongoose.connection.readyState === 1;
-    if (isDbConnected) {
-      let user: IUser | null = null;
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId).select('aiimsCredits');
-      } else {
-        user = await User.findOne({ email: userId.toLowerCase().trim() }).select('aiimsCredits');
-      }
-      if (user) {
-        return user.aiimsCredits ?? 0;
-      }
-    }
-    if (!memoryUserBalances.has(userId)) {
-      if (registeredUsers) {
-        for (const k of Object.keys(registeredUsers)) {
-          const u = registeredUsers[k];
-          if (String(u._id || u.id) === userId && typeof u.aiimsCredits === 'number') {
-            return u.aiimsCredits;
-          }
-        }
-      }
-    }
-    return memoryUserBalances.get(userId) ?? 0;
+
+    const user = await this.resolveUser(prisma, userId);
+    return user?.aiimsCredits ?? 0;
   }
 
   /**
@@ -789,7 +517,12 @@ export class CreditsLedgerService {
     discrepancy: number;
     entriesCount: number;
   }> {
-    if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      userId.trim().length === 0 ||
+      !isDatabaseConnected()
+    ) {
       return {
         isReconciled: true,
         currentBalance: 0,
@@ -799,67 +532,48 @@ export class CreditsLedgerService {
       };
     }
 
-    const isDbConnected = mongoose.connection.readyState === 1;
-    if (isDbConnected) {
-      let user: IUser | null = null;
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        user = await User.findById(userId);
-      } else {
-        user = await User.findOne({ email: userId.toLowerCase().trim() });
-      }
-
-      if (user) {
-        const currentBalance = user.aiimsCredits ?? 0;
-        const ledgerEntries = await CreditLedger.find({ userId }).sort({ createdAt: 1 });
-
-        let calculatedBalance = 0; // Pure ledger accumulation from 0
-        if (ledgerEntries.length > 0) {
-          for (const entry of ledgerEntries) {
-            if (entry.type === 'EARN' || entry.type === 'REFUND') {
-              calculatedBalance += entry.amount;
-            } else if (entry.type === 'SPEND') {
-              calculatedBalance -= entry.amount;
-            }
-          }
-        } else if (user?.transactions && user.transactions.length > 0) {
-          // Fallback to legacy user.transactions
-          for (let i = user.transactions.length - 1; i >= 0; i--) {
-            const t = user.transactions[i];
-            if (t.type === 'EARN') calculatedBalance += t.amount;
-            else if (t.type === 'SPEND') calculatedBalance -= t.amount;
-          }
-        }
-
-        const discrepancy = currentBalance - calculatedBalance;
-        return {
-          isReconciled: discrepancy === 0,
-          currentBalance,
-          calculatedBalance,
-          discrepancy,
-          entriesCount: ledgerEntries.length,
-        };
-      }
+    const user = await this.resolveUser(prisma, userId);
+    if (!user) {
+      return {
+        isReconciled: true,
+        currentBalance: 0,
+        calculatedBalance: 0,
+        discrepancy: 0,
+        entriesCount: 0,
+      };
     }
 
-    const currentBalance =
-      memoryUserBalances.get(userId) ??
-      (registeredUsers
-        ? (Object.values(registeredUsers).find((u) => String(u._id || u.id) === userId)
-            ?.aiimsCredits ?? 0)
-        : 0);
-    const userEntries = memoryLedgerStore.filter((e) => e.userId === userId);
+    const currentBalance = user.aiimsCredits ?? 0;
+    const ledgerEntries = await prisma.creditLedger.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'asc' },
+    });
+
     let calculatedBalance = 0;
-    for (const e of userEntries) {
-      if (e.type === 'EARN' || e.type === 'REFUND') calculatedBalance += e.amount;
-      else if (e.type === 'SPEND') calculatedBalance -= e.amount;
+    if (ledgerEntries.length > 0) {
+      for (const entry of ledgerEntries) {
+        if (entry.type === 'EARN' || entry.type === 'REFUND' || entry.type === 'ADJUSTMENT') {
+          calculatedBalance += entry.amount;
+        } else if (entry.type === 'SPEND') {
+          calculatedBalance -= entry.amount;
+        }
+      }
+    } else {
+      const legacyTxs = toArray<ICreditTransaction>(user.transactionsData);
+      for (let i = legacyTxs.length - 1; i >= 0; i--) {
+        const t = legacyTxs[i];
+        if (t.type === 'EARN' || !t.type) calculatedBalance += t.amount;
+        else if (t.type === 'SPEND') calculatedBalance -= t.amount;
+      }
     }
 
+    const discrepancy = currentBalance - calculatedBalance;
     return {
-      isReconciled: currentBalance === calculatedBalance,
+      isReconciled: discrepancy === 0,
       currentBalance,
       calculatedBalance,
-      discrepancy: currentBalance - calculatedBalance,
-      entriesCount: userEntries.length,
+      discrepancy,
+      entriesCount: ledgerEntries.length,
     };
   }
 
@@ -875,7 +589,7 @@ export class CreditsLedgerService {
     taskFn: (operationId: string) => Promise<T>;
   }): Promise<{
     result: T;
-    transaction?: ICreditLedger | MemoryLedgerEntry | Record<string, unknown>;
+    transaction?: ICreditLedger | Record<string, unknown>;
     balance: number;
   }> {
     const { userId, cost, taskTitle, source, idempotencyKey, taskFn } = params;
@@ -898,8 +612,9 @@ export class CreditsLedgerService {
       });
 
       if (!spendTxResult.success) {
+        const errStatus = spendTxResult.code === 'DATABASE_UNAVAILABLE' ? 503 : 402;
         throw {
-          status: 402,
+          status: errStatus,
           code: spendTxResult.code || 'INSUFFICIENT_CREDITS',
           message: spendTxResult.error || 'Failed to authorize credit deduction for AI task',
         };
@@ -955,7 +670,7 @@ export class CreditsLedgerService {
   public async rewardCredits(
     userId: string,
     amount: number,
-    category: CreditTransactionCategory = 'REWARD',
+    category: CreditTransactionCategory | string = 'REWARD',
     reason: string = 'Credit reward',
     idempotencyKey?: string,
     sourceId?: string
@@ -978,7 +693,7 @@ export class CreditsLedgerService {
   public async deductCredits(
     userId: string,
     amount: number,
-    category: CreditTransactionCategory = 'TASK_USAGE',
+    category: CreditTransactionCategory | string = 'TASK_USAGE',
     reason: string = 'Credit deduction',
     idempotencyKey?: string,
     sourceId?: string
@@ -1001,7 +716,7 @@ export class CreditsLedgerService {
   public async refundCredits(
     userId: string,
     amount: number,
-    category: CreditTransactionCategory = 'REFUND',
+    category: CreditTransactionCategory | string = 'REFUND',
     reason: string = 'Credit refund',
     idempotencyKey?: string,
     sourceId?: string
@@ -1019,11 +734,86 @@ export class CreditsLedgerService {
   }
 
   /**
-   * Reset in-memory test stores (for unit testing)
+   * Authoritative Assessment Submission Charge (-100 AC).
+   * Deducts 100 AC using atomic row locking and idempotency protection.
+   */
+  public async chargeAssessmentSubmission(
+    userId: string,
+    idempotencyKey?: string
+  ): Promise<TransactionResult> {
+    return this.executeTransaction({
+      userId,
+      type: 'SPEND',
+      category: 'TASK_USAGE',
+      amount: 100,
+      reason: 'Diagnostic Assessment Submission Fee (-100 AC)',
+      source: 'ASSESSMENT',
+      sourceId: 'DIAGNOSTIC_ASSESSMENT_CHARGE',
+      idempotencyKey: idempotencyKey || `assessment::${userId}::charge`,
+    });
+  }
+
+  /**
+   * Authoritative Assessment High-Score Bonus (+50 AC).
+   * Awarded strictly when overall score > 95%.
+   * Score equal to 95% or lower receives no bonus (returns null).
+   * Bonus is protected by idempotency to guarantee exact-once issuance.
+   */
+  public async awardAssessmentBonus(
+    userId: string,
+    score: number,
+    idempotencyKey?: string
+  ): Promise<TransactionResult | null> {
+    if (score <= 95) {
+      return null;
+    }
+
+    return this.executeTransaction({
+      userId,
+      type: 'EARN',
+      category: 'REWARD',
+      amount: 50,
+      reason: `Diagnostic Assessment High-Score Bonus (+50 AC, Score: ${score}%)`,
+      source: 'ASSESSMENT',
+      sourceId: 'ASSESSMENT_HIGH_SCORE_BONUS',
+      idempotencyKey: idempotencyKey || `assessment::${userId}::bonus`,
+      metadata: { score },
+    });
+  }
+
+  /**
+   * Authoritative AI Wallet Operation Charge (-100 AC).
+   * Phase 3 requirement: Deducts exactly 100 AC once per valid operation
+   * using atomic overdraft protection and deterministic idempotency key.
+   */
+  public async chargeWalletOperation(
+    userId: string,
+    operationName: string = 'AI Wallet Operation',
+    idempotencyKey?: string,
+    metadata?: Record<string, unknown>
+  ): Promise<TransactionResult> {
+    const cleanOp = operationName.trim() || 'AI Wallet Operation';
+    return this.executeTransaction({
+      userId,
+      type: 'SPEND',
+      category: 'TASK_USAGE',
+      amount: 100,
+      reason: `AI Wallet Operation Charge: ${cleanOp} (-100 AC)`,
+      source: 'WALLET',
+      sourceId: 'WALLET_OPERATION_CHARGE',
+      idempotencyKey: idempotencyKey || `wallet::${userId}::${Date.now()}`,
+      metadata: {
+        operation: cleanOp,
+        ...metadata,
+      },
+    });
+  }
+
+  /**
+   * Retained empty no-op stub only for legacy script compatibility; zero mutable memory stores exist.
    */
   public _resetMemoryStoreForTests(): void {
-    memoryLedgerStore.length = 0;
-    memoryUserBalances.clear();
+    // No-op: PostgreSQL Prisma is the sole persistence store.
   }
 }
 

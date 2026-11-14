@@ -16,14 +16,13 @@ import focusRoutes from './focus.routes';
 import journeyRoutes from './journey.routes';
 
 export { CREDIT_RULES } from '../config/credits.config';
-export { registeredUsers } from '../controllers/auth.controller';
 
 const router = Router();
 
 // Rate limit incoming requests before authentication and route handlers
 router.use(generalApiRateLimiter);
 
-// Apply student authentication middleware globally to extract token if present
+// Apply authentication middleware globally to extract token if present
 router.use(authenticateStudent);
 
 // Mount modular sub-routers

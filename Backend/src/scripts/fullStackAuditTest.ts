@@ -6,10 +6,10 @@
  * data persistence, credits system rules, and API contracts.
  */
 
-import mongoose from 'mongoose';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
+import { prisma, isDatabaseConnected, connectDatabase, disconnectDatabase } from '../config/prisma';
+import { userRecordToIUser } from '../utils/userMapper';
+import { IUser } from '../types/models';
 
 const API_BASE = `http://localhost:${config.port}/api`;
 const ROOT_BASE = `http://localhost:${config.port}`;
@@ -34,16 +34,18 @@ async function runAudit() {
   console.log('🧪 AIIMS COMPREHENSIVE FULL-STACK & MODULAR API AUDIT SUITE');
   console.log('===============================================================\n');
 
-  // Direct MongoDB connection for ground-truth verification
+  // Direct PostgreSQL connection for ground-truth verification
   let isDbConnected = false;
-  if (config.mongodbUri) {
+  if (!isDatabaseConnected()) {
     try {
-      await mongoose.connect(config.mongodbUri, { serverSelectionTimeoutMS: 2000 });
-      isDbConnected = mongoose.connection.readyState === 1;
-      console.log(`🌿 Direct MongoDB connection established: ${isDbConnected}\n`);
+      const conn = await connectDatabase();
+      isDbConnected = conn.connected;
+      console.log(`🌿 Direct PostgreSQL connection established: ${isDbConnected}\n`);
     } catch (e: any) {
       console.warn('⚠️ Direct DB connection failed:', e.message);
     }
+  } else {
+    isDbConnected = true;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -350,7 +352,10 @@ async function runAudit() {
   // Verify DB directly for persistence
   let dbCheckUser: IUser | null = null;
   if (isDbConnected) {
-    dbCheckUser = await User.findOne({ email: testEmail });
+    const rawUser = await prisma.user.findUnique({ where: { email: testEmail } });
+    if (rawUser) {
+      dbCheckUser = userRecordToIUser(rawUser);
+    }
   }
 
   check(
@@ -364,7 +369,7 @@ async function runAudit() {
 
   check(
     'Learner State',
-    'PUT /learner/state successfully persists clarity.taskScores to MongoDB',
+    'PUT /learner/state successfully persists clarity.taskScores to PostgreSQL',
     dbCheckUser
       ? dbCheckUser?.clarity?.taskScores?.['AI Workflow Design']?.['easy']?.score === 92
       : putStateRes.state?.clarity?.taskScores?.['AI Workflow Design']?.['easy']?.score === 92,
@@ -715,9 +720,12 @@ async function runAudit() {
   // CLEANUP TEST USER
   // ─────────────────────────────────────────────────────────────
   if (isDbConnected && testEmail) {
-    await User.deleteOne({ email: testEmail });
-    await StudentProfile.deleteOne({ userId });
-    console.log(`\n🧹 Cleaned up audit test user ${testEmail} from MongoDB.`);
+    if (userId) {
+      await prisma.studentProfile.deleteMany({ where: { userId } });
+    }
+    await prisma.user.deleteMany({ where: { email: testEmail } });
+    console.log(`\n🧹 Cleaned up audit test user ${testEmail} from PostgreSQL.`);
+    await disconnectDatabase();
   }
 
   // ─────────────────────────────────────────────────────────────

@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
+import { randomUUID } from 'crypto';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { AIToolModel } from '../models/aiTool.model';
-import { ToolDiscoveryRunModel } from '../models/ToolDiscoveryRun.model';
-import { ToolEvidenceModel } from '../models/toolEvidence.model';
-import { ToolVersionHistoryModel } from '../models/toolVersionHistory.model';
-import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
+import { creditsLedgerService } from '../services/creditsLedger.service';
+import { ToolCatalogService, aiToolRowToDomain } from '../services/wallet/toolCatalog.service';
 import { ToolMatchingService } from '../services/wallet/toolMatching.service';
 import { ToolComparisonService } from '../services/wallet/toolComparison.service';
 import { ToolDiscoveryService } from '../services/wallet/toolDiscovery.service';
@@ -15,7 +13,8 @@ import { ToolChangeDetectionService } from '../services/wallet/toolChangeDetecti
 import { ToolIntelligenceService } from '../services/wallet/toolIntelligence.service';
 import { ToolSourceService } from '../services/wallet/toolSource.service';
 import { toolVerificationService } from '../services/toolVerification.service';
-import { mockUserTools, mockToolCatalog, mockLearnerFullState } from '../models/aiims.models';
+import { isValidId, toArray, toRecord, withLegacyId } from '../utils/id';
+import { toJsonInput } from '../utils/userMapper';
 
 /**
  * POST /wallet/search
@@ -133,7 +132,15 @@ export const getCatalog = async (req: Request, res: Response) => {
     );
   }
 
-  return res.json(tools.filter((t) => t.activeStatus));
+  return res.json(
+    tools.filter(
+      (t) =>
+        t.activeStatus &&
+        t.verificationStatus !== 'UNVERIFIED' &&
+        t.verificationStatus !== 'DISCOVERED' &&
+        t.verificationStatus !== 'REJECTED'
+    )
+  );
 };
 
 /**
@@ -150,7 +157,7 @@ export const getToolById = async (req: Request, res: Response) => {
 /**
  * GET /wallet/taxonomy
  */
-export const getTaxonomy = (req: Request, res: Response) => {
+export const getTaxonomy = (_req: Request, res: Response) => {
   return res.json(DomainTaxonomyService.getTaxonomy());
 };
 
@@ -181,7 +188,7 @@ export const compareTools = (req: Request, res: Response) => {
  * GET /wallet/gaps
  */
 export const getGaps = (req: AuthenticatedRequest, res: Response) => {
-  const userTools = req.user?.assessment ? mockUserTools : mockUserTools;
+  const userTools = req.user?.aiWallet?.userTools || [];
   const catalog = ToolCatalogService.getCatalog();
 
   const coveredDomains = new Set<string>();
@@ -213,7 +220,7 @@ export const getGaps = (req: AuthenticatedRequest, res: Response) => {
 /**
  * POST /wallet/discover/trigger
  */
-export const triggerDiscovery = async (req: Request, res: Response) => {
+export const triggerDiscovery = async (_req: Request, res: Response) => {
   const jobReport = await ToolDiscoveryService.runDiscoveryJob();
   return res.json({
     message: 'Automated AI Tool Discovery job completed successfully.',
@@ -225,7 +232,7 @@ export const triggerDiscovery = async (req: Request, res: Response) => {
 /**
  * GET /wallet/tools/new
  */
-export const getNewTools = (req: Request, res: Response) => {
+export const getNewTools = (_req: Request, res: Response) => {
   const tools = ToolCatalogService.getCatalog().filter((t) => t.status === 'NEW');
   return res.json(tools);
 };
@@ -233,7 +240,7 @@ export const getNewTools = (req: Request, res: Response) => {
 /**
  * GET /wallet/tools/recently-updated
  */
-export const getRecentlyUpdatedTools = (req: Request, res: Response) => {
+export const getRecentlyUpdatedTools = (_req: Request, res: Response) => {
   const tools = ToolCatalogService.getCatalog().filter(
     (t) => t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED'
   );
@@ -259,14 +266,14 @@ export const getToolHistory = async (req: Request, res: Response) => {
 /**
  * GET /wallet/intelligence/status
  */
-export const getIntelligenceStatus = (req: Request, res: Response) => {
+export const getIntelligenceStatus = (_req: Request, res: Response) => {
   return res.json(ToolIntelligenceService.getIntelligenceStatus());
 };
 
 /**
  * GET /wallet/discovery/status
  */
-export const getDiscoveryStatus = (req: Request, res: Response) => {
+export const getDiscoveryStatus = (_req: Request, res: Response) => {
   const status = ToolDiscoveryService.getStatus();
   const newAndUpdated = ToolCatalogService.getNewAndRecentlyUpdatedTools();
   return res.json({
@@ -293,10 +300,11 @@ export const getUserWallet = (req: AuthenticatedRequest, res: Response) => {
  * GET /wallet/recommendations
  */
 export const getRecommendations = (req: AuthenticatedRequest, res: Response) => {
-  const userTools =
-    (req.user as any)?.aiWallet?.userTools ||
-    mockLearnerFullState.aiWallet?.userTools ||
-    mockUserTools;
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  const userTools = req.user.aiWallet?.userTools || [];
   const userToolMap = new Map<string, string>();
   userTools.forEach((t: any) => userToolMap.set(t.toolId, t.familiarity));
 
@@ -305,17 +313,10 @@ export const getRecommendations = (req: AuthenticatedRequest, res: Response) => 
 
   const walletCategories = new Set(userTools.map((t: any) => t.primaryCategory));
   const activeFocus =
-    req.user?.focus?.selectedTrack ||
-    mockLearnerFullState.focus?.selectedTrack ||
-    mockLearnerFullState.analysis?.growthArea ||
-    'AI Workflow Design';
-  const growthArea = mockLearnerFullState.analysis?.growthArea || 'AI Workflow Design';
-  const clarityTopic =
-    req.user?.clarity?.selectedTopic || mockLearnerFullState.clarity?.selectedTopic || '';
-  const investigatedRadarIds =
-    req.user?.radar?.investigatedSignalIds ||
-    mockLearnerFullState.radar?.investigatedSignalIds ||
-    [];
+    req.user.focus?.selectedTrack || req.user.analysis?.growthArea || 'AI Workflow Design';
+  const growthArea = req.user.analysis?.growthArea || 'AI Workflow Design';
+  const clarityTopic = req.user.clarity?.selectedTopic || '';
+  const investigatedRadarIds = req.user.radar?.investigatedSignalIds || [];
 
   const containsMatch = (targetText: string, searchKey: string): boolean => {
     if (!targetText || !searchKey) return false;
@@ -488,6 +489,12 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
   }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
 
   const { toolId, familiarity, primaryCategory, userNotes } = req.body;
   if (!toolId || typeof toolId !== 'string' || !toolId.trim()) {
@@ -497,7 +504,7 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
   const cleanToolId = toolId.trim();
   const catalogItem =
     ToolCatalogService.getToolById(cleanToolId) ||
-    mockToolCatalog.find((t) => t.id === cleanToolId);
+    (await ToolCatalogService.getToolByIdAsync(cleanToolId));
   if (!catalogItem) {
     return res
       .status(404)
@@ -506,19 +513,22 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
 
   const wallet = req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
   wallet.userTools = wallet.userTools || [];
+  const userId = String(req.user.id || req.user._id);
 
   const existing = wallet.userTools.find((t: any) => t.toolId === cleanToolId);
   if (existing) {
     if (familiarity) existing.familiarity = familiarity;
     if (userNotes !== undefined) existing.userNotes = userNotes;
     req.user.aiWallet = wallet;
-    if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-      try {
-        req.user.markModified('aiWallet');
-        await req.user.save();
-      } catch (err: any) {
-        console.error('[/wallet/add] DB save error:', err.message);
-      }
+    try {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiWalletData: toJsonInput(wallet) },
+      });
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ error: 'Failed to persist wallet update', details: err.message });
     }
     return res.json({ success: true, item: existing, action: 'updated' });
   }
@@ -536,13 +546,15 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
   wallet.userTools.unshift(newItem as any);
   req.user.aiWallet = wallet;
 
-  if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-    try {
-      req.user.markModified('aiWallet');
-      await req.user.save();
-    } catch (err: any) {
-      console.error('[/wallet/add] DB save error:', err.message);
-    }
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiWalletData: toJsonInput(wallet) },
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ error: 'Failed to persist wallet addition', details: err.message });
   }
 
   return res.json({ success: true, item: newItem, action: 'added' });
@@ -554,6 +566,12 @@ export const addToWallet = async (req: AuthenticatedRequest, res: Response) => {
 export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
   const { toolId, familiarity, userNotes } = req.body;
@@ -576,13 +594,16 @@ export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response
   if (userNotes !== undefined) item.userNotes = userNotes;
 
   req.user.aiWallet = wallet;
-  if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-    try {
-      req.user.markModified('aiWallet');
-      await req.user.save();
-    } catch (err: any) {
-      console.error('[/wallet/update-familiarity] DB save error:', err.message);
-    }
+  const userId = String(req.user.id || req.user._id);
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiWalletData: toJsonInput(wallet) },
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ error: 'Failed to persist familiarity update', details: err.message });
   }
 
   return res.json({ success: true, item });
@@ -592,12 +613,23 @@ export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response
  * GET /tools/discovery/runs
  */
 export const getDiscoveryRuns = async (req: Request, res: Response) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ runs: [], message: 'DB not connected — no run history available.' });
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
   try {
     const limit = Math.min(Number(req.query.limit) || 20, 100);
-    const runs = await ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(limit).lean();
+    const rows = await prisma.toolDiscoveryRun.findMany({
+      orderBy: { startedAt: 'desc' },
+      take: limit,
+    });
+    const runs = rows.map((r) => ({
+      ...withLegacyId(r),
+      errors: toArray(r.runErrors),
+      runErrors: toArray(r.runErrors),
+    }));
     return res.json({ runs, total: runs.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch discovery runs.', details: err.message });
@@ -609,22 +641,29 @@ export const getDiscoveryRuns = async (req: Request, res: Response) => {
  */
 export const getToolEvidenceAdmin = async (req: Request, res: Response) => {
   const { toolId } = req.params;
-  if (!toolId) {
-    return res.status(400).json({ error: 'toolId param is required.' });
+  if (!toolId || !isValidId(toolId)) {
+    return res.status(400).json({ error: 'Valid toolId param is required.' });
   }
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ evidence: [], message: 'DB not connected.' });
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
   try {
-    const evidence = await ToolEvidenceModel.find({ toolId }).sort({ fetchedAt: -1 }).lean();
+    const rows = await prisma.toolEvidence.findMany({
+      where: { toolId },
+      orderBy: { fetchedAt: 'desc' },
+    });
+    const evidence = rows.map(withLegacyId);
     return res.json({
       toolId,
       evidence,
       counts: {
         total: evidence.length,
-        pending: evidence.filter((e: any) => e.verificationStatus === 'PENDING').length,
-        accepted: evidence.filter((e: any) => e.verificationStatus === 'ACCEPTED').length,
-        rejected: evidence.filter((e: any) => e.verificationStatus === 'REJECTED').length,
+        pending: evidence.filter((e) => e.verificationStatus === 'PENDING').length,
+        accepted: evidence.filter((e) => e.verificationStatus === 'ACCEPTED').length,
+        rejected: evidence.filter((e) => e.verificationStatus === 'REJECTED').length,
       },
     });
   } catch (err: any) {
@@ -637,14 +676,21 @@ export const getToolEvidenceAdmin = async (req: Request, res: Response) => {
  */
 export const getToolHistoryAdmin = async (req: Request, res: Response) => {
   const { toolId } = req.params;
-  if (!toolId) {
-    return res.status(400).json({ error: 'toolId param is required.' });
+  if (!toolId || !isValidId(toolId)) {
+    return res.status(400).json({ error: 'Valid toolId param is required.' });
   }
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ history: [], message: 'DB not connected.' });
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
   try {
-    const history = await ToolVersionHistoryModel.find({ toolId }).sort({ detectedAt: -1 }).lean();
+    const rows = await prisma.toolVersionHistory.findMany({
+      where: { toolId },
+      orderBy: { detectedAt: 'desc' },
+    });
+    const history = rows.map(withLegacyId);
     return res.json({ toolId, history, count: history.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch tool history.', details: err.message });
@@ -698,20 +744,25 @@ export const registerAdminSource = async (req: Request, res: Response) => {
  * GET /admin/candidates
  */
 export const getAdminCandidates = async (_req: Request, res: Response) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ candidates: [] });
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
   try {
-    const candidates = await AIToolModel.find({
-      $or: [
-        { verificationStatus: 'DISCOVERED' },
-        { verificationStatus: 'UNVERIFIED' },
-        { verificationStatus: 'PENDING_VERIFICATION' },
-        { activeStatus: false },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const rows = await prisma.aiTool.findMany({
+      where: {
+        OR: [
+          { verificationStatus: 'DISCOVERED' },
+          { verificationStatus: 'UNVERIFIED' },
+          { verificationStatus: 'PENDING_VERIFICATION' },
+          { activeStatus: false },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const candidates = rows.map(aiToolRowToDomain);
     return res.json({ candidates, count: candidates.length });
   } catch (err: any) {
     return res.status(500).json({ error: 'Failed to fetch candidates', details: err.message });
@@ -725,21 +776,34 @@ export const verifyCandidate = async (req: Request, res: Response) => {
   const { toolId } = req.params;
   const { acceptEvidenceId, activate } = req.body;
 
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ success: true, message: 'Offline mode simulation' });
+  if (!toolId || !isValidId(toolId)) {
+    return res.status(400).json({ error: 'Valid toolId is required.' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
   try {
-    if (acceptEvidenceId) {
+    if (acceptEvidenceId && isValidId(acceptEvidenceId)) {
       await toolVerificationService.acceptEvidence(acceptEvidenceId);
     }
     const verifyResult = await toolVerificationService.verifyTool(toolId);
 
     if (activate) {
-      await AIToolModel.updateOne(
-        { id: toolId },
-        { $set: { activeStatus: true, verificationStatus: 'VERIFIED' } }
-      );
+      const nowIso = new Date().toISOString();
+      await prisma.aiTool.updateMany({
+        where: { id: toolId },
+        data: {
+          activeStatus: true,
+          verificationStatus: 'VERIFIED',
+          lastVerifiedAt: nowIso,
+          lastUpdatedAt: nowIso,
+        },
+      });
     }
 
     return res.json({ success: true, verification: verifyResult });
@@ -752,46 +816,299 @@ export const verifyCandidate = async (req: Request, res: Response) => {
  * GET /admin/intelligence/dashboard
  */
 export const getAdminDashboard = async (_req: Request, res: Response) => {
-  if (mongoose.connection.readyState !== 1) {
-    const catalog = ToolCatalogService.getCatalog();
-    return res.json({
-      pipelineStatus: 'OPERATIONAL',
-      mode: 'OFFLINE_MOCK',
-      totalToolsInCatalog: catalog.length,
-      activeVerifiedTools: catalog.filter((t) => t.activeStatus).length,
-      pendingCandidates: 0,
-      totalEvidenceDocs: 12,
-      recentRunsCount: 1,
-      lastRunAt: new Date().toISOString(),
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
     });
   }
 
   try {
     const [totalTools, activeVerified, pendingCandidates, totalEvidence, recentRuns] =
       await Promise.all([
-        AIToolModel.countDocuments({}),
-        AIToolModel.countDocuments({
-          activeStatus: true,
-          verificationStatus: { $in: ['VERIFIED', 'VERIFIED_SEED'] },
+        prisma.aiTool.count(),
+        prisma.aiTool.count({
+          where: {
+            activeStatus: true,
+            verificationStatus: { in: ['VERIFIED', 'VERIFIED_SEED'] },
+          },
         }),
-        AIToolModel.countDocuments({ activeStatus: false }),
-        ToolEvidenceModel.countDocuments({}),
-        ToolDiscoveryRunModel.find().sort({ startedAt: -1 }).limit(5).lean(),
+        prisma.aiTool.count({ where: { activeStatus: false } }),
+        prisma.toolEvidence.count(),
+        prisma.toolDiscoveryRun.findMany({
+          orderBy: { startedAt: 'desc' },
+          take: 5,
+        }),
       ]);
+
+    const mappedRuns = recentRuns.map((r) => ({
+      ...withLegacyId(r),
+      errors: toArray(r.runErrors),
+      runErrors: toArray(r.runErrors),
+    }));
 
     return res.json({
       pipelineStatus: 'OPERATIONAL',
-      mode: 'LIVE_MONGODB',
+      mode: 'POSTGRESQL',
       totalToolsInCatalog: totalTools,
       activeVerifiedTools: activeVerified,
       pendingCandidates,
       totalEvidenceDocs: totalEvidence,
-      recentRunsCount: recentRuns.length,
-      lastRun: recentRuns[0] || null,
+      recentRunsCount: mappedRuns.length,
+      lastRun: mappedRuns[0] || null,
     });
   } catch (err: any) {
     return res
       .status(500)
       .json({ error: 'Failed to fetch intelligence dashboard', details: err.message });
   }
+};
+
+/**
+ * GET /wallet/domain-cards
+ * Returns the 13 canonical domain categories populated with verified tools.
+ */
+export const getDomainCards = async (_req: Request, res: Response) => {
+  const tools = await ToolCatalogService.getCatalogAsync();
+  const domainCards = DomainTaxonomyService.getThirteenDomainCards(tools);
+  return res.json({
+    success: true,
+    totalDomains: domainCards.length,
+    domains: domainCards,
+  });
+};
+
+/**
+ * POST /wallet/operate
+ * Authoritative 100 AC charge for advanced wallet operations using centralized ledger.
+ */
+export const executeWalletOperation = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const userId = String(req.user.id || req.user._id);
+  const { operationName, idempotencyKey, metadata } = req.body;
+  const opName =
+    typeof operationName === 'string' && operationName.trim()
+      ? operationName.trim()
+      : 'AI Wallet Operation';
+
+  try {
+    const chargeResult = await creditsLedgerService.chargeWalletOperation(
+      userId,
+      opName,
+      idempotencyKey,
+      metadata
+    );
+
+    if (!chargeResult.success) {
+      if (chargeResult.code === 'INSUFFICIENT_CREDITS') {
+        return res.status(402).json({
+          error: 'Insufficient credits. AI Wallet operation requires 100 AC.',
+          code: 'INSUFFICIENT_CREDITS',
+          requiredAmount: 100,
+          currentBalance: chargeResult.balance ?? 0,
+        });
+      }
+      return res.status(400).json({
+        error: chargeResult.error || 'Failed to authorize wallet operation charge.',
+        code: chargeResult.code || 'CHARGE_FAILED',
+      });
+    }
+
+    return res.json({
+      success: true,
+      duplicate: Boolean(chargeResult.duplicate),
+      operationName: opName,
+      cost: 100,
+      balance: chargeResult.balance,
+      transaction: chargeResult.transaction,
+    });
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ error: 'Internal wallet operation failure', details: err.message });
+  }
+};
+
+/**
+ * POST /wallet/confirm-usage
+ * D6 Decision: Manual learner tool usage confirmation.
+ * Zero automatic detection. Stores confirmation records in PostgreSQL.
+ * Deduplicates to prevent double submissions.
+ */
+export const confirmToolUsage = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { toolId, taskContext, notes, idempotencyKey } = req.body;
+  if (!toolId || typeof toolId !== 'string' || !toolId.trim()) {
+    return res.status(400).json({ error: 'Valid toolId is required', code: 'INVALID_TOOL_ID' });
+  }
+
+  const cleanToolId = toolId.trim();
+  const catalogItem =
+    ToolCatalogService.getToolById(cleanToolId) ||
+    (await ToolCatalogService.getToolByIdAsync(cleanToolId));
+
+  if (!catalogItem) {
+    return res
+      .status(404)
+      .json({ error: `Tool '${cleanToolId}' not found in catalog`, code: 'TOOL_NOT_FOUND' });
+  }
+
+  const userId = String(req.user.id || req.user._id);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
+  }
+
+  const walletData: any = user.aiWalletData ? toRecord(user.aiWalletData) : {};
+  const confirmations: any[] = Array.isArray(walletData.usageConfirmations)
+    ? [...walletData.usageConfirmations]
+    : [];
+
+  // Idempotency / duplicate prevention check
+  const duplicate = confirmations.find(
+    (c: any) =>
+      (idempotencyKey && c.idempotencyKey === idempotencyKey) ||
+      (c.toolId === cleanToolId &&
+        (!taskContext || c.taskContext?.toLowerCase() === taskContext.trim().toLowerCase()))
+  );
+
+  if (duplicate) {
+    return res.json({
+      success: true,
+      duplicate: true,
+      message: 'Usage for this tool has already been manually confirmed.',
+      confirmation: duplicate,
+    });
+  }
+
+  const newConfirmation = {
+    id: `confirm-${randomUUID()}`,
+    userId,
+    toolId: cleanToolId,
+    toolName: catalogItem.name,
+    provider: catalogItem.provider,
+    taskContext: taskContext ? String(taskContext).trim() : 'Self-guided practice',
+    notes: notes ? String(notes).trim() : '',
+    confirmedAt: new Date().toISOString(),
+    verificationMethod: 'MANUAL_LEARNER_CONFIRMATION',
+    status: 'CONFIRMED',
+    idempotencyKey: idempotencyKey || undefined,
+  };
+
+  confirmations.unshift(newConfirmation);
+  walletData.usageConfirmations = confirmations;
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiWalletData: toJsonInput(walletData) },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to persist confirmation', details: err.message });
+  }
+
+  return res.status(201).json({
+    success: true,
+    duplicate: false,
+    message: 'Tool usage successfully confirmed by learner.',
+    confirmation: newConfirmation,
+  });
+};
+
+/**
+ * GET /wallet/confirmations
+ * Retrieves all manual usage confirmation records for the authenticated learner.
+ */
+export const getUserConfirmations = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const userId = String(req.user.id || req.user._id);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { aiWalletData: true },
+  });
+
+  const walletData: any = user?.aiWalletData ? toRecord(user.aiWalletData) : {};
+  const confirmations = Array.isArray(walletData.usageConfirmations)
+    ? walletData.usageConfirmations
+    : [];
+
+  return res.json({
+    success: true,
+    total: confirmations.length,
+    confirmations,
+  });
+};
+
+/**
+ * POST /wallet/personalized-match & GET /wallet/personalized-matching
+ * Personalized matching across Video Editing, Data Analytics, and Graphic Design.
+ * Reuses Phase 2 Persistent AI Learner Profile from PostgreSQL (or general fallback if absent).
+ */
+export const getPersonalizedToolMatching = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  const userId = String(req.user.id || req.user._id);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      analysisData: true,
+      targetGoal: true,
+      studentProfile: true,
+      entrepreneurProfile: true,
+    },
+  });
+
+  const analysis: any = user?.analysisData ? toRecord(user.analysisData) : {};
+  const persistentProfile = analysis.aiLearnerProfile || null;
+
+  const domain = req.body?.domain || req.query?.domain || 'All';
+  const freeOnly = Boolean(req.body?.freeOnly ?? req.query?.freeOnly === 'true');
+  const preferredSkillLevel = req.body?.preferredSkillLevel || req.query?.preferredSkillLevel;
+
+  const targetGoal = user?.targetGoal || req.user.targetGoal;
+
+  const results = ToolMatchingService.getPersonalizedDomainRecommendations({
+    domain: String(domain),
+    learnerProfile: persistentProfile,
+    targetGoal,
+    skillLevel: preferredSkillLevel as any,
+    freeOnly,
+  });
+
+  return res.json({
+    success: true,
+    isPersonalized: results.some((r) => r.isPersonalized),
+    profileSource: results[0]?.profileSource || 'GENERAL_DOMAIN_FALLBACK',
+    learnerGoal: results[0]?.learnerGoal || targetGoal || 'General Mastery',
+    results,
+  });
 };

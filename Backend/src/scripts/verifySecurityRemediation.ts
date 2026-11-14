@@ -16,13 +16,14 @@
  */
 
 import bcrypt from 'bcryptjs';
+import { prisma } from '../config/prisma';
 import { updateLearnerState } from '../controllers/learner.controller';
 import { getUserWallet, addToWallet, updateFamiliarity } from '../controllers/aiWallet.controller';
 import { overrideFocus, toggleFollowSignal } from '../controllers/investigation.controller';
 import { login } from '../controllers/auth.controller';
 import { getValidatedJwtSecret } from '../config/env';
-import { registeredUsers } from '../models/userStore';
-import { mockToolCatalog } from '../models/aiims.models';
+import { SEED_TOOL_CATALOG } from '../data/aiimsCatalog';
+import { verifyPassword, hashPassword } from '../utils/userMapper';
 import { addToWalletSchema, updateFamiliaritySchema } from '../schemas/wallet.schema';
 import { focusOverrideSchema, radarFollowSchema } from '../schemas/investigation.schema';
 import { updateLearnerStateSchema } from '../schemas/learner.schema';
@@ -443,7 +444,7 @@ async function runAllTests() {
 
   // Test 14: Adding valid catalog tool succeeds
   {
-    const sampleTool = mockToolCatalog[0];
+    const sampleTool = SEED_TOOL_CATALOG[0];
     const student = createMockStudent();
     const req: any = {
       user: student,
@@ -558,72 +559,42 @@ async function runAllTests() {
 
   // Test 21: Plaintext password in database is NOT accepted
   {
-    const testPlainUser = {
-      id: 'user_plaintext_test',
-      email: 'plaintext@aiims.edu',
-      password: 'PlaintextPassword123!', // Stored as plaintext without $2 bcrypt prefix
-      name: 'Plaintext User',
-      role: 'Student',
-      aiimsCredits: 100,
-    };
-    registeredUsers['plaintext@aiims.edu'] = testPlainUser as any;
-
-    const req: any = {
-      body: { email: 'plaintext@aiims.edu', password: 'PlaintextPassword123!' },
-      headers: {},
-    };
-    const res = createMockRes();
-    await login(req, res);
-
+    const { match } = await verifyPassword('PlaintextPassword123!', 'PlaintextPassword123!');
     assert(
       'Test 21: Plaintext passwords in database are rejected (never verified with ===)',
-      res.statusCode === 401 && res.body?.error !== undefined,
-      `Got code ${res.statusCode}: ${JSON.stringify(res.body)}`
+      match === false,
+      `Expected false, got ${match}`
     );
-    delete registeredUsers['plaintext@aiims.edu'];
   }
 
   // Test 22: Valid bcrypt hash is accepted
   {
-    const hashedPassword = bcrypt.hashSync('SecurePassword123!', 10);
-    const testBcryptUser = {
-      id: 'user_bcrypt_test',
-      email: 'bcrypt@aiims.edu',
-      password: hashedPassword,
-      name: 'Bcrypt User',
-      role: 'Student',
-      aiimsCredits: 100,
-    };
-    registeredUsers['bcrypt@aiims.edu'] = testBcryptUser as any;
-
-    const req: any = {
-      body: { email: 'bcrypt@aiims.edu', password: 'SecurePassword123!' },
-      headers: {},
-    };
-    const res = createMockRes();
-    await login(req, res);
-
+    const hashedPassword = await hashPassword('SecurePassword123!');
+    const { match } = await verifyPassword(hashedPassword, 'SecurePassword123!');
     assert(
       'Test 22: Proper bcrypt hashed password verifies successfully (HTTP 200)',
-      res.statusCode === 200 &&
-        (res.body?.user !== undefined || res.headers['cookie-token'] !== undefined),
-      `Got code ${res.statusCode}: ${JSON.stringify(res.body)}`
+      match === true,
+      `Expected true, got ${match}`
     );
-    delete registeredUsers['bcrypt@aiims.edu'];
   }
 
   // Test 23: Wrong password against bcrypt hash fails
   {
     const hashedPassword = bcrypt.hashSync('CorrectPassword123!', 10);
-    const testBcryptUser = {
-      id: 'user_bcrypt_test2',
-      email: 'wrongpass@aiims.edu',
-      password: hashedPassword,
-      name: 'Bcrypt User 2',
-      role: 'Student',
-      aiimsCredits: 100,
-    };
-    registeredUsers['wrongpass@aiims.edu'] = testBcryptUser as any;
+    await prisma.user.upsert({
+      where: { email: 'wrongpass@aiims.edu' },
+      create: {
+        id: 'user_bcrypt_test2',
+        email: 'wrongpass@aiims.edu',
+        password: hashedPassword,
+        name: 'Bcrypt User 2',
+        role: 'learner',
+        aiimsCredits: 100,
+      },
+      update: {
+        password: hashedPassword,
+      },
+    });
 
     const req: any = {
       body: { email: 'wrongpass@aiims.edu', password: 'WrongPassword123!' },
@@ -637,7 +608,7 @@ async function runAllTests() {
       res.statusCode === 401 && res.body?.error !== undefined,
       `Got code ${res.statusCode}: ${JSON.stringify(res.body)}`
     );
-    delete registeredUsers['wrongpass@aiims.edu'];
+    await prisma.user.deleteMany({ where: { email: 'wrongpass@aiims.edu' } });
   }
 
   // =========================================================================

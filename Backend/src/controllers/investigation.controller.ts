@@ -1,31 +1,35 @@
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { User } from '../models/User.model';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import {
-  mockUser,
-  mockFocusAreas,
-  mockRadarSignals,
-  mockCapabilityGaps,
-  mockTransactions,
-} from '../models/aiims.models';
+  getDefaultFocusAreas,
+  getDefaultRadarSignals,
+  getDefaultCapabilityGaps,
+} from '../data/aiimsCatalog';
 import { ClaudeService } from '../services/anthropic/claude.service';
 import { CREDIT_RULES } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { registeredUsers } from '../models/userStore';
+import {
+  defaultFocus,
+  defaultRadar,
+  defaultInvestigation,
+  toJsonInput,
+  userRecordToIUser,
+} from '../utils/userMapper';
+import { isSafeKey, isValidId, toRecord } from '../utils/id';
 
 const claudeService = new ClaudeService();
 
 /**
  * GET /focus/areas
  */
-export const getFocusAreas = (req: Request, res: Response) => {
-  res.json(mockFocusAreas);
+export const getFocusAreas = (_req: Request, res: Response) => {
+  return res.json(getDefaultFocusAreas());
 };
 
 /**
  * POST /focus/override
- * Enforces authentication, cross-user ownership guards, and persists to authenticated user's DB record.
+ * Enforces authentication, cross-user ownership guards, and persists to authenticated user's PostgreSQL record.
  */
 export const overrideFocus = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
@@ -35,7 +39,7 @@ export const overrideFocus = async (req: AuthenticatedRequest, res: Response) =>
   const { focusId, mentorOverride, userId: targetUserId } = req.body;
 
   // Cross-user modification prevention
-  const currentUserId = String(req.user._id || req.user.id);
+  const currentUserId = String(req.user.id || req.user._id);
   if (targetUserId && String(targetUserId) !== currentUserId) {
     return res.status(403).json({
       error: 'Access forbidden: cannot modify another learner focus state',
@@ -47,32 +51,43 @@ export const overrideFocus = async (req: AuthenticatedRequest, res: Response) =>
     return res.status(400).json({ error: 'Valid focusId is required', code: 'INVALID_FOCUS_ID' });
   }
 
-  const cleanFocusId = focusId.trim();
-
-  // Persist to authenticated user's record
-  req.user.focus = req.user.focus || {
-    status: 'available',
-    selectedTrack: null,
-    history: [],
-  };
-  req.user.focus.selectedTrack = cleanFocusId;
-
-  if (mongoose.connection.readyState === 1 && req.user._id) {
-    try {
-      await User.findByIdAndUpdate(req.user._id, {
-        $set: {
-          'focus.selectedTrack': cleanFocusId,
-          ...(mentorOverride ? { 'focus.mentorOverride': mentorOverride } : {}),
-        },
-      });
-    } catch (err: any) {
-      return res
-        .status(500)
-        .json({ error: 'Failed to persist focus override', details: err.message });
-    }
+  if (!isDatabaseConnected() || !isValidId(currentUserId)) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const baseArea = mockFocusAreas.find((f) => f.id === cleanFocusId) || {
+  const cleanFocusId = focusId.trim();
+
+  try {
+    const userRow = await prisma.user.findUnique({ where: { id: currentUserId } });
+    if (!userRow) {
+      return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
+    }
+
+    const existingFocus = toRecord(userRow.focusData);
+    const updatedFocusData = {
+      ...defaultFocus(),
+      ...existingFocus,
+      selectedTrack: cleanFocusId,
+      ...(mentorOverride ? { mentorOverride } : {}),
+    };
+
+    const updatedRow = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        focusData: toJsonInput(updatedFocusData),
+      },
+    });
+    req.user = userRecordToIUser(updatedRow);
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ error: 'Failed to persist focus override', details: err.message });
+  }
+
+  const baseArea = getDefaultFocusAreas().find((f) => f.id === cleanFocusId) || {
     id: cleanFocusId,
     title: cleanFocusId,
     description: '',
@@ -91,13 +106,13 @@ export const overrideFocus = async (req: AuthenticatedRequest, res: Response) =>
 /**
  * GET /radar/signals
  */
-export const getRadarSignals = (req: Request, res: Response) => {
-  res.json(mockRadarSignals);
+export const getRadarSignals = (_req: Request, res: Response) => {
+  return res.json(getDefaultRadarSignals());
 };
 
 /**
  * POST /radar/follow
- * Enforces authentication, cross-user ownership guards, and persists followed signals to DB.
+ * Enforces authentication, cross-user ownership guards, and persists followed signals to PostgreSQL.
  */
 export const toggleFollowSignal = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
@@ -107,7 +122,7 @@ export const toggleFollowSignal = async (req: AuthenticatedRequest, res: Respons
   const { signalId, userId: targetUserId } = req.body;
 
   // Cross-user modification prevention
-  const currentUserId = String(req.user._id || req.user.id);
+  const currentUserId = String(req.user.id || req.user._id);
   if (targetUserId && String(targetUserId) !== currentUserId) {
     return res.status(403).json({
       error: 'Access forbidden: cannot modify another learner radar signals',
@@ -119,39 +134,52 @@ export const toggleFollowSignal = async (req: AuthenticatedRequest, res: Respons
     return res.status(400).json({ error: 'Valid signalId is required', code: 'INVALID_SIGNAL_ID' });
   }
 
+  if (!isDatabaseConnected() || !isValidId(currentUserId)) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const cleanSignalId = signalId.trim();
+  let isFollowed = false;
 
-  req.user.radar = req.user.radar || {
-    status: 'available',
-    investigatedSignalIds: [],
-    followedSignalIds: [],
-  };
-  req.user.radar.followedSignalIds = req.user.radar.followedSignalIds || [];
-
-  const isFollowed = req.user.radar.followedSignalIds.includes(cleanSignalId);
-  if (isFollowed) {
-    req.user.radar.followedSignalIds = req.user.radar.followedSignalIds.filter(
-      (id) => id !== cleanSignalId
-    );
-  } else {
-    req.user.radar.followedSignalIds.push(cleanSignalId);
-  }
-
-  if (mongoose.connection.readyState === 1 && req.user._id) {
-    try {
-      await User.findByIdAndUpdate(req.user._id, {
-        [isFollowed ? '$pull' : '$addToSet']: {
-          'radar.followedSignalIds': cleanSignalId,
-        },
-      });
-    } catch (err: any) {
-      return res
-        .status(500)
-        .json({ error: 'Failed to update followed signals', details: err.message });
+  try {
+    const userRow = await prisma.user.findUnique({ where: { id: currentUserId } });
+    if (!userRow) {
+      return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
     }
+
+    const existingRadar = {
+      ...defaultRadar(),
+      ...toRecord(userRow.radarData),
+    };
+    const currentFollowed: string[] = Array.isArray(existingRadar.followedSignalIds)
+      ? existingRadar.followedSignalIds
+      : [];
+
+    isFollowed = currentFollowed.includes(cleanSignalId);
+    const nextFollowed = isFollowed
+      ? currentFollowed.filter((id) => id !== cleanSignalId)
+      : [...currentFollowed, cleanSignalId];
+
+    const updatedRow = await prisma.user.update({
+      where: { id: currentUserId },
+      data: {
+        radarData: toJsonInput({
+          ...existingRadar,
+          followedSignalIds: nextFollowed,
+        }),
+      },
+    });
+    req.user = userRecordToIUser(updatedRow);
+  } catch (err: any) {
+    return res
+      .status(500)
+      .json({ error: 'Failed to update followed signals', details: err.message });
   }
 
-  const baseSignal = mockRadarSignals.find((s) => s.id === cleanSignalId) || {
+  const baseSignal = getDefaultRadarSignals().find((s) => s.id === cleanSignalId) || {
     id: cleanSignalId,
     title: cleanSignalId,
   };
@@ -171,190 +199,133 @@ export const toggleFollowSignal = async (req: AuthenticatedRequest, res: Respons
  * POST /investigations/submit
  */
 export const submitInvestigation = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
   const { signalId, personalInterpretation } = req.body;
-  if (!signalId || typeof signalId !== 'string') {
+  if (
+    !signalId ||
+    typeof signalId !== 'string' ||
+    !signalId.trim() ||
+    !isSafeKey(signalId.trim())
+  ) {
     return res.status(400).json({ error: 'Valid signalId is required' });
   }
-  const reward = CREDIT_RULES.SIGNAL_INVESTIGATION.credits;
-  const xpReward = CREDIT_RULES.SIGNAL_INVESTIGATION.xp;
 
-  if (req.user) {
-    if (mongoose.connection.readyState === 1 && req.user._id) {
-      const updatedUser = await User.findOneAndUpdate(
-        {
-          _id: req.user._id,
-          'radar.investigatedSignalIds': { $ne: signalId },
-        },
-        {
-          $inc: { xpPoints: xpReward },
-          $push: {
-            'radar.investigatedSignalIds': signalId,
-          },
-          $set: {
-            [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
-            'investigation.selectedSignalId': signalId,
-            'investigation.status': 'completed',
-          },
-        },
-        { returnDocument: 'after' }
-      );
-
-      if (updatedUser) {
-        req.user = updatedUser;
-        const userId = String(req.user._id || req.user.id);
-        const ledgerResult = await creditsLedgerService.executeTransaction({
-          userId,
-          type: 'EARN',
-          category: 'REWARD',
-          amount: reward,
-          reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
-          source: 'RADAR',
-          sourceId: signalId,
-          idempotencyKey: `investigation::${userId}::${signalId}`,
-        });
-
-        const latestUser = await User.findById(req.user._id);
-        if (latestUser) req.user = latestUser;
-        const newBal = ledgerResult.balance ?? req.user.aiimsCredits ?? updatedUser.aiimsCredits;
-        req.user.aiimsCredits = newBal;
-
-        return res.json({
-          message: `Investigation recorded. ${reward} AIIMS Credits earned!`,
-          personalInterpretation,
-          creditsEarned: reward,
-          awarded: true,
-          newBalance: newBal,
-        });
-      } else {
-        await User.updateOne(
-          { _id: req.user._id },
-          {
-            $set: {
-              [`investigation.userNotes.${signalId}`]: personalInterpretation || '',
-              'investigation.selectedSignalId': signalId,
-              'investigation.status': 'completed',
-            },
-          }
-        );
-        const latestUser = await User.findById(req.user._id);
-        const currentBal = latestUser?.aiimsCredits ?? req.user.aiimsCredits;
-        return res.json({
-          message: 'Investigation notes updated (credits already claimed).',
-          personalInterpretation,
-          creditsEarned: 0,
-          awarded: false,
-          newBalance: currentBal,
-        });
-      }
-    }
-
-    const alreadyInvestigated = req.user.radar?.investigatedSignalIds?.includes(signalId);
-    let creditsEarned = 0;
-
-    if (!alreadyInvestigated) {
-      const userId = String(req.user._id || req.user.id);
-      const actionKey = `investigation::${userId}::${signalId}`;
-
-      const ledgerResult = await creditsLedgerService
-        .executeTransaction({
-          userId,
-          type: 'EARN',
-          category: 'REWARD',
-          amount: reward,
-          reason: `Investigated Signal: ${signalId} (+${reward} AC)`,
-          source: 'RADAR',
-          sourceId: signalId,
-          idempotencyKey: actionKey,
-        })
-        .catch(() => null);
-
-      const previousBalance = req.user.aiimsCredits || 0;
-      if (ledgerResult?.balance !== undefined) {
-        req.user.aiimsCredits = ledgerResult.balance;
-      } else {
-        req.user.aiimsCredits = previousBalance + reward;
-      }
-      req.user.xpPoints = (req.user.xpPoints || 0) + xpReward;
-      creditsEarned = reward;
-
-      if (!req.user.radar) {
-        req.user.radar = { status: 'unlocked', investigatedSignalIds: [], followedSignalIds: [] };
-      }
-      if (!req.user.radar.investigatedSignalIds) {
-        req.user.radar.investigatedSignalIds = [];
-      }
-      req.user.radar.investigatedSignalIds.push(signalId);
-
-      const tx = {
-        id: ledgerResult?.transaction?.id || `tx-inv-${Date.now()}`,
-        transactionType: 'SIGNAL_INVESTIGATION',
-        type: 'EARN' as const,
-        source: 'RADAR',
-        sourceId: signalId,
-        amount: reward,
-        description: `Investigated Signal: ${signalId} (+${reward} AC)`,
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        previousBalance,
-        newBalance: req.user.aiimsCredits,
-      };
-
-      req.user.transactions = req.user.transactions || [];
-      req.user.transactions.unshift(tx);
-
-      if (registeredUsers && req.user.email && registeredUsers[req.user.email.toLowerCase()]) {
-        const reg = registeredUsers[req.user.email.toLowerCase()];
-        reg.aiimsCredits = req.user.aiimsCredits;
-        reg.xpPoints = req.user.xpPoints;
-        if (!reg.radar) reg.radar = { status: 'unlocked', investigatedSignalIds: [] };
-        if (!reg.radar.investigatedSignalIds) reg.radar.investigatedSignalIds = [];
-        if (!reg.radar.investigatedSignalIds.includes(signalId)) {
-          reg.radar.investigatedSignalIds.push(signalId);
-        }
-      }
-    }
-
-    if (!req.user.investigation) {
-      req.user.investigation = { status: 'completed', selectedSignalId: signalId, userNotes: {} };
-    }
-    if (!req.user.investigation.userNotes) {
-      req.user.investigation.userNotes = {};
-    }
-    req.user.investigation.userNotes[signalId] = personalInterpretation;
-
-    return res.json({
-      message: alreadyInvestigated
-        ? 'Investigation notes updated (credits already claimed).'
-        : `Investigation recorded. ${reward} AIIMS Credits earned!`,
-      personalInterpretation,
-      creditsEarned,
-      awarded: !alreadyInvestigated,
-      newBalance: req.user.aiimsCredits,
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
   }
 
-  const alreadyInvestigatedMock = mockRadarSignals.some((s) => s.id === signalId && s.isFollowed);
-  if (!alreadyInvestigatedMock) {
-    mockUser.aiimsCredits += reward;
-    mockUser.xpPoints += xpReward;
-    const tx = {
-      id: `tx-${Date.now()}`,
-      type: 'EARN' as const,
-      sourceId: signalId,
-      amount: reward,
-      description: `Investigated Signal ${signalId} (+${reward} AC)`,
-      timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
-    };
-    mockTransactions.unshift(tx as any);
+  const cleanSignalId = signalId.trim();
+  const userId = String(req.user.id || req.user._id);
+  if (!isValidId(userId)) {
+    return res.status(400).json({ error: 'Invalid user identifier', code: 'INVALID_USER_ID' });
   }
 
-  res.json({
-    message: alreadyInvestigatedMock
-      ? 'Investigation notes updated (credits already claimed).'
-      : `Investigation recorded. ${reward} AIIMS Credits earned!`,
+  const reward = CREDIT_RULES.SIGNAL_INVESTIGATION.credits;
+  const xpReward = CREDIT_RULES.SIGNAL_INVESTIGATION.xp;
+
+  const userRow = await prisma.user.findUnique({ where: { id: userId } });
+  if (!userRow) {
+    return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
+  }
+
+  const currentRadar = {
+    ...defaultRadar(),
+    ...toRecord(userRow.radarData),
+  };
+  const investigatedIds: string[] = Array.isArray(currentRadar.investigatedSignalIds)
+    ? [...currentRadar.investigatedSignalIds]
+    : [];
+
+  const alreadyInvestigated = investigatedIds.includes(cleanSignalId);
+  let awardedNow = false;
+
+  if (!alreadyInvestigated) {
+    const ledgerResult = await creditsLedgerService.executeTransaction({
+      userId,
+      type: 'EARN',
+      category: 'REWARD',
+      amount: reward,
+      reason: `Investigated Signal: ${cleanSignalId} (+${reward} AC)`,
+      source: 'RADAR',
+      sourceId: cleanSignalId,
+      idempotencyKey: `investigation::${userId}::${cleanSignalId}`,
+    });
+
+    if (ledgerResult.code === 'DATABASE_UNAVAILABLE') {
+      return res.status(503).json({
+        error: 'Database service unavailable. PostgreSQL connection is required.',
+        code: 'DATABASE_UNAVAILABLE',
+      });
+    }
+
+    if (ledgerResult.success && !ledgerResult.duplicate) {
+      awardedNow = true;
+    }
+  }
+
+  // Re-fetch latest row so we never overwrite transactionsData / aiimsCredits touched by ledger transaction
+  const latestRow = (await prisma.user.findUnique({ where: { id: userId } })) || userRow;
+  const latestRadar = {
+    ...defaultRadar(),
+    ...toRecord(latestRow.radarData),
+  };
+  const latestInvestigated: string[] = Array.isArray(latestRadar.investigatedSignalIds)
+    ? [...latestRadar.investigatedSignalIds]
+    : [];
+  if (!latestInvestigated.includes(cleanSignalId)) {
+    latestInvestigated.push(cleanSignalId);
+  }
+
+  const latestInv = {
+    ...defaultInvestigation(),
+    ...toRecord(latestRow.investigationData),
+  };
+  const nextUserNotes = {
+    ...toRecord(latestInv.userNotes),
+    [cleanSignalId]: personalInterpretation || '',
+  };
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      radarData: toJsonInput({
+        ...latestRadar,
+        investigatedSignalIds: latestInvestigated,
+      }),
+      investigationData: toJsonInput({
+        ...latestInv,
+        userNotes: nextUserNotes,
+        selectedSignalId: cleanSignalId,
+        status: 'completed',
+      }),
+      ...(awardedNow ? { xpPoints: { increment: xpReward } } : {}),
+    },
+  });
+
+  req.user = userRecordToIUser(updatedUser);
+
+  if (awardedNow) {
+    return res.json({
+      message: `Investigation recorded. ${reward} AIIMS Credits earned!`,
+      personalInterpretation,
+      creditsEarned: reward,
+      awarded: true,
+      newBalance: updatedUser.aiimsCredits,
+    });
+  }
+
+  return res.json({
+    message: 'Investigation notes updated (credits already claimed).',
     personalInterpretation,
-    creditsEarned: alreadyInvestigatedMock ? 0 : reward,
-    awarded: !alreadyInvestigatedMock,
-    newBalance: mockUser.aiimsCredits,
+    creditsEarned: 0,
+    awarded: false,
+    newBalance: updatedUser.aiimsCredits,
   });
 };
 
@@ -363,11 +334,14 @@ export const submitInvestigation = async (req: AuthenticatedRequest, res: Respon
  */
 export const generateRelevance = async (req: AuthenticatedRequest, res: Response) => {
   const { signalId } = req.body;
-  const signal = mockRadarSignals.find((s) => s.id === signalId) || mockRadarSignals[0];
-  const gapSummary = mockCapabilityGaps.map((g) => g.capabilityArea).join(', ');
+  const signals = getDefaultRadarSignals();
+  const signal = signals.find((s) => s.id === signalId) || signals[0];
+  const gapSummary = getDefaultCapabilityGaps()
+    .map((g) => g.capabilityArea)
+    .join(', ');
 
-  const studentRole = req.user?.role || mockUser.role;
-  const studentGoal = req.user?.targetGoal || mockUser.targetGoal;
+  const studentRole = req.user?.role || 'learner';
+  const studentGoal = req.user?.targetGoal || 'Master AI Intelligence & Mentoring';
 
   const report = await claudeService.generateRelevanceReport(
     studentRole,
@@ -377,7 +351,7 @@ export const generateRelevance = async (req: AuthenticatedRequest, res: Response
     signal.summary
   );
 
-  res.json(report);
+  return res.json(report);
 };
 
 /**
@@ -399,7 +373,7 @@ export const getMentorAdvice = async (req: AuthenticatedRequest, res: Response) 
     message = `Your active focus track is set to '${activeFocus}'. Explore real-time technical shifts in AI Radar to test your knowledge against modern production architectures.`;
   }
 
-  res.json({
+  return res.json({
     message,
     observationType: 'observation',
     relatedStage: stage || req.user?.stage || 'Knowing',

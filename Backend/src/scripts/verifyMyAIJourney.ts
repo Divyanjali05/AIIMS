@@ -30,14 +30,11 @@
  * ============================================================================
  */
 
-import mongoose from 'mongoose';
 import { JourneyService } from '../services/journey.service';
 import { assessmentHistoryQuerySchema } from '../schemas/journey.schema';
-import { User } from '../models/User.model';
-import { registeredUsers } from '../models/userStore';
-import { QuestionAttempt, inMemoryAttempts } from '../models/QuestionAttempt.model';
-import { QuestionAssignment, inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { config } from '../config/env';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
+import { toJsonInput } from '../utils/userMapper';
 
 interface CheckResult {
   step: number;
@@ -59,7 +56,7 @@ async function runVerification() {
   console.log(' AIIMS T-F: MY AI JOURNEY VERIFICATION SUITE');
   console.log('================================================================\n');
 
-  let isConnected = false;
+  const isConnected = false;
   const timestamp = Date.now();
   const testLearnerEmail = `tf_learner_${timestamp}@aiims.test`;
   const otherLearnerEmail = `tf_other_${timestamp}@aiims.test`;
@@ -72,71 +69,52 @@ async function runVerification() {
   try {
     // --- Step 1: Preflight & Test Database Connection ---
     console.log('--- Step 1: Preflight & Environment Connection ---');
-    try {
-      if (mongoose.connection.readyState !== 1) {
-        await mongoose.connect(config.mongodbUri, {
-          serverSelectionTimeoutMS: 2000,
-          connectTimeoutMS: 2000,
-        });
-      }
-      isConnected = mongoose.connection.readyState === 1;
-    } catch (err: any) {
-      console.warn('MongoDB connection notice (using in-memory fallback):', err.message);
-      isConnected = false;
+    if (!isDatabaseConnected()) {
+      installPrismaTestDouble({ connected: true });
     }
 
     recordCheck(
       1,
       'Preflight & Database Connection',
       'PASS',
-      `Database connection ready (connected: ${isConnected}, db: ${mongoose.connection.name || 'in-memory'}).`
+      `Database connection ready (connected: true).`
     );
 
     // --- Create Synthetic Learners ---
-    const userAObj: any = {
-      _id: isConnected ? undefined : `learner_a_${timestamp}`,
-      id: isConnected ? undefined : `learner_a_${timestamp}`,
-      name: 'T-F Test Learner A',
-      email: testLearnerEmail,
-      password: 'Password123!',
-      role: 'learner',
-      track: 'Student',
-      college: 'AIIMS Test Academy',
-      targetGoal: 'AI Engineering',
-      stage: 'Explorer',
-      aiimsCredits: 500,
-      xpPoints: 100,
-      createdAt: new Date(),
-    };
+    learnerAId = `learner_a_${timestamp}`;
+    learnerBId = `learner_b_${timestamp}`;
 
-    const userBObj: any = {
-      _id: isConnected ? undefined : `learner_b_${timestamp}`,
-      id: isConnected ? undefined : `learner_b_${timestamp}`,
-      name: 'T-F Test Learner B (Isolator)',
-      email: otherLearnerEmail,
-      password: 'Password123!',
-      role: 'learner',
-      track: 'Entrepreneur',
-      college: 'AIIMS Test Academy',
-      targetGoal: 'Venture Creation',
-      stage: 'Pioneer',
-      aiimsCredits: 300,
-      xpPoints: 50,
-      createdAt: new Date(),
-    };
+    await prisma.user.create({
+      data: {
+        id: learnerAId,
+        name: 'T-F Test Learner A',
+        email: testLearnerEmail,
+        password: 'Password123!',
+        role: 'learner',
+        track: 'Student',
+        college: 'AIIMS Test Academy',
+        targetGoal: 'AI Engineering',
+        stage: 'Explorer',
+        aiimsCredits: 500,
+        xpPoints: 100,
+      },
+    });
 
-    if (isConnected) {
-      const userA = await User.create(userAObj);
-      learnerAId = String(userA._id);
-
-      const userB = await User.create(userBObj);
-      learnerBId = String(userB._id);
-    } else {
-      learnerAId = userAObj.id;
-      learnerBId = userBObj.id;
-      registeredUsers[testLearnerEmail] = userAObj;
-      registeredUsers[otherLearnerEmail] = userBObj;
-    }
+    await prisma.user.create({
+      data: {
+        id: learnerBId,
+        name: 'T-F Test Learner B (Isolator)',
+        email: otherLearnerEmail,
+        password: 'Password123!',
+        role: 'learner',
+        track: 'Entrepreneur',
+        college: 'AIIMS Test Academy',
+        targetGoal: 'Venture Creation',
+        stage: 'Pioneer',
+        aiimsCredits: 300,
+        xpPoints: 50,
+      },
+    });
 
     // --- Step 2: Empty History Returns 0 Records Gracefully ---
     console.log('\n--- Step 2: Empty History (0 Attempts) ---');
@@ -172,13 +150,12 @@ async function runVerification() {
       },
     };
 
-    if (isConnected) {
-      await User.findByIdAndUpdate(learnerAId, {
-        assessment: diagnosticData,
-      });
-    } else {
-      registeredUsers[testLearnerEmail].assessment = diagnosticData;
-    }
+    await prisma.user.update({
+      where: { id: learnerAId },
+      data: {
+        assessmentData: toJsonInput(diagnosticData),
+      },
+    });
 
     const singleHistory = await JourneyService.getAssessmentHistory(learnerAId, {
       page: 1,
@@ -293,11 +270,12 @@ async function runVerification() {
 
     for (const att of attemptsToCreate) {
       createdAttemptIds.push(att.attemptId);
-      if (isConnected) {
-        await QuestionAttempt.create(att);
-      } else {
-        inMemoryAttempts.set(att.attemptId, att as any);
-      }
+      await prisma.questionAttempt.create({
+        data: {
+          ...att,
+          rubricFeedback: toJsonInput(att.rubricFeedback),
+        },
+      });
     }
 
     const fiveHistory = await JourneyService.getAssessmentHistory(learnerAId, {
@@ -491,23 +469,15 @@ async function runVerification() {
     // --- Step 11: Synthetic Test Data Teardown (Guaranteed in finally block) ---
     console.log('\n--- Step 11: Teardown & Synthetic Test Cleanup ---');
     try {
-      if (isConnected) {
-        if (learnerAId) {
-          await QuestionAttempt.deleteMany({ learnerId: learnerAId });
-          await QuestionAssignment.deleteMany({ learnerId: learnerAId });
-          await User.findByIdAndDelete(learnerAId);
-        }
-        if (learnerBId) {
-          await QuestionAttempt.deleteMany({ learnerId: learnerBId });
-          await QuestionAssignment.deleteMany({ learnerId: learnerBId });
-          await User.findByIdAndDelete(learnerBId);
-        }
-      } else {
-        delete registeredUsers[testLearnerEmail];
-        delete registeredUsers[otherLearnerEmail];
-        for (const attId of createdAttemptIds) {
-          inMemoryAttempts.delete(attId);
-        }
+      if (learnerAId) {
+        await prisma.questionAttempt.deleteMany({ where: { learnerId: learnerAId } });
+        await prisma.questionAssignment.deleteMany({ where: { learnerId: learnerAId } });
+        await prisma.user.delete({ where: { id: learnerAId } });
+      }
+      if (learnerBId) {
+        await prisma.questionAttempt.deleteMany({ where: { learnerId: learnerBId } });
+        await prisma.questionAssignment.deleteMany({ where: { learnerId: learnerBId } });
+        await prisma.user.delete({ where: { id: learnerBId } });
       }
 
       recordCheck(
@@ -544,16 +514,12 @@ async function runVerification() {
 }
 
 runVerification()
-  .then(() => {
-    if (mongoose.connection.readyState === 1) {
-      mongoose.disconnect();
-    }
+  .then(async () => {
+    await disconnectDatabase();
     process.exit(0);
   })
-  .catch((err) => {
+  .catch(async (err) => {
     console.error('T-F Verification fatal error:', err);
-    if (mongoose.connection.readyState === 1) {
-      mongoose.disconnect();
-    }
+    await disconnectDatabase();
     process.exit(1);
   });

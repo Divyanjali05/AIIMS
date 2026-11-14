@@ -1,12 +1,8 @@
 import { Request, Response } from 'express';
-import mongoose from 'mongoose';
+import { Prisma } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { User } from '../models/User.model';
-import { Institute } from '../models/Institute.model';
-import { StudentProfile } from '../models/StudentProfile.model';
-import { Cohort } from '../models/Cohort.model';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import { formatUserState } from '../config/credits.config';
-import { registeredUsers } from '../models/userStore';
 import {
   STREAMS,
   TECH_SUB_CATEGORIES,
@@ -18,6 +14,8 @@ import {
   AI_USAGE_CONTEXTS,
   PRIMARY_GOAL_OPTIONS,
 } from '../config/academicTaxonomy';
+import { defaultClarity, defaultFocus, toJsonInput, userRecordToIUser } from '../utils/userMapper';
+import { isValidId, toRecord, withLegacyId } from '../utils/id';
 
 /**
  * GET /learner/state - Authoritative learner state retrieval
@@ -147,175 +145,92 @@ export const updateLearnerState = async (req: AuthenticatedRequest, res: Respons
     });
   }
 
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   try {
-    const user = req.user!;
-    const mongoSet: Record<string, any> = {};
-    const inMemoryPatch: Record<string, any> = {};
-    const toPlain = (subdoc: any): Record<string, any> =>
-      subdoc && typeof subdoc === 'object'
-        ? typeof subdoc.toObject === 'function'
-          ? subdoc.toObject()
-          : { ...subdoc }
-        : {};
-
-    if (state.profile && typeof state.profile === 'object') {
-      if (state.profile.name) {
-        mongoSet.name = state.profile.name;
-        inMemoryPatch.name = state.profile.name;
-      }
-      // Security: user role is strictly protected and never editable by learner body
-      if (state.profile.college !== undefined) {
-        mongoSet.college = state.profile.college;
-        inMemoryPatch.college = state.profile.college;
-      }
-      if (state.profile.targetGoal !== undefined) {
-        mongoSet.targetGoal = state.profile.targetGoal;
-        inMemoryPatch.targetGoal = state.profile.targetGoal;
-      }
-      if (state.profile.stage !== undefined) {
-        mongoSet.stage = state.profile.stage;
-        inMemoryPatch.stage = state.profile.stage;
-      }
-      // Note: aiimsCredits, xpPoints, and transactions are strictly managed by authoritative
-      // server endpoints (save-task-score, award-level, submit, invest) to prevent balance tampering.
+    const userId = String(req.user.id || req.user._id);
+    if (!isValidId(userId)) {
+      return res.status(400).json({ error: 'Invalid user identifier' });
     }
-    // Security: assessment completion is strictly managed by /assessments/submit
-    // Security: analysis status is strictly managed by diagnostic completion
 
-    // Safe field-level subdocument updates preserve server-managed fields
+    const existingRow = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existingRow) {
+      return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
+    }
+
+    const updateData: Prisma.UserUpdateInput = {};
+
+    if (state.profile) {
+      if (state.profile.name) updateData.name = state.profile.name;
+      if (state.profile.college) updateData.college = state.profile.college;
+      if (state.profile.targetGoal) updateData.targetGoal = state.profile.targetGoal;
+      if (state.profile.stage) updateData.stage = state.profile.stage;
+    }
+
     if (state.clarity && typeof state.clarity === 'object') {
-      const clarityPatch = toPlain(user.clarity);
-      if (state.clarity.selectedAreas !== undefined) {
-        mongoSet['clarity.selectedAreas'] = state.clarity.selectedAreas;
-        clarityPatch.selectedAreas = state.clarity.selectedAreas;
-      }
-      if (state.clarity.selectedTopic !== undefined) {
-        mongoSet['clarity.selectedTopic'] = state.clarity.selectedTopic;
-        clarityPatch.selectedTopic = state.clarity.selectedTopic;
-      }
-      if (state.clarity.completedTopics !== undefined) {
-        mongoSet['clarity.completedTopics'] = state.clarity.completedTopics;
-        clarityPatch.completedTopics = state.clarity.completedTopics;
-      }
-      if (state.clarity.reflections !== undefined) {
-        mongoSet['clarity.reflections'] = state.clarity.reflections;
-        clarityPatch.reflections = state.clarity.reflections;
-      }
-      inMemoryPatch.clarity = clarityPatch;
+      const existingClarity = {
+        ...defaultClarity(),
+        ...toRecord(existingRow.clarityData),
+      };
+      // Preserve server-managed fields (`taskScores`, `trialRunsUsed`, `gapOverrides`)
+      updateData.clarityData = toJsonInput({
+        ...existingClarity,
+        ...state.clarity,
+        taskScores: existingClarity.taskScores,
+        trialRunsUsed: existingClarity.trialRunsUsed,
+      });
     }
 
     if (state.focus && typeof state.focus === 'object') {
-      const focusPatch = toPlain(user.focus);
-      if (state.focus.sessionConfig !== undefined) {
-        mongoSet['focus.sessionConfig'] = state.focus.sessionConfig;
-        focusPatch.sessionConfig = state.focus.sessionConfig;
-      }
-      inMemoryPatch.focus = focusPatch;
+      const existingFocus = {
+        ...defaultFocus(),
+        ...toRecord(existingRow.focusData),
+      };
+      updateData.focusData = toJsonInput({
+        ...existingFocus,
+        ...state.focus,
+        selectedTrack: existingFocus.selectedTrack,
+        history: existingFocus.history,
+        sessionHistory: existingFocus.sessionHistory,
+        activeSession: existingFocus.activeSession,
+      });
     }
 
     if (state.radar && typeof state.radar === 'object') {
-      const radarPatch = toPlain(user.radar);
-      if (state.radar.savedSignalIds !== undefined) {
-        mongoSet['radar.savedSignalIds'] = state.radar.savedSignalIds;
-        radarPatch.savedSignalIds = state.radar.savedSignalIds;
-      }
-      if (state.radar.dismissedSignalIds !== undefined) {
-        mongoSet['radar.dismissedSignalIds'] = state.radar.dismissedSignalIds;
-        radarPatch.dismissedSignalIds = state.radar.dismissedSignalIds;
-      }
-      if (state.radar.lastViewedRadar !== undefined) {
-        mongoSet['radar.lastViewedRadar'] = state.radar.lastViewedRadar;
-        radarPatch.lastViewedRadar = state.radar.lastViewedRadar;
-      }
-      if (state.radar.radarProgress !== undefined) {
-        mongoSet['radar.radarProgress'] = state.radar.radarProgress;
-        radarPatch.radarProgress = state.radar.radarProgress;
-      }
-      inMemoryPatch.radar = radarPatch;
+      updateData.radarData = toJsonInput(state.radar);
     }
-
     if (state.investigation && typeof state.investigation === 'object') {
-      const investigationPatch = toPlain(user.investigation);
-      if (state.investigation.selectedSignalId !== undefined) {
-        mongoSet['investigation.selectedSignalId'] = state.investigation.selectedSignalId;
-        investigationPatch.selectedSignalId = state.investigation.selectedSignalId;
-      }
-      if (state.investigation.userNotes !== undefined) {
-        mongoSet['investigation.userNotes'] = state.investigation.userNotes;
-        investigationPatch.userNotes = state.investigation.userNotes;
-      }
-      inMemoryPatch.investigation = investigationPatch;
+      updateData.investigationData = toJsonInput(state.investigation);
     }
-
     if (Array.isArray(state.notifications)) {
-      mongoSet.notifications = state.notifications;
-      inMemoryPatch.notifications = state.notifications;
+      updateData.notificationsData = toJsonInput(state.notifications);
     }
-
     if (state.aiWallet && typeof state.aiWallet === 'object') {
-      const walletPatch = toPlain(user.aiWallet);
-      if (state.aiWallet.userTools !== undefined) {
-        mongoSet['aiWallet.userTools'] = state.aiWallet.userTools;
-        walletPatch.userTools = state.aiWallet.userTools;
-      }
-      if (state.aiWallet.dismissedRecommendations !== undefined) {
-        mongoSet['aiWallet.dismissedRecommendations'] = state.aiWallet.dismissedRecommendations;
-        walletPatch.dismissedRecommendations = state.aiWallet.dismissedRecommendations;
-      }
-      if (state.aiWallet.audienceMode !== undefined) {
-        mongoSet['aiWallet.audienceMode'] = state.aiWallet.audienceMode;
-        walletPatch.audienceMode = state.aiWallet.audienceMode;
-      }
-      inMemoryPatch.aiWallet = walletPatch;
+      updateData.aiWalletData = toJsonInput(state.aiWallet);
     }
-
     if (state.solver && typeof state.solver === 'object') {
-      const solverPatch = toPlain((user as any).solver);
-      if (state.solver.latestWorkflow !== undefined) {
-        mongoSet['solver.latestWorkflow'] = state.solver.latestWorkflow;
-        solverPatch.latestWorkflow = state.solver.latestWorkflow;
-      }
-      if (state.solver.history !== undefined) {
-        mongoSet['solver.history'] = state.solver.history;
-        solverPatch.history = state.solver.history;
-      }
-      inMemoryPatch.solver = solverPatch;
+      updateData.solverData = toJsonInput(state.solver);
     }
-
     if (state.build && typeof state.build === 'object') {
-      const buildPatch = toPlain((user as any).build);
-      if (state.build.projects !== undefined) {
-        mongoSet['build.projects'] = state.build.projects;
-        buildPatch.projects = state.build.projects;
-      }
-      if (state.build.activeProjectId !== undefined) {
-        mongoSet['build.activeProjectId'] = state.build.activeProjectId;
-        buildPatch.activeProjectId = state.build.activeProjectId;
-      }
-      inMemoryPatch.build = buildPatch;
+      updateData.buildData = toJsonInput(state.build);
     }
 
-    if (mongoose.connection.readyState === 1 && user._id) {
-      if (Object.keys(mongoSet).length === 0) {
-        return res.json({ success: true, state: formatUserState(user) });
-      }
-      const updatedUser = await User.findByIdAndUpdate(
-        user._id,
-        { $set: mongoSet, $unset: { __v: 1 } },
-        { returnDocument: 'after' }
-      );
+    const updatedRow = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+    const mapped = userRecordToIUser(updatedRow);
+    req.user = mapped;
 
-      if (updatedUser) {
-        return res.json({ success: true, state: formatUserState(updatedUser) });
-      }
-    } else {
-      Object.assign(user, inMemoryPatch);
-      if (registeredUsers && user.email && registeredUsers[user.email.toLowerCase()]) {
-        Object.assign(registeredUsers[user.email.toLowerCase()], inMemoryPatch);
-      }
-      return res.json({ success: true, state: formatUserState(user) });
-    }
-    return res.json({ success: true, state: formatUserState(user) });
+    return res.json({ success: true, state: formatUserState(mapped) });
   } catch (err: any) {
     return res
       .status(500)
@@ -327,7 +242,7 @@ export const updateLearnerState = async (req: AuthenticatedRequest, res: Respons
  * GET /academic/taxonomy
  */
 export const getAcademicTaxonomy = (_req: Request, res: Response) => {
-  res.json({
+  return res.json({
     streams: STREAMS,
     techSubCategories: TECH_SUB_CATEGORIES,
     nonTechSubCategories: NON_TECH_SUB_CATEGORIES,
@@ -344,196 +259,35 @@ export const getAcademicTaxonomy = (_req: Request, res: Response) => {
  * GET /academic/institutes
  */
 export const getInstitutes = async (req: Request, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const query = String(req.query.q || '').trim();
   const limit = Math.min(Number(req.query.limit) || 20, 50);
 
-  const SEED_INSTITUTES = [
-    {
-      _id: 'inst-001',
-      name: 'IIT Bombay',
-      shortName: 'IITB',
-      city: 'Mumbai',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-002',
-      name: 'IIT Delhi',
-      shortName: 'IITD',
-      city: 'New Delhi',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-003',
-      name: 'IIT Madras',
-      shortName: 'IITM',
-      city: 'Chennai',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-004',
-      name: 'IIT Kharagpur',
-      shortName: 'IITKgp',
-      city: 'Kharagpur',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-005',
-      name: 'NIT Trichy',
-      shortName: 'NIT-T',
-      city: 'Tiruchirappalli',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-006',
-      name: 'BITS Pilani',
-      shortName: 'BITS',
-      city: 'Pilani',
-      country: 'India',
-      type: 'INSTITUTE',
-    },
-    {
-      _id: 'inst-007',
-      name: 'VIT Vellore',
-      shortName: 'VIT',
-      city: 'Vellore',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-008',
-      name: 'SRM Institute of Science and Technology',
-      shortName: 'SRM',
-      city: 'Chennai',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-009',
-      name: 'Anna University',
-      shortName: 'AU',
-      city: 'Chennai',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-010',
-      name: 'University of Mumbai',
-      shortName: 'MU',
-      city: 'Mumbai',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-011',
-      name: 'Delhi University',
-      shortName: 'DU',
-      city: 'New Delhi',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-012',
-      name: 'Amity University',
-      shortName: 'Amity',
-      city: 'Noida',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-013',
-      name: 'Manipal Academy of Higher Education',
-      shortName: 'MAHE',
-      city: 'Manipal',
-      country: 'India',
-      type: 'UNIVERSITY',
-    },
-    {
-      _id: 'inst-014',
-      name: 'PSG College of Technology',
-      shortName: 'PSGCT',
-      city: 'Coimbatore',
-      country: 'India',
-      type: 'COLLEGE',
-    },
-    {
-      _id: 'inst-015',
-      name: 'Coimbatore Institute of Technology',
-      shortName: 'CIT',
-      city: 'Coimbatore',
-      country: 'India',
-      type: 'COLLEGE',
-    },
-    {
-      _id: 'inst-099',
-      name: 'Other / Not Listed',
-      shortName: 'OTHER',
-      city: '',
-      country: 'India',
-      type: 'OTHER',
-    },
-  ];
-
-  if (mongoose.connection.readyState !== 1) {
-    const filtered = query
-      ? SEED_INSTITUTES.filter(
-          (i) =>
-            i.name.toLowerCase().includes(query.toLowerCase()) ||
-            (i.shortName && i.shortName.toLowerCase().includes(query.toLowerCase())) ||
-            (i.city && i.city.toLowerCase().includes(query.toLowerCase()))
-        )
-      : SEED_INSTITUTES;
-
-    return res.json({ institutes: filtered.slice(0, limit) });
-  }
-
   try {
-    let institutes: any[] = [];
-    if (query.length >= 2) {
-      institutes = await Institute.find(
-        { $text: { $search: query }, status: 'ACTIVE' },
-        { score: { $meta: 'textScore' } }
-      )
-        .sort({ score: { $meta: 'textScore' } })
-        .limit(limit)
-        .lean();
-
-      // Fallback to regex if text index not working
-      if (institutes.length === 0) {
-        institutes = await Institute.find({
-          $or: [
-            { name: { $regex: query, $options: 'i' } },
-            { shortName: { $regex: query, $options: 'i' } },
-            { city: { $regex: query, $options: 'i' } },
-          ],
-          status: 'ACTIVE',
-        })
-          .limit(limit)
-          .lean();
-      }
-    } else {
-      institutes = await Institute.find({ status: 'ACTIVE' }).limit(limit).lean();
+    const where: Prisma.InstituteWhereInput = { status: 'ACTIVE' };
+    if (query.length > 0) {
+      where.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { shortName: { contains: query, mode: 'insensitive' } },
+        { city: { contains: query, mode: 'insensitive' } },
+      ];
     }
 
-    if (institutes.length === 0) {
-      const filtered = query
-        ? SEED_INSTITUTES.filter(
-            (i) =>
-              i.name.toLowerCase().includes(query.toLowerCase()) ||
-              (i.shortName && i.shortName.toLowerCase().includes(query.toLowerCase())) ||
-              (i.city && i.city.toLowerCase().includes(query.toLowerCase()))
-          )
-        : SEED_INSTITUTES;
-      return res.json({ institutes: filtered.slice(0, limit) });
-    }
+    const institutes = await prisma.institute.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      take: limit,
+    });
 
-    res.json({ institutes });
+    return res.json({ institutes: institutes.map(withLegacyId) });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to fetch institutes.', details: err.message });
+    return res.status(500).json({ error: 'Failed to fetch institutes.', details: err.message });
   }
 };
 
@@ -541,33 +295,42 @@ export const getInstitutes = async (req: Request, res: Response) => {
  * POST /academic/institutes/request
  */
 export const requestInstitute = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
   const { name, city, state, country, type } = req.body;
-  if (!name || !name.trim()) {
+  if (!name || typeof name !== 'string' || !name.trim()) {
     return res.status(400).json({ error: 'Institute name is required.' });
   }
 
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({
-      success: true,
-      message: 'Institute request received. It will be reviewed and added soon.',
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
   }
 
   try {
     const code = `REQ-${Date.now().toString(36).toUpperCase()}`;
-    const inst = await Institute.create({
-      name: name.trim(),
-      code,
-      city: city?.trim(),
-      state: state?.trim(),
-      country: country?.trim() || 'India',
-      type: type || 'COLLEGE',
-      status: 'PENDING',
-      requestedBy: req.user ? String(req.user._id) : undefined,
+    const inst = await prisma.institute.create({
+      data: {
+        name: name.trim(),
+        code,
+        city: city?.trim() || null,
+        state: state?.trim() || null,
+        country: country?.trim() || 'India',
+        type: type || 'COLLEGE',
+        status: 'PENDING',
+        requestedBy: req.user ? String(req.user.id || req.user._id) : null,
+      },
     });
-    res.json({ success: true, institute: { _id: inst._id, name: inst.name, status: inst.status } });
+    return res.json({
+      success: true,
+      institute: { id: inst.id, _id: inst.id, name: inst.name, status: inst.status },
+    });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to submit request.', details: err.message });
+    return res.status(500).json({ error: 'Failed to submit request.', details: err.message });
   }
 };
 
@@ -575,26 +338,32 @@ export const requestInstitute = async (req: AuthenticatedRequest, res: Response)
  * GET /student/profile
  */
 export const getStudentProfile = async (req: AuthenticatedRequest, res: Response) => {
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ academicProfile: null });
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
   try {
-    const profile = await StudentProfile.findOne({ userId: req.user!._id }).lean();
+    const userId = String(req.user.id || req.user._id);
+    const profile = await prisma.studentProfile.findUnique({ where: { userId } });
     if (!profile) {
       return res.json({ academicProfile: null });
     }
 
-    // Resolve cohort display name if cohortId exists
     let cohortDisplayName: string | undefined;
     if (profile.cohortId) {
-      const cohort = await Cohort.findById(profile.cohortId).lean();
+      const cohort = await prisma.cohort.findUnique({ where: { id: profile.cohortId } });
       cohortDisplayName = cohort?.displayName;
     }
 
-    res.json({
+    return res.json({
       academicProfile: {
-        id: String(profile._id),
+        id: String(profile.id),
         stream: profile.stream,
         streamSubCategory: profile.streamSubCategory,
         educationLevel: profile.educationLevel,
@@ -615,7 +384,9 @@ export const getStudentProfile = async (req: AuthenticatedRequest, res: Response
       },
     });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to fetch academic profile.', details: err.message });
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch academic profile.', details: err.message });
   }
 };
 
@@ -623,23 +394,30 @@ export const getStudentProfile = async (req: AuthenticatedRequest, res: Response
  * PUT /student/profile
  */
 export const updateStudentProfile = async (req: AuthenticatedRequest, res: Response) => {
-  const allowedUpdates = ['aiFamiliarity', 'aiUsageContexts', 'primaryGoal', 'displayName'];
-  const updateData: Record<string, any> = {};
-
-  for (const key of allowedUpdates) {
-    if (req.body[key] !== undefined) {
-      updateData[key] = req.body[key];
-    }
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  if (mongoose.connection.readyState !== 1) {
-    return res.json({ success: true });
-  }
+  const updateData: Prisma.StudentProfileUpdateManyMutationInput = {};
+  if (req.body.aiFamiliarity !== undefined) updateData.aiFamiliarity = req.body.aiFamiliarity;
+  if (req.body.aiUsageContexts !== undefined) updateData.aiUsageContexts = req.body.aiUsageContexts;
+  if (req.body.primaryGoal !== undefined) updateData.primaryGoal = req.body.primaryGoal;
+  if (req.body.displayName !== undefined) updateData.displayName = req.body.displayName;
 
   try {
-    await StudentProfile.updateOne({ userId: req.user!._id }, { $set: updateData });
-    res.json({ success: true });
+    const userId = String(req.user.id || req.user._id);
+    await prisma.studentProfile.updateMany({
+      where: { userId },
+      data: updateData,
+    });
+    return res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ error: 'Failed to update profile.', details: err.message });
+    return res.status(500).json({ error: 'Failed to update profile.', details: err.message });
   }
 };

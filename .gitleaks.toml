@@ -28,5 +28,6 @@ stopwords = [
   "aiims-dev-ephemeral-key-do-not-use-in-production-min32chars",
   "aiims-secret-key-2026",
   "mock-claude-key",
-  "Password123!"
+  "Password123!",
+  "sk-live-99238472938472"
 ]

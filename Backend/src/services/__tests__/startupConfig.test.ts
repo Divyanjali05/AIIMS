@@ -6,7 +6,7 @@
  * Verifies that in production (NODE_ENV=production), the backend:
  *  1. Refuses to start if JWT_SECRET is missing or shorter than 32 characters
  *  2. Refuses to start if JWT_SECRET is an insecure placeholder
- *  3. Refuses to start if MONGODB_URI is missing
+ *  3. Refuses to start if DATABASE_URL is missing or uses an invalid protocol
  *  4. Refuses to start if ALLOWED_ORIGINS is missing or contains '*'
  *  5. Names which variable is wrong, NEVER its value
  *  6. Passes cleanly when all production variables are valid
@@ -19,7 +19,7 @@ describe('Startup Configuration Validation (Production Safeguards)', () => {
   const validBaseEnv: NodeJS.ProcessEnv = {
     NODE_ENV: 'production',
     JWT_SECRET: 'a_very_strong_production_jwt_secret_with_more_than_32_characters_12345',
-    MONGODB_URI: 'mongodb://localhost:27017/aiims_prod',
+    DATABASE_URL: 'postgresql://user:pass@localhost:5432/aiims_prod',
     ALLOWED_ORIGINS: 'https://aiims.edu,https://app.aiims.edu',
   };
 
@@ -64,12 +64,20 @@ describe('Startup Configuration Validation (Production Safeguards)', () => {
     }
   });
 
-  it('refuses to start if MONGODB_URI is missing in production', () => {
+  it('refuses to start if DATABASE_URL is missing in production', () => {
     const env = { ...validBaseEnv };
-    delete env.MONGODB_URI;
+    delete env.DATABASE_URL;
 
     expect(() => validateStartupConfig(env)).toThrowError(
-      /Configuration error for variable MONGODB_URI: variable is missing in production/
+      /Configuration error for variable DATABASE_URL: variable is missing in production/
+    );
+  });
+
+  it('refuses to start if DATABASE_URL is not a PostgreSQL URI in production', () => {
+    const env = { ...validBaseEnv, DATABASE_URL: 'http://localhost:5432/aiims_prod' };
+
+    expect(() => validateStartupConfig(env)).toThrowError(
+      /Configuration error for variable DATABASE_URL: must be a valid PostgreSQL connection string/
     );
   });
 

@@ -66,7 +66,10 @@ export class ToolIntelligenceService {
 
       for (const item of sourceItems) {
         const contentSnippet = (item.content || '').slice(0, 500);
-        if (BLOCKED_CANDIDATE_PATTERN.test(item.title || '') || BLOCKED_CANDIDATE_PATTERN.test(contentSnippet)) {
+        if (
+          BLOCKED_CANDIDATE_PATTERN.test(item.title || '') ||
+          BLOCKED_CANDIDATE_PATTERN.test(contentSnippet)
+        ) {
           console.log(`[ToolIntelligence] Blocked candidate "${item.title}" (restricted content).`);
           skippedCount++;
           continue;
@@ -111,27 +114,29 @@ export class ToolIntelligenceService {
         );
         const verifiedTool = verification.tool;
 
-        // 6. Record Supporting Evidence Claims
+        // 6. Persist Verified Tool to Catalog & PostgreSQL first (parent FK for evidence & history)
+        await ToolCatalogService.upsertTool(verifiedTool);
+
+        // 7. Record Supporting Evidence Claims
         const recordedEvidence = await ToolEvidenceService.recordEvidence(
           verifiedTool.id,
           verification.evidenceItems
         );
         totalEvidenceRecorded += recordedEvidence.length;
 
-        // 7. Change Detection & Version History Recording
+        // 8. Change Detection & Version History Recording
         if (existingTool) {
-          ToolChangeDetectionService.detectToolChanges(existingTool, verifiedTool, item.url);
+          await ToolChangeDetectionService.detectToolChanges(existingTool, verifiedTool, item.url);
           updatedToolsCount++;
         } else {
           newToolsCount++;
         }
-        console.log(`[ToolIntelligence] ${existingTool ? 'Updated' : 'Discovered'} tool: ${verifiedTool.name} (${verification.verificationStatus}, active: ${verifiedTool.activeStatus})`);
+        console.log(
+          `[ToolIntelligence] ${existingTool ? 'Updated' : 'Discovered'} tool: ${verifiedTool.name} (${verification.verificationStatus}, active: ${verifiedTool.activeStatus})`
+        );
 
-        // 8. Update Source Content Hash Cache
+        // 9. Update Source Content Hash Cache
         ToolChangeDetectionService.updateSourceHash(verifiedTool.id, item.hash);
-
-        // 9. Persist Verified Tool to Catalog & MongoDB Atlas
-        await ToolCatalogService.upsertTool(verifiedTool);
       }
 
       this.runStatus = {

@@ -47,3 +47,22 @@ export const registerSourceSchema = z.object({
   type: z.enum(['rss', 'api', 'scraper', 'manual']),
   category: z.string().trim().max(100).optional(),
 });
+
+export const walletOperationSchema = z.object({
+  operationName: z.string().trim().max(120).optional(),
+  idempotencyKey: z.string().trim().max(120).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const confirmUsageSchema = z.object({
+  toolId: z.string().trim().min(1, 'Valid toolId is required').max(100),
+  taskContext: z.string().trim().max(300).optional(),
+  notes: z.string().trim().max(2000).optional(),
+  idempotencyKey: z.string().trim().max(120).optional(),
+});
+
+export const personalizedMatchSchema = z.object({
+  domain: z.string().trim().max(100).optional(),
+  freeOnly: z.boolean().optional(),
+  preferredSkillLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+});

@@ -1,8 +1,11 @@
-import mongoose from 'mongoose';
+import http from 'http';
+import { AddressInfo } from 'net';
+import jwt from 'jsonwebtoken';
+import { app } from '../server';
 import { config } from '../config/env';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-
-const API_BASE = `http://localhost:${config.port}/api`;
 
 interface TestReport {
   id: number;
@@ -22,23 +25,76 @@ function record(id: number, name: string, passed: boolean, details: string) {
 async function run() {
   console.log('===============================================================');
   console.log('   AIIMS PHASE 6D: SERVER-AUTHORITATIVE CREDITS LEDGER TESTS   ');
+  console.log('   (PostgreSQL + Prisma)                                       ');
   console.log('===============================================================\n');
 
-  // 1. Direct MongoDB Atlas Connection (if configured)
-  let isDbConnected = false;
-  if (config.mongodbUri) {
-    try {
-      await mongoose.connect(config.mongodbUri, { serverSelectionTimeoutMS: 2000 });
-      isDbConnected = mongoose.connection.readyState === 1;
-      console.log(`🌿 Direct MongoDB connection status: ${isDbConnected}`);
-    } catch (e: any) {
-      console.warn('MongoDB direct connection skipped (using API server mode):', e.message);
-    }
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
+
+  // Start in-process HTTP server for isolated testing
+  const server = http.createServer(app);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address() as AddressInfo;
+  const API_BASE = `http://127.0.0.1:${addr.port}/api`;
+  console.log(`🚀 Test HTTP server listening on ${API_BASE}`);
+
+  // HTTP helper matching testEvaluationSystem pattern (numerical port, path-based)
+  const fetch = (
+    url: string,
+    init?: { method?: string; headers?: Record<string, string>; body?: string }
+  ): Promise<{
+    status: number;
+    ok: boolean;
+    headers: http.IncomingHttpHeaders;
+    json: () => Promise<any>;
+  }> => {
+    return new Promise((resolve, reject) => {
+      const parsedPath = url.startsWith('http') ? new URL(url).pathname : url;
+      const postData = init?.body;
+      const reqHeaders: Record<string, string> = { ...(init?.headers || {}) };
+      if (postData) {
+        reqHeaders['Content-Type'] = reqHeaders['Content-Type'] || 'application/json';
+        reqHeaders['Content-Length'] = Buffer.byteLength(postData).toString();
+      }
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: parsedPath,
+          method: init?.method || 'GET',
+          headers: reqHeaders,
+        },
+        (res) => {
+          let raw = '';
+          res.on('data', (c) => {
+            raw += c;
+          });
+          res.on('end', () => {
+            let data: any;
+            try {
+              data = JSON.parse(raw);
+            } catch {
+              data = raw;
+            }
+            resolve({
+              status: res.statusCode || 0,
+              ok: (res.statusCode || 0) >= 200 && (res.statusCode || 0) < 300,
+              headers: res.headers,
+              json: async () => data,
+            });
+          });
+        }
+      );
+      req.on('error', reject);
+      if (postData) req.write(postData);
+      req.end();
+    });
+  };
 
   // 2. Register Learner A
   const emailA = `learner.a.${Date.now()}@example.com`;
-  const password = 'Password123';
+  const password = 'Password123!';
   const regResA = await fetch(`${API_BASE}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -47,6 +103,7 @@ async function run() {
       email: emailA,
       password,
       confirmPassword: password,
+      track: 'Student',
       stream: 'TECH',
       educationLevel: 'UNDERGRADUATE',
       programId: 'btech',
@@ -60,11 +117,25 @@ async function run() {
   });
 
   const regDataA = await regResA.json();
-  if (!regResA.ok || !regDataA.token) {
+  if (!regResA.ok || !regDataA.user) {
     console.error('Registration A failed:', regDataA);
     process.exit(1);
   }
-  const tokenA = regDataA.token;
+  let tokenA = regDataA.token;
+  if (!tokenA && regResA.headers?.['set-cookie']) {
+    const rawCookie = Array.isArray(regResA.headers['set-cookie'])
+      ? regResA.headers['set-cookie'].join(';')
+      : String(regResA.headers['set-cookie']);
+    const match = rawCookie.match(/aiims_token=([^;]+)/);
+    if (match) tokenA = match[1];
+  }
+  if (!tokenA && regDataA.user?.id) {
+    tokenA = jwt.sign(
+      { userId: regDataA.user.id, email: regDataA.user.email, role: regDataA.user.role },
+      config.jwtSecret,
+      { expiresIn: '7d' }
+    );
+  }
   const userA = regDataA.user;
   const userIdA = userA.id || userA._id;
   const authHeadersA = {
@@ -82,6 +153,7 @@ async function run() {
       email: emailB,
       password,
       confirmPassword: password,
+      track: 'Student',
       stream: 'NON_TECH',
       educationLevel: 'UNDERGRADUATE',
       programId: 'bcom',
@@ -94,7 +166,21 @@ async function run() {
     }),
   });
   const regDataB = await regResB.json();
-  const tokenB = regDataB.token;
+  let tokenB = regDataB.token;
+  if (!tokenB && regResB.headers?.['set-cookie']) {
+    const rawCookie = Array.isArray(regResB.headers['set-cookie'])
+      ? regResB.headers['set-cookie'].join(';')
+      : String(regResB.headers['set-cookie']);
+    const match = rawCookie.match(/aiims_token=([^;]+)/);
+    if (match) tokenB = match[1];
+  }
+  if (!tokenB && regDataB.user?.id) {
+    tokenB = jwt.sign(
+      { userId: regDataB.user.id, email: regDataB.user.email, role: regDataB.user.role },
+      config.jwtSecret,
+      { expiresIn: '7d' }
+    );
+  }
   const authHeadersB = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${tokenB}`,
@@ -179,12 +265,13 @@ async function run() {
   const freshBalAData = await freshBalA.json();
 
   const test3Pass =
-    freshBalAData.balance === 500 && tamperData.state?.profile?.aiimsCredits === 500;
+    freshBalAData.balance === 500 &&
+    (tamperRes.status === 400 || tamperData.state?.profile?.aiimsCredits === 500);
   record(
     3,
     'Client Balance Tamper Resistance',
     test3Pass,
-    `Submitted 999,999 credits via state sync. Server balance remains strictly 500 AC (tamper ignored)`
+    `Submitted 999,999 credits via state sync. Server balance remains strictly 500 AC (tamper rejected HTTP ${tamperRes.status})`
   );
 
   // ── TEST 4: Insufficient credits prevent a deduction (No Negative Balance) ──
@@ -308,6 +395,17 @@ async function run() {
   // ── TEST 8: AI Task Provider failure triggers at most one appropriate refund ──
   // Direct test on creditsLedgerService.executeTaskWithRefund to simulate provider crash
   const unitUserId = `unit-learner-${Date.now()}`;
+  await prisma.user.create({
+    data: {
+      id: unitUserId,
+      name: 'Unit Learner',
+      email: `${unitUserId}@example.com`,
+      password: 'Password123!',
+      role: 'learner',
+      aiimsCredits: 0,
+      xpPoints: 0,
+    },
+  });
   await creditsLedgerService.executeTransaction({
     userId: unitUserId,
     type: 'EARN',
@@ -384,6 +482,19 @@ async function run() {
   );
 
   // ── TEST 10: Duplicate reward events grant credits only once ──
+  // Unlock features for Learner A to test downstream rewards
+  await prisma.user.update({
+    where: { id: userIdA },
+    data: {
+      assessmentStatus: 'completed',
+      stage: 'Understanding',
+      assessmentData: { status: 'completed', completedAt: new Date().toISOString() },
+      analysisData: { status: 'viewed' },
+      radarData: { status: 'unlocked' },
+      investigationData: { status: 'unlocked' },
+    },
+  });
+
   // Test Level completion reward duplicate prevention
   const level1Dup = await fetch(`${API_BASE}/credits/award-level`, {
     method: 'POST',
@@ -522,6 +633,10 @@ async function run() {
     test13Pass,
     `Signal first: +${invData1.creditsEarned} AC (bal: ${balAfterInv1}), repeat: +${invData2.creditsEarned} AC (bal: ${balAfterInv2}). Non-ObjectId safe: bal=${nonObjBal}, reconciled=${nonObjRecon.isReconciled}`
   );
+
+  // ── CLEANUP & SHUTDOWN ──
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await disconnectDatabase();
 
   // ── SUMMARY REPORT ──
   console.log('\n===============================================================');

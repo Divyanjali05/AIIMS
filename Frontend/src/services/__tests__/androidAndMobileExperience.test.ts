@@ -282,7 +282,26 @@ export const runAndroidAndMobileExperienceTests = (): {
   };
 };
 
-if (require.main === module) {
+// Vitest environment integration
+declare const describe: ((name: string, fn: () => void) => void) | undefined;
+declare const it: ((name: string, fn: () => void) => void) | undefined;
+declare const expect: ((actual: unknown) => { toBe: (expected: unknown) => void }) | undefined;
+
+if (typeof describe === 'function' && typeof it === 'function' && typeof expect === 'function') {
+  describe('Android App, Device Plugins & Mobile Experience Standards', () => {
+    const suiteRes = runAndroidAndMobileExperienceTests();
+    suiteRes.results.forEach((check) => {
+      it(check.name, () => {
+        if (!check.passed) {
+          throw new Error(check.error || 'Assertion failed');
+        }
+        expect(check.passed).toBe(true);
+      });
+    });
+  });
+}
+
+if (typeof require !== 'undefined' && require.main === module) {
   const result = runAndroidAndMobileExperienceTests();
   console.log('Android and Mobile Experience Tests:');
   console.log(`Passed: ${result.passed}/${result.total}`);

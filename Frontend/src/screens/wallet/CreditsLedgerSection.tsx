@@ -261,7 +261,7 @@ export const CreditsLedgerSection: React.FC<CreditsLedgerSectionProps> = ({
               }}
             >
               Authoritative balance managed strictly via backend transactional ledger. Negative
-              balances are mathematically prevented via atomic MongoDB updates.
+              balances are mathematically prevented via atomic PostgreSQL transactions.
             </p>
           </div>
 

@@ -1,26 +1,52 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import { config } from '../config/env';
-import { User, IUser } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
-import { Cohort } from '../models/Cohort.model';
-import { CreditLedger } from '../models/CreditLedger.model';
-import { mockUser } from '../models/aiims.models';
-import { Submission, memorySubmissions } from '../models/Submission.model';
-import { writeAuditLog } from '../models/AuditLog.model';
+import { prisma, isDatabaseConnected, isPrismaErrorCode } from '../config/prisma';
+import { IUser } from '../types/models';
 import { AuthenticatedRequest, JwtPayload } from '../middleware/auth.middleware';
 import { extractDeviceInfo } from '../utils/deviceIdentifier';
-import { sessionService } from '../models/Session.model';
-import { recordDeviceResetAudit } from '../models/DeviceResetAudit.model';
+import { sessionService, recordDeviceResetAudit } from '../services/session.service';
+import { writeAuditLog } from '../services/auditLog.service';
 import { formatUserState, STARTING_CREDITS } from '../config/credits.config';
 import { creditsLedgerService } from '../services/creditsLedger.service';
-import { PROGRAMS, validateAcademicCombination } from '../config/academicTaxonomy';
+import {
+  PROGRAMS,
+  SPECIALIZATIONS,
+  validateAcademicCombination,
+  getProgramDuration,
+  VENTURE_STAGES,
+} from '../config/academicTaxonomy';
 import { isCommonPassword } from '../utils/passwordSecurity';
-
 import { generateCsrfToken } from '../middleware/csrf.middleware';
+import {
+  hashPassword,
+  verifyPassword,
+  userRecordToIUser,
+  defaultAssessment,
+  defaultAnalysis,
+  defaultClarity,
+  defaultFocus,
+  defaultRadar,
+  defaultInvestigation,
+  defaultSolver,
+  defaultBuild,
+  defaultNotifications,
+  defaultAiWallet,
+  toJsonInput,
+} from '../utils/userMapper';
+import { isSafeKey, isValidId } from '../utils/id';
+import {
+  generateTotpSecret,
+  generateOtpauthUri,
+  generateQrCodeDataUrl,
+  encryptSecret,
+  decryptSecret,
+  verifyTotpCode,
+  generateBackupCodes,
+  hashBackupCode,
+  findMatchingBackupCodeIndex,
+} from '../services/totp.service';
 
 /** 7-day cookie / token lifetime */
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -76,25 +102,17 @@ const setAuthCookie = (res: Response, token: string, req?: Request): void => {
 const isMobileClient = (req: Request): boolean =>
   (req.headers['x-client'] as string | undefined)?.toLowerCase() === 'mobile';
 
-import {
-  registeredUsers,
-  isSafeKey,
-  getRegisteredUser,
-  saveRegisteredUser,
-} from '../models/userStore';
-export { registeredUsers };
-
 /**
  * Strict One Account – One Device validation & session creation helper.
  */
 async function verifyAndBindDevice(
-  userDocOrMemory: any,
+  user: IUser,
   req: Request,
   res: Response
 ): Promise<{ success: boolean; sessionId?: string; deviceIdHash?: string }> {
   const devInfo = extractDeviceInfo(req);
-  const userId = String(userDocOrMemory._id || userDocOrMemory.id);
-  const binding = userDocOrMemory.deviceBinding;
+  const userId = String(user.id || user._id);
+  const binding = user.deviceBinding;
 
   const isBound = Boolean(
     binding &&
@@ -103,7 +121,7 @@ async function verifyAndBindDevice(
     binding.deviceIdHash.trim().length > 0
   );
 
-  if (isBound) {
+  if (isBound && binding) {
     if (binding.deviceIdHash !== devInfo.deviceIdHash) {
       let hasActiveSession = false;
       if (binding.activeSessionId) {
@@ -121,7 +139,8 @@ async function verifyAndBindDevice(
 
       if (hasActiveSession) {
         res.status(403).json({
-          error: 'Account is active on another device.',
+          error:
+            'This account is already active on another device. Please log out from that device to continue.',
           code: 'ACCOUNT_ACTIVE_ANOTHER_DEVICE',
         });
         return { success: false };
@@ -148,20 +167,20 @@ async function verifyAndBindDevice(
         expiresAt,
       });
 
+      const now = new Date();
       binding.activeSessionId = newSessionId;
-      binding.lastSeenAt = new Date();
+      binding.lastSeenAt = now;
       binding.deviceName = devInfo.deviceName;
       binding.platform = devInfo.platform;
 
-      if (typeof userDocOrMemory.save === 'function') {
-        await userDocOrMemory.save();
-      } else if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(userId)) {
-        await User.findByIdAndUpdate(userId, {
-          $set: {
-            'deviceBinding.activeSessionId': newSessionId,
-            'deviceBinding.lastSeenAt': new Date(),
-            'deviceBinding.deviceName': devInfo.deviceName,
-            'deviceBinding.platform': devInfo.platform,
+      if (isValidId(userId)) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            activeSessionId: newSessionId,
+            deviceLastSeenAt: now,
+            deviceName: devInfo.deviceName,
+            devicePlatform: devInfo.platform,
           },
         });
       }
@@ -179,26 +198,45 @@ async function verifyAndBindDevice(
       expiresAt,
     });
 
+    const now = new Date();
     const newBinding = {
       deviceIdHash: devInfo.deviceIdHash,
       deviceName: devInfo.deviceName,
       platform: devInfo.platform,
-      boundAt: new Date(),
-      lastSeenAt: new Date(),
+      boundAt: now,
+      lastSeenAt: now,
       activeSessionId: newSessionId,
       bindingStatus: 'BOUND' as const,
       resetAt: null,
       resetBy: null,
     };
 
-    userDocOrMemory.deviceBinding = newBinding;
+    user.deviceBinding = newBinding;
 
-    if (typeof userDocOrMemory.save === 'function') {
-      await userDocOrMemory.save();
-    } else if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(userId)) {
-      await User.findByIdAndUpdate(userId, {
-        $set: { deviceBinding: newBinding },
+    if (isValidId(userId)) {
+      const bound = await prisma.user.updateMany({
+        where: { id: userId, bindingStatus: { not: 'BOUND' } },
+        data: {
+          deviceIdHash: devInfo.deviceIdHash,
+          deviceName: devInfo.deviceName,
+          devicePlatform: devInfo.platform,
+          deviceBoundAt: now,
+          deviceLastSeenAt: now,
+          activeSessionId: newSessionId,
+          bindingStatus: 'BOUND',
+          deviceResetAt: null,
+          deviceResetBy: null,
+        },
       });
+
+      if (bound.count === 0) {
+        res.status(403).json({
+          error:
+            'This account is already active on another device. Please log out from that device to continue.',
+          code: 'ACCOUNT_ACTIVE_ANOTHER_DEVICE',
+        });
+        return { success: false };
+      }
     }
     return { success: true, sessionId: newSessionId, deviceIdHash: devInfo.deviceIdHash };
   }
@@ -215,91 +253,88 @@ export const login = async (req: Request, res: Response) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  if (!isSafeKey(normalizedEmail)) {
+    return res.status(400).json({ error: 'Email or password is incorrect.' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const mobile = isMobileClient(req);
 
-  // 1. Try DB user if connected
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const dbUser = await User.findOne({ email: normalizedEmail });
-      if (dbUser) {
-        const isMatch = await dbUser.comparePassword(password);
-        if (isMatch) {
-          // Staff accounts with 2FA enabled must complete the second factor
-          if ((dbUser.role === 'evaluator' || dbUser.role === 'admin') && dbUser.totp?.enabled) {
-            return res.status(200).json({
-              totpRequired: true,
-              userId: String(dbUser._id),
-              role: dbUser.role,
-            });
-          }
-          const deviceResult = await verifyAndBindDevice(dbUser, req, res);
-          if (!deviceResult.success) {
-            return;
-          }
-          const token = generateAuthToken(
-            String(dbUser._id),
-            dbUser.email,
-            dbUser.role,
-            deviceResult.sessionId,
-            deviceResult.deviceIdHash
-          );
-          setAuthCookie(res, token, req);
-          const userState = formatUserState(dbUser);
-          return res.json({
-            ...(mobile ? { token } : {}),
-            user: userState.profile,
-            state: userState,
-          });
-        } else {
-          return res.status(401).json({ error: 'Email or password is incorrect.' });
-        }
-      }
-    } catch {
-      // Proceed to fallback
+  try {
+    const row = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!row) {
+      return res.status(401).json({ error: 'Email or password is incorrect.' });
     }
-  }
 
-  // 2. Check registeredUsers in-memory store
-  const user = registeredUsers[normalizedEmail];
-  if (!user) {
-    return res.status(401).json({ error: 'Email or password is incorrect.' });
-  }
+    const { match } = await verifyPassword(row.password, password);
+    if (!match) {
+      return res.status(401).json({ error: 'Email or password is incorrect.' });
+    }
 
-  const isMatch =
-    user.password && user.password.startsWith('$2')
-      ? await bcrypt.compare(password, user.password)
-      : false;
+    if (row.isActive === false) {
+      return res.status(403).json({
+        error: 'Account has been disabled. Please contact support.',
+        code: 'ACCOUNT_DISABLED',
+      });
+    }
 
-  if (!isMatch) {
-    return res.status(401).json({ error: 'Email or password is incorrect.' });
-  }
+    const dbUser = userRecordToIUser(row);
 
-  const deviceResult = await verifyAndBindDevice(user, req, res);
-  if (!deviceResult.success) {
-    return;
+    // Staff accounts with 2FA enabled must complete the second factor
+    if ((dbUser.role === 'evaluator' || dbUser.role === 'admin') && dbUser.totp?.enabled) {
+      return res.status(200).json({
+        totpRequired: true,
+        userId: String(dbUser.id),
+        role: dbUser.role,
+      });
+    }
+
+    const deviceResult = await verifyAndBindDevice(dbUser, req, res);
+    if (!deviceResult.success) {
+      return;
+    }
+
+    const token = generateAuthToken(
+      String(dbUser.id),
+      dbUser.email,
+      dbUser.role,
+      deviceResult.sessionId,
+      deviceResult.deviceIdHash
+    );
+    setAuthCookie(res, token, req);
+    const userState = formatUserState(dbUser);
+    let academicProfile: any = undefined;
+    let entrepreneurProfile: any = undefined;
+    try {
+      const uid = String(dbUser.id);
+      if (dbUser.track === 'Entrepreneur') {
+        const ep = await prisma.entrepreneurProfile.findUnique({ where: { userId: uid } });
+        if (ep) entrepreneurProfile = ep;
+      } else {
+        const sp = await prisma.studentProfile.findUnique({ where: { userId: uid } });
+        if (sp) academicProfile = sp;
+      }
+    } catch {}
+
+    return res.json({
+      ...(mobile ? { token } : {}),
+      user: { ...userState.profile, track: dbUser.track },
+      state: {
+        ...userState,
+        ...(academicProfile ? { academicProfile } : {}),
+        ...(entrepreneurProfile ? { entrepreneurProfile } : {}),
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Sign in failed due to a database error.', details: msg });
   }
-  const token = generateAuthToken(
-    user.id || `usr-${normalizedEmail}`,
-    user.email,
-    user.role || 'learner',
-    deviceResult.sessionId,
-    deviceResult.deviceIdHash
-  );
-  setAuthCookie(res, token, req);
-  return res.json({
-    ...(mobile ? { token } : {}),
-    user: {
-      id: user.id || `usr-${normalizedEmail}`,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      college: user.college,
-      targetGoal: user.targetGoal,
-      stage: user.stage,
-      xpPoints: user.xpPoints,
-      aiimsCredits: user.aiimsCredits,
-    },
-  });
 };
 
 export const register = async (req: Request, res: Response) => {
@@ -325,6 +360,14 @@ export const register = async (req: Request, res: Response) => {
     aiFamiliarity,
     aiUsageContexts,
     primaryGoal,
+    // Entrepreneur-specific onboarding fields
+    ventureName,
+    industry,
+    problemStatement,
+    ventureStage,
+    skillsToDevelop,
+    businessChallenges,
+    preferredSupport,
   } = req.body;
 
   // Mandatory track validation (Student or Entrepreneur)
@@ -380,353 +423,432 @@ export const register = async (req: Request, res: Response) => {
     });
   }
 
-  // Academic identity validation
-  if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
-    return res.status(400).json({
-      error: 'Please select a valid academic stream.',
-      code: 'INVALID_INPUT',
-      field: 'stream',
-    });
-  }
-  if (
-    !educationLevel ||
-    !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
-  ) {
-    return res.status(400).json({
-      error: 'Please select a valid education level.',
-      code: 'INVALID_INPUT',
-      field: 'educationLevel',
-    });
-  }
-  if (!programId) {
-    return res.status(400).json({
-      error: 'Please select your degree or program.',
-      code: 'INVALID_INPUT',
-      field: 'programId',
-    });
-  }
-  if (!specializationId) {
-    return res.status(400).json({
-      error: 'Please select your branch or specialization.',
-      code: 'INVALID_INPUT',
-      field: 'specializationId',
-    });
-  }
-  if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > 7) {
-    return res.status(400).json({
-      error: 'Please enter a valid year of study (1–7).',
-      code: 'INVALID_INPUT',
-      field: 'yearOfStudy',
-    });
-  }
-  if (!admissionYear || Number(admissionYear) < 1990 || Number(admissionYear) > 2030) {
-    return res.status(400).json({
-      error: 'Please enter a valid admission year.',
-      code: 'INVALID_INPUT',
-      field: 'admissionYear',
-    });
-  }
-  if (!expectedGraduationYear || Number(expectedGraduationYear) < Number(admissionYear)) {
-    return res.status(400).json({
-      error: 'Expected graduation year must be after admission year.',
-      code: 'INVALID_INPUT',
-      field: 'expectedGraduationYear',
-    });
-  }
+  const currentCalendarYear = new Date().getFullYear();
 
-  // Taxonomy consistency check
-  const taxonomyCheck = validateAcademicCombination(
-    stream,
-    educationLevel,
-    programId,
-    specializationId
-  );
-  if (!taxonomyCheck.valid) {
-    return res.status(400).json({
-      error: taxonomyCheck.reason || 'Invalid academic combination.',
-      code: 'INVALID_INPUT',
-      field: 'specializationId',
-    });
-  }
+  // Track-specific validation & cross-track pollution checks
+  if (normalizedTrack === 'Student') {
+    // Cross-track rejection: reject entrepreneur-only fields
+    if (ventureStage || problemStatement) {
+      return res.status(400).json({
+        error: 'Entrepreneur venture fields are not permitted on the Student track.',
+        code: 'INVALID_INPUT',
+        field: 'ventureStage',
+      });
+    }
 
-  // Step 7: Discard invalid institute ID if not a valid database ObjectId
-  let cleanInstituteId: mongoose.Types.ObjectId | undefined = undefined;
-  if (instituteId && typeof instituteId === 'string' && instituteId.trim().length > 0) {
-    const trimmed = instituteId.trim();
-    if (mongoose.Types.ObjectId.isValid(trimmed) && !trimmed.startsWith('inst-')) {
-      cleanInstituteId = new mongoose.Types.ObjectId(trimmed);
-    } else {
-      console.info(`[Auth] [${requestId}] Non-ObjectId instituteId discarded: "${trimmed}"`);
+    if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
+      return res.status(400).json({
+        error: 'Please select a valid academic stream.',
+        code: 'INVALID_INPUT',
+        field: 'stream',
+      });
+    }
+    if (
+      !educationLevel ||
+      !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
+    ) {
+      return res.status(400).json({
+        error: 'Please select a valid education level.',
+        code: 'INVALID_INPUT',
+        field: 'educationLevel',
+      });
+    }
+    if (!programId) {
+      return res.status(400).json({
+        error: 'Please select your degree or program.',
+        code: 'INVALID_INPUT',
+        field: 'programId',
+      });
+    }
+    if (!specializationId) {
+      return res.status(400).json({
+        error: 'Please select your branch or specialization.',
+        code: 'INVALID_INPUT',
+        field: 'specializationId',
+      });
+    }
+
+    const duration = getProgramDuration(programId);
+    if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > duration) {
+      return res.status(400).json({
+        error: `Please enter a valid year of study (1–${duration}) for this program.`,
+        code: 'INVALID_INPUT',
+        field: 'yearOfStudy',
+      });
+    }
+    if (
+      !admissionYear ||
+      Number(admissionYear) < 1990 ||
+      Number(admissionYear) > currentCalendarYear + 1
+    ) {
+      return res.status(400).json({
+        error: `Please enter a valid admission year (up to ${currentCalendarYear + 1}).`,
+        code: 'INVALID_INPUT',
+        field: 'admissionYear',
+      });
+    }
+    if (!expectedGraduationYear || Number(expectedGraduationYear) <= Number(admissionYear)) {
+      return res.status(400).json({
+        error: 'Expected graduation year must be after admission year.',
+        code: 'INVALID_INPUT',
+        field: 'expectedGraduationYear',
+      });
+    }
+
+    // Taxonomy consistency check for Student track
+    const taxonomyCheck = validateAcademicCombination(
+      stream,
+      educationLevel,
+      programId,
+      specializationId
+    );
+    if (!taxonomyCheck.valid) {
+      return res.status(400).json({
+        error: taxonomyCheck.reason || 'Invalid academic combination.',
+        code: 'INVALID_INPUT',
+        field: 'specializationId',
+      });
+    }
+  } else if (normalizedTrack === 'Entrepreneur') {
+    // Cross-track rejection: reject student-only academic fields
+    if (stream || educationLevel || programId || specializationId || yearOfStudy) {
+      return res.status(400).json({
+        error: 'Student academic fields are not permitted on the Entrepreneur track.',
+        code: 'INVALID_INPUT',
+        field: 'stream',
+      });
+    }
+
+    if (ventureStage && !VENTURE_STAGES.some((s) => s.value === ventureStage)) {
+      return res.status(400).json({
+        error: 'Invalid venture stage selected.',
+        code: 'INVALID_INPUT',
+        field: 'ventureStage',
+      });
+    }
+
+    if (
+      admissionYear &&
+      expectedGraduationYear &&
+      Number(expectedGraduationYear) <= Number(admissionYear)
+    ) {
+      return res.status(400).json({
+        error: 'Expected graduation year must be after admission year.',
+        code: 'INVALID_INPUT',
+        field: 'expectedGraduationYear',
+      });
     }
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const displayName = name.trim();
-  const programInfo = PROGRAMS.find((p) => p.id === programId);
-
-  // Check MongoDB connection (fallback in-memory store)
-  if (mongoose.connection.readyState !== 1) {
-    if (registeredUsers[normalizedEmail]) {
-      return res.status(400).json({
-        error: 'An account with this email already exists. Please sign in.',
-        code: 'EMAIL_ALREADY_EXISTS',
-        field: 'email',
-      });
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const stableId = new mongoose.Types.ObjectId().toHexString();
-    const newUser: Record<string, unknown> = {
-      _id: stableId,
-      id: stableId,
-      name: displayName,
-      email: normalizedEmail,
-      role: 'learner',
-      track: normalizedTrack,
-      college: instituteName || 'Unknown Institute',
-      targetGoal:
-        normalizedTrack === 'Entrepreneur'
-          ? 'Build & Scale AI Ventures'
-          : 'Explore AI Architectures & Intelligence',
-      stage: 'Knowing',
-      xpPoints: 100,
-      aiimsCredits: 0,
-      password: hashedPassword,
-      stream,
-      programName,
-      specializationName,
-      transactions: [],
-    };
-    registeredUsers[normalizedEmail] = newUser;
-    const welcomeResult = await creditsLedgerService
-      .executeTransaction({
-        userId: stableId,
-        type: 'EARN',
-        category: 'REWARD',
-        amount: STARTING_CREDITS,
-        reason: `Welcome Learning Grant (+${STARTING_CREDITS} AC)`,
-        source: 'SYSTEM',
-        sourceId: 'WELCOME_BONUS',
-        idempotencyKey: `welcome::${stableId}`,
-      })
-      .catch(() => null);
-
-    newUser.aiimsCredits = welcomeResult?.balance ?? STARTING_CREDITS;
-    const token = generateAuthToken(stableId, normalizedEmail);
-    setAuthCookie(res, token, req);
-    const baseState = formatUserState(new User(newUser) as IUser);
-    return res.status(201).json({
-      ...(isMobileClient(req) ? { token } : {}),
-      user: {
-        ...newUser,
-        id: newUser.id,
-        aiimsCredits: newUser.aiimsCredits,
-        track: normalizedTrack,
-      },
-      state: {
-        ...baseState,
-        academicProfile: {
-          stream,
-          programName,
-          specializationName,
-          educationLevel,
-          yearOfStudy: Number(yearOfStudy),
-          track: normalizedTrack,
-        },
-      },
+  if (!isSafeKey(normalizedEmail)) {
+    return res.status(400).json({
+      error: 'Enter a valid email address.',
+      code: 'INVALID_INPUT',
+      field: 'email',
     });
   }
 
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+      requestId,
+    });
+  }
+
+  const displayName = name.trim();
+  const resolvedInstituteName =
+    (typeof instituteName === 'string' && instituteName.trim()) ||
+    (typeof (req.body as any)?.collegeName === 'string' && (req.body as any).collegeName.trim()) ||
+    (typeof (req.body as any)?.college === 'string' && (req.body as any).college.trim()) ||
+    '';
+  const programInfo = programId ? PROGRAMS.find((p) => p.id === programId) : undefined;
+  const specInfo = specializationId
+    ? SPECIALIZATIONS.find((s) => s.id === specializationId)
+    : undefined;
+
+  // Student profile field resolution
+  const finalStream = stream || 'TECH';
+  const finalStreamSubCategory =
+    streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE');
+  const finalEducationLevel = educationLevel || 'UNDERGRADUATE';
+  const finalProgramId = programId || 'btech';
+  const finalProgramName = programName || programInfo?.label || 'B.Tech / Engineering';
+  const finalSpecializationId = specializationId || 'cs';
+  const finalSpecializationName = specializationName || specInfo?.label || 'Computer Science';
+  const finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+  const finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+  const finalGraduationYear = expectedGraduationYear
+    ? Number(expectedGraduationYear)
+    : finalAdmissionYear + (programId ? getProgramDuration(programId) : 4);
+
   try {
-    const existingUser = await User.findOne({ email: normalizedEmail });
-    if (existingUser) {
-      return res.status(400).json({
-        error: 'An account with this email already exists. Please sign in.',
-        code: 'EMAIL_ALREADY_EXISTS',
-        field: 'email',
-      });
-    }
+    const hashedPassword = await hashPassword(password);
 
-    let dbUser: IUser;
-    try {
-      dbUser = await User.create({
-        name: displayName,
-        email: normalizedEmail,
-        password,
-        role: 'learner',
-        track: normalizedTrack,
-        college: instituteName || 'Unknown Institute',
-        targetGoal:
-          normalizedTrack === 'Entrepreneur'
-            ? 'Build & Scale AI Ventures'
-            : 'Explore AI Architectures & Intelligence',
-        stage: 'Knowing',
-        xpPoints: 100,
-        aiimsCredits: 0,
-      });
-    } catch (userCreateErr: any) {
-      console.error(`[Auth] [${requestId}] User creation database failure:`, userCreateErr);
-      if (userCreateErr?.code === 11000) {
-        return res.status(400).json({
-          error: 'An account with this email already exists. Please sign in.',
-          code: 'EMAIL_ALREADY_EXISTS',
-          field: 'email',
-        });
+    // Atomic PostgreSQL transaction
+    const txResult = await prisma.$transaction(async (tx) => {
+      // 1. Email uniqueness check inside transaction
+      const existingUser = await tx.user.findUnique({ where: { email: normalizedEmail } });
+      if (existingUser) {
+        const err = new Error('An account with this email already exists. Please sign in.');
+        (err as any).code = 'EMAIL_ALREADY_EXISTS';
+        (err as any).field = 'email';
+        throw err;
       }
-      return res.status(500).json({
-        error: 'Database operation failed during user registration.',
-        code: 'DATABASE_FAILURE',
-        requestId,
-      });
-    }
 
-    // Record welcome bonus authoritatively in CreditLedger and User document
-    const welcomeResult = await creditsLedgerService
-      .executeTransaction({
-        userId: String(dbUser._id),
-        type: 'EARN',
-        category: 'REWARD',
-        amount: STARTING_CREDITS,
-        reason: `Welcome Learning Grant (+${STARTING_CREDITS} AC)`,
-        source: 'SYSTEM',
-        sourceId: 'WELCOME_BONUS',
-        idempotencyKey: `welcome::${String(dbUser._id)}`,
-      })
-      .catch((e) => {
-        console.warn(`[Auth] [${requestId}] Welcome ledger entry warning:`, e.message);
-        return null;
-      });
-
-    // Refresh user document to ensure persisted balance is reflected in registration response
-    const refreshedUser = await User.findById(dbUser._id);
-    const finalDbUser = refreshedUser || dbUser;
-    if (welcomeResult?.balance !== undefined) {
-      finalDbUser.aiimsCredits = welcomeResult.balance;
-    }
-
-    let cohortDoc: typeof Cohort.prototype | null = null;
-    try {
-      const admissionYearNum = Number(admissionYear);
-      const graduationYearNum = Number(expectedGraduationYear);
-      const cohortShortCode = `${programId.toUpperCase()}-${specializationId.toUpperCase()}-${admissionYearNum}-${graduationYearNum}`;
-      const cohortDisplayName = `${programName} · ${specializationName} · ${admissionYearNum}–${graduationYearNum}`;
-
-      cohortDoc = await Cohort.findOneAndUpdate(
-        {
-          ...(cleanInstituteId ? { instituteId: cleanInstituteId } : {}),
-          stream,
-          educationLevel,
-          programId,
-          specializationId,
-          admissionYear: admissionYearNum,
-          graduationYear: graduationYearNum,
-        },
-        {
-          $setOnInsert: {
-            instituteName: instituteName || 'Unknown',
-            programName,
-            specializationName,
-            displayName: cohortDisplayName,
-            shortCode: cohortShortCode,
-            assessmentVersion: 'v1.0',
-          },
-          $inc: { studentCount: 1 },
-        },
-        { upsert: true, returnDocument: 'after' }
-      );
-    } catch (cohortErr) {
-      console.warn(`[Auth] [${requestId}] Cohort upsert warning:`, cohortErr);
-    }
-
-    const profileData: Record<string, unknown> = {
-      userId: dbUser._id,
-      fullName: displayName,
-      track: normalizedTrack,
-      stream,
-      streamSubCategory: streamSubCategory || (stream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE'),
-      educationLevel,
-      programId,
-      programName: programName || programInfo?.label || programId,
-      specializationId,
-      specializationName,
-      yearOfStudy: Number(yearOfStudy),
-      admissionYear: Number(admissionYear),
-      expectedGraduationYear: Number(expectedGraduationYear),
-      isComplete: true,
-    };
-    if (cleanInstituteId) profileData.instituteId = cleanInstituteId;
-    if (instituteName) profileData.instituteName = instituteName;
-    if (cohortDoc) profileData.cohortId = cohortDoc._id;
-    if (aiFamiliarity) profileData.aiFamiliarity = aiFamiliarity;
-    if (aiUsageContexts && Array.isArray(aiUsageContexts))
-      profileData.aiUsageContexts = aiUsageContexts;
-    if (primaryGoal) profileData.primaryGoal = primaryGoal;
-
-    let studentProfile: any;
-    try {
-      studentProfile = await StudentProfile.create(profileData);
-    } catch (profileErr: any) {
-      console.error(
-        `[Auth] [${requestId}] Profile save failure, rolling back user ${dbUser._id}:`,
-        profileErr
-      );
-      try {
-        if (dbUser?._id) {
-          const userIdStr = String(dbUser._id);
-          await User.findByIdAndDelete(dbUser._id);
-          await CreditLedger.deleteMany({ userId: userIdStr });
-          if (cohortDoc?._id) {
-            await Cohort.findByIdAndUpdate(cohortDoc._id, { $inc: { studentCount: -1 } }).catch(
-              () => {}
-            );
+      // 2. Verify optional instituteId against Institute table cleanly
+      let cleanInstituteId: string | null = null;
+      if (
+        normalizedTrack === 'Student' &&
+        instituteId &&
+        typeof instituteId === 'string' &&
+        instituteId.trim().length > 0
+      ) {
+        const trimmedInst = instituteId.trim();
+        if (isValidId(trimmedInst) && trimmedInst !== 'inst-099') {
+          const inst = await tx.institute.findUnique({ where: { id: trimmedInst } });
+          if (inst) {
+            cleanInstituteId = inst.id;
           }
         }
-      } catch (rollbackErr) {
-        console.error(`[Auth] [${requestId}] User & Ledger rollback failed:`, rollbackErr);
       }
-      return res.status(500).json({
-        error: 'Unable to save learner profile. Please try again.',
-        code: 'PROFILE_SAVE_FAILED',
-        requestId,
-      });
-    }
 
-    const token = generateAuthToken(String(finalDbUser._id), finalDbUser.email);
+      // 3. Create User record
+      const defaultAudience = normalizedTrack === 'Entrepreneur' ? 'entrepreneur' : 'student';
+      const createdUser = await tx.user.create({
+        data: {
+          name: displayName,
+          email: normalizedEmail,
+          password: hashedPassword,
+          role: 'learner',
+          track: normalizedTrack,
+          college:
+            normalizedTrack === 'Entrepreneur'
+              ? ventureName && ventureName.trim().length > 0
+                ? ventureName.trim()
+                : 'Independent Founder'
+              : resolvedInstituteName.length > 0
+                ? resolvedInstituteName
+                : cleanInstituteId
+                  ? 'Verified Partner Institute'
+                  : 'Independent Learner',
+          targetGoal:
+            primaryGoal ||
+            (normalizedTrack === 'Entrepreneur'
+              ? 'Build & Scale AI Ventures'
+              : 'Explore AI Architectures & Intelligence'),
+          stage: 'Knowing',
+          xpPoints: 100,
+          aiimsCredits: STARTING_CREDITS,
+          assessmentStatus: 'not_started',
+          assessmentData: toJsonInput(defaultAssessment()),
+          analysisData: toJsonInput(defaultAnalysis()),
+          clarityData: toJsonInput(defaultClarity()),
+          focusData: toJsonInput(defaultFocus()),
+          radarData: toJsonInput(defaultRadar()),
+          investigationData: toJsonInput(defaultInvestigation()),
+          solverData: toJsonInput(defaultSolver()),
+          buildData: toJsonInput(defaultBuild()),
+          relevanceData: toJsonInput({ status: 'locked' }),
+          mentorData: toJsonInput({ status: 'locked' }),
+          transactionsData: toJsonInput([]),
+          notificationsData: toJsonInput(defaultNotifications()),
+          aiWalletData: toJsonInput({
+            ...defaultAiWallet(),
+            audienceMode: defaultAudience,
+          }),
+        },
+      });
+
+      // 4. Record welcome bonus authoritatively in CreditLedger
+      await tx.creditLedger.create({
+        data: {
+          userId: createdUser.id,
+          type: 'EARN',
+          category: 'REWARD',
+          amount: STARTING_CREDITS,
+          balanceBefore: 0,
+          balanceAfter: STARTING_CREDITS,
+          reason: `Welcome Learning Grant (+${STARTING_CREDITS} AC)`,
+          source: 'SYSTEM',
+          sourceId: 'WELCOME_BONUS',
+          idempotencyKey: `welcome::${createdUser.id}`,
+          status: 'COMPLETED',
+        },
+      });
+
+      let studentProfileDoc: any = null;
+      let cohortDoc: { id: string; displayName: string } | null = null;
+      let entrepreneurProfileDoc: any = null;
+
+      if (normalizedTrack === 'Student') {
+        // 5a. Cohort tracking / upsert
+        try {
+          const cohortShortCode = `${finalProgramId.toUpperCase()}-${finalSpecializationId.toUpperCase()}-${finalAdmissionYear}-${finalGraduationYear}`;
+          const cohortDisplayName = `${finalProgramName} · ${finalSpecializationName} · ${finalAdmissionYear}–${finalGraduationYear}`;
+
+          const existingCohort = await tx.cohort.findFirst({
+            where: {
+              instituteId: cleanInstituteId,
+              stream: finalStream,
+              educationLevel: finalEducationLevel,
+              programId: finalProgramId,
+              specializationId: finalSpecializationId,
+              admissionYear: finalAdmissionYear,
+              graduationYear: finalGraduationYear,
+            },
+          });
+
+          if (existingCohort) {
+            cohortDoc = await tx.cohort.update({
+              where: { id: existingCohort.id },
+              data: { studentCount: { increment: 1 } },
+            });
+          } else {
+            cohortDoc = await tx.cohort.create({
+              data: {
+                instituteId: cleanInstituteId,
+                instituteName: resolvedInstituteName || 'Unknown',
+                stream: finalStream,
+                educationLevel: finalEducationLevel,
+                programId: finalProgramId,
+                programName: finalProgramName,
+                specializationId: finalSpecializationId,
+                specializationName: finalSpecializationName,
+                admissionYear: finalAdmissionYear,
+                graduationYear: finalGraduationYear,
+                displayName: cohortDisplayName,
+                shortCode: cohortShortCode,
+                assessmentVersion: 'v1.0',
+                studentCount: 1,
+              },
+            });
+          }
+        } catch (cohortErr) {
+          console.warn(`[Auth] [${requestId}] Cohort upsert warning:`, cohortErr);
+        }
+
+        // 6a. Create StudentProfile
+        studentProfileDoc = await tx.studentProfile.create({
+          data: {
+            userId: createdUser.id,
+            fullName: displayName,
+            track: 'Student',
+            instituteId: cleanInstituteId,
+            instituteName: resolvedInstituteName || null,
+            stream: finalStream,
+            streamSubCategory: finalStreamSubCategory,
+            educationLevel: finalEducationLevel,
+            programId: finalProgramId,
+            programName: finalProgramName,
+            specializationId: finalSpecializationId,
+            specializationName: finalSpecializationName,
+            yearOfStudy: finalYearOfStudy,
+            admissionYear: finalAdmissionYear,
+            expectedGraduationYear: finalGraduationYear,
+            cohortId: cohortDoc ? cohortDoc.id : null,
+            aiFamiliarity: aiFamiliarity || null,
+            aiUsageContexts: Array.isArray(aiUsageContexts) ? aiUsageContexts : [],
+            primaryGoal: primaryGoal || null,
+            isComplete: true,
+          },
+        });
+      } else {
+        // 6b. Create EntrepreneurProfile
+        entrepreneurProfileDoc = await tx.entrepreneurProfile.create({
+          data: {
+            userId: createdUser.id,
+            fullName: displayName,
+            ventureName:
+              ventureName && ventureName.trim().length > 0
+                ? ventureName.trim()
+                : 'Ideation / Not started',
+            industry: industry || 'Other / Interdisciplinary',
+            problemStatement: problemStatement || null,
+            ventureStage: ventureStage || 'exploring_idea',
+            primaryGoal: primaryGoal || 'BUILD_AI_PRODUCT',
+            skillsToDevelop: Array.isArray(skillsToDevelop) ? skillsToDevelop : [],
+            businessChallenges: Array.isArray(businessChallenges) ? businessChallenges : [],
+            preferredSupport: Array.isArray(preferredSupport) ? preferredSupport : [],
+            isComplete: true,
+          },
+        });
+      }
+
+      return {
+        createdUser,
+        studentProfile: studentProfileDoc,
+        cohortDoc,
+        entrepreneurProfile: entrepreneurProfileDoc,
+      };
+    });
+
+    const finalDbUser = userRecordToIUser(txResult.createdUser);
+    finalDbUser.aiimsCredits = STARTING_CREDITS;
+
+    const token = generateAuthToken(String(finalDbUser.id), finalDbUser.email);
     setAuthCookie(res, token, req);
     const userState = formatUserState(finalDbUser);
 
-    return res.status(201).json({
-      ...(isMobileClient(req) ? { token } : {}),
-      user: { ...userState.profile, track: normalizedTrack },
-      state: {
-        ...userState,
-        academicProfile: {
-          id: String(studentProfile._id),
-          track: studentProfile.track,
-          stream: studentProfile.stream,
-          streamSubCategory: studentProfile.streamSubCategory,
-          educationLevel: studentProfile.educationLevel,
-          programId: studentProfile.programId,
-          programName: studentProfile.programName,
-          specializationId: studentProfile.specializationId,
-          specializationName: studentProfile.specializationName,
-          yearOfStudy: studentProfile.yearOfStudy,
-          admissionYear: studentProfile.admissionYear,
-          expectedGraduationYear: studentProfile.expectedGraduationYear,
-          instituteName: studentProfile.instituteName,
-          cohortId: cohortDoc ? String(cohortDoc._id) : undefined,
-          cohortDisplayName: cohortDoc?.displayName,
-          isComplete: true,
+    if (normalizedTrack === 'Student' && txResult.studentProfile) {
+      return res.status(201).json({
+        ...(isMobileClient(req) ? { token } : {}),
+        user: { ...userState.profile, track: 'Student' },
+        state: {
+          ...userState,
+          academicProfile: {
+            id: String(txResult.studentProfile.id),
+            track: 'Student',
+            stream: txResult.studentProfile.stream,
+            streamSubCategory: txResult.studentProfile.streamSubCategory,
+            educationLevel: txResult.studentProfile.educationLevel,
+            programId: txResult.studentProfile.programId,
+            programName: txResult.studentProfile.programName,
+            specializationId: txResult.studentProfile.specializationId,
+            specializationName: txResult.studentProfile.specializationName,
+            yearOfStudy: txResult.studentProfile.yearOfStudy,
+            admissionYear: txResult.studentProfile.admissionYear,
+            expectedGraduationYear: txResult.studentProfile.expectedGraduationYear,
+            instituteName: txResult.studentProfile.instituteName,
+            cohortId: txResult.cohortDoc ? String(txResult.cohortDoc.id) : undefined,
+            cohortDisplayName: txResult.cohortDoc?.displayName,
+            aiFamiliarity: txResult.studentProfile.aiFamiliarity,
+            aiUsageContexts: txResult.studentProfile.aiUsageContexts,
+            primaryGoal: txResult.studentProfile.primaryGoal,
+            isComplete: true,
+          },
         },
-      },
-    });
-  } catch (err: unknown) {
+      });
+    } else {
+      return res.status(201).json({
+        ...(isMobileClient(req) ? { token } : {}),
+        user: { ...userState.profile, track: 'Entrepreneur' },
+        state: {
+          ...userState,
+          aiWallet: {
+            ...userState.aiWallet,
+            audienceMode: 'entrepreneur',
+          },
+          entrepreneurProfile: {
+            id: String(txResult.entrepreneurProfile.id),
+            fullName: txResult.entrepreneurProfile.fullName,
+            ventureName: txResult.entrepreneurProfile.ventureName,
+            industry: txResult.entrepreneurProfile.industry,
+            problemStatement: txResult.entrepreneurProfile.problemStatement,
+            ventureStage: txResult.entrepreneurProfile.ventureStage,
+            primaryGoal: txResult.entrepreneurProfile.primaryGoal,
+            skillsToDevelop: txResult.entrepreneurProfile.skillsToDevelop,
+            businessChallenges: txResult.entrepreneurProfile.businessChallenges,
+            preferredSupport: txResult.entrepreneurProfile.preferredSupport,
+            isComplete: true,
+          },
+        },
+      });
+    }
+  } catch (err: any) {
     console.error(`[Auth] [${requestId}] Registration error:`, err);
-    if (
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      (err as { code: number }).code === 11000
-    ) {
+    if (err?.code === 'EMAIL_ALREADY_EXISTS' || isPrismaErrorCode(err, 'P2002')) {
       return res.status(400).json({
         error: 'An account with this email already exists. Please sign in.',
         code: 'EMAIL_ALREADY_EXISTS',
@@ -734,52 +856,72 @@ export const register = async (req: Request, res: Response) => {
       });
     }
     return res.status(500).json({
-      error: 'Registration failed due to an internal error. Please try again.',
+      error: 'Database operation failed during user registration.',
       code: 'DATABASE_FAILURE',
-      requestId,
+      details: err?.message,
     });
   }
 };
 
 export const getProfile = (req: AuthenticatedRequest, res: Response) => {
-  if (req.user) {
-    return res.json({
-      id: String(req.user._id || req.user.id),
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-      college: req.user.college || 'Engineering & Technology College',
-      targetGoal: req.user.targetGoal,
-      stage: req.user.stage,
-      xpPoints: req.user.xpPoints,
-      aiimsCredits: req.user.aiimsCredits,
-    });
-  }
-  return res.json(mockUser);
-};
-
-/**
- * GET /auth/me — lightweight "who am I" endpoint for session restoration on page load.
- * Returns the authenticated user's profile if a valid cookie or Bearer token is present,
- * or 401 if the session has expired / no credentials are present.
- */
-export const getMe = (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'No active session.', code: 'UNAUTHORIZED' });
   }
-  const userState = formatUserState(req.user);
   return res.json({
-    id: String(req.user._id || req.user.id),
+    id: String(req.user.id || req.user._id),
     name: req.user.name,
     email: req.user.email,
     role: req.user.role,
+    track: req.user.track,
     college: req.user.college || 'Engineering & Technology College',
     targetGoal: req.user.targetGoal,
     stage: req.user.stage,
     xpPoints: req.user.xpPoints,
     aiimsCredits: req.user.aiimsCredits,
-    user: userState.profile,
-    state: userState,
+    deviceBinding: req.user.deviceBinding,
+  });
+};
+
+/**
+ * GET /auth/me — lightweight "who am I" endpoint for session restoration on page load.
+ */
+export const getMe = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'No active session.', code: 'UNAUTHORIZED' });
+  }
+  const userState = formatUserState(req.user);
+  const userId = String(req.user.id || req.user._id);
+
+  let academicProfile: any = undefined;
+  let entrepreneurProfile: any = undefined;
+
+  try {
+    if (req.user.track === 'Entrepreneur') {
+      const ep = await prisma.entrepreneurProfile.findUnique({ where: { userId } });
+      if (ep) entrepreneurProfile = ep;
+    } else {
+      const sp = await prisma.studentProfile.findUnique({ where: { userId } });
+      if (sp) academicProfile = sp;
+    }
+  } catch {}
+
+  return res.json({
+    id: userId,
+    name: req.user.name,
+    email: req.user.email,
+    role: req.user.role,
+    track: req.user.track,
+    college: req.user.college || 'Engineering & Technology College',
+    targetGoal: req.user.targetGoal,
+    stage: req.user.stage,
+    xpPoints: req.user.xpPoints,
+    aiimsCredits: req.user.aiimsCredits,
+    user: { ...userState.profile, track: req.user.track },
+    state: {
+      ...userState,
+      ...(academicProfile ? { academicProfile } : {}),
+      ...(entrepreneurProfile ? { entrepreneurProfile } : {}),
+    },
   });
 };
 
@@ -814,28 +956,26 @@ export const logout = async (req: Request, res: Response) => {
     if (user && user.deviceBinding) {
       user.deviceBinding.activeSessionId = null;
       user.deviceBinding.lastSeenAt = new Date();
-      if (typeof user.save === 'function' && mongoose.connection.readyState === 1) {
-        await user.save();
-      }
     }
-    const cleanEmail = (user?.email || authReq.userEmail || '').toLowerCase().trim();
-    if (cleanEmail && registeredUsers[cleanEmail]?.deviceBinding) {
-      registeredUsers[cleanEmail].deviceBinding.activeSessionId = null;
-      registeredUsers[cleanEmail].deviceBinding.lastSeenAt = new Date();
-    } else if (sessionId) {
-      const sess = await sessionService.getSession(sessionId);
-      if (sess?.userId) {
-        if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(sess.userId)) {
-          await User.findByIdAndUpdate(sess.userId, {
-            $set: { 'deviceBinding.activeSessionId': null, 'deviceBinding.lastSeenAt': new Date() },
-          });
-        } else {
-          for (const u of Object.values(registeredUsers)) {
-            if ((u.id === sess.userId || u._id === sess.userId) && u.deviceBinding) {
-              u.deviceBinding.activeSessionId = null;
-              u.deviceBinding.lastSeenAt = new Date();
-            }
-          }
+
+    if (isDatabaseConnected()) {
+      const targetId = user ? String(user.id || user._id) : null;
+      if (targetId && isValidId(targetId)) {
+        await prisma.user
+          .updateMany({
+            where: { id: targetId },
+            data: { activeSessionId: null, deviceLastSeenAt: new Date() },
+          })
+          .catch(() => {});
+      } else if (sessionId) {
+        const sess = await sessionService.getSession(sessionId);
+        if (sess?.userId && isValidId(sess.userId)) {
+          await prisma.user
+            .updateMany({
+              where: { id: sess.userId },
+              data: { activeSessionId: null, deviceLastSeenAt: new Date() },
+            })
+            .catch(() => {});
         }
       }
     }
@@ -893,73 +1033,56 @@ export const resetUserDevice = async (req: AuthenticatedRequest, res: Response) 
     });
   }
 
-  let targetUser: any = null;
-
-  if (mongoose.connection.readyState === 1) {
-    try {
-      if (mongoose.Types.ObjectId.isValid(targetUserId)) {
-        targetUser = await User.findById(targetUserId);
-      }
-      if (!targetUser) {
-        targetUser = await User.findOne({ email: targetUserId.toLowerCase().trim() });
-      }
-    } catch {}
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  if (!targetUser) {
-    for (const u of Object.values(registeredUsers)) {
-      if (
-        u.id === targetUserId ||
-        u._id === targetUserId ||
-        u.email?.toLowerCase() === targetUserId.toLowerCase()
-      ) {
-        targetUser = u;
-        break;
-      }
-    }
+  let targetRow = null;
+  if (isValidId(targetUserId)) {
+    targetRow = await prisma.user.findUnique({ where: { id: targetUserId.trim() } });
+  }
+  if (!targetRow && isSafeKey(targetUserId.toLowerCase().trim())) {
+    targetRow = await prisma.user.findUnique({
+      where: { email: targetUserId.toLowerCase().trim() },
+    });
   }
 
-  if (!targetUser) {
+  if (!targetRow) {
     return res.status(404).json({
       error: 'User not found.',
       code: 'USER_NOT_FOUND',
     });
   }
 
-  const prevHash = targetUser.deviceBinding?.deviceIdHash || '';
-  const prevName = targetUser.deviceBinding?.deviceName || '';
+  const prevHash = targetRow.deviceIdHash || '';
+  const prevName = targetRow.deviceName || '';
   const reason = req.body.reason || 'Administrator device reset requested';
+  const finalUserId = String(targetRow.id);
 
-  const finalUserId = String(targetUser._id || targetUser.id);
   await sessionService.revokeAllUserSessions(finalUserId);
 
-  const newBinding = {
-    deviceIdHash: '',
-    deviceName: '',
-    platform: 'web' as const,
-    boundAt: null,
-    lastSeenAt: null,
-    activeSessionId: null,
-    bindingStatus: 'UNBOUND' as const,
-    resetAt: new Date(),
-    resetBy: String(adminUser._id || adminUser.id),
-  };
-
-  targetUser.deviceBinding = newBinding;
-
-  if (typeof targetUser.save === 'function') {
-    await targetUser.save();
-  }
-
-  if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(finalUserId)) {
-    await User.findByIdAndUpdate(finalUserId, {
-      $set: { deviceBinding: newBinding },
-    });
-  }
+  const now = new Date();
+  await prisma.user.update({
+    where: { id: finalUserId },
+    data: {
+      deviceIdHash: '',
+      deviceName: '',
+      devicePlatform: 'web',
+      deviceBoundAt: null,
+      deviceLastSeenAt: null,
+      activeSessionId: null,
+      bindingStatus: 'UNBOUND',
+      deviceResetAt: now,
+      deviceResetBy: String(adminUser.id || adminUser._id),
+    },
+  });
 
   await recordDeviceResetAudit({
     targetUserId: finalUserId,
-    adminUserId: String(adminUser._id || adminUser.id),
+    adminUserId: String(adminUser.id || adminUser._id),
     adminEmail: adminUser.email,
     previousDeviceIdHash: prevHash,
     previousDeviceName: prevName,
@@ -974,44 +1097,41 @@ export const resetUserDevice = async (req: AuthenticatedRequest, res: Response) 
 };
 
 export const updateProfile = async (req: AuthenticatedRequest, res: Response) => {
-  const { name, college, targetGoal } = req.body;
-
-  if (req.user) {
-    if (name) req.user.name = name;
-    if (college) req.user.college = college;
-    if (targetGoal) req.user.targetGoal = targetGoal;
-
-    if (mongoose.connection.readyState === 1 && typeof req.user.save === 'function') {
-      try {
-        await req.user.save();
-      } catch (saveErr: unknown) {
-        const errorMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);
-        console.warn('Could not persist profile update to MongoDB:', errorMsg);
-      }
-    } else if (req.user.email && registeredUsers && registeredUsers[req.user.email.toLowerCase()]) {
-      const reg = registeredUsers[req.user.email.toLowerCase()];
-      if (name) reg.name = name;
-      if (college) reg.college = college;
-      if (targetGoal) reg.targetGoal = targetGoal;
-    }
-
-    return res.json({
-      id: String(req.user._id || req.user.id),
-      name: req.user.name,
-      email: req.user.email,
-      role: req.user.role,
-      college: req.user.college,
-      targetGoal: req.user.targetGoal,
-      stage: req.user.stage,
-      xpPoints: req.user.xpPoints,
-      aiimsCredits: req.user.aiimsCredits,
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required.', code: 'UNAUTHORIZED' });
+  }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
   }
 
-  if (name) mockUser.name = name;
-  if (college) mockUser.college = college;
-  if (targetGoal) mockUser.targetGoal = targetGoal;
-  return res.json(mockUser);
+  const { name, college, targetGoal } = req.body;
+  const userId = String(req.user.id || req.user._id);
+
+  const updatedRow = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(name ? { name } : {}),
+      ...(college ? { college } : {}),
+      ...(targetGoal ? { targetGoal } : {}),
+    },
+  });
+  const mapped = userRecordToIUser(updatedRow);
+  req.user = mapped;
+
+  return res.json({
+    id: String(mapped.id),
+    name: mapped.name,
+    email: mapped.email,
+    role: mapped.role,
+    college: mapped.college,
+    targetGoal: mapped.targetGoal,
+    stage: mapped.stage,
+    xpPoints: mapped.xpPoints,
+    aiimsCredits: mapped.aiimsCredits,
+  });
 };
 
 /**
@@ -1028,79 +1148,61 @@ export const setPassword = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'This password is too common or easily guessed. Please choose a more secure password.' });
   }
 
-  const normalizedEmail = (email || '').toLowerCase().trim();
-  if (!isSafeKey(normalizedEmail)) {
+  const normalizedEmail = (typeof email === 'string' ? email : '').toLowerCase().trim();
+  if (!normalizedEmail || !isSafeKey(normalizedEmail) || !normalizedEmail.includes('@')) {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
 
-  let user: IUser | null = null;
+  if (inviteToken !== undefined && (typeof inviteToken !== 'string' || !inviteToken.trim())) {
+    return res.status(400).json({ error: 'Invalid invite token.' });
+  }
 
-  if (mongoose.connection.readyState === 1) {
-    if (inviteToken) {
-      if (typeof inviteToken !== 'string' || !inviteToken.trim()) {
-        return res.status(400).json({ error: 'Invalid invite token.' });
-      }
-      const cleanToken = inviteToken.trim();
-      user = await User.findOne({
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  let userRow = null;
+
+  if (typeof inviteToken === 'string' && inviteToken.trim()) {
+    const cleanToken = inviteToken.trim();
+    userRow = await prisma.user.findFirst({
+      where: {
         email: normalizedEmail,
         inviteToken: cleanToken,
-        inviteTokenExpires: { $gt: new Date() },
-      });
-    } else if (currentPassword && typeof currentPassword === 'string') {
-      user = await User.findOne({ email: normalizedEmail });
-      if (user && !(await user.comparePassword(currentPassword))) {
+        inviteTokenExpires: { gt: new Date() },
+      },
+    });
+  } else if (currentPassword && typeof currentPassword === 'string') {
+    const candidate = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (candidate) {
+      const { match } = await verifyPassword(candidate.password, currentPassword);
+      if (!match) {
         return res.status(401).json({ error: 'Current password is incorrect.' });
       }
+      userRow = candidate;
     }
   }
 
-  // Fallback memory user with prototype pollution guards
-  let memoryUser: any = null;
-  if (!user && isSafeKey(normalizedEmail)) {
-    memoryUser = getRegisteredUser(normalizedEmail);
-    if (
-      inviteToken &&
-      typeof inviteToken === 'string' &&
-      memoryUser?.inviteToken === inviteToken.trim()
-    ) {
-      // Valid memory invite token
-    } else if (currentPassword && typeof currentPassword === 'string') {
-      const match = memoryUser?.password?.startsWith('$2')
-        ? await bcrypt.compare(currentPassword, memoryUser.password)
-        : memoryUser?.password === currentPassword;
-      if (!match) return res.status(401).json({ error: 'Current password is incorrect.' });
-    } else {
-      memoryUser = null;
-    }
-  }
-
-  if (!user && !memoryUser) {
+  if (!userRow) {
     return res.status(400).json({ error: 'Invalid or expired set-password token / credentials.' });
   }
 
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const hashedPassword = await hashPassword(newPassword);
 
-  if (user) {
-    user.password = hashedPassword;
-    user.mustChangePassword = false;
-    user.inviteToken = undefined;
-    user.inviteTokenExpires = undefined;
-    await user.save();
-  } else if (memoryUser) {
-    const updatedUser = {
-      ...memoryUser,
+  await prisma.user.update({
+    where: { id: userRow.id },
+    data: {
       password: hashedPassword,
       mustChangePassword: false,
-      inviteToken: undefined,
-      inviteTokenExpires: undefined,
-    };
-    saveRegisteredUser(normalizedEmail, updatedUser);
-  }
+      inviteToken: null,
+      inviteTokenExpires: null,
+    },
+  });
 
-  const token = generateAuthToken(
-    String(user?._id || memoryUser?.id || memoryUser?._id),
-    normalizedEmail
-  );
+  const token = generateAuthToken(String(userRow.id), normalizedEmail, userRow.role);
   setAuthCookie(res, token, req);
 
   return res.json({
@@ -1112,18 +1214,6 @@ export const setPassword = async (req: Request, res: Response) => {
 
 // ── TOTP / 2FA Controllers ────────────────────────────────────────────────────
 
-import {
-  generateTotpSecret,
-  generateOtpauthUri,
-  generateQrCodeDataUrl,
-  encryptSecret,
-  decryptSecret,
-  verifyTotpCode,
-  generateBackupCodes,
-  hashBackupCode,
-  findMatchingBackupCodeIndex,
-} from '../services/totp.service';
-
 /** Max failed TOTP attempts before lockout */
 const TOTP_MAX_ATTEMPTS = 5;
 /** Lockout duration in ms (10 minutes) */
@@ -1131,9 +1221,7 @@ const TOTP_LOCKOUT_MS = 10 * 60 * 1000;
 
 /**
  * POST /auth/totp/setup
- * Staff-only. Generates a TOTP secret, encrypts it, stores in pendingSetup state,
- * and returns a QR code data-URL plus the plain-text secret for manual entry.
- * The setup is NOT activated until the user verifies the first code via /auth/totp/verify-setup.
+ * Staff-only. Generates a TOTP secret, encrypts it, stores in pendingSetup state.
  */
 export const totpSetup = async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user;
@@ -1146,6 +1234,12 @@ export const totpSetup = async (req: AuthenticatedRequest, res: Response) => {
   if (user.totp?.enabled) {
     return res.status(400).json({ error: '2FA is already enabled on this account.' });
   }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
 
   try {
     const secret = generateTotpSecret();
@@ -1153,28 +1247,17 @@ export const totpSetup = async (req: AuthenticatedRequest, res: Response) => {
     const otpauthUri = generateOtpauthUri(secret, user.email);
     const qrCodeDataUrl = await generateQrCodeDataUrl(otpauthUri);
 
-    // Persist encrypted secret in pendingSetup state
-    if (mongoose.connection.readyState === 1) {
-      await User.findByIdAndUpdate(user._id, {
-        $set: {
-          'totp.encryptedSecret': encryptedSecret,
-          'totp.pendingSetup': true,
-          'totp.enabled': false,
-        },
-      });
-    } else {
-      user.totp = {
-        encryptedSecret,
-        pendingSetup: true,
-        enabled: false,
-        backupCodeHashes: [],
-        failedAttempts: 0,
-      };
-    }
+    await prisma.user.update({
+      where: { id: String(user.id || user._id) },
+      data: {
+        totpEncryptedSecret: encryptedSecret,
+        totpPendingSetup: true,
+        totpEnabled: false,
+      },
+    });
 
     return res.json({
       qrCode: qrCodeDataUrl,
-      // Plain-text secret for manual authenticator entry
       manualEntryKey: secret,
       message:
         'Scan the QR code with your authenticator app, then call /auth/totp/verify-setup with the first code to activate 2FA.',
@@ -1197,10 +1280,17 @@ export const totpVerifySetup = async (req: AuthenticatedRequest, res: Response) 
       .status(403)
       .json({ error: '2FA is not available for learner accounts.', code: 'FORBIDDEN' });
   }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
 
-  const dbUser = mongoose.connection.readyState === 1 ? await User.findById(user._id) : user;
+  const userId = String(user.id || user._id);
+  const dbRow = await prisma.user.findUnique({ where: { id: userId } });
 
-  if (!dbUser?.totp?.encryptedSecret || !dbUser.totp.pendingSetup) {
+  if (!dbRow?.totpEncryptedSecret || !dbRow.totpPendingSetup) {
     return res
       .status(400)
       .json({ error: 'No pending 2FA setup found. Call /auth/totp/setup first.' });
@@ -1213,7 +1303,7 @@ export const totpVerifySetup = async (req: AuthenticatedRequest, res: Response) 
 
   let plainSecret: string;
   try {
-    plainSecret = decryptSecret(dbUser.totp.encryptedSecret);
+    plainSecret = decryptSecret(dbRow.totpEncryptedSecret);
   } catch {
     return res.status(500).json({ error: 'Failed to read 2FA setup data. Please restart setup.' });
   }
@@ -1222,70 +1312,63 @@ export const totpVerifySetup = async (req: AuthenticatedRequest, res: Response) 
     return res.status(400).json({ error: 'Invalid authenticator code. Please try again.' });
   }
 
-  // Generate and hash backup codes
   const plainCodes = generateBackupCodes();
   const hashes = plainCodes.map(hashBackupCode);
 
-  if (mongoose.connection.readyState === 1) {
-    await User.findByIdAndUpdate(user._id, {
-      $set: {
-        'totp.enabled': true,
-        'totp.pendingSetup': false,
-        'totp.backupCodeHashes': hashes,
-        'totp.failedAttempts': 0,
-        'totp.lockedUntil': null,
-      },
-    });
-  } else {
-    dbUser.totp.enabled = true;
-    dbUser.totp.pendingSetup = false;
-    dbUser.totp.backupCodeHashes = hashes;
-    dbUser.totp.failedAttempts = 0;
-  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      totpEnabled: true,
+      totpPendingSetup: false,
+      totpBackupCodeHashes: hashes,
+      totpFailedAttempts: 0,
+      totpLockedUntil: null,
+    },
+  });
 
   return res.json({
     success: true,
     message: '2FA has been successfully activated.',
-    // Return plain-text codes ONCE — they will not be shown again
     backupCodes: plainCodes,
   });
 };
 
 /**
- * POST /auth/totp/verify  { userId, code, isBackupCode? }
- * Second-step login verification for staff accounts. Called after password auth succeeds
- * and the server has returned `{ totpRequired: true, userId }`.
+ * POST /auth/totp/verify  { userId, code }
+ * Second-step login verification for staff accounts.
  */
 export const totpVerifyLogin = async (req: Request, res: Response) => {
   const { userId, code } = req.body;
-  if (!userId || typeof userId !== 'string' || !mongoose.Types.ObjectId.isValid(userId)) {
+  if (!userId || typeof userId !== 'string' || !isValidId(userId)) {
     return res.status(400).json({ error: 'Valid userId is required.' });
   }
   if (!code || typeof code !== 'string') {
     return res.status(400).json({ error: 'Valid code is required.' });
   }
-
-  const safeUserId = new mongoose.Types.ObjectId(userId);
-  const trimmedCode = code.trim();
-
-  let dbUser: IUser | null = null;
-  if (mongoose.connection.readyState === 1) {
-    dbUser = await User.findById(safeUserId);
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  if (!dbUser) {
+  const safeUserId = userId.trim();
+  const trimmedCode = code.trim();
+
+  const dbRow = await prisma.user.findUnique({ where: { id: safeUserId } });
+  if (!dbRow) {
     return res
       .status(401)
       .json({ error: 'Invalid session or user not found.', code: 'UNAUTHORIZED' });
   }
 
-  if (!dbUser.totp?.enabled) {
+  if (!dbRow.totpEnabled || !dbRow.totpEncryptedSecret) {
     return res.status(400).json({ error: '2FA is not enabled for this account.' });
   }
 
-  // ── Rate-limit / lockout check ────────────────────────────────────────────
-  if (dbUser.totp.lockedUntil && dbUser.totp.lockedUntil > new Date()) {
-    const waitSecs = Math.ceil((dbUser.totp.lockedUntil.getTime() - Date.now()) / 1000);
+  // Rate-limit / lockout check
+  if (dbRow.totpLockedUntil && dbRow.totpLockedUntil > new Date()) {
+    const waitSecs = Math.ceil((dbRow.totpLockedUntil.getTime() - Date.now()) / 1000);
     return res.status(429).json({
       error: `Too many failed attempts. Account locked for ${waitSecs} more seconds.`,
       code: 'TOTP_LOCKED',
@@ -1295,7 +1378,7 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
 
   let plainSecret: string;
   try {
-    plainSecret = decryptSecret(dbUser.totp.encryptedSecret!);
+    plainSecret = decryptSecret(dbRow.totpEncryptedSecret);
   } catch {
     return res.status(500).json({ error: 'Internal error reading 2FA credentials.' });
   }
@@ -1303,17 +1386,14 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
   let verified = false;
   let usedBackupCode = false;
 
-  // Cryptographic verification: check backup codes array or TOTP code
-  const backupHashes = Array.isArray(dbUser.totp.backupCodeHashes)
-    ? dbUser.totp.backupCodeHashes
+  const backupHashes = Array.isArray(dbRow.totpBackupCodeHashes)
+    ? [...dbRow.totpBackupCodeHashes]
     : [];
   const backupIdx =
     backupHashes.length > 0 ? findMatchingBackupCodeIndex(trimmedCode, backupHashes) : -1;
 
   if (backupIdx !== -1) {
-    // Consume the backup code (remove it from the array)
     backupHashes.splice(backupIdx, 1);
-    dbUser.totp.backupCodeHashes = backupHashes;
     verified = true;
     usedBackupCode = true;
   } else if (plainSecret) {
@@ -1321,14 +1401,15 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
   }
 
   if (!verified) {
-    const newFailCount = (dbUser.totp.failedAttempts || 0) + 1;
+    const newFailCount = (dbRow.totpFailedAttempts || 0) + 1;
     const lockout =
       newFailCount >= TOTP_MAX_ATTEMPTS ? new Date(Date.now() + TOTP_LOCKOUT_MS) : undefined;
 
-    await User.findByIdAndUpdate(safeUserId, {
-      $set: {
-        'totp.failedAttempts': newFailCount,
-        ...(lockout ? { 'totp.lockedUntil': lockout } : {}),
+    await prisma.user.update({
+      where: { id: safeUserId },
+      data: {
+        totpFailedAttempts: newFailCount,
+        ...(lockout ? { totpLockedUntil: lockout } : {}),
       },
     });
 
@@ -1345,14 +1426,16 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
     });
   }
 
-  // Reset rate-limit counters and persist backup code consumption
-  await User.findByIdAndUpdate(safeUserId, {
-    $set: {
-      'totp.failedAttempts': 0,
-      'totp.lockedUntil': null,
-      ...(usedBackupCode ? { 'totp.backupCodeHashes': dbUser.totp.backupCodeHashes } : {}),
+  const updatedRow = await prisma.user.update({
+    where: { id: safeUserId },
+    data: {
+      totpFailedAttempts: 0,
+      totpLockedUntil: null,
+      ...(usedBackupCode ? { totpBackupCodeHashes: backupHashes } : {}),
     },
   });
+
+  const dbUser = userRecordToIUser(updatedRow);
 
   // Strict One Account – One Device Binding & Verification on 2FA completion
   const deviceResult = await verifyAndBindDevice(dbUser, req, res);
@@ -1360,9 +1443,8 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
     return;
   }
 
-  // Issue the real JWT now that both factors are verified
   const token = generateAuthToken(
-    String(dbUser._id),
+    String(dbUser.id),
     dbUser.email,
     dbUser.role,
     deviceResult.sessionId,
@@ -1378,7 +1460,7 @@ export const totpVerifyLogin = async (req: Request, res: Response) => {
     state: userState,
     ...(usedBackupCode
       ? {
-          warning: `Backup code used. ${dbUser.totp.backupCodeHashes.length} backup code(s) remaining.`,
+          warning: `Backup code used. ${backupHashes.length} backup code(s) remaining.`,
         }
       : {}),
   });
@@ -1406,7 +1488,14 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
     });
   }
 
-  const userId = String(user._id || user.id);
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const userId = String(user.id || user._id);
   const userEmail = (user.email || req.userEmail || '').toLowerCase().trim();
   const userRole = user.role || 'learner';
 
@@ -1414,50 +1503,29 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
     // 1. Irreversibly anonymise CreditLedger entries
     await creditsLedgerService.anonymizeUserLedger(userId);
 
-    // 2. Database cleanup if MongoDB is connected
-    if (mongoose.connection.readyState === 1) {
-      // 2a. Delete student academic profile
-      await StudentProfile.deleteMany({
-        $or: [
-          ...(mongoose.Types.ObjectId.isValid(userId)
-            ? [{ userId: new mongoose.Types.ObjectId(userId) }]
-            : []),
-          { userId: userId as any },
-        ],
-      });
+    // 2. Purge sessions, student academic profile, submissions, and User record in PostgreSQL
+    await prisma.session.deleteMany({
+      where: { userId },
+    });
 
-      // 2b. Delete submissions content
-      await Submission.deleteMany({
-        $or: [
-          ...(mongoose.Types.ObjectId.isValid(userId)
-            ? [{ learner: new mongoose.Types.ObjectId(userId) }]
-            : []),
-          { learner: userId as any },
-          ...(userEmail ? [{ learnerEmail: userEmail }] : []),
-        ],
-      });
+    await prisma.studentProfile.deleteMany({
+      where: { userId },
+    });
 
-      // 2c. Delete User document permanently
-      if (mongoose.Types.ObjectId.isValid(userId)) {
-        await User.findByIdAndDelete(userId);
-      }
-      if (userEmail) {
-        await User.deleteMany({ email: userEmail });
-      }
+    await prisma.submission.deleteMany({
+      where: {
+        OR: [{ learnerId: userId }, ...(userEmail ? [{ learnerEmail: userEmail }] : [])],
+      },
+    });
+
+    if (isValidId(userId)) {
+      await prisma.user.deleteMany({ where: { id: userId } });
+    }
+    if (userEmail) {
+      await prisma.user.deleteMany({ where: { email: userEmail } });
     }
 
-    // 3. Clean up offline / in-memory stores
-    if (userEmail && registeredUsers[userEmail]) {
-      delete registeredUsers[userEmail];
-    }
-    for (let i = memorySubmissions.length - 1; i >= 0; i--) {
-      const s = memorySubmissions[i];
-      if (String(s.learner) === userId || (userEmail && s.learnerEmail === userEmail)) {
-        memorySubmissions.splice(i, 1);
-      }
-    }
-
-    // 4. Log deletion in AuditLog WITHOUT ANY PERSONAL DATA
+    // 3. Log deletion in AuditLog WITHOUT ANY PERSONAL DATA
     await writeAuditLog({
       actor: 'ANONYMIZED_USER',
       actorRole: userRole,
@@ -1471,7 +1539,7 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
       },
     });
 
-    // 5. Invalidate tokens and clear auth and csrf cookies
+    // 4. Clear auth and csrf cookies
     res.clearCookie('aiims_token', {
       httpOnly: true,
       secure: config.nodeEnv === 'production',

@@ -1,12 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { FocusSessionService } from '../focusSession.service';
-import { inMemoryFocusSessions } from '../../models/FocusSession.model';
+import { prisma } from '../../config/prisma';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 describe('AIIMS Focus Module & Session Lifecycle', () => {
   const TEST_LEARNER = 'vitest-focus-learner-001';
 
   beforeEach(() => {
-    inMemoryFocusSessions.clear();
+    resetPrismaTestDouble(true);
+  });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
   });
 
   describe('Configuration Sanitization & Bounds', () => {
@@ -111,7 +116,10 @@ describe('AIIMS Focus Module & Session Lifecycle', () => {
       const { session } = await FocusSessionService.startSession({
         learnerId: TEST_LEARNER,
       });
-      session.targetEndTime = new Date(Date.now() - 5000); // Simulated elapsed time
+      await prisma.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: { targetEndTime: new Date(Date.now() - 5000) },
+      });
 
       const { session: completed, record } = await FocusSessionService.completePeriod(
         TEST_LEARNER,
@@ -131,7 +139,10 @@ describe('AIIMS Focus Module & Session Lifecycle', () => {
       const { session } = await FocusSessionService.startSession({
         learnerId: TEST_LEARNER,
       });
-      session.targetEndTime = new Date(Date.now() - 5000);
+      await prisma.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: { targetEndTime: new Date(Date.now() - 5000) },
+      });
       await FocusSessionService.completePeriod(TEST_LEARNER, session.sessionId);
 
       const breakSession = await FocusSessionService.startBreak(TEST_LEARNER);
@@ -163,7 +174,10 @@ describe('AIIMS Focus Module & Session Lifecycle', () => {
       const { session } = await FocusSessionService.startSession({
         learnerId: TEST_LEARNER,
       });
-      session.accumulatedFocusSeconds = 60; // 60s elapsed
+      await prisma.focusSession.update({
+        where: { sessionId: session.sessionId },
+        data: { accumulatedFocusSeconds: 60 },
+      });
 
       const { savedToHistory } = await FocusSessionService.abandonSession(
         TEST_LEARNER,

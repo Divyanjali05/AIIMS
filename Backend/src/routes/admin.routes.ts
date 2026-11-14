@@ -12,6 +12,7 @@ import {
   deleteTask,
   getSummaryReport,
   getAuditLogs,
+  getFinancialSummary,
 } from '../controllers/admin.controller';
 import {
   adminListQuestionsHandler,
@@ -48,6 +49,7 @@ router.delete('/admin/tasks/:id', requireAuth, requireRole('admin'), deleteTask)
 // Admin Analytics & Auditing
 router.get('/admin/reports/summary', requireAuth, requireRole('admin'), getSummaryReport);
 router.get('/admin/audit-logs', requireAuth, requireRole('admin'), getAuditLogs);
+router.get('/admin/billing/summary', requireAuth, requireRole('admin'), getFinancialSummary);
 
 // Admin Device Binding Management
 router.post(

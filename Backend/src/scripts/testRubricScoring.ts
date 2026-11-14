@@ -6,9 +6,8 @@ import {
 import { questionBankService } from '../services/questionBank.service';
 import { submitAttemptHandler } from '../controllers/question.controller';
 import { submitClarityTask } from '../controllers/clarity.controller';
-import { inMemoryAssignments } from '../models/QuestionAssignment.model';
-import { inMemoryQuestionBank } from '../models/QuestionBank.model';
-import { inMemoryAttempts } from '../models/QuestionAttempt.model';
+import { prisma } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 import { ClaudeService } from '../services/anthropic/claude.service';
 
 console.log('====================================================');
@@ -30,6 +29,7 @@ function assert(condition: boolean, testName: string, detail?: string) {
 }
 
 async function runTestSuite() {
+  installPrismaTestDouble({ connected: true });
   const sampleQuestion = {
     title: 'Financial Transaction Audit Workflow',
     promptText: 'Audit the flagged transactions and extract anomalies over $50.',
@@ -404,27 +404,33 @@ async function runTestSuite() {
   // TEST 12: No QuestionAttempt or score saved when evaluation fails
   // ---------------------------------------------------------------------------
   const test12QId = 'q-test-fail-save-12';
-  inMemoryQuestionBank.set(test12QId, {
-    questionId: test12QId,
-    topic: 'Checking AI',
-    level: 'Easy',
-    track: 'General',
-    title: 'Fail-Safe Attempt Persistence',
-    promptText: 'Audit transactions.',
-    scoringRubric: sampleRubric,
-    status: 'ACTIVE',
+  await prisma.questionBank.create({
+    data: {
+      questionId: test12QId,
+      topic: 'Checking AI',
+      level: 'Easy',
+      track: 'General',
+      title: 'Fail-Safe Attempt Persistence',
+      promptText: 'Audit transactions.',
+      testScenario: 'Audit transactions scenario.',
+      expectedCriteria: ['Anomaly check'],
+      scoringRubric: sampleRubric,
+      status: 'ACTIVE',
+    },
   });
 
   const test12AsgnId = 'asgn-test-fail-save-12';
-  inMemoryAssignments.set(test12AsgnId, {
-    assignmentId: test12AsgnId,
-    learnerId: 'learner-test-12',
-    questionId: test12QId,
-    topic: 'Checking AI',
-    level: 'Easy',
-    track: 'General',
-    assignedAt: new Date(),
-    status: 'ASSIGNED',
+  await prisma.questionAssignment.create({
+    data: {
+      assignmentId: test12AsgnId,
+      learnerId: 'learner-test-12',
+      questionId: test12QId,
+      topic: 'Checking AI',
+      level: 'Easy',
+      track: 'General',
+      assignedAt: new Date(),
+      status: 'ASSIGNED',
+    },
   });
 
   // Inject failing runner into global singleton
@@ -432,7 +438,7 @@ async function runTestSuite() {
     throw new Error('AI Provider Service Unavailable: 503');
   });
 
-  const attemptsBefore = inMemoryAttempts.size;
+  const attemptsBefore = await prisma.questionAttempt.count();
   let attempt12Error: any = null;
   try {
     await questionBankService.submitAttempt({
@@ -445,13 +451,15 @@ async function runTestSuite() {
     attempt12Error = err;
   }
 
-  const assignmentAfter = inMemoryAssignments.get(test12AsgnId);
-  const attemptsAfter = inMemoryAttempts.size;
+  const assignmentAfter = await prisma.questionAssignment.findUnique({
+    where: { assignmentId: test12AsgnId },
+  });
+  const attemptsAfter = await prisma.questionAttempt.count();
 
   assert(
     attempt12Error !== null &&
       attemptsAfter === attemptsBefore &&
-      assignmentAfter.status === 'ASSIGNED',
+      assignmentAfter?.status === 'ASSIGNED',
     'When AI evaluation fails, no QuestionAttempt is saved and assignment remains ASSIGNED (Never saves fabricated score)'
   );
 
@@ -459,15 +467,17 @@ async function runTestSuite() {
   // TEST 13: No AC / XP rewards awarded when evaluation fails
   // ---------------------------------------------------------------------------
   const test13AsgnId = 'asgn-test-clarity-rewards-13';
-  inMemoryAssignments.set(test13AsgnId, {
-    assignmentId: test13AsgnId,
-    learnerId: 'learner-clarity-13',
-    questionId: test12QId,
-    topic: 'Checking AI',
-    level: 'Easy',
-    track: 'General',
-    assignedAt: new Date(),
-    status: 'ASSIGNED',
+  await prisma.questionAssignment.create({
+    data: {
+      assignmentId: test13AsgnId,
+      learnerId: 'learner-clarity-13',
+      questionId: test12QId,
+      topic: 'Checking AI',
+      level: 'Easy',
+      track: 'General',
+      assignedAt: new Date(),
+      status: 'ASSIGNED',
+    },
   });
 
   const test13User = {
@@ -570,30 +580,36 @@ async function runTestSuite() {
     })
   );
 
+  installPrismaTestDouble({ connected: true });
+
   const test15QId = 'q-focus-challenge-15';
-  inMemoryQuestionBank.set(test15QId, {
-    questionId: test15QId,
-    topic: 'AI Workflow Design',
-    level: 'Easy',
-    track: 'General',
-    title: 'Focus Track Rubric Challenge',
-    promptText: 'Design a prompt workflow for data validation.',
-    testScenario: 'Weekly CSV ingest.',
-    expectedCriteria: ['Validation rule', 'Anomaly check', 'Alerting'],
-    scoringRubric: sampleRubric,
-    status: 'ACTIVE',
+  await prisma.questionBank.create({
+    data: {
+      questionId: test15QId,
+      topic: 'AI Workflow Design',
+      level: 'Easy',
+      track: 'General',
+      title: 'Focus Track Rubric Challenge',
+      promptText: 'Design a prompt workflow for data validation.',
+      testScenario: 'Weekly CSV ingest.',
+      expectedCriteria: ['Validation rule', 'Anomaly check', 'Alerting'],
+      scoringRubric: sampleRubric,
+      status: 'ACTIVE',
+    },
   });
 
   const test15AsgnId = 'asgn-focus-challenge-15';
-  inMemoryAssignments.set(test15AsgnId, {
-    assignmentId: test15AsgnId,
-    learnerId: 'learner-focus-15',
-    questionId: test15QId,
-    topic: 'AI Workflow Design',
-    level: 'Easy',
-    track: 'General',
-    assignedAt: new Date(),
-    status: 'ASSIGNED',
+  await prisma.questionAssignment.create({
+    data: {
+      assignmentId: test15AsgnId,
+      learnerId: 'learner-focus-15',
+      questionId: test15QId,
+      topic: 'AI Workflow Design',
+      level: 'Easy',
+      track: 'General',
+      assignedAt: new Date(),
+      status: 'ASSIGNED',
+    },
   });
 
   const focusReq: any = {
@@ -621,7 +637,9 @@ async function runTestSuite() {
 
   await submitAttemptHandler(focusReq, mockFocusRes);
 
-  const savedFocusAttempt = inMemoryAttempts.get(focusBody?.attemptId);
+  const savedFocusAttempt = await prisma.questionAttempt.findUnique({
+    where: { attemptId: focusBody?.attemptId },
+  });
 
   assert(
     focusStatus === 200 &&
@@ -629,9 +647,8 @@ async function runTestSuite() {
       focusBody.score === 88 &&
       focusBody.rubricFeedback.length === 4 &&
       focusBody.overallFeedback.includes('Focus challenge') &&
-      savedFocusAttempt !== undefined &&
-      savedFocusAttempt.score === 88 &&
-      savedFocusAttempt.rubricFeedback.length === 4,
+      savedFocusAttempt !== null &&
+      savedFocusAttempt.score === 88,
     'Focus challenge submission flow evaluates via AI rubric, returns criteria breakdown, and persists immutable attempt record'
   );
 

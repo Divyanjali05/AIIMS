@@ -1,48 +1,41 @@
 /**
  * toolDiscovery.service.ts
  * ==========================================
- * Phase 2A: Tool Discovery Service
+ * Phase 2A: Tool Discovery Service (PostgreSQL + Prisma)
  *
  * Responsibilities:
  *  - Provide a clean ToolDiscoveryAdapter interface for future adapters
  *  - Accept discovered tool candidates
  *  - Normalize candidate data
  *  - Detect duplicates
- *  - Compare candidates against existing AITool records
+ *  - Compare candidates against existing AiTool records
  *  - Identify new vs changed tools
  *  - Store evidence documents
  *  - Update version history
  *  - NEVER automatically activate an unverified tool
- *
- * This service is the orchestration layer.
- * It does NOT connect to any external API or web source directly.
  */
 
-import mongoose from 'mongoose';
-import { AIToolModel, IAITool, ToolVerificationStatus } from '../models/aiTool.model';
+import crypto from 'crypto';
+import { Prisma } from '@prisma/client';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import {
-  ToolEvidenceModel,
-  EvidenceSourceType,
-  EvidenceCredibility,
-} from '../models/toolEvidence.model';
-import { ToolVersionHistoryModel, ToolChangeType } from '../models/toolVersionHistory.model';
-import {
-  ToolDiscoveryRunModel,
   DiscoveryRunSource,
+  DiscoveryRunStatus,
+  EvidenceCredibility,
+  EvidenceSourceType,
+  IAITool,
   IToolDiscoveryRun,
-} from '../models/ToolDiscoveryRun.model';
+  ToolChangeType,
+  ToolVerificationStatus,
+} from '../types/models';
+import { toArray } from '../utils/id';
+import { toJsonInput } from '../utils/userMapper';
+import { aiToolRowToDomain, domainToolToPrismaData } from './wallet/toolCatalog.service';
 
 // ==========================================
 // TOOL CANDIDATE — Data Shape Submitted by Adapters
 // ==========================================
 
-/**
- * A ToolCandidate is an unverified, raw discovery result.
- * Adapters submit candidates; the discovery service normalizes,
- * deduplicates, verifies, and optionally persists them.
- *
- * Candidates are NEVER activated automatically.
- */
 export interface ToolCandidate {
   /** Proposed stable slug ID. The service will validate uniqueness. */
   candidateId: string;
@@ -95,28 +88,8 @@ export interface ToolCandidate {
 // DISCOVERY ADAPTER INTERFACE
 // ==========================================
 
-/**
- * All future discovery adapters must implement this interface.
- *
- * An adapter is responsible for:
- *  1. Fetching a list of ToolCandidates from a specific source
- *  2. Populating each candidate's `evidence` array with verifiable snippets
- *  3. NOT fabricating descriptions or capabilities
- *
- * Example future adapters:
- *  - HuggingFaceAdapterAdapter — discovers models via HF API
- *  - GitHubReleaseAdapter — monitors starred AI repos for releases
- *  - AdminImportAdapter — reads a structured JSON/CSV from an admin upload
- */
 export interface ToolDiscoveryAdapter {
-  /** Human-readable name for this adapter (used in run metadata) */
   readonly adapterName: string;
-
-  /**
-   * Execute the adapter and return discovered tool candidates.
-   * Adapters must not throw — wrap errors internally and return
-   * partial results where possible.
-   */
   discover(): Promise<ToolCandidate[]>;
 }
 
@@ -126,7 +99,7 @@ export interface ToolDiscoveryAdapter {
 
 export interface DiscoveryRunResult {
   runId: string;
-  status: IToolDiscoveryRun['status'];
+  status: DiscoveryRunStatus;
   discoveredCount: number;
   newToolsCount: number;
   updatedToolsCount: number;
@@ -140,10 +113,6 @@ export interface DiscoveryRunResult {
 // NORMALIZATION HELPERS
 // ==========================================
 
-/**
- * Normalizes a tool name for deduplication comparison.
- * Does NOT modify the stored display name.
- */
 function normalizeName(name: string): string {
   return name
     .toLowerCase()
@@ -152,10 +121,6 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-/**
- * Normalizes a URL to its canonical form for deduplication.
- * Strips trailing slashes, query strings, and fragments.
- */
 function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
@@ -165,10 +130,6 @@ function normalizeUrl(url: string): string {
   }
 }
 
-/**
- * Derives a stable slug ID from provider + name.
- * Only used if the candidate doesn't provide a candidateId.
- */
 function deriveSlugId(provider: string, name: string): string {
   const slug = `${provider}-${name}`
     .toLowerCase()
@@ -185,14 +146,22 @@ export class ToolDiscoveryService {
   // ── Run Lifecycle ─────────────────────────────────────────────────────
 
   /**
-   * Creates a new RUNNING discovery run document.
+   * Creates a new RUNNING discovery run record in PostgreSQL.
    */
   async createRun(source: DiscoveryRunSource): Promise<IToolDiscoveryRun> {
-    return ToolDiscoveryRunModel.create({
-      startedAt: new Date(),
-      status: 'RUNNING',
-      source,
+    const row = await prisma.toolDiscoveryRun.create({
+      data: {
+        startedAt: new Date(),
+        status: 'RUNNING',
+        source,
+      },
     });
+    return {
+      ...row,
+      status: row.status as DiscoveryRunStatus,
+      source: row.source as DiscoveryRunSource,
+      runErrors: toArray(row.runErrors),
+    };
   }
 
   /**
@@ -209,23 +178,26 @@ export class ToolDiscoveryService {
       errorCount: number;
       errors: Array<{ candidateId?: string; message: string }>;
     },
-    status: IToolDiscoveryRun['status'] = 'COMPLETED'
+    status: DiscoveryRunStatus = 'COMPLETED'
   ): Promise<void> {
-    await ToolDiscoveryRunModel.findByIdAndUpdate(runId, {
-      $set: {
+    await prisma.toolDiscoveryRun.updateMany({
+      where: { id: runId },
+      data: {
         completedAt: new Date(),
         status,
-        ...counters,
+        discoveredCount: counters.discoveredCount,
+        newToolsCount: counters.newToolsCount,
+        updatedToolsCount: counters.updatedToolsCount,
+        duplicateCount: counters.duplicateCount,
+        rejectedCount: counters.rejectedCount,
+        errorCount: counters.errorCount,
+        runErrors: toJsonInput(counters.errors),
       },
     });
   }
 
   // ── Candidate Processing ──────────────────────────────────────────────
 
-  /**
-   * Normalizes a raw ToolCandidate into a clean, consistent shape
-   * ready for deduplication and storage checks.
-   */
   normalizeCandidate(candidate: ToolCandidate): ToolCandidate {
     return {
       ...candidate,
@@ -246,19 +218,12 @@ export class ToolDiscoveryService {
   }
 
   /**
-   * Detects whether a candidate is a duplicate of an existing tool.
-   *
-   * Duplicate detection uses multiple signals:
-   *  1. Exact candidateId match (slug)
-   *  2. Canonical websiteUrl match
-   *  3. Normalized provider + normalized name match
-   *
-   * Does NOT merge tools merely because names are similar in spelling.
+   * Detects whether a candidate is a duplicate of an existing tool in PostgreSQL.
    */
   async detectDuplicate(candidate: ToolCandidate): Promise<IAITool | null> {
-    if (!mongoose.models['AITool']) return null;
+    if (!isDatabaseConnected()) return null;
 
-    const filters: any[] = [];
+    const filters: Prisma.AiToolWhereInput[] = [];
 
     // Signal 1: slug ID
     if (candidate.candidateId) {
@@ -273,20 +238,21 @@ export class ToolDiscoveryService {
     // Signal 3: provider + normalized name
     if (candidate.provider && candidate.name) {
       const normalizedName = normalizeName(candidate.name);
-      const existingByProvider = await AIToolModel.find({
-        provider: candidate.provider,
-      }).lean<IAITool[]>();
+      const existingByProvider = await prisma.aiTool.findMany({
+        where: { provider: candidate.provider },
+      });
 
       for (const existing of existingByProvider) {
         if (normalizeName(existing.name) === normalizedName) {
-          return existing as IAITool;
+          return aiToolRowToDomain(existing);
         }
       }
     }
 
     if (filters.length === 0) return null;
 
-    return AIToolModel.findOne({ $or: filters }).lean<IAITool>();
+    const found = await prisma.aiTool.findFirst({ where: { OR: filters } });
+    return found ? aiToolRowToDomain(found) : null;
   }
 
   /**
@@ -333,39 +299,34 @@ export class ToolDiscoveryService {
 
   // ── Storage Operations ────────────────────────────────────────────────
 
-  /**
-   * Persists evidence documents for a candidate (or existing tool).
-   * All evidence starts in PENDING verification status.
-   */
   async storeEvidence(toolId: string, evidenceItems: ToolCandidate['evidence']): Promise<void> {
     if (!evidenceItems || evidenceItems.length === 0) return;
 
+    const now = new Date();
+    const nowIso = now.toISOString();
     const docs = evidenceItems.map((e) => ({
-      id: `ev-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      id: `ev-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
       toolId,
       claim: e.title || 'Tool Evidence Claim',
       value: e.evidenceText || '',
       sourceType: e.sourceType || 'OFFICIAL_WEBSITE',
       sourceUrl: e.sourceUrl,
       sourceTitle: e.sourceName || e.title || 'Official Source',
-      sourceName: e.sourceName,
-      title: e.title,
-      evidenceText: e.evidenceText,
-      credibility: e.credibility,
-      verificationStatus: 'PENDING' as any,
-      discoveredAt: new Date(),
-      fetchedAt: new Date(),
-      publishedAt: new Date().toISOString(),
-      verifiedAt: new Date().toISOString(),
+      sourceName: e.sourceName ?? null,
+      title: e.title ?? null,
+      evidenceText: e.evidenceText ?? null,
+      credibility: e.credibility || 'MEDIUM',
+      verificationStatus: 'PENDING',
+      discoveredAt: now,
+      fetchedAt: now,
+      publishedAt: nowIso,
+      verifiedAt: nowIso,
       confidence: 0.9,
     }));
 
-    await ToolEvidenceModel.insertMany(docs, { ordered: false });
+    await prisma.toolEvidence.createMany({ data: docs, skipDuplicates: true });
   }
 
-  /**
-   * Records a version history entry for a tool change.
-   */
   async recordHistory(
     toolId: string,
     changeType: ToolChangeType,
@@ -374,28 +335,34 @@ export class ToolDiscoveryService {
     newData?: Record<string, any>,
     sourceUrl?: string
   ): Promise<void> {
-    await ToolVersionHistoryModel.create({
-      id: `vh-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      toolId,
-      version: '1.0',
-      changeType: changeType as any,
-      summary: changeSummary,
-      sourceUrls: sourceUrl ? [sourceUrl] : [],
-      detectedAt: new Date().toISOString(),
-      verifiedAt: new Date().toISOString(),
-      previousValue: previousData ? JSON.stringify(previousData) : undefined,
-      newValue: newData ? JSON.stringify(newData) : undefined,
+    const nowIso = new Date().toISOString();
+    await prisma.toolVersionHistory.create({
+      data: {
+        id: `vh-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`,
+        toolId,
+        version: '1.0',
+        changeType,
+        summary: changeSummary,
+        changeSummary,
+        sourceUrl: sourceUrl ?? null,
+        sourceUrls: sourceUrl ? [sourceUrl] : [],
+        detectedAt: nowIso,
+        verifiedAt: nowIso,
+        previousValue: previousData ? JSON.stringify(previousData) : null,
+        newValue: newData ? JSON.stringify(newData) : null,
+        previousData: previousData ? toJsonInput(previousData) : Prisma.DbNull,
+        newData: newData ? toJsonInput(newData) : Prisma.DbNull,
+        recordedBy: 'DISCOVERY_RUN',
+      },
     });
   }
 
   /**
-   * Creates a DISCOVERED (inactive, unverified) AITool from a candidate.
-   * The tool is NOT activated — activeStatus remains false.
-   * The tool must pass verification before being served to learners.
+   * Creates a DISCOVERED (inactive, unverified) AiTool from a candidate.
    */
   async createDiscoveredTool(candidate: ToolCandidate): Promise<IAITool> {
     const now = new Date().toISOString();
-    const tool = await AIToolModel.create({
+    const payload = domainToolToPrismaData({
       id: candidate.candidateId,
       name: candidate.name,
       description: candidate.description || '',
@@ -429,6 +396,8 @@ export class ToolDiscoveryService {
       lastUpdatedAt: now,
     });
 
+    const created = await prisma.aiTool.create({ data: payload });
+
     // Record the birth of this tool in version history
     await this.recordHistory(
       candidate.candidateId,
@@ -443,7 +412,7 @@ export class ToolDiscoveryService {
       await this.storeEvidence(candidate.candidateId, candidate.evidence);
     }
 
-    return tool;
+    return aiToolRowToDomain(created);
   }
 
   /**
@@ -456,19 +425,28 @@ export class ToolDiscoveryService {
     changeType: ToolChangeType,
     sourceUrl?: string
   ): Promise<void> {
-    const updateSet: Record<string, any> = { lastUpdatedAt: new Date() };
+    const updateData: Prisma.AiToolUpdateInput = {
+      lastUpdatedAt: new Date().toISOString(),
+    };
 
-    if (changedFields.websiteUrl) updateSet.websiteUrl = changedFields.websiteUrl.to;
-    if (changedFields.pricing) updateSet.pricing = changedFields.pricing.to;
+    if (changedFields.websiteUrl) {
+      updateData.websiteUrl = changedFields.websiteUrl.to;
+      updateData.officialWebsite = changedFields.websiteUrl.to;
+    }
+    if (changedFields.pricing) {
+      updateData.pricing = changedFields.pricing.to;
+    }
     if (changedFields.capabilities?.added) {
-      updateSet.$addToSet = { capabilities: { $each: changedFields.capabilities.added } };
+      const mergedCapabilities = Array.from(
+        new Set([...(existing.capabilities || []), ...changedFields.capabilities.added])
+      );
+      updateData.capabilities = mergedCapabilities;
     }
 
-    const { $addToSet, ...rest } = updateSet;
-    const updateOps: any = { $set: rest };
-    if ($addToSet) updateOps.$addToSet = $addToSet;
-
-    await AIToolModel.updateOne({ id: existing.id }, updateOps);
+    await prisma.aiTool.update({
+      where: { id: existing.id },
+      data: updateData,
+    });
 
     await this.recordHistory(
       existing.id,
@@ -484,20 +462,6 @@ export class ToolDiscoveryService {
 
   // ── Full Pipeline Orchestration ───────────────────────────────────────
 
-  /**
-   * Main entry point: processes a batch of candidates through the full
-   * discovery pipeline.
-   *
-   * For each candidate:
-   *  1. Normalize
-   *  2. Check for duplicates
-   *  3. If new: create as DISCOVERED (inactive, unverified)
-   *  4. If existing: diff and update changed fields only
-   *  5. Store evidence
-   *  6. Update run counters
-   *
-   * Does NOT call external APIs. Does NOT activate any tool.
-   */
   async processCandidates(
     candidates: ToolCandidate[],
     runId: string,
@@ -517,12 +481,11 @@ export class ToolDiscoveryService {
       const candidate = this.normalizeCandidate(rawCandidate);
 
       try {
-        // Basic validation
         if (!candidate.name || !candidate.candidateId) {
           counters.rejectedCount++;
           counters.errors.push({
             candidateId: candidate.candidateId,
-            message: `Rejected: missing required fields (name or candidateId)`,
+            message: 'Rejected: missing required fields (name or candidateId)',
           });
           continue;
         }
@@ -530,7 +493,6 @@ export class ToolDiscoveryService {
         const existing = await this.detectDuplicate(candidate);
 
         if (existing) {
-          // Duplicate — check for actual changes
           const { hasChanges, changeType, changedFields } = this.diffCandidate(candidate, existing);
 
           if (hasChanges) {
@@ -543,7 +505,6 @@ export class ToolDiscoveryService {
             counters.duplicateCount++;
           }
         } else {
-          // New tool — create as DISCOVERED, NOT activated
           await this.createDiscoveredTool(candidate);
           counters.newToolsCount++;
         }
@@ -556,8 +517,7 @@ export class ToolDiscoveryService {
       }
     }
 
-    // Determine run status
-    let finalStatus: IToolDiscoveryRun['status'] = 'COMPLETED';
+    let finalStatus: DiscoveryRunStatus = 'COMPLETED';
     if (counters.errorCount > 0 && counters.errorCount < candidates.length) {
       finalStatus = 'PARTIAL';
     } else if (counters.errorCount === candidates.length && candidates.length > 0) {
@@ -574,5 +534,4 @@ export class ToolDiscoveryService {
   }
 }
 
-// Singleton instance
 export const toolDiscoveryService = new ToolDiscoveryService();

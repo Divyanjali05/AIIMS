@@ -298,13 +298,19 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
       );
       return;
     }
+    if (learnerState.credits.balance < 100) {
+      setValidationError(
+        `Insufficient AIIMS Credits: Baseline assessment submission requires 100 AC. Your current balance is ${learnerState.credits.balance} AC.`
+      );
+      return;
+    }
     try {
       setIsSubmitting(true);
       await completeAssessment();
       setStage('COMPLETE');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Assessment submission error:', err);
-      setValidationError('An error occurred during submission. Please try again.');
+      setValidationError(err?.message || 'An error occurred during submission. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -907,8 +913,16 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
             </div>
           </div>
 
-          <p style={{ color: 'var(--aiims-text-secondary, #64748b)', fontSize: '13.5px', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-            Verify your responses across the five stations before generating your baseline capability calibration.
+          <p
+            style={{
+              color: 'var(--aiims-text-secondary, #64748b)',
+              fontSize: '13.5px',
+              margin: '0 0 20px 0',
+              lineHeight: 1.5,
+            }}
+          >
+            Verify your responses across the five stations before generating your baseline
+            capability calibration.
           </p>
 
           {/* Validation Notice if any question missing */}
@@ -1068,9 +1082,13 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                             justifyContent: 'space-between',
                             padding: '10px 14px',
                             borderRadius: '10px',
-                            backgroundColor: isAnswered ? 'var(--aiims-bg-card-hover, #f8f7fd)' : 'var(--aiims-card-rose-bg, #fff1f2)',
-                            border: isAnswered ? '1px solid var(--aiims-border-card, #ede9fe)' : '1px solid var(--aiims-card-rose-border, #fecdd3)',
-                            gap: '12px'
+                            backgroundColor: isAnswered
+                              ? 'var(--aiims-bg-card-hover, #f8f7fd)'
+                              : 'var(--aiims-card-rose-bg, #fff1f2)',
+                            border: isAnswered
+                              ? '1px solid var(--aiims-border-card, #ede9fe)'
+                              : '1px solid var(--aiims-card-rose-border, #fecdd3)',
+                            gap: '12px',
                           }}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
@@ -1120,7 +1138,11 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                             </div>
                           </div>
 
-                          <Badge variant={isAnswered ? 'success' : 'warning'} size="sm" style={{ flexShrink: 0 }}>
+                          <Badge
+                            variant={isAnswered ? 'success' : 'warning'}
+                            size="sm"
+                            style={{ flexShrink: 0 }}
+                          >
                             {isAnswered ? '✓ Complete' : 'Incomplete'}
                           </Badge>
                         </div>

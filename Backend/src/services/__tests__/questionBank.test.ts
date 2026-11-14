@@ -1,32 +1,67 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { questionBankService, TARGET_MINIMUM_PER_LEVEL } from '../questionBank.service';
 import { similarityDetectorService } from '../similarityDetector.service';
 import { aiQuestionGeneratorService } from '../aiQuestionGenerator.service';
-import { inMemoryQuestionBank } from '../../models/QuestionBank.model';
-import { inMemoryAssignments } from '../../models/QuestionAssignment.model';
-import { inMemoryAttempts } from '../../models/QuestionAttempt.model';
-import { inMemoryExclusionConfig } from '../../models/InstitutionExclusionConfig.model';
+import { rubricEvaluatorService } from '../rubricEvaluator.service';
+import { prisma } from '../../config/prisma';
 import { initSeedQuestions } from '../seedQuestions';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 describe('AIIMS Question Bank & AI Generation Engine', () => {
   beforeEach(async () => {
-    inMemoryQuestionBank.clear();
-    inMemoryAssignments.clear();
-    inMemoryAttempts.clear();
-    inMemoryExclusionConfig.scope = 'college';
-    inMemoryExclusionConfig.exclusionDays = 30;
+    resetPrismaTestDouble(true);
+    aiQuestionGeneratorService.clearActiveGenerations();
+    rubricEvaluatorService.setAICompletionRunner(async (prompt: string) => {
+      const matches = Array.from(prompt.matchAll(/CRITERION: "([^"]+)"/g));
+      const criteria =
+        matches.length > 0
+          ? matches.map((m) => ({
+              criterion: m[1],
+              score: 45,
+              maxScore: 50,
+              feedback: `Clear demonstration for ${m[1]}.`,
+            }))
+          : [
+              {
+                criterion: 'Threshold Identification',
+                score: 45,
+                maxScore: 50,
+                feedback: 'Clear identification.',
+              },
+              {
+                criterion: 'Clear Verdict',
+                score: 45,
+                maxScore: 50,
+                feedback: 'Definitive evaluation.',
+              },
+            ];
+      return JSON.stringify({
+        criteria,
+        overallScore: 90,
+        overallFeedback: 'Deterministic unit test scoring verification.',
+      });
+    });
     await initSeedQuestions();
   });
 
+  afterAll(() => {
+    aiQuestionGeneratorService.clearActiveGenerations();
+    rubricEvaluatorService.setAICompletionRunner(null as any);
+    uninstallPrismaTestDouble();
+  });
+
   describe('1. Baseline Seeding & Model Integrity', () => {
-    it('seeds approved baseline questions for General and Coding tracks across Easy, Medium, Hard', () => {
-      expect(inMemoryQuestionBank.size).toBeGreaterThanOrEqual(10);
-      const checkingEasy = inMemoryQuestionBank.get('qb-check-easy-01');
-      expect(checkingEasy).toBeDefined();
-      expect(checkingEasy.topic).toBe('Checking AI');
-      expect(checkingEasy.level).toBe('Easy');
-      expect(checkingEasy.track).toBe('General');
-      expect(checkingEasy.status).toBe('ACTIVE');
+    it('seeds approved baseline questions for General and Coding tracks across Easy, Medium, Hard', async () => {
+      const count = await prisma.questionBank.count();
+      expect(count).toBeGreaterThanOrEqual(10);
+      const checkingEasy = await prisma.questionBank.findUnique({
+        where: { questionId: 'qb-check-easy-01' },
+      });
+      expect(checkingEasy).not.toBeNull();
+      expect(checkingEasy!.topic).toBe('Checking AI');
+      expect(checkingEasy!.level).toBe('Easy');
+      expect(checkingEasy!.track).toBe('General');
+      expect(checkingEasy!.status).toBe('ACTIVE');
     });
 
     it('validates question bank coverage and calculates deficit to reach minimum target (30)', async () => {
@@ -223,11 +258,9 @@ describe('AIIMS Question Bank & AI Generation Engine', () => {
   describe('5. AI Question Generation & Bank Exhaustion', () => {
     it('triggers AI question generation when bank is exhausted', async () => {
       // Clear out all existing questions for 'AI Agents & Autonomous Workflows' / 'Easy'
-      for (const [id, q] of inMemoryQuestionBank.entries()) {
-        if (q.topic === 'AI Agents & Autonomous Workflows' && q.level === 'Easy') {
-          inMemoryQuestionBank.delete(id);
-        }
-      }
+      await prisma.questionBank.deleteMany({
+        where: { topic: 'AI Agents & Autonomous Workflows', level: 'Easy' },
+      });
 
       const res = await questionBankService.serveQuestion({
         learnerId: 'learner-ai-gen',

@@ -19,14 +19,11 @@
 
 import http from 'http';
 import { AddressInfo } from 'net';
-import mongoose from 'mongoose';
 import { app } from '../server';
 import { clearRateLimitStore } from '../middleware/rateLimit.middleware';
-import { registeredUsers } from '../models/userStore';
 import { config } from '../config/env';
-import { User } from '../models/User.model';
-import { StudentProfile } from '../models/StudentProfile.model';
-import { CreditLedger } from '../models/CreditLedger.model';
+import { prisma, isDatabaseConnected, disconnectDatabase } from '../config/prisma';
+import { installPrismaTestDouble } from '../services/__tests__/helpers/prismaTestDouble';
 
 let passed = 0;
 let failed = 0;
@@ -138,27 +135,12 @@ async function runRegistrationDiagnosisSuite() {
 
   clearRateLimitStore();
 
-  const rawUri = config.mongodbUri || process.env.MONGODB_URI;
-  if (rawUri) {
-    try {
-      const testDbName = process.env.MONGODB_TEST_DB || 'aiims_test';
-      console.log(`  (Connecting to MongoDB test database: "${testDbName}")...`);
-      await mongoose.connect(rawUri, {
-        dbName: testDbName,
-        serverSelectionTimeoutMS: 5000,
-        connectTimeoutMS: 5000,
-      });
-      if (mongoose.connection.readyState === 1) {
-        console.log('  (MongoDB test database connected successfully)\n');
-        // Initial cleanup of any prior test accounts matching pattern
-        await User.deleteMany({ email: /^regdiag_.*@example\.com$/ });
-      }
-    } catch (err: any) {
-      console.warn(
-        `  (MongoDB test connection notice: ${err.message}) - running fallback checks\n`
-      );
-    }
+  if (!isDatabaseConnected()) {
+    installPrismaTestDouble({ connected: true });
   }
+
+  // Initial cleanup of any prior test accounts matching pattern
+  await prisma.user.deleteMany({ where: { email: { startsWith: 'regdiag_' } } });
 
   const testServer = http.createServer(app);
   await new Promise<void>((resolve) => testServer.listen(0, resolve));
@@ -412,114 +394,112 @@ async function runRegistrationDiagnosisSuite() {
     // -------------------------------------------------------------------------
     console.log('\n── SUITE 6: Profile Creation Failure Rollback & Ledger Integrity ──');
 
-    if (mongoose.connection.readyState === 1) {
-      // 6A: Create a control user to verify other users' data remains completely untouched
-      const controlEmail = `regdiag_control_${Date.now()}@example.com`;
-      const controlPayload = getValidPayload(controlEmail, 'Student');
-      const controlRes = await makeRequest(testServer, {
+    // 6A: Create a control user to verify other users' data remains completely untouched
+    const controlEmail = `regdiag_control_${Date.now()}@example.com`;
+    const controlPayload = getValidPayload(controlEmail, 'Student');
+    const controlRes = await makeRequest(testServer, {
+      method: 'POST',
+      path: '/api/auth/register',
+      body: controlPayload,
+    });
+
+    assert('Control user registered successfully (HTTP 201)', controlRes.status === 201);
+    const controlUserDoc = await prisma.user.findFirst({ where: { email: controlEmail } });
+    assert('Control user exists in PostgreSQL', Boolean(controlUserDoc));
+
+    const controlLedgerRecords = await prisma.creditLedger.findMany({
+      where: { userId: controlUserDoc?.id },
+    });
+    assert(
+      'Control user has initial welcome grant in CreditLedger',
+      controlLedgerRecords.length === 1 && controlLedgerRecords[0].amount === 500
+    );
+
+    const totalLedgerCountBefore = await prisma.creditLedger.count();
+
+    // 6B: Induce StudentProfile.create failure
+    const originalStudentProfileCreate = prisma.studentProfile.create;
+    prisma.studentProfile.create = (async () => {
+      throw new Error('SIMULATED_STUDENT_PROFILE_CREATION_FAILURE');
+    }) as any;
+
+    const failingEmail = `regdiag_failing_${Date.now()}@example.com`;
+    const failingPayload = getValidPayload(failingEmail, 'Student');
+
+    let failingRes: any;
+    try {
+      failingRes = await makeRequest(testServer, {
         method: 'POST',
         path: '/api/auth/register',
-        body: controlPayload,
+        body: failingPayload,
       });
-
-      assert('Control user registered successfully (HTTP 201)', controlRes.status === 201);
-      const controlUserDoc = await User.findOne({ email: controlEmail });
-      assert('Control user exists in MongoDB', Boolean(controlUserDoc));
-
-      const controlLedgerRecords = await CreditLedger.find({ userId: String(controlUserDoc?._id) });
-      assert(
-        'Control user has initial welcome grant in CreditLedger',
-        controlLedgerRecords.length === 1 && controlLedgerRecords[0].amount === 500
-      );
-
-      const totalLedgerCountBefore = await CreditLedger.countDocuments();
-
-      // 6B: Induce StudentProfile.create failure
-      const originalStudentProfileCreate = StudentProfile.create;
-      StudentProfile.create = (async () => {
-        throw new Error('SIMULATED_STUDENT_PROFILE_CREATION_FAILURE');
-      }) as any;
-
-      const failingEmail = `regdiag_failing_${Date.now()}@example.com`;
-      const failingPayload = getValidPayload(failingEmail, 'Student');
-
-      let failingRes: any;
-      try {
-        failingRes = await makeRequest(testServer, {
-          method: 'POST',
-          path: '/api/auth/register',
-          body: failingPayload,
-        });
-      } finally {
-        // Always restore original StudentProfile.create immediately
-        StudentProfile.create = originalStudentProfileCreate;
-      }
-
-      // 6C: Assert clean HTTP error response
-      assert(
-        'Profile creation failure returns HTTP 500',
-        failingRes.status === 500,
-        `Status: ${failingRes.status}`
-      );
-      assert(
-        'Profile creation failure returns code PROFILE_SAVE_FAILED',
-        failingRes.body?.code === 'PROFILE_SAVE_FAILED'
-      );
-      assert(
-        'Profile creation failure returns meaningful user-friendly error message',
-        failingRes.body?.error === 'Unable to save learner profile. Please try again.'
-      );
-
-      // 6D: Assert user document was rolled back (deleted)
-      const rolledBackUser = await User.findOne({ email: failingEmail });
-      assert(
-        'Failing user document was rolled back and does not exist in MongoDB',
-        rolledBackUser === null
-      );
-
-      // 6E: Assert no orphaned CreditLedger records were left behind
-      const totalLedgerCountAfter = await CreditLedger.countDocuments();
-      assert(
-        'Total CreditLedger count is unchanged (no orphaned ledger entries created)',
-        totalLedgerCountAfter === totalLedgerCountBefore
-      );
-
-      // 6F: Assert other users (control user) were NOT touched
-      const preservedControlUser = await User.findOne({ email: controlEmail });
-      assert(
-        'Control user remains intact after rollback of another user',
-        preservedControlUser !== null
-      );
-      assert(
-        'Control user credit balance remains intact (500 AC)',
-        preservedControlUser?.aiimsCredits === 500
-      );
-
-      const preservedControlLedger = await CreditLedger.find({
-        userId: String(controlUserDoc?._id),
-      });
-      assert(
-        'Control user CreditLedger entry remains intact',
-        preservedControlLedger.length === 1 && preservedControlLedger[0].amount === 500
-      );
-    } else {
-      console.log('  ⚠️ Skipping Suite 6 MongoDB assertions: Running in offline fallback mode.');
+    } finally {
+      // Always restore original StudentProfile.create immediately
+      prisma.studentProfile.create = originalStudentProfileCreate;
     }
+
+    // 6C: Assert clean HTTP error response
+    assert(
+      'Profile creation failure returns HTTP 500',
+      failingRes.status === 500,
+      `Status: ${failingRes.status}`
+    );
+    assert(
+      'Profile creation failure returns code PROFILE_SAVE_FAILED',
+      failingRes.body?.code === 'PROFILE_SAVE_FAILED'
+    );
+    assert(
+      'Profile creation failure returns meaningful user-friendly error message',
+      failingRes.body?.error === 'Unable to save learner profile. Please try again.'
+    );
+
+    // 6D: Assert user document was rolled back (deleted)
+    const rolledBackUser = await prisma.user.findFirst({ where: { email: failingEmail } });
+    assert(
+      'Failing user document was rolled back and does not exist in PostgreSQL',
+      rolledBackUser === null
+    );
+
+    // 6E: Assert no orphaned CreditLedger records were left behind
+    const totalLedgerCountAfter = await prisma.creditLedger.count();
+    assert(
+      'Total CreditLedger count is unchanged (no orphaned ledger entries created)',
+      totalLedgerCountAfter === totalLedgerCountBefore
+    );
+
+    // 6F: Assert other users (control user) were NOT touched
+    const preservedControlUser = await prisma.user.findFirst({ where: { email: controlEmail } });
+    assert(
+      'Control user remains intact after rollback of another user',
+      preservedControlUser !== null
+    );
+    assert(
+      'Control user credit balance remains intact (500 AC)',
+      preservedControlUser?.aiimsCredits === 500
+    );
+
+    const preservedControlLedger = await prisma.creditLedger.findMany({
+      where: { userId: controlUserDoc?.id },
+    });
+    assert(
+      'Control user CreditLedger entry remains intact',
+      preservedControlLedger.length === 1 && preservedControlLedger[0].amount === 500
+    );
   } finally {
-    if (mongoose.connection.readyState === 1) {
-      try {
-        const testUsers = await User.find({ email: /^regdiag_.*@example\.com$/ });
-        const userIds = testUsers.map((u) => String(u._id));
-        await User.deleteMany({ email: /^regdiag_.*@example\.com$/ });
-        if (userIds.length > 0) {
-          await CreditLedger.deleteMany({ userId: { $in: userIds } });
-          await StudentProfile.deleteMany({ userId: { $in: userIds } });
-        }
-      } catch (cleanupErr: any) {
-        console.warn('Test data cleanup notice:', cleanupErr.message);
+    try {
+      const testUsers = await prisma.user.findMany({
+        where: { email: { startsWith: 'regdiag_' } },
+      });
+      const userIds = testUsers.map((u) => u.id);
+      await prisma.user.deleteMany({ where: { email: { startsWith: 'regdiag_' } } });
+      if (userIds.length > 0) {
+        await prisma.creditLedger.deleteMany({ where: { userId: { in: userIds } } });
+        await prisma.studentProfile.deleteMany({ where: { userId: { in: userIds } } });
       }
-      await mongoose.disconnect();
+    } catch (cleanupErr: any) {
+      console.warn('Test data cleanup notice:', cleanupErr.message);
     }
+    await disconnectDatabase();
     await new Promise<void>((resolve) => testServer.close(() => resolve()));
   }
 

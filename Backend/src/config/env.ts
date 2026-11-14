@@ -22,7 +22,7 @@ const INSECURE_JWT_DEFAULTS = [
  * Validates startup configuration for production environments.
  * In production (NODE_ENV=production), throws fatal error if:
  *  - JWT_SECRET is missing, shorter than 32 characters, or a known placeholder
- *  - MONGODB_URI is missing or empty
+ *  - DATABASE_URL is missing, empty, or does not use postgres:// / postgresql://
  *  - ALLOWED_ORIGINS is missing or contains '*'
  * Prints which variable is wrong, NEVER its value.
  */
@@ -50,11 +50,16 @@ export function validateStartupConfig(env: NodeJS.ProcessEnv = process.env): voi
     );
   }
 
-  // 2. MONGODB_URI validation
-  const mongodbUri = env.MONGODB_URI?.trim();
-  if (!mongodbUri) {
+  // 2. DATABASE_URL validation
+  const databaseUrl = env.DATABASE_URL?.trim();
+  if (!databaseUrl) {
     throw new Error(
-      'FATAL: Configuration error for variable MONGODB_URI: variable is missing in production.'
+      'FATAL: Configuration error for variable DATABASE_URL: variable is missing in production.'
+    );
+  }
+  if (!/^postgres(?:ql)?:\/\//i.test(databaseUrl)) {
+    throw new Error(
+      'FATAL: Configuration error for variable DATABASE_URL: must be a valid PostgreSQL connection string (postgresql:// or postgres://).'
     );
   }
 
@@ -180,6 +185,53 @@ export function resolveLoginRateLimitConfig(
 
 const initialLoginRateLimit = resolveLoginRateLimitConfig();
 
+/**
+ * Resolves the effective CORS allowed origins.
+ * In production (NODE_ENV=production):
+ *   Strictly uses ALLOWED_ORIGINS from environment. No localhost or LAN fallbacks.
+ * In development / test:
+ *   Combines standard development origins (localhost, 127.0.0.1, LAN IPs including 192.168.0.68 and 192.168.1.5)
+ *   with any explicitly configured ALLOWED_ORIGINS from environment.
+ * Always rejects/filters wildcard '*'.
+ */
+export function resolveAllowedOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
+  const raw = env.ALLOWED_ORIGINS;
+  const isProd = (env.NODE_ENV || 'development') === 'production';
+  if (isProd) {
+    if (!raw) return [];
+    return raw
+      .split(',')
+      .map((o) => o.trim())
+      .filter((o) => o && o !== '*');
+  }
+
+  // Localhost, emulator, and LAN fallbacks for local development only
+  const devDefaults = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://localhost',
+    'http://localhost',
+    'capacitor://localhost',
+    'http://192.168.1.5:3000',
+    'http://192.168.1.5:5173',
+    'http://192.168.1.5:5001',
+    'http://192.168.0.68:3000',
+    'http://192.168.0.68:5173',
+    'http://192.168.0.68:5001',
+  ];
+
+  if (raw) {
+    const explicit = raw
+      .split(',')
+      .map((o) => o.trim())
+      .filter((o) => o && o !== '*');
+    return Array.from(new Set([...devDefaults, ...explicit]));
+  }
+
+  return devDefaults;
+}
 export const config = {
   port: Number(process.env.PORT) || 5001,
   nodeEnv: process.env.NODE_ENV || 'development',
@@ -188,32 +240,8 @@ export const config = {
   claudeModel: 'claude-3-5-sonnet-20241022',
   geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
-  mongodbUri: process.env.MONGODB_URI || '',
-  allowedOrigins: (() => {
-    const raw = process.env.ALLOWED_ORIGINS;
-    const isProd = (process.env.NODE_ENV || 'development') === 'production';
-    if (raw) {
-      return raw
-        .split(',')
-        .map((o) => o.trim())
-        .filter((o) => o && o !== '*');
-    }
-    // Localhost fallbacks for local development only
-    return isProd
-      ? []
-      : [
-          'http://localhost:3000',
-          'http://127.0.0.1:3000',
-          'http://localhost:5173',
-          'http://127.0.0.1:5173',
-          'https://localhost',
-          'http://localhost',
-          'capacitor://localhost',
-          'http://192.168.1.5:3000',
-          'http://192.168.1.5:5173',
-          'http://192.168.1.5:5001',
-        ];
-  })(),
+  databaseUrl: process.env.DATABASE_URL || '',
+  allowedOrigins: resolveAllowedOrigins(),
   loginRateLimitEnvironment: initialLoginRateLimit.environment,
   loginRateLimitMax: initialLoginRateLimit.max,
   loginRateLimitWindowMs: initialLoginRateLimit.windowMs,

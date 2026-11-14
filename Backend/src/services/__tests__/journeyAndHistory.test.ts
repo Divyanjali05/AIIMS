@@ -4,69 +4,73 @@
  * AIIMS Vitest Unit Test Suite: My AI Journey & Assessment History
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 import { JourneyService } from '../journey.service';
-import { registeredUsers } from '../../models/userStore';
-import { inMemoryAttempts } from '../../models/QuestionAttempt.model';
-import { inMemoryAssignments } from '../../models/QuestionAssignment.model';
-import { inMemoryLearnerClarityProgressions } from '../../models/LearnerClarityProgression.model';
-import { inMemoryFocusSessions } from '../../models/FocusSession.model';
+import { prisma } from '../../config/prisma';
+import { toJsonInput } from '../../utils/userMapper';
 import { assessmentHistoryQuerySchema } from '../../schemas/journey.schema';
+import { resetPrismaTestDouble, uninstallPrismaTestDouble } from './helpers/prismaTestDouble';
 
 describe('AIIMS My AI Journey & Assessment History Module', () => {
   const testUserId = 'test_journey_user_vitest';
 
-  beforeEach(() => {
-    inMemoryAttempts.clear();
-    inMemoryAssignments.clear();
-    inMemoryLearnerClarityProgressions.clear();
-    inMemoryFocusSessions.clear();
+  beforeEach(async () => {
+    resetPrismaTestDouble(true);
 
-    registeredUsers[testUserId] = {
-      id: testUserId,
-      _id: testUserId,
-      email: 'vitest_journey@aiims.edu',
-      name: 'Vitest Learner',
-      role: 'Student',
-      stage: 'Understanding',
-      aiimsCredits: 200,
-      wallet: [{ toolId: 'tool-cursor', addedAt: new Date() }],
-      assessment: {
-        status: 'completed',
-        completedAt: new Date('2026-10-25T12:00:00Z').toISOString(),
-        scores: {
-          'Understanding AI': 4,
-          'Using AI': 5,
-          'Solving with AI': 4,
-          'Scaling with AI': 3,
-          'Adapting to AI': 4,
-        },
-        evaluationResult: {
-          totalScore: 20,
-          percentageScore: 80,
-          strongestSkill: { name: 'Using AI' },
-          roomToGrow: { name: 'Scaling with AI' },
-        },
+    await prisma.user.create({
+      data: {
+        id: testUserId,
+        email: 'vitest_journey@aiims.edu',
+        name: 'Vitest Learner',
+        password: 'hash',
+        role: 'learner',
+        stage: 'Understanding',
+        aiimsCredits: 200,
+        aiWalletData: toJsonInput({
+          userTools: [{ toolId: 'tool-cursor', addedAt: new Date().toISOString() }],
+          dismissedRecommendations: [],
+        }),
+        assessmentData: toJsonInput({
+          status: 'completed',
+          completedAt: new Date('2026-10-25T12:00:00Z').toISOString(),
+          scores: {
+            'Understanding AI': 4,
+            'Using AI': 5,
+            'Solving with AI': 4,
+            'Scaling with AI': 3,
+            'Adapting to AI': 4,
+          },
+          evaluationResult: {
+            totalScore: 20,
+            percentageScore: 80,
+            strongestSkill: { name: 'Using AI' },
+            roomToGrow: { name: 'Scaling with AI' },
+          },
+        }),
+        analysisData: toJsonInput({
+          status: 'viewed',
+          unlockedAt: new Date('2026-10-25T12:30:00Z').toISOString(),
+          topCapability: 'Using AI',
+          growthArea: 'Scaling with AI',
+        }),
+        clarityData: toJsonInput({
+          status: 'completed',
+          completedTopics: ['Workflow Design'],
+        }),
+        focusData: toJsonInput({
+          status: 'active',
+          selectedTrack: 'AI Agents',
+        }),
+        radarData: toJsonInput({
+          status: 'available',
+          investigatedSignalIds: [],
+        }),
       },
-      analysis: {
-        status: 'viewed',
-        unlockedAt: new Date('2026-10-25T12:30:00Z').toISOString(),
-        topCapability: 'Using AI',
-        growthArea: 'Scaling with AI',
-      },
-      clarity: {
-        status: 'completed',
-        completedTopics: ['Workflow Design'],
-      },
-      focus: {
-        status: 'active',
-        selectedTrack: 'AI Agents',
-      },
-      radar: {
-        status: 'available',
-        investigatedSignalIds: [],
-      },
-    } as any;
+    });
+  });
+
+  afterAll(() => {
+    uninstallPrismaTestDouble();
   });
 
   describe('1. Learner Journey Overview & Milestones', () => {
@@ -83,21 +87,22 @@ describe('AIIMS My AI Journey & Assessment History Module', () => {
 
     it('identifies fresh unassessed learner with 0% progress and Understand AI stage', async () => {
       const freshId = 'fresh_vitest_user';
-      registeredUsers[freshId] = {
-        id: freshId,
-        _id: freshId,
-        email: 'fresh_vitest@aiims.edu',
-        name: 'Fresh Vitest',
-        role: 'Student',
-        stage: 'Knowing',
-        aiimsCredits: 100,
-        wallet: [],
-        assessment: { status: 'not_started' },
-        analysis: { status: 'locked' },
-        clarity: { status: 'locked' },
-        focus: { status: 'locked' },
-        radar: { status: 'locked' },
-      } as any;
+      await prisma.user.create({
+        data: {
+          id: freshId,
+          email: 'fresh_vitest@aiims.edu',
+          name: 'Fresh Vitest',
+          password: 'hash',
+          role: 'learner',
+          stage: 'Knowing',
+          aiimsCredits: 100,
+          assessmentData: toJsonInput({ status: 'not_started' }),
+          analysisData: toJsonInput({ status: 'locked' }),
+          clarityData: toJsonInput({ status: 'locked' }),
+          focusData: toJsonInput({ status: 'locked' }),
+          radarData: toJsonInput({ status: 'locked' }),
+        },
+      });
 
       const overview = await JourneyService.getJourneyOverview(freshId);
       expect(overview.completedMilestonesCount).toBe(0);
@@ -109,37 +114,43 @@ describe('AIIMS My AI Journey & Assessment History Module', () => {
 
   describe('2. Assessment History & Individual Attempts', () => {
     it('preserves multiple attempts as separate immutable records with correct scores', async () => {
-      inMemoryAttempts.set('vitest_att_1', {
-        attemptId: 'vitest_att_1',
-        assignmentId: 'assign_1',
-        learnerId: testUserId,
-        questionId: 'q_1',
-        topic: 'AI Workflows',
-        level: 'Easy',
-        startedAt: new Date('2026-10-26T10:00:00Z'),
-        submittedAt: new Date('2026-10-26T10:15:00Z'),
-        submittedAnswer: 'Answer 1',
-        score: 95,
-        evaluationStatus: 'EVALUATED',
-        timeTakenSeconds: 900,
-        rubricFeedback: [{ criterion: 'System Boundaries', score: 5, maxScore: 5 }],
-      } as any);
+      await prisma.questionAttempt.create({
+        data: {
+          attemptId: 'vitest_att_1',
+          assignmentId: 'assign_1',
+          learnerId: testUserId,
+          questionId: 'q_1',
+          topic: 'AI Workflows',
+          level: 'Easy',
+          startedAt: new Date('2026-10-26T10:00:00Z'),
+          submittedAt: new Date('2026-10-26T10:15:00Z'),
+          submittedAnswer: 'Answer 1',
+          score: 95,
+          overallFeedback: 'Thorough answer',
+          evaluationStatus: 'EVALUATED',
+          timeTakenSeconds: 900,
+          rubricFeedback: toJsonInput([{ criterion: 'System Boundaries', score: 5, maxScore: 5 }]),
+        },
+      });
 
-      inMemoryAttempts.set('vitest_att_2', {
-        attemptId: 'vitest_att_2',
-        assignmentId: 'assign_2',
-        learnerId: testUserId,
-        questionId: 'q_2',
-        topic: 'AI Workflows',
-        level: 'Medium',
-        startedAt: new Date('2026-10-27T10:00:00Z'),
-        submittedAt: new Date('2026-10-27T10:20:00Z'),
-        submittedAnswer: 'Answer 2',
-        score: 85,
-        evaluationStatus: 'EVALUATED',
-        timeTakenSeconds: 1200,
-        rubricFeedback: [{ criterion: 'System Boundaries', score: 4, maxScore: 5 }],
-      } as any);
+      await prisma.questionAttempt.create({
+        data: {
+          attemptId: 'vitest_att_2',
+          assignmentId: 'assign_2',
+          learnerId: testUserId,
+          questionId: 'q_2',
+          topic: 'AI Workflows',
+          level: 'Medium',
+          startedAt: new Date('2026-10-27T10:00:00Z'),
+          submittedAt: new Date('2026-10-27T10:20:00Z'),
+          submittedAnswer: 'Answer 2',
+          score: 85,
+          overallFeedback: 'Good answer',
+          evaluationStatus: 'EVALUATED',
+          timeTakenSeconds: 1200,
+          rubricFeedback: toJsonInput([{ criterion: 'System Boundaries', score: 4, maxScore: 5 }]),
+        },
+      });
 
       const history = await JourneyService.getAssessmentHistory(testUserId, { page: 1, limit: 10 });
       const clarityAttempts = history.records.filter(
@@ -167,31 +178,35 @@ describe('AIIMS My AI Journey & Assessment History Module', () => {
       const today = new Date();
       today.setHours(9, 0, 0, 0);
 
-      inMemoryFocusSessions.set('sess_complete', {
-        sessionId: 'sess_complete',
-        learnerId: testUserId,
-        trackTitle: 'AI Agents',
-        sessionState: 'completed',
-        status: 'completed',
-        accumulatedFocusSeconds: 1800, // 30 mins
-        totalBreakSeconds: 300, // 5 mins break
-        completedCycles: 1,
-        startedAt: today,
-        completedAt: new Date(today.getTime() + 2100 * 1000),
-      } as any);
+      await prisma.focusSession.create({
+        data: {
+          sessionId: 'sess_complete',
+          learnerId: testUserId,
+          trackTitle: 'AI Agents',
+          sessionState: 'completed',
+          status: 'completed',
+          accumulatedFocusSeconds: 1800, // 30 mins
+          totalBreakSeconds: 300, // 5 mins break
+          completedCycles: 1,
+          startedAt: today,
+          completedAt: new Date(today.getTime() + 2100 * 1000),
+        },
+      });
 
-      inMemoryFocusSessions.set('sess_abandoned', {
-        sessionId: 'sess_abandoned',
-        learnerId: testUserId,
-        trackTitle: 'AI Agents',
-        sessionState: 'abandoned',
-        status: 'abandoned',
-        accumulatedFocusSeconds: 120, // 2 mins
-        totalBreakSeconds: 0,
-        completedCycles: 0,
-        startedAt: new Date(today.getTime() + 2200 * 1000),
-        completedAt: new Date(today.getTime() + 2320 * 1000),
-      } as any);
+      await prisma.focusSession.create({
+        data: {
+          sessionId: 'sess_abandoned',
+          learnerId: testUserId,
+          trackTitle: 'AI Agents',
+          sessionState: 'abandoned',
+          status: 'abandoned',
+          accumulatedFocusSeconds: 120, // 2 mins
+          totalBreakSeconds: 0,
+          completedCycles: 0,
+          startedAt: new Date(today.getTime() + 2200 * 1000),
+          completedAt: new Date(today.getTime() + 2320 * 1000),
+        },
+      });
 
       const focusSummary = await JourneyService.getFocusActivity(testUserId);
       expect(focusSummary.todayFocusMinutes).toBe(30);
@@ -203,11 +218,15 @@ describe('AIIMS My AI Journey & Assessment History Module', () => {
   describe('4. Skill Analytics & Recommendations', () => {
     it('gating check triggers when learner has insufficient data', async () => {
       const unassessedId = 'unassessed_analytics_usr';
-      registeredUsers[unassessedId] = {
-        id: unassessedId,
-        _id: unassessedId,
-        assessment: { status: 'not_started' },
-      } as any;
+      await prisma.user.create({
+        data: {
+          id: unassessedId,
+          email: 'unassessed@aiims.edu',
+          name: 'Unassessed User',
+          password: 'hash',
+          assessmentData: toJsonInput({ status: 'not_started' }),
+        },
+      });
 
       const analytics = await JourneyService.getPerformanceAnalytics(unassessedId);
       expect(analytics.hasSufficientData).toBe(false);

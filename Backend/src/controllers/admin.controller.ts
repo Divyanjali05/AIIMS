@@ -1,13 +1,23 @@
 import { Response } from 'express';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
-import mongoose from 'mongoose';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { User } from '../models/User.model';
-import { Task, defaultTasks } from '../models/Task.model';
-import { Submission, memorySubmissions } from '../models/Submission.model';
-import { AuditLog, memoryAuditLogs, writeAuditLog } from '../models/AuditLog.model';
-import { registeredUsers, isSafeKey, saveRegisteredUser } from '../models/userStore';
+import { prisma, isDatabaseConnected, isPrismaErrorCode } from '../config/prisma';
+import { writeAuditLog } from '../services/auditLog.service';
+import {
+  hashPassword,
+  defaultAssessment,
+  defaultAnalysis,
+  defaultClarity,
+  defaultFocus,
+  defaultRadar,
+  defaultInvestigation,
+  defaultSolver,
+  defaultBuild,
+  defaultNotifications,
+  defaultAiWallet,
+  toJsonInput,
+} from '../utils/userMapper';
+import { isSafeKey, isValidId, withLegacyId, toRecord } from '../utils/id';
 
 /**
  * Format milliseconds into human-readable duration.
@@ -43,6 +53,17 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
   }
 
   const normalizedEmail = email.toLowerCase().trim();
+  if (!isSafeKey(normalizedEmail) || !normalizedEmail.includes('@')) {
+    return res.status(400).json({ error: 'Invalid evaluator email address.' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const tempPassword =
     password && typeof password === 'string' && password.length >= 8
       ? password
@@ -50,37 +71,52 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
 
   const inviteToken = crypto.randomBytes(24).toString('hex');
   const inviteTokenExpires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const hashedPassword = await hashPassword(tempPassword);
 
-  const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-  if (mongoose.connection.readyState === 1) {
-    const existing = await User.findOne({ email: normalizedEmail });
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
       return res.status(400).json({ error: 'A user with this email already exists.' });
     }
 
-    const newEvaluator = await User.create({
-      name: name.trim(),
-      email: normalizedEmail,
-      password: hashedPassword,
-      role: 'evaluator',
-      isActive: true,
-      mustChangePassword: true,
-      inviteToken,
-      inviteTokenExpires,
-      college: 'AIIMS Evaluation Panel',
-      targetGoal: 'AI Evaluation & Assessment',
-      stage: 'Applying',
-      xpPoints: 500,
-      aiimsCredits: 0,
+    const newEvaluator = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: 'evaluator',
+        isActive: true,
+        mustChangePassword: true,
+        inviteToken,
+        inviteTokenExpires,
+        college: 'AIIMS Evaluation Panel',
+        targetGoal: 'AI Evaluation & Assessment',
+        stage: 'Applying',
+        xpPoints: 500,
+        aiimsCredits: 0,
+        assessmentStatus: 'not_started',
+        assessmentData: toJsonInput(defaultAssessment()),
+        analysisData: toJsonInput(defaultAnalysis()),
+        clarityData: toJsonInput(defaultClarity()),
+        focusData: toJsonInput(defaultFocus()),
+        radarData: toJsonInput(defaultRadar()),
+        investigationData: toJsonInput(defaultInvestigation()),
+        solverData: toJsonInput(defaultSolver()),
+        buildData: toJsonInput(defaultBuild()),
+        relevanceData: toJsonInput({ status: 'locked' }),
+        mentorData: toJsonInput({ status: 'locked' }),
+        transactionsData: toJsonInput([]),
+        notificationsData: toJsonInput(defaultNotifications()),
+        aiWalletData: toJsonInput(defaultAiWallet()),
+      },
     });
 
     await writeAuditLog({
-      actor: admin._id || admin.id,
+      actor: String(admin.id || admin._id),
       actorName: admin.name,
       actorRole: admin.role || 'admin',
       action: 'CREATE_EVALUATOR',
-      target: String(newEvaluator._id),
+      target: String(newEvaluator.id),
       targetType: 'User',
       details: { email: normalizedEmail, name: name.trim() },
     });
@@ -89,7 +125,7 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
       success: true,
       message: 'Evaluator account created successfully.',
       evaluator: {
-        id: String(newEvaluator._id),
+        id: String(newEvaluator.id),
         name: newEvaluator.name,
         email: newEvaluator.email,
         role: newEvaluator.role,
@@ -103,65 +139,13 @@ export const createEvaluator = async (req: AuthenticatedRequest, res: Response) 
         expiresAt: inviteTokenExpires,
       },
     });
+  } catch (err: unknown) {
+    if (isPrismaErrorCode(err, 'P2002')) {
+      return res.status(400).json({ error: 'A user with this email already exists.' });
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to create evaluator account.', details: msg });
   }
-
-  // Fallback memory store with safe key guard against prototype pollution
-  if (!isSafeKey(normalizedEmail)) {
-    return res.status(400).json({ error: 'Invalid evaluator email address.' });
-  }
-  if (registeredUsers[normalizedEmail]) {
-    return res.status(400).json({ error: 'A user with this email already exists.' });
-  }
-
-  const memoryId = `usr-eval-${Date.now()}`;
-  const memoryEvaluator: any = {
-    _id: memoryId,
-    id: memoryId,
-    name: name.trim(),
-    email: normalizedEmail,
-    password: hashedPassword,
-    role: 'evaluator',
-    isActive: true,
-    mustChangePassword: true,
-    inviteToken,
-    inviteTokenExpires,
-    college: 'AIIMS Evaluation Panel',
-    targetGoal: 'AI Evaluation & Assessment',
-    stage: 'Applying',
-    xpPoints: 500,
-    aiimsCredits: 0,
-    transactions: [],
-  };
-  saveRegisteredUser(normalizedEmail, memoryEvaluator);
-
-  await writeAuditLog({
-    actor: admin._id || admin.id,
-    actorName: admin.name,
-    actorRole: admin.role || 'admin',
-    action: 'CREATE_EVALUATOR',
-    target: memoryId,
-    targetType: 'User',
-    details: { email: normalizedEmail, name: name.trim() },
-  });
-
-  return res.status(201).json({
-    success: true,
-    message: 'Evaluator account created successfully.',
-    evaluator: {
-      id: memoryId,
-      name: memoryEvaluator.name,
-      email: memoryEvaluator.email,
-      role: memoryEvaluator.role,
-      isActive: memoryEvaluator.isActive,
-      mustChangePassword: memoryEvaluator.mustChangePassword,
-    },
-    invite: {
-      temporaryPassword: tempPassword,
-      inviteToken,
-      setPasswordUrl: `/auth/set-password?token=${inviteToken}&email=${encodeURIComponent(normalizedEmail)}`,
-      expiresAt: inviteTokenExpires,
-    },
-  });
 };
 
 /**
@@ -177,106 +161,117 @@ export const updateEvaluatorStatus = async (req: AuthenticatedRequest, res: Resp
     return res.status(400).json({ error: 'isActive boolean is required.' });
   }
 
-  let evaluator: any = null;
-
-  if (mongoose.connection.readyState === 1 && mongoose.Types.ObjectId.isValid(id)) {
-    evaluator = await User.findById(id);
-    if (evaluator) {
-      evaluator.isActive = isActive;
-      await evaluator.save();
-    }
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  if (!evaluator) {
-    for (const key of Object.keys(registeredUsers)) {
-      const u = registeredUsers[key];
-      if (String(u._id) === id || String(u.id) === id) {
-        u.isActive = isActive;
-        evaluator = u;
-        break;
-      }
-    }
-  }
-
-  if (!evaluator) {
+  if (!isValidId(id)) {
     return res.status(404).json({ error: 'Evaluator not found.' });
   }
 
-  const action = isActive ? 'ENABLE_EVALUATOR' : 'DISABLE_EVALUATOR';
-  await writeAuditLog({
-    actor: admin._id || admin.id,
-    actorName: admin.name,
-    actorRole: admin.role || 'admin',
-    action,
-    target: String(evaluator._id || evaluator.id),
-    targetType: 'User',
-    details: { email: evaluator.email, isActive },
-  });
+  try {
+    const evaluator = await prisma.user.update({
+      where: { id },
+      data: { isActive },
+    });
 
-  return res.json({
-    success: true,
-    message: `Evaluator account ${isActive ? 'enabled' : 'disabled'} successfully.`,
-    evaluator: {
-      id: String(evaluator._id || evaluator.id),
-      email: evaluator.email,
-      role: evaluator.role,
-      isActive: evaluator.isActive,
-    },
-  });
+    const action = isActive ? 'ENABLE_EVALUATOR' : 'DISABLE_EVALUATOR';
+    await writeAuditLog({
+      actor: String(admin.id || admin._id),
+      actorName: admin.name,
+      actorRole: admin.role || 'admin',
+      action,
+      target: String(evaluator.id),
+      targetType: 'User',
+      details: { email: evaluator.email, isActive },
+    });
+
+    return res.json({
+      success: true,
+      message: `Evaluator account ${isActive ? 'enabled' : 'disabled'} successfully.`,
+      evaluator: {
+        id: String(evaluator.id),
+        email: evaluator.email,
+        role: evaluator.role,
+        isActive: evaluator.isActive,
+      },
+    });
+  } catch (err: unknown) {
+    if (isPrismaErrorCode(err, 'P2025')) {
+      return res.status(404).json({ error: 'Evaluator not found.' });
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to update evaluator status.', details: msg });
+  }
 };
 
 /**
  * GET /admin/evaluators
  * List all evaluators.
  */
-export const listEvaluators = async (req: AuthenticatedRequest, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const evaluators = await User.find({ role: 'evaluator' })
-        .select('_id name email role isActive mustChangePassword createdAt')
-        .lean();
-      return res.json({
-        success: true,
-        count: evaluators.length,
-        evaluators,
-      });
-    } catch {}
+export const listEvaluators = async (_req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const memoryEvaluators = Object.values(registeredUsers).filter(
-    (u: any) => u.role === 'evaluator'
-  );
+  try {
+    const evaluators = await prisma.user.findMany({
+      where: { role: 'evaluator' },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        mustChangePassword: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return res.json({
-    success: true,
-    count: memoryEvaluators.length,
-    evaluators: memoryEvaluators,
-  });
+    return res.json({
+      success: true,
+      count: evaluators.length,
+      evaluators: evaluators.map(withLegacyId),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to list evaluators.', details: msg });
+  }
 };
 
 /**
  * GET /admin/tasks
  * Lists all tasks available in the system.
  */
-export const listTasks = async (req: AuthenticatedRequest, res: Response) => {
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const tasks = await Task.find({}).sort({ level: 1, createdAt: 1 }).lean();
-      if (tasks.length > 0) {
-        return res.json({
-          success: true,
-          count: tasks.length,
-          tasks,
-        });
-      }
-    } catch {}
+export const listTasks = async (_req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  return res.json({
-    success: true,
-    count: defaultTasks.length,
-    tasks: defaultTasks,
-  });
+  try {
+    const tasks = await prisma.task.findMany({
+      orderBy: [{ level: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return res.json({
+      success: true,
+      count: tasks.length,
+      tasks: tasks.map(withLegacyId),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to list tasks.', details: msg });
+  }
 };
 
 /**
@@ -295,25 +290,34 @@ export const createTask = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ error: 'Title is required.' });
   }
 
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const cleanTaskId = taskId.trim();
 
-  if (mongoose.connection.readyState === 1) {
-    const existing = await Task.findOne({ taskId: cleanTaskId });
+  try {
+    const existing = await prisma.task.findUnique({ where: { taskId: cleanTaskId } });
     if (existing) {
       return res.status(400).json({ error: `Task with taskId '${cleanTaskId}' already exists.` });
     }
 
-    const newTask = await Task.create({
-      taskId: cleanTaskId,
-      title: title.trim(),
-      description: (description || '').trim(),
-      category: category || 'General AI',
-      level: Number(level) || 1,
-      isActive: true,
+    const newTask = await prisma.task.create({
+      data: {
+        taskId: cleanTaskId,
+        title: title.trim(),
+        description: (description || '').trim(),
+        category: category || 'General AI',
+        level: Number(level) || 1,
+        isActive: true,
+      },
     });
 
     await writeAuditLog({
-      actor: admin._id || admin.id,
+      actor: String(admin.id || admin._id),
       actorName: admin.name,
       actorRole: admin.role || 'admin',
       action: 'CREATE_TASK',
@@ -325,36 +329,15 @@ export const createTask = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(201).json({
       success: true,
       message: 'Task created successfully.',
-      task: newTask,
+      task: withLegacyId(newTask),
     });
+  } catch (err: unknown) {
+    if (isPrismaErrorCode(err, 'P2002')) {
+      return res.status(400).json({ error: `Task with taskId '${cleanTaskId}' already exists.` });
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to create task.', details: msg });
   }
-
-  // Memory fallback
-  const memoryTask = {
-    taskId: cleanTaskId,
-    title: title.trim(),
-    description: (description || '').trim(),
-    category: category || 'General AI',
-    level: Number(level) || 1,
-    isActive: true,
-  };
-  defaultTasks.push(memoryTask);
-
-  await writeAuditLog({
-    actor: admin._id || admin.id,
-    actorName: admin.name,
-    actorRole: admin.role || 'admin',
-    action: 'CREATE_TASK',
-    target: cleanTaskId,
-    targetType: 'Task',
-    details: { title: memoryTask.title, level: memoryTask.level },
-  });
-
-  return res.status(201).json({
-    success: true,
-    message: 'Task created successfully.',
-    task: memoryTask,
-  });
 };
 
 /**
@@ -366,53 +349,54 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response) => {
   const { title, description, category, level, isActive } = req.body;
   const admin = req.user!;
 
-  let task: any = null;
-
-  if (mongoose.connection.readyState === 1) {
-    task = await Task.findOne({
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { taskId: id }],
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
-    if (task) {
-      if (title !== undefined) task.title = String(title).trim();
-      if (description !== undefined) task.description = String(description).trim();
-      if (category !== undefined) task.category = String(category);
-      if (level !== undefined) task.level = Number(level);
-      if (isActive !== undefined) task.isActive = Boolean(isActive);
-      await task.save();
+  }
+
+  try {
+    const existing = await prisma.task.findFirst({
+      where: {
+        OR: [...(isValidId(id) ? [{ id }] : []), { taskId: id }],
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Task not found.' });
     }
+
+    const task = await prisma.task.update({
+      where: { id: existing.id },
+      data: {
+        ...(title !== undefined ? { title: String(title).trim() } : {}),
+        ...(description !== undefined ? { description: String(description).trim() } : {}),
+        ...(category !== undefined ? { category: String(category) } : {}),
+        ...(level !== undefined ? { level: Number(level) } : {}),
+        ...(isActive !== undefined ? { isActive: Boolean(isActive) } : {}),
+      },
+    });
+
+    await writeAuditLog({
+      actor: String(admin.id || admin._id),
+      actorName: admin.name,
+      actorRole: admin.role || 'admin',
+      action: 'UPDATE_TASK',
+      target: task.taskId || id,
+      targetType: 'Task',
+      details: { title: task.title, isActive: task.isActive },
+    });
+
+    return res.json({
+      success: true,
+      message: 'Task updated successfully.',
+      task: withLegacyId(task),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to update task.', details: msg });
   }
-
-  if (!task) {
-    const memIdx = defaultTasks.findIndex((t) => t.taskId === id);
-    if (memIdx !== -1) {
-      if (title !== undefined) defaultTasks[memIdx].title = String(title).trim();
-      if (description !== undefined) defaultTasks[memIdx].description = String(description).trim();
-      if (category !== undefined) defaultTasks[memIdx].category = String(category);
-      if (level !== undefined) defaultTasks[memIdx].level = Number(level);
-      if (isActive !== undefined) defaultTasks[memIdx].isActive = Boolean(isActive);
-      task = defaultTasks[memIdx];
-    }
-  }
-
-  if (!task) {
-    return res.status(404).json({ error: 'Task not found.' });
-  }
-
-  await writeAuditLog({
-    actor: admin._id || admin.id,
-    actorName: admin.name,
-    actorRole: admin.role || 'admin',
-    action: 'UPDATE_TASK',
-    target: task.taskId || id,
-    targetType: 'Task',
-    details: { title: task.title, isActive: task.isActive },
-  });
-
-  return res.json({
-    success: true,
-    message: 'Task updated successfully.',
-    task,
-  });
 };
 
 /**
@@ -423,38 +407,40 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const admin = req.user!;
 
-  if (mongoose.connection.readyState === 1) {
-    const deleted = await Task.findOneAndDelete({
-      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { taskId: id }],
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
     });
-    if (deleted) {
-      await writeAuditLog({
-        actor: admin._id || admin.id,
-        actorName: admin.name,
-        actorRole: admin.role || 'admin',
-        action: 'DELETE_TASK',
-        target: deleted.taskId,
-        targetType: 'Task',
-      });
-      return res.json({ success: true, message: 'Task deleted successfully.' });
-    }
   }
 
-  const memIdx = defaultTasks.findIndex((t) => t.taskId === id);
-  if (memIdx !== -1) {
-    const [removed] = defaultTasks.splice(memIdx, 1);
+  try {
+    const existing = await prisma.task.findFirst({
+      where: {
+        OR: [...(isValidId(id) ? [{ id }] : []), { taskId: id }],
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Task not found.' });
+    }
+
+    const deleted = await prisma.task.delete({ where: { id: existing.id } });
+
     await writeAuditLog({
-      actor: admin._id || admin.id,
+      actor: String(admin.id || admin._id),
       actorName: admin.name,
       actorRole: admin.role || 'admin',
       action: 'DELETE_TASK',
-      target: removed.taskId,
+      target: deleted.taskId,
       targetType: 'Task',
     });
-    return res.json({ success: true, message: 'Task deleted successfully.' });
-  }
 
-  return res.status(404).json({ error: 'Task not found.' });
+    return res.json({ success: true, message: 'Task deleted successfully.' });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to delete task.', details: msg });
+  }
 };
 
 /**
@@ -463,61 +449,70 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response) => {
  *   - counts by status (submitted, in_review, feedback_given, revision_requested, accepted, total)
  *   - average review time
  */
-export const getSummaryReport = async (req: AuthenticatedRequest, res: Response) => {
-  let allSubmissions: any[] = [];
-
-  if (mongoose.connection.readyState === 1) {
-    try {
-      allSubmissions = await Submission.find({}).lean();
-    } catch {}
+export const getSummaryReport = async (_req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  if (allSubmissions.length === 0 && memorySubmissions.length > 0) {
-    allSubmissions = memorySubmissions;
-  }
+  try {
+    const allSubmissions = await prisma.submission.findMany({
+      select: {
+        status: true,
+        submittedAt: true,
+        reviewedAt: true,
+      },
+    });
 
-  const statusCounts = {
-    submitted: 0,
-    in_review: 0,
-    feedback_given: 0,
-    revision_requested: 0,
-    accepted: 0,
-    total: allSubmissions.length,
-  };
+    const statusCounts = {
+      submitted: 0,
+      in_review: 0,
+      feedback_given: 0,
+      revision_requested: 0,
+      accepted: 0,
+      total: allSubmissions.length,
+    };
 
-  let totalReviewTimeMs = 0;
-  let reviewedCount = 0;
+    let totalReviewTimeMs = 0;
+    let reviewedCount = 0;
 
-  for (const s of allSubmissions) {
-    if (s.status in statusCounts) {
-      (statusCounts as any)[s.status]++;
-    }
+    for (const s of allSubmissions) {
+      if (s.status in statusCounts) {
+        (statusCounts as Record<string, number>)[s.status]++;
+      }
 
-    if (s.reviewedAt && s.submittedAt) {
-      const reviewDuration = new Date(s.reviewedAt).getTime() - new Date(s.submittedAt).getTime();
-      if (reviewDuration >= 0) {
-        totalReviewTimeMs += reviewDuration;
-        reviewedCount++;
+      if (s.reviewedAt && s.submittedAt) {
+        const reviewDuration = new Date(s.reviewedAt).getTime() - new Date(s.submittedAt).getTime();
+        if (reviewDuration >= 0) {
+          totalReviewTimeMs += reviewDuration;
+          reviewedCount++;
+        }
       }
     }
-  }
 
-  const averageReviewTimeMs = reviewedCount > 0 ? Math.round(totalReviewTimeMs / reviewedCount) : 0;
+    const averageReviewTimeMs =
+      reviewedCount > 0 ? Math.round(totalReviewTimeMs / reviewedCount) : 0;
 
-  return res.json({
-    success: true,
-    generatedAt: new Date(),
-    summary: {
-      statusCounts,
-      metrics: {
-        totalSubmissions: allSubmissions.length,
-        reviewedCount,
-        pendingReviewCount: statusCounts.submitted + statusCounts.in_review,
-        averageReviewTimeMs,
-        averageReviewTimeFormatted: formatDuration(averageReviewTimeMs),
+    return res.json({
+      success: true,
+      generatedAt: new Date(),
+      summary: {
+        statusCounts,
+        metrics: {
+          totalSubmissions: allSubmissions.length,
+          reviewedCount,
+          pendingReviewCount: statusCounts.submitted + statusCounts.in_review,
+          averageReviewTimeMs,
+          averageReviewTimeFormatted: formatDuration(averageReviewTimeMs),
+        },
       },
-    },
-  });
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to generate summary report.', details: msg });
+  }
 };
 
 /**
@@ -525,36 +520,107 @@ export const getSummaryReport = async (req: AuthenticatedRequest, res: Response)
  * List all recorded audit logs, newest first.
  */
 export const getAuditLogs = async (req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
   const page = Math.max(1, Number(req.query.page) || 1);
   const skip = (page - 1) * limit;
 
-  if (mongoose.connection.readyState === 1) {
-    try {
-      const [logs, total] = await Promise.all([
-        AuditLog.find({}).sort({ time: -1 }).skip(skip).limit(limit).lean(),
-        AuditLog.countDocuments({}),
-      ]);
-      return res.json({
-        success: true,
-        page,
-        limit,
-        total,
-        auditLogs: logs,
-      });
-    } catch {}
+  try {
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        orderBy: { time: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.auditLog.count(),
+    ]);
+
+    return res.json({
+      success: true,
+      page,
+      limit,
+      total,
+      auditLogs: logs.map((l) =>
+        withLegacyId({
+          ...l,
+          details: toRecord(l.details),
+        })
+      ),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to fetch audit logs.', details: msg });
+  }
+};
+
+/**
+ * GET /admin/billing/summary
+ * Admin-only read-only financial ledger summary and payment readiness audit.
+ * Enforces Rule: Only authorized administrators may access sensitive billing information.
+ */
+export const getFinancialSummary = async (_req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
   }
 
-  const sortedMemory = [...memoryAuditLogs].sort(
-    (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-  );
-  const pagedMemory = sortedMemory.slice(skip, skip + limit);
+  try {
+    const [totalUsers, totalLedgerEntries, users, ledgerEntries] = await Promise.all([
+      prisma.user.count(),
+      prisma.creditLedger.count(),
+      prisma.user.findMany({
+        select: { aiimsCredits: true },
+      }),
+      prisma.creditLedger.findMany({
+        select: { type: true, amount: true },
+      }),
+    ]);
 
-  return res.json({
-    success: true,
-    page,
-    limit,
-    total: sortedMemory.length,
-    auditLogs: pagedMemory,
-  });
+    let totalEarned = 0;
+    let totalSpent = 0;
+    let totalRefunded = 0;
+
+    for (const entry of ledgerEntries) {
+      if (entry.type === 'EARN' || entry.type === 'ADJUSTMENT') {
+        totalEarned += entry.amount;
+      } else if (entry.type === 'SPEND') {
+        totalSpent += entry.amount;
+      } else if (entry.type === 'REFUND') {
+        totalRefunded += entry.amount;
+      }
+    }
+
+    const circulatingCredits = users.reduce((sum, u) => sum + (u.aiimsCredits ?? 0), 0);
+
+    return res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      monetizationStatus: {
+        paymentGatewayIntegrated: false,
+        paymentGatewayStatus: 'PREVIEW',
+        subscriptionModelStatus: 'UNAPPROVED_D7',
+        directCreditPurchasesEnabled: false,
+      },
+      ledgerMetrics: {
+        totalUsers,
+        totalLedgerEntries,
+        circulatingCredits,
+        totalEarned,
+        totalSpent,
+        totalRefunded,
+        netLedgerBalance: totalEarned + totalRefunded - totalSpent,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: 'Failed to generate financial summary.', details: msg });
+  }
 };

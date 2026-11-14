@@ -36,8 +36,17 @@ import {
   getProgramsForStreamAndLevel,
   getSpecializationsForProgram,
   getYearsForLevel,
-  getAdmissionYears,
-  getExpectedGraduationYears,
+  getProgramDuration,
+  getStudyYearsForProgram,
+  getDynamicStartYears,
+  getDynamicGraduationYears,
+  deriveExpectedGraduationYear,
+  VENTURE_STAGES,
+  VENTURE_INDUSTRIES,
+  ENTREPRENEUR_GOALS,
+  SKILLS_TO_DEVELOP,
+  BUSINESS_CHALLENGES,
+  PREFERRED_SUPPORT_AREAS,
 } from '../../config/academicTaxonomy';
 import { apiClient } from '../../api/client';
 import { calculatePasswordStrength, isCommonPassword } from '../../utils/passwordSecurity';
@@ -59,8 +68,11 @@ interface InstituteOption {
   type?: string;
 }
 
-const STEP_LABELS = ['Account', 'Academics', 'AI Profile'];
-const STEP_ICONS = [User, GraduationCap, Sparkles];
+const STUDENT_STEP_LABELS = ['Account', 'Academics', 'AI Profile'];
+const STUDENT_STEP_ICONS = [User, GraduationCap, Sparkles];
+
+const ENTREPRENEUR_STEP_LABELS = ['Account', 'Venture Info', 'Growth & Goals'];
+const ENTREPRENEUR_STEP_ICONS = [User, Briefcase, Sparkles];
 
 // ─── Shared input style ─────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -112,6 +124,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Dynamic Stepper definitions
+  const stepLabels = track === 'Entrepreneur' ? ENTREPRENEUR_STEP_LABELS : STUDENT_STEP_LABELS;
+  const stepIcons = track === 'Entrepreneur' ? ENTREPRENEUR_STEP_ICONS : STUDENT_STEP_ICONS;
+
   // Password strength
   const passwordStrength = calculatePasswordStrength(password);
 
@@ -128,13 +144,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     confirmPassword === password
   );
 
-  // ── Step 2: Academics ─────────────────────────────────────────────────────
+  // ── Step 2: Academics (Student) ───────────────────────────────────────────
   const [instituteQuery, setInstituteQuery] = useState('');
   const [instituteOptions, setInstituteOptions] = useState<InstituteOption[]>([]);
   const [selectedInstitute, setSelectedInstitute] = useState<InstituteOption | null>(null);
   const [instituteDropdownOpen, setInstituteDropdownOpen] = useState(false);
   const [isLoadingInstitutes, setIsLoadingInstitutes] = useState(false);
-  const [showRequestInstitute, setShowRequestInstitute] = useState(false);
+  const [isCustomCollege, setIsCustomCollege] = useState(false);
+  const [customCollegeName, setCustomCollegeName] = useState('');
 
   const [stream, setStream] = useState<Stream | ''>('');
   const [streamSubCategory, setStreamSubCategory] = useState('');
@@ -145,7 +162,37 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [admissionYear, setAdmissionYear] = useState<number | ''>('');
   const [expectedGraduationYear, setExpectedGraduationYear] = useState<number | ''>('');
 
-  // Derived lists
+  // ── Step 2 & 3: Entrepreneur Specific Onboarding State ────────────────────
+  const [ventureName, setVentureName] = useState('');
+  const [isIdeationVenture, setIsIdeationVenture] = useState(false);
+  const [industry, setIndustry] = useState(VENTURE_INDUSTRIES[0]);
+  const [problemStatement, setProblemStatement] = useState('');
+  const [ventureStage, setVentureStage] = useState('exploring_idea');
+
+  const [entrepreneurGoal, setEntrepreneurGoal] = useState(ENTREPRENEUR_GOALS[0].value);
+  const [skillsToDevelop, setSkillsToDevelop] = useState<string[]>([SKILLS_TO_DEVELOP[0]]);
+  const [businessChallenges, setBusinessChallenges] = useState<string[]>([BUSINESS_CHALLENGES[0]]);
+  const [preferredSupport, setPreferredSupport] = useState<string[]>([PREFERRED_SUPPORT_AREAS[0]]);
+
+  const toggleSkill = (skill: string) => {
+    setSkillsToDevelop((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
+  };
+
+  const toggleChallenge = (item: string) => {
+    setBusinessChallenges((prev) =>
+      prev.includes(item) ? prev.filter((c) => c !== item) : [...prev, item]
+    );
+  };
+
+  const toggleSupport = (item: string) => {
+    setPreferredSupport((prev) =>
+      prev.includes(item) ? prev.filter((s) => s !== item) : [...prev, item]
+    );
+  };
+
+  // Derived lists for Student
   const subCategories = stream
     ? stream === 'TECH'
       ? TECH_SUB_CATEGORIES
@@ -157,9 +204,29 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       : [];
   const availableSpecializations =
     programId && stream ? getSpecializationsForProgram(programId, stream as Stream) : [];
-  const availableYears = educationLevel
-    ? getYearsForLevel(educationLevel as EducationLevel)
-    : [1, 2, 3, 4];
+  const availableYears = programId
+    ? getStudyYearsForProgram(programId)
+    : educationLevel
+      ? getYearsForLevel(educationLevel as EducationLevel)
+      : [1, 2, 3, 4];
+  const availableStartYears = getDynamicStartYears(programId || undefined);
+  const availableGraduationYears = getDynamicGraduationYears(
+    programId || undefined,
+    admissionYear ? Number(admissionYear) : undefined,
+    yearOfStudy ? Number(yearOfStudy) : undefined
+  );
+
+  // Auto-derive expected graduation year when programId or admissionYear changes
+  useEffect(() => {
+    if (admissionYear && programId) {
+      const derived = deriveExpectedGraduationYear(
+        Number(admissionYear),
+        programId,
+        yearOfStudy ? Number(yearOfStudy) : undefined
+      );
+      setExpectedGraduationYear(derived);
+    }
+  }, [admissionYear, programId, yearOfStudy]);
 
   // Reset downstream when stream/level changes
   useEffect(() => {
@@ -246,19 +313,83 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const validateStep2 = (): string | null => {
-    if (!stream) return 'Please select your stream.';
-    if (!educationLevel) return 'Please select your education level.';
-    if (!programId) return 'Please select your program / degree.';
-    if (!specializationId) return 'Please select your specialization.';
-    if (!yearOfStudy) return 'Please select your current year of study.';
-    if (!admissionYear) return 'Please select your admission year.';
-    if (!expectedGraduationYear) return 'Please select your expected graduation year.';
+    if (track === 'Student') {
+      if (isCustomCollege) {
+        if (!customCollegeName.trim() || customCollegeName.trim().length < 2) {
+          setErrorField('college');
+          return 'Please enter your college or institute name.';
+        }
+      } else {
+        if (!selectedInstitute && !customCollegeName.trim()) {
+          setErrorField('college');
+          return 'Please select your college or enter it manually.';
+        }
+      }
+      if (!stream) {
+        setErrorField('stream');
+        return 'Please select your academic stream.';
+      }
+      if (!educationLevel) {
+        setErrorField('educationLevel');
+        return 'Please select your education level.';
+      }
+      if (!programId) {
+        setErrorField('programId');
+        return 'Please select your degree or program.';
+      }
+      if (!specializationId) {
+        setErrorField('specializationId');
+        return 'Please select your branch or specialization.';
+      }
+      if (!yearOfStudy) {
+        setErrorField('yearOfStudy');
+        return 'Please select your current year of study.';
+      }
+      if (!admissionYear) {
+        setErrorField('admissionYear');
+        return 'Please select your admission year.';
+      }
+      if (!expectedGraduationYear) {
+        setErrorField('expectedGraduationYear');
+        return 'Please select your expected graduation year.';
+      }
+      if (Number(expectedGraduationYear) <= Number(admissionYear)) {
+        setErrorField('expectedGraduationYear');
+        return 'Expected graduation year must be after admission year.';
+      }
+    } else if (track === 'Entrepreneur') {
+      if (!isIdeationVenture && ventureName.trim().length > 0 && ventureName.trim().length < 2) {
+        setErrorField('ventureName');
+        return 'Venture name must be at least 2 characters long.';
+      }
+      if (!industry) {
+        setErrorField('industry');
+        return 'Please select your industry or sector.';
+      }
+      if (!ventureStage) {
+        setErrorField('ventureStage');
+        return 'Please select your current venture stage.';
+      }
+    }
     return null;
   };
 
   const validateStep3 = (): string | null => {
-    if (!aiFamiliarity) return 'Please describe your current AI experience.';
-    if (!primaryGoal) return 'Please select your primary goal.';
+    if (track === 'Student') {
+      if (!aiFamiliarity) {
+        setErrorField('aiFamiliarity');
+        return 'Please describe your current AI experience.';
+      }
+      if (!primaryGoal) {
+        setErrorField('primaryGoal');
+        return 'Please select your primary learning goal.';
+      }
+    } else if (track === 'Entrepreneur') {
+      if (!entrepreneurGoal) {
+        setErrorField('primaryGoal');
+        return 'Please select your primary venture goal.';
+      }
+    }
     return null;
   };
 
@@ -282,6 +413,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isLoading) return;
     setErrorMessage('');
     setErrorField('');
     const err = validateStep3();
@@ -290,31 +422,62 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       return;
     }
 
-    const selectedProgram = PROGRAMS.find((p) => p.id === programId);
-    const selectedSpec = SPECIALIZATIONS.find((s) => s.id === specializationId);
+    const selectedProgram = programId ? PROGRAMS.find((p) => p.id === programId) : undefined;
+    const selectedSpec = specializationId
+      ? SPECIALIZATIONS.find((s) => s.id === specializationId)
+      : undefined;
 
-    const payload: RegistrationPayload = {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      confirmPassword,
-      track: (track || 'Student') as 'Student' | 'Entrepreneur',
-      instituteId: selectedInstitute?._id?.startsWith('inst-') ? undefined : selectedInstitute?._id,
-      instituteName: selectedInstitute?.name || '',
-      stream,
-      streamSubCategory,
-      educationLevel,
-      programId,
-      programName: selectedProgram?.label || programId,
-      specializationId,
-      specializationName: selectedSpec?.label || specializationId,
-      yearOfStudy: Number(yearOfStudy),
-      admissionYear: Number(admissionYear),
-      expectedGraduationYear: Number(expectedGraduationYear),
-      aiFamiliarity,
-      aiUsageContexts,
-      primaryGoal,
-    };
+    let payload: RegistrationPayload;
+
+    if (track === 'Student') {
+      const instituteNameFinal = isCustomCollege
+        ? customCollegeName.trim()
+        : selectedInstitute?.name || customCollegeName.trim() || 'Independent Learner';
+
+      payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        confirmPassword,
+        track: 'Student',
+        instituteId:
+          isCustomCollege || !selectedInstitute?._id || selectedInstitute._id.startsWith('inst-')
+            ? undefined
+            : selectedInstitute._id,
+        instituteName: instituteNameFinal,
+        stream: stream as string,
+        streamSubCategory: streamSubCategory || undefined,
+        educationLevel: educationLevel as string,
+        programId,
+        programName: selectedProgram?.label || programId,
+        specializationId,
+        specializationName: selectedSpec?.label || specializationId,
+        yearOfStudy: Number(yearOfStudy),
+        admissionYear: Number(admissionYear),
+        expectedGraduationYear: Number(expectedGraduationYear),
+        aiFamiliarity,
+        aiUsageContexts,
+        primaryGoal,
+      };
+    } else {
+      payload = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        confirmPassword,
+        track: 'Entrepreneur',
+        ventureName: isIdeationVenture
+          ? 'Ideation / Not started'
+          : ventureName.trim() || 'Ideation / Not started',
+        industry,
+        problemStatement: problemStatement.trim() || undefined,
+        ventureStage,
+        primaryGoal: entrepreneurGoal,
+        skillsToDevelop,
+        businessChallenges,
+        preferredSupport,
+      };
+    }
 
     setIsLoading(true);
     try {
@@ -339,6 +502,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             'specializationId',
             'yearOfStudy',
             'admissionYear',
+            'expectedGraduationYear',
+            'ventureName',
+            'industry',
+            'ventureStage',
           ].includes(res.field)
         )
           setStep(2);
@@ -553,11 +720,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           width: '100%',
         }}
       >
-        {STEP_LABELS.map((label, i) => {
+        {stepLabels.map((label, i) => {
           const stepNum = (i + 1) as Step;
           const isActive = step === stepNum;
           const isComplete = step > stepNum;
-          const StepIcon = STEP_ICONS[i];
+          const StepIcon = stepIcons[i];
 
           return (
             <React.Fragment key={stepNum}>
@@ -608,7 +775,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   {label}
                 </span>
               </div>
-              {i < STEP_LABELS.length - 1 && (
+              {i < stepLabels.length - 1 && (
                 <div
                   style={{
                     flex: 1,
@@ -1151,7 +1318,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           </div>
         )}
 
-        {/* ─── STEP 2: ACADEMICS ───────────────────────────────────────────── */}
+        {/* ─── STEP 2: ACADEMICS / VENTURE ─────────────────────────────────── */}
         {step === 2 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
@@ -1164,7 +1331,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: '0 0 4px',
                 }}
               >
-                Your Academic Identity
+                {track === 'Entrepreneur'
+                  ? 'Venture & Startup Information'
+                  : 'Your Academic Identity'}
               </h2>
               <p
                 style={{
@@ -1173,361 +1342,577 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: 0,
                 }}
               >
-                This powers accurate peer benchmarks and ensures your learning context is correct.
+                {track === 'Entrepreneur'
+                  ? 'Tell us about your venture so AIIMS can tailor AI tool discovery, business diagnostics, and workflow templates.'
+                  : 'This powers accurate peer benchmarks and ensures your learning context is correct.'}
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Institute Search */}
-              <div style={{ ...fieldGroupStyle, position: 'relative' }}>
-                <label style={labelStyle}>College / University</label>
-                <div style={{ position: 'relative' }}>
-                  <Search
-                    size={15}
-                    style={{
-                      position: 'absolute',
-                      left: '12px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: '#94A3B8',
-                    }}
-                  />
+            {track === 'Entrepreneur' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Venture Name */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Venture / Startup Name{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      (Optional)
+                    </span>
+                  </label>
                   <input
-                    id="reg-institute"
-                    className="reg-input"
+                    id="reg-venture-name"
                     type="text"
-                    style={{ ...inputStyle, paddingLeft: '36px', paddingRight: '36px' }}
-                    placeholder="Search your college or university..."
-                    value={selectedInstitute ? selectedInstitute.name : instituteQuery}
-                    onChange={(e) => {
-                      setInstituteQuery(e.target.value);
-                      setSelectedInstitute(null);
-                      setInstituteDropdownOpen(true);
+                    style={{
+                      ...inputStyle,
+                      opacity: isIdeationVenture ? 0.6 : 1,
+                      backgroundColor: isIdeationVenture
+                        ? isDarkMode
+                          ? 'rgba(255,255,255,0.03)'
+                          : '#F8FAFC'
+                        : inputStyle.backgroundColor,
                     }}
-                    onFocus={() => setInstituteDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setInstituteDropdownOpen(false), 200)}
+                    disabled={isIdeationVenture}
+                    placeholder="e.g. Apex AI, Stealth Startup, or Leave Blank"
+                    value={isIdeationVenture ? 'Ideation / Not started' : ventureName}
+                    onChange={(e) => setVentureName(e.target.value)}
                   />
-                  {isLoadingInstitutes && (
-                    <Loader2
-                      size={15}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginTop: '6px',
+                      cursor: 'pointer',
+                      fontSize: '12.5px',
+                      color: 'var(--aiims-text-secondary, #475569)',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isIdeationVenture}
+                      onChange={(e) => {
+                        setIsIdeationVenture(e.target.checked);
+                        if (e.target.checked) setVentureName('');
+                      }}
                       style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#94A3B8',
-                        animation: 'spin 1s linear infinite',
+                        width: '16px',
+                        height: '16px',
+                        accentColor: '#5B4BFF',
+                        cursor: 'pointer',
                       }}
                     />
-                  )}
-                  {selectedInstitute && (
-                    <Check
-                      size={15}
-                      style={{
-                        position: 'absolute',
-                        right: '12px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#10B981',
+                    <span>Not started yet / Exploring startup ideas</span>
+                  </label>
+                </div>
+
+                {/* Industry / Sector */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Industry / Sector <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <select
+                    id="reg-venture-industry"
+                    className="reg-select"
+                    style={selectStyle}
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value)}
+                  >
+                    {VENTURE_INDUSTRIES.map((ind) => (
+                      <option key={ind} value={ind}>
+                        {ind}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Problem Statement / Business Idea */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Problem Statement & Business Idea{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      (Optional)
+                    </span>
+                  </label>
+                  <textarea
+                    id="reg-problem-statement"
+                    rows={3}
+                    style={{
+                      ...inputStyle,
+                      resize: 'vertical',
+                      minHeight: '75px',
+                      lineHeight: 1.45,
+                    }}
+                    placeholder="Briefly describe the customer problem you're addressing, your proposed product/service concept, or target market..."
+                    value={problemStatement}
+                    onChange={(e) => setProblemStatement(e.target.value)}
+                  />
+                </div>
+
+                {/* Venture Stage Selection Cards */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Current Venture Stage <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      maxHeight: '260px',
+                      overflowY: 'auto',
+                      paddingRight: '4px',
+                    }}
+                  >
+                    {VENTURE_STAGES.map((stg) => {
+                      const isSelected = ventureStage === stg.value;
+                      return (
+                        <button
+                          key={stg.value}
+                          type="button"
+                          onClick={() => setVentureStage(stg.value)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '10px',
+                            padding: '10px 12px',
+                            borderRadius: '10px',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                            transition: 'all 0.15s',
+                            border: isSelected
+                              ? '2px solid #5B4BFF'
+                              : isDarkMode
+                                ? '1.5px solid var(--aiims-border-card, #202b4d)'
+                                : '1.5px solid #E2E8F0',
+                            background: isSelected
+                              ? isDarkMode
+                                ? 'rgba(91, 75, 255, 0.18)'
+                                : 'rgba(91, 75, 255, 0.08)'
+                              : isDarkMode
+                                ? 'var(--aiims-bg-card, #111a36)'
+                                : '#ffffff',
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              marginTop: '2px',
+                              flexShrink: 0,
+                              border: `2px solid ${isSelected ? '#5B4BFF' : isDarkMode ? '#475569' : '#CBD5E1'}`,
+                              background: isSelected ? '#5B4BFF' : 'transparent',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
+                          >
+                            {isSelected && (
+                              <div
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  background: '#fff',
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <div
+                              style={{
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                color: isSelected
+                                  ? '#5B4BFF'
+                                  : 'var(--aiims-text-heading, #0F172A)',
+                              }}
+                            >
+                              {stg.label}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: '11px',
+                                color: 'var(--aiims-text-secondary, #64748B)',
+                                marginTop: '2px',
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {stg.description}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* College / Institute with Free-text & Directory toggle */}
+                <div style={{ ...fieldGroupStyle, position: 'relative' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '4px',
+                    }}
+                  >
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>
+                      College / University / Institute <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomCollege(!isCustomCollege);
+                        setSelectedInstitute(null);
+                        setInstituteDropdownOpen(false);
                       }}
-                    />
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#5B4BFF',
+                        fontSize: '12px',
+                        fontWeight: 650,
+                        cursor: 'pointer',
+                        padding: 0,
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      {isCustomCollege ? 'Search verified directory' : 'My college is not listed'}
+                    </button>
+                  </div>
+
+                  {isCustomCollege ? (
+                    <div>
+                      <input
+                        id="reg-custom-college"
+                        className="reg-input"
+                        type="text"
+                        style={inputStyle}
+                        placeholder="Type your college or university full name..."
+                        value={customCollegeName}
+                        onChange={(e) => setCustomCollegeName(e.target.value)}
+                      />
+                      <span
+                        style={{
+                          fontSize: '11.5px',
+                          color: 'var(--aiims-text-muted, #94A3B8)',
+                          marginTop: '4px',
+                          display: 'block',
+                        }}
+                      >
+                        Enter your institution name manually. You will receive full access.
+                      </span>
+                    </div>
+                  ) : (
+                    <div style={{ position: 'relative' }}>
+                      <Search
+                        size={15}
+                        style={{
+                          position: 'absolute',
+                          left: '12px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          color: '#94A3B8',
+                        }}
+                      />
+                      <input
+                        id="reg-institute"
+                        className="reg-input"
+                        type="text"
+                        style={{ ...inputStyle, paddingLeft: '36px', paddingRight: '36px' }}
+                        placeholder="Search your college or university..."
+                        value={selectedInstitute ? selectedInstitute.name : instituteQuery}
+                        onChange={(e) => {
+                          setInstituteQuery(e.target.value);
+                          setSelectedInstitute(null);
+                          setInstituteDropdownOpen(true);
+                        }}
+                        onFocus={() => setInstituteDropdownOpen(true)}
+                        onBlur={() => setTimeout(() => setInstituteDropdownOpen(false), 200)}
+                      />
+                      {isLoadingInstitutes && (
+                        <Loader2
+                          size={15}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: '#94A3B8',
+                            animation: 'spin 1s linear infinite',
+                          }}
+                        />
+                      )}
+                      {selectedInstitute && (
+                        <Check
+                          size={15}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: '#10B981',
+                          }}
+                        />
+                      )}
+                      {instituteDropdownOpen && (
+                        <div className="institute-dropdown">
+                          {instituteOptions.map((inst) => (
+                            <div
+                              key={inst._id}
+                              className={`institute-item ${selectedInstitute?._id === inst._id ? 'selected' : ''}`}
+                              onMouseDown={() => {
+                                setSelectedInstitute(inst);
+                                setInstituteQuery('');
+                                setInstituteDropdownOpen(false);
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 600,
+                                  fontSize: '13px',
+                                  color: 'var(--aiims-text-primary, #0F172A)',
+                                }}
+                              >
+                                {inst.name}
+                              </div>
+                              {inst.city && (
+                                <div
+                                  style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}
+                                >
+                                  {inst.city}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                          <div
+                            className="institute-item"
+                            style={{
+                              color: '#5B4BFF',
+                              fontWeight: 600,
+                              borderTop: '1px dashed #CBD5E1',
+                            }}
+                            onMouseDown={() => {
+                              setIsCustomCollege(true);
+                              setSelectedInstitute(null);
+                              setInstituteDropdownOpen(false);
+                            }}
+                          >
+                            <Plus
+                              size={13}
+                              style={{ marginRight: '6px', verticalAlign: 'middle' }}
+                            />
+                            My college is not listed (enter manually)
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {instituteDropdownOpen && (
-                  <div className="institute-dropdown">
-                    {instituteOptions.map((inst) => (
-                      <div
-                        key={inst._id}
-                        className={`institute-item ${selectedInstitute?._id === inst._id ? 'selected' : ''}`}
-                        onMouseDown={() => {
-                          setSelectedInstitute(inst);
-                          setInstituteQuery('');
-                          setInstituteDropdownOpen(false);
-                        }}
+                {/* Stream Selection */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Stream <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {STREAMS.map((s) => (
+                      <button
+                        key={s.value}
+                        type="button"
+                        className={`reg-stream-card ${stream === s.value ? 'selected' : ''}`}
+                        onClick={() => setStream(s.value)}
                       >
                         <div
                           style={{
-                            fontWeight: 600,
                             fontSize: '13px',
-                            color: 'var(--aiims-text-primary, #0F172A)',
+                            fontWeight: 700,
+                            color:
+                              stream === s.value
+                                ? isDarkMode
+                                  ? '#A5B4FC'
+                                  : '#4338CA'
+                                : 'var(--aiims-text-primary, #0F172A)',
+                            marginBottom: '2px',
                           }}
                         >
-                          {inst.name}
+                          {s.label}
                         </div>
-                        {inst.city && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}>
-                            {inst.city}
-                          </div>
-                        )}
-                      </div>
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            color: 'var(--aiims-text-muted, #64748B)',
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {s.description}
+                        </div>
+                      </button>
                     ))}
-                    <div
-                      className="institute-item"
-                      style={{ color: '#5B4BFF', fontWeight: 600 }}
-                      onMouseDown={() => {
-                        setInstituteDropdownOpen(false);
-                        setShowRequestInstitute(true);
-                      }}
+                  </div>
+                </div>
+
+                {/* Sub-Category */}
+                {stream && (
+                  <div style={fieldGroupStyle}>
+                    <label style={labelStyle}>Department / Field</label>
+                    <select
+                      id="reg-sub-category"
+                      className="reg-select"
+                      style={selectStyle}
+                      value={streamSubCategory}
+                      onChange={(e) => setStreamSubCategory(e.target.value)}
                     >
-                      <Plus size={13} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
-                      My college is not listed
-                    </div>
+                      <option value="">Select department...</option>
+                      {subCategories.map((sc) => (
+                        <option key={sc.value} value={sc.value}>
+                          {sc.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
 
-                {showRequestInstitute && (
-                  <div
-                    style={{
-                      marginTop: '8px',
-                      padding: '12px',
-                      background: 'var(--aiims-bg-subtle, #F8FAFC)',
-                      border: '1px solid var(--aiims-border-subtle, #E2E8F0)',
-                      borderRadius: '10px',
-                    }}
+                {/* Education Level */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Education Level <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <select
+                    id="reg-education-level"
+                    className="reg-select"
+                    style={selectStyle}
+                    value={educationLevel}
+                    onChange={(e) => setEducationLevel(e.target.value as EducationLevel)}
                   >
-                    <p
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--aiims-text-secondary, #64748B)',
-                        margin: '0 0 8px',
-                      }}
+                    <option value="">Select level...</option>
+                    {EDUCATION_LEVELS.map((l) => (
+                      <option key={l.value} value={l.value}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Program with Duration Label */}
+                {educationLevel && stream && (
+                  <div style={fieldGroupStyle}>
+                    <label style={labelStyle}>
+                      Program / Degree <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      id="reg-program"
+                      className="reg-select"
+                      style={selectStyle}
+                      value={programId}
+                      onChange={(e) => setProgramId(e.target.value)}
                     >
-                      Type your institution name and we'll add it:
-                    </p>
-                    <input
-                      className="reg-input"
-                      type="text"
-                      style={{ ...inputStyle, fontSize: '13px' }}
-                      placeholder="Your college/university name"
-                      value={instituteQuery}
-                      onChange={(e) => setInstituteQuery(e.target.value)}
-                    />
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                      <button
-                        type="button"
-                        style={{ ...btnPrimary, fontSize: '12px', padding: '8px 12px' }}
-                        onClick={() => {
-                          if (instituteQuery.trim()) {
-                            setSelectedInstitute({
-                              _id: `custom-${Date.now()}`,
-                              name: instituteQuery.trim(),
-                            });
-                            setShowRequestInstitute(false);
-                            apiClient
-                              .requestInstitute({ name: instituteQuery.trim() })
-                              .catch(() => {});
-                          }
-                        }}
+                      <option value="">Select program...</option>
+                      {availablePrograms.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} ({p.normalDuration} {p.normalDuration === 1 ? 'Year' : 'Years'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Specialization */}
+                {programId && availableSpecializations.length > 0 && (
+                  <div style={fieldGroupStyle}>
+                    <label style={labelStyle}>
+                      Specialization / Branch <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <select
+                      id="reg-specialization"
+                      className="reg-select"
+                      style={selectStyle}
+                      value={specializationId}
+                      onChange={(e) => setSpecializationId(e.target.value)}
+                    >
+                      <option value="">Select specialization...</option>
+                      {availableSpecializations.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Dynamic Study Years, Dynamic Start Year & Dynamic Graduation Year */}
+                {educationLevel && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                    <div style={fieldGroupStyle}>
+                      <label style={{ ...labelStyle, fontSize: '12px' }}>
+                        Current Year <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <select
+                        id="reg-year-of-study"
+                        className="reg-select"
+                        style={{ ...selectStyle, fontSize: '13px' }}
+                        value={yearOfStudy}
+                        onChange={(e) => setYearOfStudy(Number(e.target.value))}
                       >
-                        Use This Name
-                      </button>
-                      <button
-                        type="button"
-                        style={{ ...btnSecondary, fontSize: '12px', padding: '8px 12px' }}
-                        onClick={() => setShowRequestInstitute(false)}
+                        <option value="">Year</option>
+                        {availableYears.map((y) => (
+                          <option key={y} value={y}>
+                            Year {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={fieldGroupStyle}>
+                      <label style={{ ...labelStyle, fontSize: '12px' }}>
+                        Start Year <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <select
+                        id="reg-admission-year"
+                        className="reg-select"
+                        style={{ ...selectStyle, fontSize: '13px' }}
+                        value={admissionYear}
+                        onChange={(e) => setAdmissionYear(Number(e.target.value))}
                       >
-                        Cancel
-                      </button>
+                        <option value="">Year</option>
+                        {availableStartYears.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={fieldGroupStyle}>
+                      <label style={{ ...labelStyle, fontSize: '12px' }}>
+                        Graduating <span style={{ color: '#EF4444' }}>*</span>
+                      </label>
+                      <select
+                        id="reg-graduation-year"
+                        className="reg-select"
+                        style={{ ...selectStyle, fontSize: '13px' }}
+                        value={expectedGraduationYear}
+                        onChange={(e) => setExpectedGraduationYear(Number(e.target.value))}
+                      >
+                        <option value="">Year</option>
+                        {availableGraduationYears.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
               </div>
-
-              {/* Stream Selection */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Stream <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {STREAMS.map((s) => (
-                    <button
-                      key={s.value}
-                      type="button"
-                      className={`reg-stream-card ${stream === s.value ? 'selected' : ''}`}
-                      onClick={() => setStream(s.value)}
-                    >
-                      <div
-                        style={{
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          color:
-                            stream === s.value
-                              ? isDarkMode
-                                ? '#A5B4FC'
-                                : '#4338CA'
-                              : 'var(--aiims-text-primary, #0F172A)',
-                          marginBottom: '2px',
-                        }}
-                      >
-                        {s.label}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '11px',
-                          color: 'var(--aiims-text-muted, #64748B)',
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {s.description}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sub-Category */}
-              {stream && (
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>Department / Field</label>
-                  <select
-                    id="reg-sub-category"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={streamSubCategory}
-                    onChange={(e) => setStreamSubCategory(e.target.value)}
-                  >
-                    <option value="">Select department...</option>
-                    {subCategories.map((sc) => (
-                      <option key={sc.value} value={sc.value}>
-                        {sc.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Education Level */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  Education Level <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <select
-                  id="reg-education-level"
-                  className="reg-select"
-                  style={selectStyle}
-                  value={educationLevel}
-                  onChange={(e) => setEducationLevel(e.target.value as EducationLevel)}
-                >
-                  <option value="">Select level...</option>
-                  {EDUCATION_LEVELS.map((l) => (
-                    <option key={l.value} value={l.value}>
-                      {l.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Program */}
-              {educationLevel && stream && (
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Program / Degree <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    id="reg-program"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={programId}
-                    onChange={(e) => setProgramId(e.target.value)}
-                  >
-                    <option value="">Select program...</option>
-                    {availablePrograms.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Specialization */}
-              {programId && availableSpecializations.length > 0 && (
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Specialization / Branch <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    id="reg-specialization"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={specializationId}
-                    onChange={(e) => setSpecializationId(e.target.value)}
-                  >
-                    <option value="">Select specialization...</option>
-                    {availableSpecializations.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Year + Admission + Graduation in a row */}
-              {educationLevel && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                  <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>
-                      Current Year <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
-                    <select
-                      className="reg-select"
-                      style={{ ...selectStyle, fontSize: '13px' }}
-                      value={yearOfStudy}
-                      onChange={(e) => setYearOfStudy(Number(e.target.value))}
-                    >
-                      <option value="">Year</option>
-                      {availableYears.map((y) => (
-                        <option key={y} value={y}>
-                          Year {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>
-                      Admitted <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
-                    <select
-                      className="reg-select"
-                      style={{ ...selectStyle, fontSize: '13px' }}
-                      value={admissionYear}
-                      onChange={(e) => setAdmissionYear(Number(e.target.value))}
-                    >
-                      <option value="">Year</option>
-                      {getAdmissionYears().map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={fieldGroupStyle}>
-                    <label style={{ ...labelStyle, fontSize: '12px' }}>
-                      Graduating <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
-                    <select
-                      className="reg-select"
-                      style={{ ...selectStyle, fontSize: '13px' }}
-                      value={expectedGraduationYear}
-                      onChange={(e) => setExpectedGraduationYear(Number(e.target.value))}
-                    >
-                      <option value="">Year</option>
-                      {getExpectedGraduationYears().map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
-        {/* ─── STEP 3: AI PROFILE ──────────────────────────────────────────── */}
+        {/* ─── STEP 3: AI PROFILE / ENTREPRENEUR GROWTH ────────────────────── */}
         {step === 3 && (
           <div className="reg-fade">
             <div style={{ marginBottom: '24px' }}>
@@ -1540,7 +1925,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: '0 0 4px',
                 }}
               >
-                Your AI Profile
+                {track === 'Entrepreneur' ? 'Growth Goals & Support Areas' : 'Your AI Profile'}
               </h2>
               <p
                 style={{
@@ -1549,162 +1934,302 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: 0,
                 }}
               >
-                This personalizes your learning journey. It does <strong>not</strong> affect your
-                capability score.
+                {track === 'Entrepreneur'
+                  ? 'Select your core growth priorities, skills to master, and preferred mentoring areas.'
+                  : 'This personalizes your learning journey. It does not affect your capability score.'}
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              {/* AI Familiarity */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  How familiar are you with AI tools? <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {AI_FAMILIARITY_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setAiFamiliarity(opt.value)}
-                      style={{
-                        padding: '12px 14px',
-                        borderRadius: '10px',
-                        border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #202b4d)' : 'var(--aiims-border-card, #E2E8F0)'}`,
-                        background:
-                          aiFamiliarity === opt.value
-                            ? isDarkMode
-                              ? 'rgba(91,75,255,0.15)'
-                              : 'var(--aiims-accent-glow, rgba(91,75,255,0.07))'
-                            : 'var(--aiims-bg-card, #fff)',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontFamily: 'inherit',
-                        transition: 'all 0.15s',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                      }}
-                    >
-                      <div
+            {track === 'Entrepreneur' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* Primary Entrepreneur Goal */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Primary Venture Goal <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <select
+                    id="reg-entrepreneur-goal"
+                    className="reg-select"
+                    style={selectStyle}
+                    value={entrepreneurGoal}
+                    onChange={(e) => setEntrepreneurGoal(e.target.value)}
+                  >
+                    {ENTREPRENEUR_GOALS.map((g) => (
+                      <option key={g.value} value={g.value}>
+                        {g.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Skills to Develop (multi-select pills) */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Skills You Want to Develop{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      Select all that apply
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {SKILLS_TO_DEVELOP.map((skill) => {
+                      const isSelected = skillsToDevelop.includes(skill);
+                      return (
+                        <button
+                          key={skill}
+                          type="button"
+                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleSkill(skill)}
+                        >
+                          {isSelected && (
+                            <Check
+                              size={12}
+                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
+                            />
+                          )}
+                          {skill}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Key Business Challenges (multi-select pills) */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Key Business Challenges{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      Select all that apply
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {BUSINESS_CHALLENGES.map((ch) => {
+                      const isSelected = businessChallenges.includes(ch);
+                      return (
+                        <button
+                          key={ch}
+                          type="button"
+                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleChallenge(ch)}
+                        >
+                          {isSelected && (
+                            <Check
+                              size={12}
+                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
+                            />
+                          )}
+                          {ch}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Preferred Support Areas (multi-select pills) */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    Preferred Support & Mentoring Areas{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      Select all that apply
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {PREFERRED_SUPPORT_AREAS.map((sup) => {
+                      const isSelected = preferredSupport.includes(sup);
+                      return (
+                        <button
+                          key={sup}
+                          type="button"
+                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleSupport(sup)}
+                        >
+                          {isSelected && (
+                            <Check
+                              size={12}
+                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
+                            />
+                          )}
+                          {sup}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Entrepreneur guidance banner */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    background: isDarkMode ? 'rgba(91, 75, 255, 0.15)' : 'rgba(91, 75, 255, 0.07)',
+                    border: isDarkMode
+                      ? '1px solid rgba(91, 75, 255, 0.35)'
+                      : '1px solid rgba(91, 75, 255, 0.2)',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    color: isDarkMode ? '#C7D2FE' : '#4338CA',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <strong>Founder Advantage:</strong> Your responses configure your AI Wallet tools,
+                  Clarity Task Lab challenges, and industry radars specifically for venture
+                  building.
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {/* AI Familiarity */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    How familiar are you with AI tools? <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {AI_FAMILIARITY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setAiFamiliarity(opt.value)}
                         style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          flexShrink: 0,
-                          border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #2c3b63)' : '#CBD5E1'}`,
+                          padding: '12px 14px',
+                          borderRadius: '10px',
+                          border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #202b4d)' : 'var(--aiims-border-card, #E2E8F0)'}`,
                           background:
                             aiFamiliarity === opt.value
-                              ? 'var(--aiims-accent-primary, #5B4BFF)'
-                              : 'transparent',
+                              ? isDarkMode
+                                ? 'rgba(91,75,255,0.15)'
+                                : 'var(--aiims-accent-glow, rgba(91,75,255,0.07))'
+                              : 'var(--aiims-bg-card, #fff)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontFamily: 'inherit',
+                          transition: 'all 0.15s',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
+                          gap: '10px',
                         }}
                       >
-                        {aiFamiliarity === opt.value && (
+                        <div
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #2c3b63)' : '#CBD5E1'}`,
+                            background:
+                              aiFamiliarity === opt.value
+                                ? 'var(--aiims-accent-primary, #5B4BFF)'
+                                : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {aiFamiliarity === opt.value && (
+                            <div
+                              style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: '#fff',
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div>
                           <div
                             style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              background: '#fff',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color:
+                                aiFamiliarity === opt.value
+                                  ? isDarkMode
+                                    ? '#A5B4FC'
+                                    : '#4338CA'
+                                  : 'var(--aiims-text-primary, #0F172A)',
                             }}
+                          >
+                            {opt.label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '11px',
+                              color: 'var(--aiims-text-muted, #94A3B8)',
+                              marginTop: '1px',
+                            }}
+                          >
+                            {opt.description}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Usage Contexts */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    How do you use (or plan to use) AI?{' '}
+                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
+                      Select all that apply
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {AI_USAGE_CONTEXTS.map((ctx) => (
+                      <button
+                        key={ctx.value}
+                        type="button"
+                        className={`reg-pill ${aiUsageContexts.includes(ctx.value) ? 'selected' : ''}`}
+                        onClick={() => toggleUsageContext(ctx.value)}
+                      >
+                        {aiUsageContexts.includes(ctx.value) && (
+                          <Check
+                            size={12}
+                            style={{ marginRight: '4px', verticalAlign: 'middle' }}
                           />
                         )}
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            color:
-                              aiFamiliarity === opt.value
-                                ? isDarkMode
-                                  ? '#A5B4FC'
-                                  : '#4338CA'
-                                : 'var(--aiims-text-primary, #0F172A)',
-                          }}
-                        >
-                          {opt.label}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '11px',
-                            color: 'var(--aiims-text-muted, #94A3B8)',
-                            marginTop: '1px',
-                          }}
-                        >
-                          {opt.description}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                        {ctx.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              {/* AI Usage Contexts */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  How do you use (or plan to use) AI?{' '}
-                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                    Select all that apply
-                  </span>
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {AI_USAGE_CONTEXTS.map((ctx) => (
-                    <button
-                      key={ctx.value}
-                      type="button"
-                      className={`reg-pill ${aiUsageContexts.includes(ctx.value) ? 'selected' : ''}`}
-                      onClick={() => toggleUsageContext(ctx.value)}
-                    >
-                      {aiUsageContexts.includes(ctx.value) && (
-                        <Check size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                      )}
-                      {ctx.label}
-                    </button>
-                  ))}
+                {/* Primary Goal */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>
+                    What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <select
+                    id="reg-primary-goal"
+                    className="reg-select"
+                    style={selectStyle}
+                    value={primaryGoal}
+                    onChange={(e) => setPrimaryGoal(e.target.value)}
+                  >
+                    <option value="">Select your main goal...</option>
+                    {PRIMARY_GOAL_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
 
-              {/* Primary Goal */}
-              <div style={fieldGroupStyle}>
-                <label style={labelStyle}>
-                  What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <select
-                  id="reg-primary-goal"
-                  className="reg-select"
-                  style={selectStyle}
-                  value={primaryGoal}
-                  onChange={(e) => setPrimaryGoal(e.target.value)}
+                {/* Important note about AI context vs capability */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    background: isDarkMode ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF',
+                    border: isDarkMode ? '1px solid rgba(14, 165, 233, 0.35)' : '1px solid #BAE6FD',
+                    borderRadius: '10px',
+                    fontSize: '12px',
+                    color: isDarkMode ? '#7DD3FC' : '#0369A1',
+                    lineHeight: 1.5,
+                  }}
                 >
-                  <option value="">Select your main goal...</option>
-                  {PRIMARY_GOAL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  <strong>Note:</strong> Your AI Profile is for personalization only. Your actual
+                  capability score is measured exclusively through the AIIMS Assessment — not by
+                  what you say here.
+                </div>
               </div>
-
-              {/* Important note about AI context vs capability */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  background: isDarkMode ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF',
-                  border: isDarkMode ? '1px solid rgba(14, 165, 233, 0.35)' : '1px solid #BAE6FD',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  color: isDarkMode ? '#7DD3FC' : '#0369A1',
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong>Note:</strong> Your AI Profile is for personalization only. Your actual
-                capability score is measured exclusively through the AIIMS Assessment — not by what
-                you say here.
-              </div>
-            </div>
+            )}
           </div>
         )}
 

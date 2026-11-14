@@ -1,7 +1,7 @@
 /**
  * journey.service.ts
  * =========================================================
- * Authoritative Server-Side Learner Journey & Assessment History Service
+ * Authoritative Server-Side Learner Journey & Assessment History Service (PostgreSQL + Prisma)
  *
  * Implements:
  * 1. Unified Learner Journey Overview with milestone progression.
@@ -12,23 +12,21 @@
  * 6. Authoritative Next Best Learning Action recommendation based on verified learner state.
  */
 
-import mongoose from 'mongoose';
-import { User, IUser } from '../models/User.model';
+import { prisma, isDatabaseConnected } from '../config/prisma';
 import {
-  QuestionAttempt,
-  inMemoryAttempts,
+  IUser,
   IQuestionAttempt,
-} from '../models/QuestionAttempt.model';
-import { QuestionAssignment, inMemoryAssignments } from '../models/QuestionAssignment.model';
-import {
-  LearnerClarityProgression,
-  inMemoryLearnerClarityProgressions,
   ILearnerClarityProgression,
-} from '../models/LearnerClarityProgression.model';
+  ClarityLevel,
+  IClarityAttemptHistoryItem,
+  IRubricFeedbackItem,
+  ISubmission,
+  SubmissionStatus,
+  IStatusHistoryEntry,
+} from '../types/models';
 import { FocusSessionService } from './focusSession.service';
-import { Submission, memorySubmissions } from '../models/Submission.model';
-import { AssessmentHistoryQuery } from '../schemas/journey.schema';
-import { registeredUsers } from '../models/userStore';
+import { isValidId, toArray, toRecord, withLegacyId } from '../utils/id';
+import { userRecordToIUser } from '../utils/userMapper';
 
 export interface MilestoneItem {
   id: string;
@@ -114,8 +112,8 @@ export interface ClarityProgressResult {
     currentLevel: string;
     consecutiveHighScores: number;
     totalAttempts: number;
-    lastScore?: number;
-    history: Array<{ attemptId: string; score: number; level: string; timestamp: Date }>;
+    lastScore?: number | null;
+    history: IClarityAttemptHistoryItem[];
   }>;
   recentSubmittedAttempts: Array<{
     attemptId: string;
@@ -137,7 +135,7 @@ export interface FocusActivityResult {
   recentSessions: Array<{
     sessionId: string;
     trackTitle: string;
-    intention?: string;
+    intention?: string | null;
     actualFocusMinutes: number;
     status: string;
     completedAt: string | null;
@@ -172,21 +170,16 @@ export interface AssessmentHistoryOptions {
 
 export class JourneyService {
   /**
-   * Helper: Resolve learner document by ID
+   * Helper: Resolve learner document by ID from PostgreSQL
    */
-  private static async getLearner(learnerId: string): Promise<any> {
-    if (mongoose.connection.readyState === 1) {
-      const user = await User.findById(learnerId);
-      if (user) return user;
+  private static async getLearner(learnerId: string): Promise<IUser | null> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
     }
+    if (!isValidId(learnerId)) return null;
 
-    // In-memory fallback
-    for (const u of Object.values(registeredUsers)) {
-      if (u.id === learnerId || (u as any)._id === learnerId) {
-        return u;
-      }
-    }
-    return null;
+    const row = await prisma.user.findUnique({ where: { id: learnerId } });
+    return row ? userRecordToIUser(row) : null;
   }
 
   /**
@@ -204,7 +197,7 @@ export class JourneyService {
     const isAnalysisUnlocked = learner.analysis?.status === 'unlocked' || isAnalysisViewed;
 
     // AI Wallet state
-    const walletCount = learner.wallet?.length || learner.aiWallet?.userTools?.length || 0;
+    const walletCount = learner.aiWallet?.userTools?.length || 0;
     const isWalletExplored = walletCount > 0;
 
     // Clarity state from LearnerClarityProgression
@@ -216,7 +209,6 @@ export class JourneyService {
       learner.clarity?.status === 'completed' ||
       totalClarityAttempts > 0;
 
-    // Determine current Clarity level
     let highestLevel = 'Easy';
     for (const prog of clarityProgressions) {
       if (prog.currentLevel === 'Hard') highestLevel = 'Hard';
@@ -237,7 +229,7 @@ export class JourneyService {
     const isBuildDone = (learner.build?.projects?.length || 0) > 0;
     const isMentorAvailable = isAssessmentDone;
 
-    // Define Canonical 10-Stage Milestones
+    // Canonical 10-Stage Milestones
     const milestones: MilestoneItem[] = [
       {
         id: 'understand',
@@ -249,7 +241,9 @@ export class JourneyService {
           'Complete 25-question multidimensional baseline evaluation across 5 AI capabilities.',
         targetTab: 'assessment',
         actionLabel: isAssessmentDone ? 'Review Diagnostic' : 'Start Assessment',
-        completionDate: isAssessmentDone ? learner.assessment?.completedAt : undefined,
+        completionDate: isAssessmentDone
+          ? (learner.assessment?.completedAt ?? undefined)
+          : undefined,
         score: isAssessmentDone
           ? learner.assessment?.evaluationResult?.percentageScore ||
             (learner.assessment?.scores
@@ -277,7 +271,7 @@ export class JourneyService {
           'Actionable breakdown of your strengths, peer benchmarks, and personal growth areas.',
         targetTab: 'analysis',
         actionLabel: isAnalysisUnlocked ? 'View Profile' : 'Complete Assessment to Unlock',
-        completionDate: isAnalysisViewed ? learner.analysis?.unlockedAt : undefined,
+        completionDate: isAnalysisViewed ? (learner.analysis?.unlockedAt ?? undefined) : undefined,
         highlight: isAnalysisUnlocked
           ? `Growth Opportunity: ${learner.analysis?.growthArea || 'Iterative Prompting'}`
           : undefined,
@@ -381,7 +375,6 @@ export class JourneyService {
     const completedMilestonesCount = milestones.filter((m) => m.status === 'completed').length;
     const overallProgressPercent = Math.round((completedMilestonesCount / 10) * 100);
 
-    // Current stage determination
     let currentStage = 'Understand AI';
     const currentMilestone = milestones.find((m) => m.status === 'current');
     if (currentMilestone) {
@@ -390,7 +383,6 @@ export class JourneyService {
       currentStage = 'Continuous Mastery';
     }
 
-    // Authoritative Next Best Action
     const nextBestAction = this.computeNextBestAction(
       isAssessmentDone,
       isAnalysisViewed,
@@ -409,7 +401,7 @@ export class JourneyService {
       milestones,
       latestAssessmentSummary: {
         completed: isAssessmentDone,
-        date: learner.assessment?.completedAt,
+        date: learner.assessment?.completedAt ?? undefined,
         score: isAssessmentDone ? milestones[0].score : null,
         topCapability: learner.analysis?.topCapability,
         growthArea: learner.analysis?.growthArea,
@@ -429,9 +421,6 @@ export class JourneyService {
     };
   }
 
-  /**
-   * Helper: Derive next best learning action based on actual state
-   */
   private static computeNextBestAction(
     isAssessmentDone: boolean,
     isAnalysisViewed: boolean,
@@ -566,9 +555,8 @@ export class JourneyService {
       });
     }
 
-    // 2. Clarity Attempts (from QuestionAttempt)
+    // 2. Clarity Attempts
     const questionAttempts = await this.getLearnerQuestionAttempts(learnerId);
-    // Sort attempts chronologically by question/topic to determine attempt number
     const attemptsByTopic = new Map<string, number>();
 
     for (const qa of questionAttempts) {
@@ -594,7 +582,7 @@ export class JourneyService {
         date: qa.submittedAt ? new Date(qa.submittedAt).toISOString() : new Date().toISOString(),
         timeTakenSeconds: qa.timeTakenSeconds,
         rubricSummary: `${qa.rubricFeedback?.length || 0} rubric criteria evaluated`,
-        rubrics: qa.rubricFeedback?.map((r: any) => ({
+        rubrics: qa.rubricFeedback?.map((r) => ({
           criterion: r.criterion,
           score: r.score,
           maxScore: r.maxScore,
@@ -603,7 +591,7 @@ export class JourneyService {
       });
     }
 
-    // 3. Question Assignments that are in progress or abandoned without attempt
+    // 3. Question Assignments in progress or abandoned without attempt
     const assignments = await this.getLearnerQuestionAssignments(learnerId);
     for (const assign of assignments) {
       if (assign.status === 'IN_PROGRESS' || assign.status === 'ABANDONED') {
@@ -638,7 +626,7 @@ export class JourneyService {
           : null;
 
       allRecords.push({
-        id: String(sub._id || sub.taskId),
+        id: String(sub._id || sub.id || sub.taskId),
         attemptNumber: (sub.revisionCount || 0) + 1,
         type: 'submission',
         title: sub.taskTitle || 'Applied Challenge Submission',
@@ -651,18 +639,15 @@ export class JourneyService {
       });
     }
 
-    // Filter by type
     let filtered = allRecords;
     if (query.type && query.type !== 'all') {
       filtered = filtered.filter((r) => r.type === query.type);
     }
 
-    // Filter by status
     if (query.status && query.status !== 'all') {
       filtered = filtered.filter((r) => r.status === query.status);
     }
 
-    // Filter by Date Range
     if (query.startDate) {
       const startMs = new Date(query.startDate).getTime();
       filtered = filtered.filter((r) => new Date(r.date).getTime() >= startMs);
@@ -672,10 +657,8 @@ export class JourneyService {
       filtered = filtered.filter((r) => new Date(r.date).getTime() <= endMs);
     }
 
-    // Sort descending by date
     filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // Pagination
     const page = query.page || 1;
     const limit = query.limit || 10;
     const totalRecords = filtered.length;
@@ -696,6 +679,10 @@ export class JourneyService {
    * 3. GET CLARITY PROGRESS
    */
   public static async getClarityProgress(learnerId: string): Promise<ClarityProgressResult> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const progressions = await this.getLearnerClarityProgressions(learnerId);
     const attempts = await this.getLearnerQuestionAttempts(learnerId);
 
@@ -751,14 +738,18 @@ export class JourneyService {
    * 4. GET FOCUS ACTIVITY SUMMARY
    */
   public static async getFocusActivity(learnerId: string): Promise<FocusActivityResult> {
+    if (!isDatabaseConnected()) {
+      throw new Error('DATABASE_UNAVAILABLE');
+    }
+
     const dailyStats = await FocusSessionService.getDailyStats(learnerId);
     const history = await FocusSessionService.getSessionHistory(learnerId, 'all');
 
-    const recentSessions = history.slice(0, 10).map((s: any) => ({
+    const recentSessions = history.slice(0, 10).map((s) => ({
       sessionId: s.sessionId,
       trackTitle: s.trackTitle,
       intention: s.intention,
-      actualFocusMinutes: Math.round((s.accumulatedFocusSeconds || s.actualFocusSeconds || 0) / 60),
+      actualFocusMinutes: Math.round((s.accumulatedFocusSeconds || 0) / 60),
       status: s.status,
       completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : null,
     }));
@@ -789,7 +780,6 @@ export class JourneyService {
     const isAssessmentDone = learner.assessment?.status === 'completed';
     const attempts = await this.getLearnerQuestionAttempts(learnerId);
 
-    // Data-sufficiency check: must have completed diagnostic assessment OR at least 2 clarity attempts
     if (!isAssessmentDone && attempts.length < 2) {
       return {
         learnerId,
@@ -814,7 +804,6 @@ export class JourneyService {
       label: string;
     }> = [];
 
-    // Analyze Diagnostic Assessment Dimensions
     if (isAssessmentDone && learner.assessment?.scores) {
       const dimMap: Record<string, string> = {
         'Understanding AI': 'Theoretical Foundations',
@@ -827,7 +816,6 @@ export class JourneyService {
       for (const [dim, rawScore] of Object.entries(
         learner.assessment.scores as Record<string, number>
       )) {
-        // Raw score is typically 1-5; normalize to 0-100%
         const normalized = Math.min(100, Math.round((Number(rawScore) / 5) * 100));
         const item = { name: dim, score: normalized, domain: dimMap[dim] || 'AI Capability' };
 
@@ -860,7 +848,6 @@ export class JourneyService {
       });
     }
 
-    // Analyze Clarity Attempts
     for (const a of attempts) {
       scoreTimeline.push({
         id: a.attemptId,
@@ -881,7 +868,6 @@ export class JourneyService {
       }
     }
 
-    // Sort timeline chronologically
     scoreTimeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     return {
@@ -895,60 +881,88 @@ export class JourneyService {
     };
   }
 
-  /**
-   * Helper: Get learner's Clarity Progression documents
-   */
   private static async getLearnerClarityProgressions(
     learnerId: string
   ): Promise<ILearnerClarityProgression[]> {
-    if (mongoose.connection.readyState === 1) {
-      return await LearnerClarityProgression.find({ learnerId });
-    }
-    const results: ILearnerClarityProgression[] = [];
-    for (const p of inMemoryLearnerClarityProgressions.values()) {
-      if (p.learnerId === learnerId) results.push(p);
-    }
-    return results;
+    if (!isDatabaseConnected()) return [];
+    const rows = await prisma.learnerClarityProgression.findMany({ where: { learnerId } });
+    return rows.map((r) => ({
+      id: r.id,
+      learnerId: r.learnerId,
+      topic: r.topic,
+      currentLevel: r.currentLevel as ClarityLevel,
+      consecutiveHighScores: r.consecutiveHighScores,
+      totalAttempts: r.totalAttempts,
+      lastScore: r.lastScore,
+      history: toArray<IClarityAttemptHistoryItem>(r.history),
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
   }
 
-  /**
-   * Helper: Get learner's Question Attempts
-   */
   private static async getLearnerQuestionAttempts(learnerId: string): Promise<IQuestionAttempt[]> {
-    if (mongoose.connection.readyState === 1) {
-      return await QuestionAttempt.find({ learnerId }).sort({ submittedAt: -1 });
-    }
-    const results: IQuestionAttempt[] = [];
-    for (const a of inMemoryAttempts.values()) {
-      if (a.learnerId === learnerId) results.push(a);
-    }
-    results.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-    return results;
+    if (!isDatabaseConnected()) return [];
+    const rows = await prisma.questionAttempt.findMany({
+      where: { learnerId },
+      orderBy: { submittedAt: 'desc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      attemptId: r.attemptId,
+      assignmentId: r.assignmentId,
+      learnerId: r.learnerId,
+      questionId: r.questionId,
+      topic: r.topic,
+      level: r.level,
+      track: r.track,
+      startedAt: r.startedAt,
+      submittedAt: r.submittedAt,
+      submittedAnswer: r.submittedAnswer,
+      score: r.score,
+      rubricFeedback: toArray<IRubricFeedbackItem>(r.rubricFeedback),
+      overallFeedback: r.overallFeedback,
+      evaluationStatus: r.evaluationStatus as 'PENDING' | 'EVALUATED',
+      timeTakenSeconds: r.timeTakenSeconds,
+      creditTransactionId: r.creditTransactionId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
   }
 
-  /**
-   * Helper: Get learner's Question Assignments
-   */
-  private static async getLearnerQuestionAssignments(learnerId: string): Promise<any[]> {
-    if (mongoose.connection.readyState === 1) {
-      return await QuestionAssignment.find({ learnerId });
-    }
-    const results: any[] = [];
-    for (const a of inMemoryAssignments.values()) {
-      if (a.learnerId === learnerId) results.push(a);
-    }
-    return results;
+  private static async getLearnerQuestionAssignments(learnerId: string) {
+    if (!isDatabaseConnected()) return [];
+    return prisma.questionAssignment.findMany({ where: { learnerId } });
   }
 
-  /**
-   * Helper: Get learner's Submissions
-   */
-  private static async getLearnerSubmissions(learnerId: string): Promise<any[]> {
-    if (mongoose.connection.readyState === 1) {
-      return await Submission.find({ learner: new mongoose.Types.ObjectId(learnerId) });
-    }
-    return memorySubmissions.filter(
-      (s) => String(s.learner) === learnerId || (s.learner && String(s.learner._id) === learnerId)
+  private static async getLearnerSubmissions(learnerId: string): Promise<ISubmission[]> {
+    if (!isDatabaseConnected()) return [];
+    const rows = await prisma.submission.findMany({
+      where: { learnerId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((r) =>
+      withLegacyId({
+        id: r.id,
+        learner: r.learnerId,
+        learnerId: r.learnerId,
+        learnerName: r.learnerName,
+        learnerEmail: r.learnerEmail,
+        taskId: r.taskId,
+        taskTitle: r.taskTitle,
+        answerContent: r.answerContent,
+        status: r.status as SubmissionStatus,
+        evaluator: r.evaluatorId,
+        evaluatorId: r.evaluatorId,
+        evaluatorName: r.evaluatorName,
+        rubricScores: toRecord(r.rubricScores) as Record<string, number>,
+        writtenFeedback: r.writtenFeedback,
+        revisionCount: r.revisionCount,
+        statusHistory: toArray<IStatusHistoryEntry>(r.statusHistory),
+        submittedAt: r.submittedAt,
+        reviewedAt: r.reviewedAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })
     );
   }
 }

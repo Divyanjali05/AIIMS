@@ -70,12 +70,16 @@ jobs:
     name: Backend CI
     runs-on: ubuntu-latest
     services:
-      mongodb:
-        image: mongo:7.0
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: aiims_user
+          POSTGRES_PASSWORD: aiims_password
+          POSTGRES_DB: aiims_ci_test
         ports:
-          - 27017:27017
+          - 5432:5432
         options: >-
-          --health-cmd mongosh
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -100,6 +104,16 @@ jobs:
         working-directory: Backend
         run: npm ci
 
+      - name: Generate Prisma Client
+        working-directory: Backend
+        run: npx prisma generate
+
+      - name: Run Prisma Migrations
+        working-directory: Backend
+        env:
+          DATABASE_URL: postgresql://aiims_user:aiims_password@localhost:5432/aiims_ci_test
+        run: npx prisma migrate deploy
+
       - name: Run ESLint
         working-directory: Backend
         run: npm run lint
@@ -118,6 +132,7 @@ jobs:
           NODE_ENV: test
           JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
           PORT: 5001
+          DATABASE_URL: postgresql://aiims_user:aiims_password@localhost:5432/aiims_ci_test
         run: npm run test:security
 
       - name: Run Evidence-Based Scoring Test Suite (17 checks)
@@ -130,7 +145,7 @@ jobs:
           NODE_ENV: test
           PORT: 5001
           JWT_SECRET: ci-temporary-testing-jwt-secret-min-32-chars-long
-          MONGODB_URI: mongodb://localhost:27017/aiims_ci_test?retryWrites=false
+          DATABASE_URL: postgresql://aiims_user:aiims_password@localhost:5432/aiims_ci_test
         run: |
           node dist/server.js &
           SERVER_PID=$!

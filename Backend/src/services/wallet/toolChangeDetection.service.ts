@@ -1,6 +1,6 @@
 import { AITool } from '../../types';
-import { ToolVersionHistoryModel, ToolVersionRecord } from '../../models/toolVersionHistory.model';
-import mongoose from 'mongoose';
+import { prisma, isDatabaseConnected } from '../../config/prisma';
+import { ToolVersionRecord } from '../../types/models';
 
 export interface DetectedChange {
   hasChanges: boolean;
@@ -25,7 +25,7 @@ export class ToolChangeDetectionService {
   public static isSourceUnchanged(toolId: string, currentContentHash: string): boolean {
     const cached = this.cachedHashes.get(toolId);
     if (cached && cached.hash === currentContentHash) {
-      return true; // Content hash matches, skip assessment
+      return true;
     }
     return false;
   }
@@ -36,26 +36,37 @@ export class ToolChangeDetectionService {
   public static updateSourceHash(toolId: string, contentHash: string): void {
     this.cachedHashes.set(toolId, {
       hash: contentHash,
-      lastAssessedAt: new Date().toISOString()
+      lastAssessedAt: new Date().toISOString(),
     });
   }
 
   /**
-   * Compare new tool candidate against existing catalog tool to identify explicit changes.
+   * Compare new tool candidate against existing catalog tool to identify explicit changes
+   * and persist version history in PostgreSQL.
    */
-  public static detectToolChanges(existingTool: AITool, candidateTool: AITool, sourceUrl: string): DetectedChange {
+  public static async detectToolChanges(
+    existingTool: AITool,
+    candidateTool: AITool,
+    sourceUrl: string
+  ): Promise<DetectedChange> {
     const nowIso = new Date().toISOString();
     const changes: string[] = [];
     let primaryChangeType: ToolVersionRecord['changeType'] = 'MAJOR_PRODUCT_UPDATE';
 
-    // 1. Pricing change detection
-    if (existingTool.pricingDetails.type !== candidateTool.pricingDetails.type || existingTool.pricingDetails.freeTierAvailable !== candidateTool.pricingDetails.freeTierAvailable) {
+    if (
+      existingTool.pricingDetails.type !== candidateTool.pricingDetails.type ||
+      existingTool.pricingDetails.freeTierAvailable !==
+        candidateTool.pricingDetails.freeTierAvailable
+    ) {
       primaryChangeType = 'PRICING_CHANGE';
-      changes.push(`Pricing updated: ${existingTool.pricingDetails.summary} → ${candidateTool.pricingDetails.summary}`);
+      changes.push(
+        `Pricing updated: ${existingTool.pricingDetails.summary} -> ${candidateTool.pricingDetails.summary}`
+      );
     }
 
-    // 2. Capability addition detection
-    const newCapabilities = candidateTool.capabilities.filter(c => !existingTool.capabilities.includes(c));
+    const newCapabilities = candidateTool.capabilities.filter(
+      (c) => !existingTool.capabilities.includes(c)
+    );
     if (newCapabilities.length > 0) {
       primaryChangeType = 'CAPABILITY_ADDED';
       changes.push(`Added new capabilities: ${newCapabilities.join(', ')}`);
@@ -75,13 +86,39 @@ export class ToolChangeDetectionService {
       newValue: candidateTool.pricingDetails.summary,
       detectedAt: nowIso,
       sourceUrls: [sourceUrl],
-      verifiedAt: nowIso
+      verifiedAt: nowIso,
     };
 
-    // Persist version record to MongoDB if available
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      ToolVersionHistoryModel.findOneAndUpdate({ id: versionRecord.id }, versionRecord, { upsert: true, returnDocument: 'after' })
-        .catch(err => console.warn(`[ToolChangeDetection] Version record DB error:`, err.message));
+    if (isDatabaseConnected()) {
+      try {
+        await prisma.toolVersionHistory.upsert({
+          where: { id: versionRecord.id },
+          create: {
+            id: versionRecord.id,
+            toolId: versionRecord.toolId,
+            version: versionRecord.version,
+            changeType: versionRecord.changeType,
+            summary: versionRecord.summary,
+            previousValue: versionRecord.previousValue ?? null,
+            newValue: versionRecord.newValue ?? null,
+            detectedAt: versionRecord.detectedAt,
+            sourceUrls: versionRecord.sourceUrls,
+            verifiedAt: versionRecord.verifiedAt,
+          },
+          update: {
+            version: versionRecord.version,
+            changeType: versionRecord.changeType,
+            summary: versionRecord.summary,
+            previousValue: versionRecord.previousValue ?? null,
+            newValue: versionRecord.newValue ?? null,
+            detectedAt: versionRecord.detectedAt,
+            sourceUrls: versionRecord.sourceUrls,
+            verifiedAt: versionRecord.verifiedAt,
+          },
+        });
+      } catch (err: any) {
+        console.warn(`[ToolChangeDetection] Version record DB error:`, err.message);
+      }
     }
 
     return {
@@ -90,36 +127,38 @@ export class ToolChangeDetectionService {
       summary: versionRecord.summary,
       previousValue: versionRecord.previousValue,
       newValue: versionRecord.newValue,
-      versionRecord
+      versionRecord,
     };
   }
 
   /**
-   * Get version history records for a tool.
+   * Get version history records for a tool from PostgreSQL.
    */
   public static async getVersionHistory(toolId: string): Promise<ToolVersionRecord[]> {
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      try {
-        const docs = await ToolVersionHistoryModel.find({ toolId }).sort({ detectedAt: -1 }).exec();
-        if (docs && docs.length > 0) {
-          return docs.map(d => d.toObject() as any);
-        }
-      } catch (e: any) {
-        console.warn(`[ToolChangeDetection] Version history lookup error for ${toolId}:`, e.message);
-      }
+    if (!isDatabaseConnected()) {
+      return [];
     }
 
-    return [
-      {
-        id: `ver-default-${toolId}`,
-        toolId,
-        version: 'v1.0 Initial Verification',
-        changeType: 'NEW_RELEASE',
-        summary: 'Initial tool registration and evidence verification.',
-        detectedAt: new Date().toISOString(),
-        sourceUrls: ['https://ai.example.com'],
-        verifiedAt: new Date().toISOString()
-      }
-    ];
+    try {
+      const docs = await prisma.toolVersionHistory.findMany({
+        where: { toolId },
+        orderBy: { detectedAt: 'desc' },
+      });
+      return docs.map((d) => ({
+        id: d.id,
+        toolId: d.toolId,
+        version: d.version,
+        changeType: d.changeType as ToolVersionRecord['changeType'],
+        summary: d.summary,
+        previousValue: d.previousValue ?? undefined,
+        newValue: d.newValue ?? undefined,
+        detectedAt: d.detectedAt,
+        sourceUrls: d.sourceUrls || [],
+        verifiedAt: d.verifiedAt,
+      }));
+    } catch (e: any) {
+      console.warn(`[ToolChangeDetection] Version history lookup error for ${toolId}:`, e.message);
+      return [];
+    }
   }
 }

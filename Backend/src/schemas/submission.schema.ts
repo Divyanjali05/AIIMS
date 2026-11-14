@@ -1,17 +1,43 @@
 import { z } from 'zod';
 
-export const createSubmissionSchema = z.object({
-  taskId: z.string().trim().min(1, 'Valid taskId is required').max(100),
-  userPrompt: z.string().trim().min(10, 'Prompt must be at least 10 characters').max(5000),
-  aiResponse: z.string().trim().min(10, 'AI response must be at least 10 characters').max(20000),
-  selfReflection: z.string().trim().max(5000).optional(),
-});
+export const createSubmissionSchema = z
+  .object({
+    taskId: z.string().trim().min(1, 'Valid taskId is required').max(100),
+    taskTitle: z.string().trim().max(200).optional(),
+    answerContent: z
+      .string()
+      .trim()
+      .min(10, 'Answer content must be at least 10 characters')
+      .max(50000)
+      .optional(),
+    userPrompt: z.string().trim().max(5000).optional(),
+    aiResponse: z.string().trim().max(20000).optional(),
+    selfReflection: z.string().trim().max(5000).optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean(
+        (data.answerContent && data.answerContent.length >= 10) ||
+        (data.userPrompt && data.userPrompt.length >= 10)
+      ),
+    { message: 'Valid submission content is required (answerContent or userPrompt).' }
+  );
 
-export const resubmitTaskSchema = z.object({
-  userPrompt: z.string().trim().min(10, 'Prompt must be at least 10 characters').max(5000),
-  aiResponse: z.string().trim().min(10, 'AI response must be at least 10 characters').max(20000),
-  selfReflection: z.string().trim().max(5000).optional(),
-});
+export const resubmitTaskSchema = z
+  .object({
+    answerContent: z.string().trim().min(10).max(50000).optional(),
+    userPrompt: z.string().trim().max(5000).optional(),
+    aiResponse: z.string().trim().max(20000).optional(),
+    selfReflection: z.string().trim().max(5000).optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean(
+        (data.answerContent && data.answerContent.length >= 10) ||
+        (data.userPrompt && data.userPrompt.length >= 10)
+      ),
+    { message: 'Valid resubmission content is required.' }
+  );
 
 export const evaluatorReviewSchema = z.object({
   scores: z.object({
