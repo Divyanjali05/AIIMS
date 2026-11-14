@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye, EyeOff, AlertCircle, ArrowLeft, Sun, Moon, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowLeft, Sun, Moon, Loader2, ShieldCheck } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
@@ -8,12 +8,12 @@ import { PublicHeroScreen } from '../home/PublicHeroScreen';
 import { SUPPORT_EMAIL } from '../../config/appConfig';
 
 interface LoginScreenProps {
-  onSuccess?: () => void;
+  onSuccess?: (role?: string) => void;
   initialMode?: 'home' | 'login' | 'register';
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode }) => {
-  const { login } = useLearner();
+  const { login, verifyTotp } = useLearner();
   const { isDarkMode, toggleTheme } = useTheme();
 
   // Determine view based on URL pathname or prop
@@ -57,12 +57,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // 2FA / TOTP State (for Admin and Evaluator accounts)
+  const [isTotpStep, setIsTotpStep] = useState(false);
+  const [totpUserId, setTotpUserId] = useState('');
+  const [totpUserRole, setTotpUserRole] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [useBackupCode, setUseBackupCode] = useState(false);
+
   // UI State
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Handle Login Submit
+  // Handle Login Submit (Unified for Student, Entrepreneur, Admin)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -80,13 +87,51 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     setIsLoading(true);
     try {
       const res = await login(cleanEmail, password);
+      // Admin or staff accounts with 2FA enabled require second factor
+      if (res.totpRequired && res.userId) {
+        setTotpUserId(res.userId);
+        setTotpUserRole(res.role || 'admin');
+        setIsTotpStep(true);
+        setErrorMessage('');
+        return;
+      }
       if (res.success) {
-        if (onSuccess) onSuccess();
+        if (onSuccess) onSuccess(res.user?.role || res.role);
       } else {
         setErrorMessage(res.error || 'Email or password is incorrect.');
       }
     } catch {
       setErrorMessage("We couldn't sign you in right now. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle 2FA Verification Submit
+  const handleTotpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    const cleanCode = totpCode.trim();
+    if (!cleanCode) {
+      setErrorMessage(
+        useBackupCode
+          ? 'Please enter your backup code.'
+          : 'Please enter your 6-digit authenticator code.'
+      );
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await verifyTotp(totpUserId, cleanCode, useBackupCode);
+      if (res.success) {
+        if (onSuccess) onSuccess(res.user?.role || totpUserRole);
+      } else {
+        setErrorMessage(res.error || 'Invalid 2FA verification code.');
+      }
+    } catch {
+      setErrorMessage('Unable to verify 2FA code right now. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -307,186 +352,398 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
             boxSizing: 'border-box',
           }}
         >
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <h2
-              style={{
-                fontSize: '24px',
-                fontWeight: 800,
-                color: 'var(--aiims-text-heading, #0F172A)',
-                letterSpacing: '-0.5px',
-                margin: '0 0 6px 0',
-              }}
-            >
-              Welcome back
-            </h2>
-            <p
-              style={{ fontSize: '14px', color: 'var(--aiims-text-secondary, #64748B)', margin: 0 }}
-            >
-              Sign in to continue your AI journey.
-            </p>
-          </div>
-
-          {/* Error Notification */}
-          {errorMessage && (
-            <div
-              style={{
-                backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
-                border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
-                color: isDarkMode ? '#FCA5A5' : '#991B1B',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: 600,
-                marginBottom: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-              }}
-            >
-              <AlertCircle
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  flexShrink: 0,
-                  color: isDarkMode ? '#EF4444' : '#DC2626',
-                }}
-              />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <form
-            onSubmit={handleLoginSubmit}
-            style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
-          >
-            {/* Email */}
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 650,
-                  color: 'var(--aiims-text-secondary, #334155)',
-                  marginBottom: '6px',
-                }}
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                className="aiims-input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '13px',
-                  fontWeight: 650,
-                  color: 'var(--aiims-text-secondary, #334155)',
-                  marginBottom: '6px',
-                }}
-              >
-                Password
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  className="aiims-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+          {!isTotpStep ? (
+            <>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <h2
                   style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--aiims-text-muted, #64748B)',
-                    cursor: 'pointer',
-                    padding: '4px',
+                    fontSize: '24px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading, #0F172A)',
+                    letterSpacing: '-0.5px',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Welcome to AIIMS
+                </h2>
+                <p
+                  style={{
+                    fontSize: '13.5px',
+                    color: 'var(--aiims-text-secondary, #64748B)',
+                    margin: '0 0 12px 0',
+                  }}
+                >
+                  Single portal for Students, Entrepreneurs & Administrators.
+                </p>
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '4px 12px',
+                    borderRadius: '999px',
+                    backgroundColor: isDarkMode ? 'rgba(99, 102, 241, 0.15)' : '#EEF2FF',
+                    border: isDarkMode ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid #C7D2FE',
+                    fontSize: '11.5px',
+                    fontWeight: 650,
+                    color: isDarkMode ? '#A5B4FC' : '#4338CA',
+                  }}
+                >
+                  <span>Student</span>
+                  <span style={{ opacity: 0.5 }}>•</span>
+                  <span>Entrepreneur</span>
+                  <span style={{ opacity: 0.5 }}>•</span>
+                  <span>Admin</span>
+                </div>
+              </div>
+
+              {/* Error Notification */}
+              {errorMessage && (
+                <div
+                  style={{
+                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                    border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
+                    color: isDarkMode ? '#FCA5A5' : '#991B1B',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      flexShrink: 0,
+                      color: isDarkMode ? '#EF4444' : '#DC2626',
+                    }}
+                  />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <form
+                onSubmit={handleLoginSubmit}
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+              >
+                {/* Email */}
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 650,
+                      color: 'var(--aiims-text-secondary, #334155)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    className="aiims-input"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 650,
+                      color: 'var(--aiims-text-secondary, #334155)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    Password
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      className="aiims-input"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoading}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--aiims-text-muted, #64748B)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Primary Action Button */}
+                <button
+                  type="submit"
+                  className="aiims-btn-primary"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    padding: '13px',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    marginTop: '8px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    borderRadius: '6px',
+                    gap: '8px',
                   }}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
+                      Signing in...
+                    </>
+                  ) : (
+                    'Sign In'
+                  )}
+                </button>
+              </form>
+
+              {/* Secondary Navigation */}
+              <div
+                style={{
+                  marginTop: '24px',
+                  textAlign: 'center',
+                  fontSize: '14px',
+                  color: 'var(--aiims-text-secondary, #64748B)',
+                }}
+              >
+                Don't have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => navigateTo('register')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#5B4BFF',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    padding: 0,
+                    fontSize: 'inherit',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Register
                 </button>
               </div>
-            </div>
+            </>
+          ) : (
+            <>
+              {/* 2FA Verification View */}
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '14px',
+                    backgroundColor: isDarkMode ? 'rgba(91, 75, 255, 0.2)' : '#EEF2FF',
+                    color: '#5B4BFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px auto',
+                  }}
+                >
+                  <ShieldCheck size={28} />
+                </div>
+                <h2
+                  style={{
+                    fontSize: '22px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading, #0F172A)',
+                    letterSpacing: '-0.5px',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Two-Factor Verification
+                </h2>
+                <p
+                  style={{
+                    fontSize: '13px',
+                    color: 'var(--aiims-text-secondary, #64748B)',
+                    margin: 0,
+                  }}
+                >
+                  {useBackupCode
+                    ? 'Enter a one-time backup recovery code'
+                    : 'Enter the 6-digit code from your authenticator app'}
+                </p>
+              </div>
 
-            {/* Primary Action Button */}
-            <button
-              type="submit"
-              className="aiims-btn-primary"
-              disabled={isLoading}
-              style={{
-                width: '100%',
-                padding: '13px',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: 700,
-                marginTop: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-              }}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
+              {/* Error Notification */}
+              {errorMessage && (
+                <div
+                  style={{
+                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                    border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
+                    color: isDarkMode ? '#FCA5A5' : '#991B1B',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      flexShrink: 0,
+                      color: isDarkMode ? '#EF4444' : '#DC2626',
+                    }}
+                  />
+                  <span>{errorMessage}</span>
+                </div>
               )}
-            </button>
-          </form>
 
-          {/* Secondary Navigation */}
-          <div
-            style={{
-              marginTop: '24px',
-              textAlign: 'center',
-              fontSize: '14px',
-              color: 'var(--aiims-text-secondary, #64748B)',
-            }}
-          >
-            Don't have an account?{' '}
-            <button
-              type="button"
-              onClick={() => navigateTo('register')}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#5B4BFF',
-                fontWeight: 700,
-                cursor: 'pointer',
-                padding: 0,
-                fontSize: 'inherit',
-                fontFamily: 'inherit',
-              }}
-            >
-              Register
-            </button>
-          </div>
+              <form
+                onSubmit={handleTotpSubmit}
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: 650,
+                      color: 'var(--aiims-text-secondary, #334155)',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    {useBackupCode ? 'Backup Recovery Code' : '6-Digit Authenticator Code'}
+                  </label>
+                  <input
+                    type="text"
+                    className="aiims-input"
+                    autoFocus
+                    placeholder={useBackupCode ? 'e.g. 1a2b3c4d' : '123456'}
+                    value={totpCode}
+                    onChange={(e) => setTotpCode(e.target.value)}
+                    disabled={isLoading}
+                    maxLength={useBackupCode ? 20 : 8}
+                    style={{
+                      textAlign: 'center',
+                      fontSize: '18px',
+                      letterSpacing: useBackupCode ? '1px' : '4px',
+                      fontWeight: 700,
+                    }}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="aiims-btn-primary"
+                  disabled={isLoading}
+                  style={{
+                    width: '100%',
+                    padding: '13px',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    marginTop: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseBackupCode(!useBackupCode);
+                    setTotpCode('');
+                    setErrorMessage('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#5B4BFF',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '4px',
+                    textAlign: 'center',
+                  }}
+                >
+                  {useBackupCode
+                    ? 'Use 6-digit Authenticator Code'
+                    : 'Having trouble? Use a backup code'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTotpStep(false);
+                    setTotpCode('');
+                    setPassword('');
+                    setErrorMessage('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--aiims-text-secondary, #64748B)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '4px',
+                    textAlign: 'center',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <ArrowLeft size={13} /> Back to Email & Password
+                </button>
+              </form>
+            </>
+          )}
 
           {/* Store-Required Legal & Support Links */}
           <div

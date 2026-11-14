@@ -21,6 +21,7 @@ import {
   ArrowRight,
   Search,
   TrendingUp,
+  ShieldCheck,
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { getFeatureAccess } from '../../services/featureAccessService';
@@ -157,7 +158,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  if (state?.profile?.role === 'admin') {
+    navGroups.push({
+      group: 'ADMINISTRATION',
+      items: [
+        {
+          id: 'staff/admin',
+          label: 'Admin Panel',
+          icon: ShieldCheck,
+          locked: false,
+          badge: 'Admin',
+        },
+      ],
+    });
+  }
+
   const handleNavClick = (item: NavItem) => {
+    if (item.id === 'staff/admin') {
+      window.history.pushState(null, '', '/staff/admin');
+      window.location.href = '/staff/admin';
+      return;
+    }
     if (item.locked) {
       setLockedModal({
         title: item.label,

@@ -403,6 +403,11 @@ interface LearnerContextType {
     userId?: string;
     role?: string;
   }>;
+  verifyTotp: (
+    userId: string,
+    code: string,
+    isBackupCode?: boolean
+  ) => Promise<{ success: boolean; user?: any; error?: string; warning?: string }>;
   register: (
     data: RegistrationPayload
   ) => Promise<{ success: boolean; error?: string; code?: string; field?: string }>;
@@ -1973,6 +1978,45 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const verifyTotp = async (
+    userId: string,
+    code: string,
+    isBackupCode: boolean = false
+  ): Promise<{ success: boolean; user?: any; error?: string; warning?: string }> => {
+    try {
+      const data = await apiClient.totpVerifyLogin(userId, code, isBackupCode);
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      if (data.error) {
+        return { success: false, error: data.error };
+      }
+      const userObj = data.user || data.state?.profile;
+      if (data.state) {
+        lastSyncedPayloadRef.current = JSON.stringify(buildWritableLearnerStatePayload(data.state));
+        setIsAuthenticated(true);
+        setState(data.state);
+      } else if (data.user) {
+        setIsAuthenticated(true);
+        setState((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            ...data.user,
+          },
+        }));
+      } else {
+        setIsAuthenticated(true);
+      }
+      return { success: true, user: userObj, warning: data.warning };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || '2FA verification failed. Please try again.',
+      };
+    }
+  };
+
   const register = async (
     payload: RegistrationPayload
   ): Promise<{ success: boolean; error?: string; code?: string; field?: string }> => {
@@ -2227,6 +2271,7 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isAuthenticated,
         isAuthLoading,
         login,
+        verifyTotp,
         register,
         logout,
         saveAssessmentAnswer,

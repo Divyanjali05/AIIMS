@@ -353,26 +353,31 @@ const AppContent: React.FC = () => {
     };
   }, []);
 
-  // Handle Unauthenticated State (Public Home, Hero, Register, Login, Staff Login)
+  // Handle Unauthenticated State (Unified Login for Student, Entrepreneur, Admin, and Staff)
   if (!isAuthenticated) {
     const currentPath = window.location.pathname.toLowerCase();
 
-    // Dedicated Staff Login Route
-    if (currentPath.startsWith('/staff')) {
-      return (
-        <StaffLoginScreen
-          onSuccess={(role) => {
-            const target = role === 'admin' ? '/staff/admin' : '/staff/queue';
-            window.history.pushState(null, '', target);
-            setActiveTabState(mapPathToTab(target));
-          }}
-        />
-      );
-    }
+    const handleLoginSuccess = (userRole?: string) => {
+      const role = userRole || state?.profile?.role || 'learner';
+      if (role === 'admin') {
+        const target = '/staff/admin';
+        window.history.pushState(null, '', target);
+        setActiveTabState(mapPathToTab(target));
+      } else if (role === 'evaluator') {
+        const target = '/staff/queue';
+        window.history.pushState(null, '', target);
+        setActiveTabState(mapPathToTab(target));
+      } else {
+        const targetTab =
+          intendedRoute || (state?.assessment?.status === 'completed' ? 'home' : 'assessment');
+        setActiveTab(targetTab);
+        setIntendedRoute(null);
+      }
+    };
 
     let initialMode: 'home' | 'login' | 'register' = 'home';
     if (currentPath === '/register') initialMode = 'register';
-    else if (currentPath === '/login') initialMode = 'login';
+    else if (currentPath === '/login' || currentPath.startsWith('/staff')) initialMode = 'login';
     else if (
       currentPath === '/hero' ||
       currentPath === '/preview-hero' ||
@@ -381,17 +386,7 @@ const AppContent: React.FC = () => {
     )
       initialMode = 'home';
 
-    return (
-      <LoginScreen
-        initialMode={initialMode}
-        onSuccess={() => {
-          const targetTab =
-            intendedRoute || (state?.assessment?.status === 'completed' ? 'home' : 'assessment');
-          setActiveTab(targetTab);
-          setIntendedRoute(null);
-        }}
-      />
-    );
+    return <LoginScreen initialMode={initialMode} onSuccess={handleLoginSuccess} />;
   }
 
   const userRole = state?.profile?.role || 'learner';
