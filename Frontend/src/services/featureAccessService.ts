@@ -127,12 +127,18 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
 
   const isAssessmentCompleted = state?.assessment?.status === 'completed';
   const isAnalysisViewed =
-    state?.analysis?.status === 'viewed' || state?.analysis?.status === 'unlocked';
+    state?.analysis?.status === 'viewed' ||
+    state?.analysis?.status === 'unlocked' ||
+    state?.analysis?.status === 'generated' ||
+    Boolean(state?.analysis?.aiProfile);
   const isClarityCompleted =
     (state?.clarity?.completedTopics?.length || 0) > 0 || state?.clarity?.status === 'completed';
   const isClarityActive =
     isClarityCompleted ||
     state?.clarity?.status === 'in_progress' ||
+    state?.clarity?.status === 'unlocked' ||
+    (state?.clarity?.selectedAreas && state?.clarity?.selectedAreas.length > 0) ||
+    Object.keys(state?.clarity?.taskScores || {}).length > 0 ||
     !!state?.clarity?.selectedTopic;
   const isFocusSelected = !!state?.focus?.selectedTrack || state?.focus?.status === 'active';
 

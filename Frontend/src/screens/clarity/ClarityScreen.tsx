@@ -348,11 +348,20 @@ const getFallbackTopicContent = (topicName: string): TopicContent => {
 };
 
 export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) => {
-  const { state, setClarityTopic, saveClarityReflection, completeClarityTopic } = useLearner();
+  const {
+    state,
+    setClarityTopic,
+    saveClarityReflection,
+    completeClarityTopic,
+    saveClarityTaskResult,
+  } = useLearner();
 
   const isAssessmentCompleted = state.assessment.status === 'completed';
   const isAnalysisViewed =
-    state.analysis.status === 'viewed' || state.analysis.status === 'unlocked';
+    state.analysis.status === 'viewed' ||
+    state.analysis.status === 'unlocked' ||
+    state.analysis.status === 'generated' ||
+    Boolean(state.analysis.aiProfile);
   const selectedTopic = state.clarity.selectedTopic;
   const reflections = useMemo(() => state.clarity.reflections || {}, [state.clarity.reflections]);
   const completedTopics = state.clarity.completedTopics || [];
@@ -1038,8 +1047,16 @@ export const ClarityScreen: React.FC<ClarityScreenProps> = ({ setActiveTab }) =>
         <Level2AITaskLab
           topicName={selectedTopic}
           legacyTryThis={topicData.tryThis}
-          onTaskCompleted={(diff, _score) => {
+          onTaskCompleted={(diff, score) => {
             setSelectedOptionId(diff);
+            completeClarityTopic(selectedTopic);
+            if (saveClarityTaskResult) {
+              saveClarityTaskResult(selectedTopic, diff, {
+                score: score || 80,
+                userPrompt: 'Level task attempt',
+                output: 'Evaluated against rubric criteria',
+              });
+            }
           }}
         />
       </div>

@@ -143,6 +143,18 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
             timeTakenSeconds: res.attempt.timeTakenSeconds || 0,
           });
           setElapsedSeconds(res.attempt.timeTakenSeconds || 0);
+
+          if (onTaskCompleted) {
+            const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
+              Easy: 'easy',
+              Medium: 'medium',
+              Hard: 'advanced',
+            };
+            onTaskCompleted(
+              diffMap[res.question?.level || res.currentLevel || 'Easy'] || 'easy',
+              res.attempt.score || 80
+            );
+          }
         } else {
           setIsLocked(false);
           // Restore draft safely from localStorage
@@ -203,12 +215,31 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
   const handleRunTask = async () => {
     if (!promptText.trim() || isLocked || isRunning) return;
 
+    let targetAssignmentId = activeAssignment?.assignmentId;
+    if (!targetAssignmentId) {
+      try {
+        const taskRes = await apiClient.getClarityActiveTask(topicName, 'General');
+        if (taskRes && taskRes.hasActiveTask && taskRes.assignmentId) {
+          targetAssignmentId = taskRes.assignmentId;
+          setActiveAssignment({
+            assignmentId: taskRes.assignmentId,
+            assignedAt: taskRes.assignedAt,
+            completedAt: taskRes.completedAt,
+            status: taskRes.isLocked ? 'SUBMITTED' : 'IN_PROGRESS',
+          });
+          setAssignedQuestion(taskRes.question);
+        }
+      } catch (err: any) {
+        console.warn('[Level2AITaskLab] Failed to dynamically resolve active task for run:', err);
+      }
+    }
+
     setIsRunning(true);
     setNotification(null);
 
     try {
       const res = await apiClient.runClarityTask({
-        assignmentId: activeAssignment?.assignmentId,
+        assignmentId: targetAssignmentId,
         topic: topicName,
         difficulty: currentLevel.toLowerCase(),
         taskTitle: assignedQuestion?.title,
@@ -251,8 +282,30 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
   const handleSubmitTask = async () => {
     if (!promptText.trim() || isLocked || isSubmitting) return;
 
-    if (!activeAssignment?.assignmentId) {
-      setNotification({ type: 'error', message: 'Active assignment ID is missing.' });
+    let targetAssignmentId = activeAssignment?.assignmentId;
+    if (!targetAssignmentId) {
+      try {
+        const taskRes = await apiClient.getClarityActiveTask(topicName, 'General');
+        if (taskRes && taskRes.hasActiveTask && taskRes.assignmentId) {
+          targetAssignmentId = taskRes.assignmentId;
+          setActiveAssignment({
+            assignmentId: taskRes.assignmentId,
+            assignedAt: taskRes.assignedAt,
+            completedAt: taskRes.completedAt,
+            status: taskRes.isLocked ? 'SUBMITTED' : 'IN_PROGRESS',
+          });
+          setAssignedQuestion(taskRes.question);
+        }
+      } catch (err: any) {
+        console.warn('[Level2AITaskLab] Failed to dynamically resolve active task:', err);
+      }
+    }
+
+    if (!targetAssignmentId) {
+      setNotification({
+        type: 'error',
+        message: 'Unable to connect to active assignment. Please refresh the page.',
+      });
       return;
     }
 
@@ -261,7 +314,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
 
     try {
       const res = await apiClient.submitClarityAttempt({
-        assignmentId: activeAssignment.assignmentId,
+        assignmentId: targetAssignmentId,
         answer: promptText.trim(),
         timeTakenSeconds: elapsedSeconds,
       });
@@ -833,7 +886,7 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '11px', color: 'var(--aiims-text-muted)', fontWeight: 600 }}>
-              {promptText.length} / 3,000 chars
+              {promptText.length} / 5,000 chars
             </span>
             {!isLocked && promptText.length > 0 && (
               <button

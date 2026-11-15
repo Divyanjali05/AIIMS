@@ -10,7 +10,11 @@ export interface MentorObservation {
 
 export const getMentorObservation = (state: LearnerState): MentorObservation => {
   const isAssessmentCompleted = state.assessment.status === 'completed';
-  const isAnalysisViewed = state.analysis.status === 'viewed' || state.analysis.status === 'unlocked';
+  const isAnalysisViewed =
+    state.analysis.status === 'viewed' ||
+    state.analysis.status === 'unlocked' ||
+    state.analysis.status === 'generated' ||
+    Boolean(state.analysis.aiProfile);
   const clarityStatus = state.clarity.status;
   const selectedClarityTopic = state.clarity.selectedTopic;
   const completedTopics = state.clarity.completedTopics || [];

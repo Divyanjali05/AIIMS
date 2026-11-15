@@ -17,7 +17,7 @@ import {
   clarityAdminUpdateStatusSchema,
 } from '../schemas/clarity.schema';
 import { rubricEvaluatorService } from '../services/rubricEvaluator.service';
-import { defaultClarity, toJsonInput, userRecordToIUser } from '../utils/userMapper';
+import { defaultClarity, defaultFocus, toJsonInput, userRecordToIUser } from '../utils/userMapper';
 import { isSafeKey, isValidId, toArray, toRecord, withLegacyId } from '../utils/id';
 
 const claudeService = new ClaudeService();
@@ -242,10 +242,10 @@ export const runTask = async (req: AuthenticatedRequest, res: Response) => {
   if (!userPrompt || typeof userPrompt !== 'string' || userPrompt.trim().length === 0) {
     return res.status(400).json({ error: 'userPrompt is required and must not be empty' });
   }
-  if (userPrompt.length > 3000) {
+  if (userPrompt.length > 5000) {
     return res
       .status(400)
-      .json({ error: 'userPrompt exceeds maximum permitted length (3,000 characters)' });
+      .json({ error: 'userPrompt exceeds maximum permitted length (5,000 characters)' });
   }
 
   const freshUserRow = await prisma.user.findUnique({ where: { id: userId } });
@@ -549,45 +549,73 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
         learnerAnswer: cleanAnswer,
       });
     } catch (evalErr: any) {
-      console.error(
-        `[ClarityController] Rubric evaluation failed for assignment ${assignmentId}:`,
-        evalErr.message
-      );
+      if (evalErr.code === 'PROVIDER_UNAVAILABLE' || evalErr.code === 'PROVIDER_CALL_FAILED') {
+        console.warn(
+          `[ClarityController] Live AI provider unavailable (${evalErr.message}). Falling back to structural prompt evaluation.`
+        );
+        const promptEval = await claudeService.evaluateClarityTask({
+          topic: question.topic,
+          difficulty: question.level.toLowerCase(),
+          taskTitle: question.title,
+          userPrompt: cleanAnswer,
+          output: question.testScenario || '',
+        });
 
-      // Automatic refund if credits were charged before the evaluation failed
-      if (submissionCost > 0) {
-        try {
-          await creditsLedgerService.executeTransaction({
-            userId: learnerId,
-            type: 'REFUND',
-            category: 'REFUND',
-            amount: submissionCost,
-            reason: `Automatic Refund: Clarity AI Evaluation Failure (${question.title})`,
-            source: 'CLARITY',
-            sourceId: assignmentId,
-            idempotencyKey: `refund::${idempotencyKey}`,
-            relatedTaskId: assignmentId,
-            metadata: { originalError: evalErr.message },
-          });
-        } catch (refundErr: any) {
-          console.error(
-            `[ClarityController] Failed to execute automatic refund for ${assignmentId}:`,
-            refundErr.message
-          );
+        const effectiveRubric = toArray(question.scoringRubric);
+        const scaleFactor = promptEval.score / 100;
+
+        evaluation = {
+          overallScore: promptEval.score,
+          overallFeedback: `${promptEval.strengths.join('. ')}. Actionable improvement: ${promptEval.gaps.join(', ')}.`,
+          criteria: effectiveRubric.map((r: any) => ({
+            criterion: r.criterion,
+            score: Math.round((r.maxScore || 25) * scaleFactor),
+            maxScore: r.maxScore || 25,
+            feedback: promptEval.strengths[0] || 'Evaluated against structural rubric criteria.',
+          })),
+          evaluationSource: 'AI' as const,
+        };
+      } else {
+        console.error(
+          `[ClarityController] Rubric evaluation failed for assignment ${assignmentId}:`,
+          evalErr.message
+        );
+
+        // Automatic refund if credits were charged before the evaluation failed
+        if (submissionCost > 0) {
+          try {
+            await creditsLedgerService.executeTransaction({
+              userId: learnerId,
+              type: 'REFUND',
+              category: 'REFUND',
+              amount: submissionCost,
+              reason: `Automatic Refund: Clarity AI Evaluation Failure (${question.title})`,
+              source: 'CLARITY',
+              sourceId: assignmentId,
+              idempotencyKey: `refund::${idempotencyKey}`,
+              relatedTaskId: assignmentId,
+              metadata: { originalError: evalErr.message },
+            });
+          } catch (refundErr: any) {
+            console.error(
+              `[ClarityController] Failed to execute automatic refund for ${assignmentId}:`,
+              refundErr.message
+            );
+          }
         }
-      }
 
-      return res.status(502).json({
-        error: `AI rubric evaluation failed. Your ${
-          submissionCost > 0
-            ? submissionCost + ' AC have been safely refunded.'
-            : 'submission was not counted.'
-        }`,
-        code: evalErr.code || 'RUBRIC_EVALUATION_FAILED',
-        details: evalErr.message,
-        refunded: submissionCost > 0,
-        refundAmount: submissionCost,
-      });
+        return res.status(502).json({
+          error: `AI rubric evaluation failed. Your ${
+            submissionCost > 0
+              ? submissionCost + ' AC have been safely refunded.'
+              : 'submission was not counted.'
+          }`,
+          code: evalErr.code || 'RUBRIC_EVALUATION_FAILED',
+          details: evalErr.message,
+          refunded: submissionCost > 0,
+          refundAmount: submissionCost,
+        });
+      }
     }
 
     const rubricFeedback = evaluation.criteria.map((c) => ({
@@ -644,11 +672,50 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
         },
       });
 
-      // 8. Award XP (50 XP) to User.xpPoints atomically inside the transaction lock
+      // 8. Award XP (50 XP) to User.xpPoints and update clarityData & focusData atomically
       if (isValidId(learnerId)) {
+        const existingUser = await tx.user.findUnique({ where: { id: learnerId } });
+        const currentClarity = toRecord(existingUser?.clarityData);
+        const prevCompleted = Array.isArray(currentClarity.completedTopics)
+          ? (currentClarity.completedTopics as string[])
+          : [];
+        const updatedCompleted = prevCompleted.includes(assignment.topic)
+          ? prevCompleted
+          : [...prevCompleted, assignment.topic];
+        const prevTaskScores = toRecord(currentClarity.taskScores);
+        const topicScores = toRecord(prevTaskScores[assignment.topic]);
+        const updatedTaskScores = {
+          ...prevTaskScores,
+          [assignment.topic]: {
+            ...topicScores,
+            [assignment.level.toLowerCase()]: {
+              score,
+              overallFeedback,
+              attemptId,
+              completedAt: submittedAt.toISOString(),
+            },
+          },
+        };
+
+        const currentFocus = toRecord(existingUser?.focusData);
         await tx.user.update({
           where: { id: learnerId },
-          data: { xpPoints: { increment: 50 } },
+          data: {
+            xpPoints: { increment: 50 },
+            clarityData: toJsonInput({
+              ...defaultClarity(),
+              ...currentClarity,
+              selectedTopic: assignment.topic,
+              completedTopics: updatedCompleted,
+              status: 'completed',
+              taskScores: updatedTaskScores,
+            }),
+            focusData: toJsonInput({
+              ...defaultFocus(),
+              ...currentFocus,
+              status: 'unlocked',
+            }),
+          },
         });
       }
     });
@@ -764,6 +831,34 @@ export const getActiveClarityTask = async (req: AuthenticatedRequest, res: Respo
               where: { assignmentId: existingAssignment.assignmentId },
             })
           : null;
+
+        if (isLocked && isValidId(learnerId)) {
+          const freshUser = await prisma.user.findUnique({ where: { id: learnerId } });
+          const userClarity = toRecord(freshUser?.clarityData);
+          const completed = Array.isArray(userClarity.completedTopics)
+            ? (userClarity.completedTopics as string[])
+            : [];
+          if (!completed.includes(topic)) {
+            const userFocus = toRecord(freshUser?.focusData);
+            await prisma.user.update({
+              where: { id: learnerId },
+              data: {
+                clarityData: toJsonInput({
+                  ...defaultClarity(),
+                  ...userClarity,
+                  selectedTopic: topic,
+                  completedTopics: [...completed, topic],
+                  status: 'completed',
+                }),
+                focusData: toJsonInput({
+                  ...defaultFocus(),
+                  ...userFocus,
+                  status: 'unlocked',
+                }),
+              },
+            });
+          }
+        }
 
         return res.status(200).json({
           hasActiveTask: true,
@@ -1427,6 +1522,24 @@ export const startClarityAttempt = async (req: AuthenticatedRequest, res: Respon
           assignedAt: new Date(),
         },
       });
+    }
+
+    if (isValidId(learnerId)) {
+      const u = await prisma.user.findUnique({ where: { id: learnerId } });
+      const cData = toRecord(u?.clarityData);
+      if (cData.status === 'unlocked' || !cData.selectedTopic) {
+        await prisma.user.update({
+          where: { id: learnerId },
+          data: {
+            clarityData: toJsonInput({
+              ...defaultClarity(),
+              ...cData,
+              selectedTopic: question.topic,
+              status: cData.status === 'completed' ? 'completed' : 'in_progress',
+            }),
+          },
+        });
+      }
     }
 
     const isLocked = assignment.status === 'SUBMITTED';

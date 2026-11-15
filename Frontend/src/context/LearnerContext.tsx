@@ -1923,9 +1923,20 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        return { success: false, error: data.error || 'Email or password is incorrect.' };
+        return {
+          success: false,
+          error:
+            data?.error ||
+            `Unable to connect to AIIMS server (HTTP ${res.status}). Please verify that the backend is running.`,
+        };
+      }
+      if (!data) {
+        return {
+          success: false,
+          error: 'Received empty response from server. Please verify backend connection.',
+        };
       }
       // Staff accounts with 2FA enabled — return challenge without setting session
       if (data.totpRequired) {
@@ -1967,7 +1978,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         errMsg.includes('ECONNREFUSED') ||
         errMsg.includes('UnknownHost') ||
         errMsg.includes('Socket') ||
+        errMsg.includes('Unexpected end of JSON input') ||
+        errMsg.includes('JSON') ||
         err?.name === 'TypeError' ||
+        err?.name === 'SyntaxError' ||
         err?.name === 'AbortError';
       return {
         success: false,
@@ -2026,13 +2040,22 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const resData = await res.json();
+      const resData = await res.json().catch(() => null);
       if (!res.ok) {
         return {
           success: false,
-          error: resData.error || 'Registration failed.',
-          code: resData.code,
-          field: resData.field,
+          error:
+            resData?.error ||
+            `Unable to connect to AIIMS server (HTTP ${res.status}). Please verify that the backend is running.`,
+          code: resData?.code || 'SERVER_ERROR',
+          field: resData?.field,
+        };
+      }
+      if (!resData) {
+        return {
+          success: false,
+          error: 'Received empty response from server. Please verify backend connection.',
+          code: 'EMPTY_RESPONSE',
         };
       }
       if (resData.token) {
@@ -2085,7 +2108,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         errMsg.includes('ECONNREFUSED') ||
         errMsg.includes('UnknownHost') ||
         errMsg.includes('Socket') ||
+        errMsg.includes('Unexpected end of JSON input') ||
+        errMsg.includes('JSON') ||
         err?.name === 'TypeError' ||
+        err?.name === 'SyntaxError' ||
         err?.name === 'AbortError';
       return {
         success: false,

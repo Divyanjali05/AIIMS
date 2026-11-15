@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLearner } from '../../context/LearnerContext';
 import {
   Target,
@@ -68,11 +68,21 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
 
   const isAssessmentCompleted = state.assessment.status === 'completed';
   const isAnalysisViewed =
-    state.analysis.status === 'viewed' || state.analysis.status === 'unlocked';
+    state.analysis.status === 'viewed' ||
+    state.analysis.status === 'unlocked' ||
+    state.analysis.status === 'generated' ||
+    Boolean(state.analysis.aiProfile);
   const isClarityExplored =
     state.clarity.status === 'completed' ||
+    state.clarity.status === 'in_progress' ||
+    state.focus.status === 'unlocked' ||
+    state.focus.status === 'active' ||
+    Boolean(state.focus.selectedTrack) ||
     (state.clarity.completedTopics && state.clarity.completedTopics.length > 0) ||
-    state.clarity.selectedTopic !== null;
+    (state.clarity.selectedAreas && state.clarity.selectedAreas.length > 0) ||
+    state.clarity.selectedTopic !== null ||
+    Object.keys(state.clarity.taskScores || {}).length > 0 ||
+    Object.keys(state.clarity.reflections || {}).length > 0;
 
   const activeFocusTrack = state.focus.selectedTrack;
   const isFocusActive = state.focus.status === 'active';
@@ -80,12 +90,18 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
 
   const defaultCandidate =
     state.clarity.selectedTopic ||
-    state.clarity.completedTopics[0] ||
+    (state.clarity.completedTopics && state.clarity.completedTopics[0]) ||
     (state.clarity.selectedAreas && state.clarity.selectedAreas[0]) ||
     'AI Workflow Design';
 
   const [candidateTopic, setCandidateTopic] = useState<string>(defaultCandidate);
   const [showChangeSelector, setShowChangeSelector] = useState<boolean>(false);
+
+  useEffect(() => {
+    if ((!candidateTopic || candidateTopic === 'AI Workflow Design') && defaultCandidate) {
+      setCandidateTopic(defaultCandidate);
+    }
+  }, [defaultCandidate]);
 
   // Gating guard: Assessment
   if (!isAssessmentCompleted) {

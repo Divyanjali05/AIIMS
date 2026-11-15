@@ -89,6 +89,10 @@ const setAuthCookie = (res: Response, token: string, req?: Request): void => {
     path: '/',
   });
   if (req) {
+    if (!req.cookies) {
+      req.cookies = {};
+    }
+    req.cookies.aiims_token = token;
     try {
       generateCsrfToken(req, res);
     } catch {}

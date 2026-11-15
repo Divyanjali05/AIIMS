@@ -10,7 +10,7 @@ export const clarityRunSchema = z.object({
     .string()
     .trim()
     .min(1, 'Prompt cannot be empty')
-    .max(3000, 'Prompt exceeds maximum limit of 3,000 characters'),
+    .max(5000, 'Prompt exceeds maximum limit of 5,000 characters'),
   contextData: z.string().trim().max(10000).optional(),
   idempotencyKey: z.string().trim().max(128).optional(),
 });

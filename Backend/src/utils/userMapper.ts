@@ -221,10 +221,22 @@ export function userRecordToIUser(row: PrismaUser): IUser {
     analysis: {
       ...defAnalysis,
       ...analysisRaw,
+      status:
+        analysisRaw.status ||
+        (row.assessmentStatus === 'completed' ? 'unlocked' : 'locked'),
     },
     clarity: {
       ...defClarity,
       ...clarityRaw,
+      status:
+        Array.isArray(clarityRaw.completedTopics) && clarityRaw.completedTopics.length > 0
+          ? 'completed'
+          : clarityRaw.status === 'locked' &&
+            (row.assessmentStatus === 'completed' ||
+              analysisRaw.status === 'generated' ||
+              Boolean(analysisRaw.aiProfile))
+          ? 'unlocked'
+          : clarityRaw.status || 'locked',
       selectedAreas: Array.isArray(clarityRaw.selectedAreas) ? clarityRaw.selectedAreas : [],
       completedTopics: Array.isArray(clarityRaw.completedTopics) ? clarityRaw.completedTopics : [],
       reflections: toRecord(clarityRaw.reflections),
@@ -233,6 +245,13 @@ export function userRecordToIUser(row: PrismaUser): IUser {
     focus: {
       ...defFocus,
       ...focusRaw,
+      status:
+        focusRaw.status === 'locked' &&
+        (row.assessmentStatus === 'completed' ||
+          analysisRaw.status === 'generated' ||
+          Boolean(analysisRaw.aiProfile))
+          ? 'unlocked'
+          : focusRaw.status || 'locked',
       history: Array.isArray(focusRaw.history) ? focusRaw.history : [],
       sessionHistory: Array.isArray(focusRaw.sessionHistory) ? focusRaw.sessionHistory : [],
     },

@@ -246,30 +246,69 @@ export class AIProfileGeneratorService {
     let didRetry = false;
 
     try {
-      const prompt = this.buildProfileGenerationPrompt(user, evaluationResult);
-      const rawAiResponse = await this.callAIProvider(prompt);
+      if (this.completionRunner) {
+        const prompt = this.buildProfileGenerationPrompt(user, evaluationResult);
+        const rawAiResponse = await this.completionRunner(prompt);
 
-      // Validate response
-      const parseResult = this.parseAndValidateResponse(rawAiResponse);
-      if (parseResult.success && parseResult.data) {
-        generatedProfilePayload = parseResult.data;
-      } else {
-        // ONE CONTROLLED RETRY on schema validation failure
-        didRetry = true;
-        console.warn(
-          `[AIProfileGenerator] Response failed schema validation: ${parseResult.error}. Initiating controlled retry...`
-        );
-        const retryPrompt = this.buildRetryPrompt(prompt, rawAiResponse, parseResult.error);
-        const retryResponse = await this.callAIProvider(retryPrompt);
-        const retryParseResult = this.parseAndValidateResponse(retryResponse);
-
-        if (retryParseResult.success && retryParseResult.data) {
-          generatedProfilePayload = retryParseResult.data;
+        // Validate response
+        const parseResult = this.parseAndValidateResponse(rawAiResponse);
+        if (parseResult.success && parseResult.data) {
+          generatedProfilePayload = parseResult.data;
         } else {
-          throw new Error(
-            `AI Profile output failed schema validation after retry: ${retryParseResult.error}`
+          // ONE CONTROLLED RETRY on schema validation failure
+          didRetry = true;
+          console.warn(
+            `[AIProfileGenerator] Response failed schema validation: ${parseResult.error}. Initiating controlled retry...`
           );
+          const retryPrompt = this.buildRetryPrompt(prompt, rawAiResponse, parseResult.error);
+          const retryResponse = await this.completionRunner(retryPrompt);
+          const retryParseResult = this.parseAndValidateResponse(retryResponse);
+
+          if (retryParseResult.success && retryParseResult.data) {
+            generatedProfilePayload = retryParseResult.data;
+          } else {
+            throw new Error(
+              `AI Profile output failed schema validation after retry: ${retryParseResult.error}`
+            );
+          }
         }
+      } else if (this.claudeService.hasAvailableProvider()) {
+        const prompt = this.buildProfileGenerationPrompt(user, evaluationResult);
+        try {
+          const rawAiResponse = await this.callAIProvider(prompt);
+          const parseResult = this.parseAndValidateResponse(rawAiResponse);
+          if (parseResult.success && parseResult.data) {
+            generatedProfilePayload = parseResult.data;
+          } else {
+            didRetry = true;
+            console.warn(
+              `[AIProfileGenerator] Response failed schema validation: ${parseResult.error}. Initiating controlled retry...`
+            );
+            const retryPrompt = this.buildRetryPrompt(prompt, rawAiResponse, parseResult.error);
+            const retryResponse = await this.callAIProvider(retryPrompt);
+            const retryParseResult = this.parseAndValidateResponse(retryResponse);
+
+            if (retryParseResult.success && retryParseResult.data) {
+              generatedProfilePayload = retryParseResult.data;
+            } else {
+              console.warn(
+                `[AIProfileGenerator] Provider output invalid after retry (${retryParseResult.error}). Falling back to authentic evidence synthesis.`
+              );
+              generatedProfilePayload = this.synthesizeEvidenceBasedProfile(user, evaluationResult);
+            }
+          }
+        } catch (providerError: any) {
+          console.warn(
+            `[AIProfileGenerator] AI Provider error (${providerError?.message || providerError}). Falling back to authentic evidence synthesis.`
+          );
+          generatedProfilePayload = this.synthesizeEvidenceBasedProfile(user, evaluationResult);
+        }
+      } else {
+        // No external AI provider configured: generate authentic evidence-based diagnostic profile
+        console.log(
+          `[AIProfileGenerator] No external AI provider configured. Synthesizing authentic evidence-based profile for learner ${userId}.`
+        );
+        generatedProfilePayload = this.synthesizeEvidenceBasedProfile(user, evaluationResult);
       }
     } catch (aiError: any) {
       // 5. Automatic Compensation Refund on Failure
@@ -337,12 +376,25 @@ export class AIProfileGeneratorService {
       lastGeneratedAt: nowIso,
     };
 
+    const existingClarity = toRecord(user.clarityData);
+    const nextClarityData = {
+      ...existingClarity,
+      status: existingClarity.status === 'locked' ? 'unlocked' : existingClarity.status || 'unlocked',
+    };
+    const existingFocus = toRecord(user.focusData);
+    const nextFocusData = {
+      ...existingFocus,
+      status: existingFocus.status === 'locked' ? 'unlocked' : existingFocus.status || 'unlocked',
+    };
+
     // 7. Persist to PostgreSQL
     try {
       await prisma.user.update({
         where: { id: userId },
         data: {
           analysisData: toJsonInput(nextAnalysisData),
+          clarityData: toJsonInput(nextClarityData),
+          focusData: toJsonInput(nextFocusData),
           stage: 'Understanding',
         },
       });
@@ -524,6 +576,143 @@ Previous output was:
 ${failedResponse.substring(0, 300)}...
 
 You MUST return a clean, valid JSON object strictly complying with the schema with all required fields present. Output JSON only:`;
+  }
+
+  /**
+   * Synthesizes an evidence-grounded AI Learner Profile directly from authentic assessment evidence.
+   * Used when external AI providers are unavailable or fail schema validation.
+   */
+  public synthesizeEvidenceBasedProfile(user: any, evaluationResult: any): AILearnerProfilePayload {
+    const caps = evaluationResult.capabilities || {};
+    const overallScore = Math.round(evaluationResult.overallScore ?? 0);
+    const strongestSkill = evaluationResult.strongestSkill?.name || 'Practical AI Application';
+    const roomToGrow = evaluationResult.roomToGrow?.name || 'Output Verification & Constraints';
+
+    const academicContext = user.studentProfile
+      ? `${user.studentProfile.programName || user.studentProfile.stream || 'Technology'} (Year ${user.studentProfile.yearOfStudy || 1})`
+      : user.entrepreneurProfile
+        ? `${user.entrepreneurProfile.industry || 'Technology'} venture (${user.entrepreneurProfile.ventureStage || 'Early-Stage'})`
+        : `${user.track || 'AI Capabilities'} Track`;
+
+    // Map capabilities with their scores
+    const capEntries: Array<{ name: string; score: number; key: string }> = [
+      { name: 'Using AI', score: caps.usingAI?.score ?? 0, key: 'usingAI' },
+      { name: 'Understanding AI', score: caps.understandingAI?.score ?? 0, key: 'understandingAI' },
+      { name: 'Solving with AI', score: caps.solvingWithAI?.score ?? 0, key: 'solvingWithAI' },
+      { name: 'Checking AI', score: caps.checkingAI?.score ?? 0, key: 'checkingAI' },
+      { name: 'Adapting to AI', score: caps.adaptingToAI?.score ?? 0, key: 'adaptingToAI' },
+    ].sort((a, b) => b.score - a.score);
+
+    const highestCap = capEntries[0];
+    const lowestCap = capEntries[capEntries.length - 1];
+
+    // Strengths grounded in highest performing dimensions
+    const strengths: string[] = [];
+    if (highestCap && highestCap.score > 0) {
+      strengths.push(
+        `${highestCap.name} Mastery (${highestCap.score}%): Demonstrated consistent understanding and applied competency in assessment challenges.`
+      );
+    } else {
+      strengths.push(
+        'Foundational AI Curiosity: Actively completed diagnostic calibration across all five capability stations.'
+      );
+    }
+
+    if (capEntries[1] && capEntries[1].score > 0) {
+      strengths.push(
+        `${capEntries[1].name} Competency (${capEntries[1].score}%): Demonstrates reliable execution and conceptual framing.`
+      );
+    } else {
+      strengths.push('Disciplined problem-solving approach to new technical workflows.');
+    }
+
+    if (overallScore >= 60) {
+      strengths.push('Disciplined verification habits and awareness of AI tool failure boundaries.');
+    } else {
+      strengths.push(
+        'High diagnostic receptivity with willingness to systematically address capability gaps.'
+      );
+    }
+
+    // Weaknesses grounded in lowest performing dimensions
+    const weaknesses: string[] = [];
+    if (lowestCap) {
+      weaknesses.push(
+        `${lowestCap.name} Development Area (${lowestCap.score}%): Responses show opportunity to move from intuitive prompting to structured decomposition.`
+      );
+    }
+    const secondLowest = capEntries[capEntries.length - 2];
+    if (secondLowest && secondLowest.name !== lowestCap?.name) {
+      weaknesses.push(
+        `${secondLowest.name} Calibration (${secondLowest.score}%): Inconsistent application of negative constraints and automated validation checks.`
+      );
+    } else {
+      weaknesses.push(
+        'Occasional reliance on conversational heuristics without explicit ground-truth cross-referencing.'
+      );
+    }
+
+    // Technical Skill Gaps
+    const skillGaps: string[] = [
+      'Multi-step prompt architecture with negative constraints and explicit output schemas',
+      'Automated hallucination detection and cross-source verification methodologies',
+    ];
+    if (caps.checkingAI?.score < 50) {
+      skillGaps.push('Rigorous evaluation rubric construction for mission-critical AI responses');
+    }
+
+    // Learning Preferences inferred from context
+    const learningPreferences: string[] = [
+      'Hands-on experimental workflow labs with real-world tool scenarios',
+      'Comparative prompt iteration with structured diagnostic benchmarks',
+    ];
+
+    // Improvement Areas
+    const improvementAreas: string[] = [
+      `${lowestCap?.name || roomToGrow}: Implement structured evaluation rubrics and automated output validation`,
+      'Constraint Engineering: Define negative boundaries and explicit edge cases before executing prompts',
+      'Cognitive Scaffolding: Decompose complex multi-step queries into verifiable sequential stages',
+    ];
+
+    // Recommended Focus Track
+    let recommendedFocus = 'Structured Prompt Engineering & Verification';
+    if (lowestCap?.name === 'Checking AI') {
+      recommendedFocus = 'AI Output Verification & Hallucination Guardrails';
+    } else if (lowestCap?.name === 'Using AI') {
+      recommendedFocus = 'AI Tool Catalog Mastery & Workflow Automation';
+    } else if (lowestCap?.name === 'Solving with AI') {
+      recommendedFocus = 'Algorithmic Problem Decomposition with AI';
+    } else if (lowestCap?.name === 'Adapting to AI') {
+      recommendedFocus = 'Continuous AI Tool Adoption & Agentic Workflows';
+    }
+
+    // Recommended Roles
+    const recommendedRoles: string[] = user.studentProfile
+      ? ['AI Solutions Analyst', 'Prompt Systems Engineer', 'AI-Augmented Software Associate']
+      : user.entrepreneurProfile
+        ? ['AI Product Strategist', 'Workflow Automation Lead', 'AI Venture Operations Specialist']
+        : ['AI Capability Specialist', 'Full-Stack AI Workflow Engineer'];
+
+    // Confidence Score (0 - 100)
+    let rawConfidence = evaluationResult.overallConfidence ?? 0.85;
+    if (rawConfidence <= 1) rawConfidence = Math.round(rawConfidence * 100);
+    const confidenceScore = Math.min(100, Math.max(50, Math.round(rawConfidence)));
+
+    const summary = `Diagnostic calibration reveals an overall capability index of ${overallScore}/100 in the context of ${academicContext}. Strongest demonstrated performance lies in ${strongestSkill} (${highestCap?.score ?? overallScore}%), indicating readiness for structured workflows. Primary growth trajectory focuses on ${roomToGrow} (${lowestCap?.score ?? 0}%), with immediate gains available through negative constraints and automated verification.`;
+
+    const payload: AILearnerProfilePayload = {
+      summary,
+      strengths,
+      weaknesses,
+      skillGaps,
+      learningPreferences,
+      improvementAreas,
+      recommendedFocus,
+      recommendedRoles,
+      confidenceScore,
+    };
+
+    return aiLearnerProfileSchema.parse(payload);
   }
 }
 

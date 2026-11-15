@@ -20,7 +20,9 @@ export const requireClarityUnlocked = (
   }
 
   // Clarity requires baseline assessment to be completed
-  const isAssessmentCompleted = user.assessment?.status === 'completed';
+  const isAssessmentCompleted =
+    user.assessment?.status === 'completed' ||
+    (user as any).assessmentStatus === 'completed';
   if (!isAssessmentCompleted) {
     return res.status(403).json({
       error: 'Clarity unlocks after your assessment profile is analyzed.',
@@ -33,7 +35,10 @@ export const requireClarityUnlocked = (
 
   // Clarity requires profile analysis to have been reviewed
   const isAnalysisViewed =
-    user.analysis?.status === 'viewed' || user.analysis?.status === 'unlocked';
+    user.analysis?.status === 'viewed' ||
+    user.analysis?.status === 'unlocked' ||
+    user.analysis?.status === 'generated' ||
+    Boolean((user as any).analysis?.aiProfile);
   if (!isAnalysisViewed) {
     return res.status(403).json({
       error: 'Clarity unlocks after you review your AI capability profile.',

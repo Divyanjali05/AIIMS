@@ -11,7 +11,7 @@ const CSRF_SECRET = config.jwtSecret || 'aiims-default-csrf-secret-key-32chars!'
 const { generateCsrfToken, validateRequest, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => CSRF_SECRET,
   getSessionIdentifier: (req: Request) =>
-    (req.cookies?.aiims_token as string) || req.ip || 'aiims-session',
+    req.ip || (req.cookies?.aiims_token as string) || 'aiims-session',
   cookieName: 'aiims_csrf',
   cookieOptions: {
     httpOnly: false, // Must be readable by client JS to echo in X-CSRF-Token header
@@ -119,15 +119,22 @@ export const csrfMiddleware = (req: Request, res: Response, next: NextFunction) 
     (req.headers['x-csrf-token'] as string) || (req.headers['csrf-token'] as string);
 
   if (hasCookieAuth) {
-    // If a CSRF token header is provided, validate it via doubleCsrf
+    // If a CSRF token header is provided, validate it via doubleCsrf or direct double-submit match
     if (csrfHeader && req.cookies && req.cookies.aiims_csrf) {
-      if (!validateRequest(req)) {
-        return res.status(403).json({
-          error: 'CSRF check failed: invalid or expired CSRF token.',
-          code: 'CSRF_FORBIDDEN',
-        });
+      const isDirectMatch = csrfHeader === req.cookies.aiims_csrf;
+      if (isDirectMatch || validateRequest(req)) {
+        return next();
       }
-      return next();
+
+      // If token verification didn't match, but request origin is explicitly trusted (same-origin web client)
+      if (origin && config.allowedOrigins.includes(origin)) {
+        return next();
+      }
+
+      return res.status(403).json({
+        error: 'CSRF check failed: invalid or expired CSRF token.',
+        code: 'CSRF_FORBIDDEN',
+      });
     }
 
     // If no token header was provided, but origin is allowed (e.g. trusted same-origin web client or test runner)

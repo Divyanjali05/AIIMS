@@ -76,7 +76,10 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
 
   // Exact Stage Completion Triggers
   const isAssessmentDone = state.assessment?.status === 'completed';
-  const isAnalysisViewed = state.analysis?.status === 'viewed'; // Must actually view profile, unlocked alone is NOT completed
+  const isAnalysisViewed =
+    state.analysis?.status === 'viewed' ||
+    state.analysis?.status === 'generated' ||
+    Boolean(state.analysis?.aiProfile);
   const isWalletExplored = (state.aiWallet?.userTools?.length || 0) >= 1;
   const isClarityCompleted =
     (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
@@ -297,7 +300,10 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
  */
 export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
   const isAssessmentCompleted = state.assessment?.status === 'completed';
-  const isAnalysisViewed = state.analysis?.status === 'viewed';
+  const isAnalysisViewed =
+    state.analysis?.status === 'viewed' ||
+    state.analysis?.status === 'generated' ||
+    Boolean(state.analysis?.aiProfile);
   const isAnalysisUnlocked = state.analysis?.status !== 'locked';
   const isClarityCompleted =
     state.clarity?.status === 'completed' ||

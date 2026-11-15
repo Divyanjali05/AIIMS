@@ -239,7 +239,7 @@ export const config = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || 'mock-claude-key',
   claudeModel: 'claude-3-5-sonnet-20241022',
   geminiApiKey: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '',
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+  geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
   databaseUrl: process.env.DATABASE_URL || '',
   allowedOrigins: resolveAllowedOrigins(),
   loginRateLimitEnvironment: initialLoginRateLimit.environment,

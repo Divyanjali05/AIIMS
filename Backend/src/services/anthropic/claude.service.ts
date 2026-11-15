@@ -629,12 +629,16 @@ Return valid JSON adhering strictly to:
 
     const candidateModels = Array.from(
       new Set([
+        config.geminiModel,
+        'gemini-1.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-pro',
+        'gemini-1.5-flash-8b',
         'gemini-3.1-flash-lite',
-        config.geminiModel || 'gemini-3.8-flash',
         'gemini-flash-latest',
         'gemini-3.8-flash',
         'gemini-3.5-flash-lite',
-      ])
+      ].filter(Boolean) as string[])
     );
 
     let lastErr: any = null;
@@ -687,13 +691,23 @@ Return valid JSON adhering strictly to:
     }
 
     if (this.client) {
-      const res = await this.client.messages.create({
-        model: config.claudeModel || 'claude-3-5-sonnet-20241022',
-        max_tokens: maxTokens,
-        temperature,
-        messages: [{ role: 'user', content: prompt }],
-      });
-      return res.content[0].type === 'text' ? res.content[0].text : '';
+      try {
+        const res = await this.client.messages.create({
+          model: config.claudeModel || 'claude-3-5-sonnet-20241022',
+          max_tokens: maxTokens,
+          temperature,
+          messages: [{ role: 'user', content: prompt }],
+        });
+        return res.content[0].type === 'text' ? res.content[0].text : '';
+      } catch (anthropicErr) {
+        console.warn(
+          '[ClaudeService] Anthropic completion failed, attempting fallback provider:',
+          anthropicErr
+        );
+        if (!this.geminiClient) {
+          throw anthropicErr;
+        }
+      }
     }
 
     if (this.geminiClient) {

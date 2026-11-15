@@ -9,9 +9,23 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:5001',
-        changeOrigin: true
-      }
-    }
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            if (res && !('headersSent' in res && res.headersSent)) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(
+                JSON.stringify({
+                  error:
+                    'AIIMS backend server is not running on port 5001. Please start the backend with npm run dev in Backend/.',
+                  code: 'BACKEND_OFFLINE',
+                })
+              );
+            }
+          });
+        },
+      },
+    },
   },
   build: {
     chunkSizeWarningLimit: 1200,
