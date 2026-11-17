@@ -12,6 +12,8 @@ import {
   walletOperationSchema,
   confirmUsageSchema,
   personalizedMatchSchema,
+  removeFromWalletSchema,
+  createToolReportSchema,
 } from '../schemas/wallet.schema';
 import {
   searchTools,
@@ -32,11 +34,13 @@ import {
   getUserWallet,
   getRecommendations,
   addToWallet,
+  removeFromWallet,
   updateFamiliarity,
   executeWalletOperation,
   confirmToolUsage,
   getUserConfirmations,
   getPersonalizedToolMatching,
+  reportOutdatedTool,
   getDiscoveryRuns,
   getToolEvidenceAdmin,
   getToolHistoryAdmin,
@@ -71,6 +75,13 @@ router.get('/wallet/discovery/status', getDiscoveryStatus);
 router.get('/wallet/user', requireAuth, getUserWallet);
 router.get('/wallet/recommendations', requireAuth, getRecommendations);
 router.post('/wallet/add', requireAuth, validateBody(addToWalletSchema), addToWallet);
+router.post('/wallet/remove', requireAuth, validateBody(removeFromWalletSchema), removeFromWallet);
+router.post(
+  '/wallet/tools/:id/report',
+  requireAuth,
+  validateBody(createToolReportSchema),
+  reportOutdatedTool
+);
 router.post(
   '/wallet/update-familiarity',
   requireAuth,

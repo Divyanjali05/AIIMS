@@ -8,6 +8,7 @@ export type FeatureId =
   | 'assessment'
   | 'analysis'
   | 'wallet'
+  | 'catalog'
   | 'clarity'
   | 'focus'
   | 'radar'
@@ -101,6 +102,8 @@ export function normalizeFeatureId(tabOrPath: string): FeatureId {
   if (clean === 'profile' || clean === 'settings') return 'settings';
   if (clean === 'wallet' || clean === 'ai-wallet' || clean === 'aiwallet' || clean === 'discover')
     return 'wallet';
+  if (clean === 'catalog' || clean === 'market' || clean === 'market-tools' || clean === 'tools')
+    return 'catalog';
   if (
     clean === 'profile-analysis' ||
     clean === 'analysis' ||
@@ -181,6 +184,15 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         unlockAction: 'Start Baseline Assessment',
         targetTab: 'assessment',
         requiredConditions: ['Baseline Assessment completed'],
+      };
+
+    case 'catalog':
+      return {
+        featureId: 'catalog',
+        name: 'Market AI Tools Catalog',
+        level: 'Level 1',
+        visible: true,
+        unlocked: true,
       };
 
     case 'wallet':
@@ -434,6 +446,8 @@ export function getAllFeatureAccess(state: LearnerState): Record<FeatureId, Feat
     'assessment',
     'analysis',
     'wallet',
+    'catalog',
+    'discover',
     'clarity',
     'focus',
     'radar',

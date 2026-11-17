@@ -775,9 +775,10 @@ describe('AIIMS Phase 8: Entrepreneur Module & Additional Interfaces (6/7) Suite
       const modelMatches = schemaContent.match(/model\s+(\w+)\s+\{/g) || [];
       const modelNames = modelMatches.map((m) => m.replace(/model\s+/, '').replace(/\s+\{/, ''));
 
-      // 22 canonical application models
-      expect(modelNames.length).toBe(22);
+      // Canonical application models (including Phase A ToolReport)
+      expect(modelNames.length).toBe(23);
       expect(modelNames).toContain('User');
+      expect(modelNames).toContain('ToolReport');
       expect(modelNames).toContain('StudentProfile');
       expect(modelNames).toContain('EntrepreneurProfile');
       expect(modelNames).toContain('CreditLedger');

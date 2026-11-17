@@ -27,6 +27,15 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
     }
   }, [isOpen]);
 
+  const detectedLanHost =
+    typeof window !== 'undefined' &&
+    window.location.hostname &&
+    window.location.hostname !== 'localhost' &&
+    window.location.hostname !== '127.0.0.1'
+      ? window.location.hostname
+      : '192.168.1.83';
+  const lanPresetUrl = `http://${detectedLanHost}:5001/api`;
+
   const handleTest = async (urlToTest?: string) => {
     const target = (urlToTest || currentUrl).trim();
     if (!target) return;
@@ -186,32 +195,44 @@ export const ServerConfigModal: React.FC<ServerConfigModalProps> = ({
 
             <button
               type="button"
-              onClick={() => handleApplyPreset('http://192.168.1.5:5001/api')}
+              onClick={() => handleApplyPreset(lanPresetUrl)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '8px 12px',
                 borderRadius: '8px',
-                border: currentUrl.includes('192.168.1.5')
-                  ? '1.5px solid var(--aiims-accent-primary, #5B4BFF)'
-                  : '1px solid var(--aiims-border-subtle, #E2E8F0)',
-                background: currentUrl.includes('192.168.1.5')
-                  ? 'var(--aiims-accent-glow, rgba(91,75,255,0.06))'
-                  : 'transparent',
+                border:
+                  currentUrl.includes(detectedLanHost) ||
+                  (currentUrl.includes(':5001') && !currentUrl.includes('10.0.2.2'))
+                    ? '1.5px solid var(--aiims-accent-primary, #5B4BFF)'
+                    : '1px solid var(--aiims-border-subtle, #E2E8F0)',
+                background:
+                  currentUrl.includes(detectedLanHost) ||
+                  (currentUrl.includes(':5001') && !currentUrl.includes('10.0.2.2'))
+                    ? 'var(--aiims-accent-glow, rgba(91,75,255,0.06))'
+                    : 'transparent',
                 cursor: 'pointer',
                 textAlign: 'left',
               }}
             >
               <div>
                 <div style={{ fontWeight: 600, color: 'var(--aiims-text-heading, #0F172A)' }}>
-                  Physical Android Device (Wi-Fi)
+                  Physical Android Device (Wi-Fi LAN)
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--aiims-text-muted, #64748B)' }}>
-                  http://192.168.1.5:5001/api (Local Wi-Fi IP)
+                  {lanPresetUrl} (Detected LAN Host)
                 </div>
               </div>
-              <Radio size={16} color={currentUrl.includes('192.168.1.5') ? '#5B4BFF' : '#94A3B8'} />
+              <Radio
+                size={16}
+                color={
+                  currentUrl.includes(detectedLanHost) ||
+                  (currentUrl.includes(':5001') && !currentUrl.includes('10.0.2.2'))
+                    ? '#5B4BFF'
+                    : '#94A3B8'
+                }
+              />
             </button>
 
             <button

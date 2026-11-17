@@ -15,6 +15,8 @@ import { ToolSourceService } from '../services/wallet/toolSource.service';
 import { toolVerificationService } from '../services/toolVerification.service';
 import { isValidId, toArray, toRecord, withLegacyId } from '../utils/id';
 import { toJsonInput } from '../utils/userMapper';
+import { writeAuditLog } from '../services/auditLog.service';
+import { MARKET_TIER_CONFIG, MarketTier } from '../types';
 
 /**
  * POST /wallet/search
@@ -98,30 +100,112 @@ export const matchTools = (req: Request, res: Response) => {
 
 /**
  * GET /wallet/catalog
+ * Tier-aware AI tools catalog retrieval and filtering.
+ * Supports: marketTier (1-4, 'unrated'), domain (canonical ID or spec aliases),
+ * freeTierAvailable (boolean), skillLevel, category, status, pricing, and search.
+ * Strict sorting: Tier 1 (Starter) -> Tier 2 (Growth) -> Tier 3 (Leading) -> Tier 4 (Enterprise) -> Unrated (null/undefined last).
+ * Secondary sort: Alphabetical by tool name.
  */
 export const getCatalog = async (req: Request, res: Response) => {
-  const { category, domain, status, pricing, search } = req.query;
+  const { category, domain, status, pricing, search, marketTier, freeTierAvailable, skillLevel } =
+    req.query;
   let tools = await ToolCatalogService.getCatalogAsync();
 
   if (category && category !== 'All') {
-    tools = tools.filter((t) => t.category === category || t.categories.includes(category as any));
+    tools = tools.filter((t) => t.category === category || t.categories?.includes(category as any));
   }
+
   if (domain && domain !== 'All') {
-    tools = tools.filter((t) =>
-      t.domains.some((d) => d.toLowerCase() === (domain as string).toLowerCase())
-    );
+    const dStr = String(domain).trim();
+    const canonicalId = DomainTaxonomyService.resolveCanonicalDomainId(dStr);
+    const dLower = dStr.toLowerCase();
+    tools = tools.filter((t) => {
+      if (t.domains && t.domains.some((d) => d.toLowerCase() === dLower)) return true;
+      if (
+        canonicalId &&
+        t.domains &&
+        t.domains.some((d) => DomainTaxonomyService.resolveCanonicalDomainId(d) === canonicalId)
+      ) {
+        return true;
+      }
+      if (t.category && t.category.toLowerCase() === dLower) return true;
+      if (
+        canonicalId &&
+        t.category &&
+        DomainTaxonomyService.resolveCanonicalDomainId(t.category) === canonicalId
+      ) {
+        return true;
+      }
+      return false;
+    });
   }
+
+  if (
+    marketTier !== undefined &&
+    marketTier !== null &&
+    marketTier !== 'All' &&
+    marketTier !== ''
+  ) {
+    const tierStr = String(marketTier).trim().toLowerCase();
+    if (tierStr === 'unrated' || tierStr === 'null') {
+      tools = tools.filter((t) => t.marketTier === null || t.marketTier === undefined);
+    } else {
+      const tierNum = Number(tierStr);
+      if (!isNaN(tierNum) && [1, 2, 3, 4].includes(tierNum)) {
+        tools = tools.filter((t) => t.marketTier === tierNum);
+      } else {
+        return res.status(400).json({
+          error: 'Invalid marketTier query parameter. Valid values are 1, 2, 3, 4, or unrated.',
+          code: 'INVALID_MARKET_TIER',
+        });
+      }
+    }
+  }
+
+  if (
+    freeTierAvailable !== undefined &&
+    freeTierAvailable !== null &&
+    freeTierAvailable !== '' &&
+    freeTierAvailable !== 'All'
+  ) {
+    const ftaStr = String(freeTierAvailable).trim().toLowerCase();
+    if (ftaStr === 'true') {
+      tools = tools.filter(
+        (t) => t.pricingDetails?.type === 'FREE' || Boolean(t.pricingDetails?.freeTierAvailable)
+      );
+    } else if (ftaStr === 'false') {
+      tools = tools.filter(
+        (t) => t.pricingDetails?.type !== 'FREE' && !t.pricingDetails?.freeTierAvailable
+      );
+    } else {
+      return res.status(400).json({
+        error: 'Invalid freeTierAvailable query parameter. Valid values are true or false.',
+        code: 'INVALID_FREE_TIER_PARAM',
+      });
+    }
+  }
+
+  if (skillLevel && skillLevel !== 'All' && String(skillLevel).trim()) {
+    const sl = String(skillLevel).trim().toLowerCase();
+    tools = tools.filter((t) => t.skillLevel?.toLowerCase() === sl);
+  }
+
   if (status && status !== 'All') {
     tools = tools.filter((t) => t.status === status);
   }
+
   if (pricing && pricing !== 'All') {
-    if (pricing === 'Free')
+    if (pricing === 'Free') {
       tools = tools.filter(
         (t) => t.pricingDetails.type === 'FREE' || t.pricingDetails.freeTierAvailable
       );
-    else if (pricing === 'Trial') tools = tools.filter((t) => t.pricingDetails.freeTrialAvailable);
-    else if (pricing === 'Paid') tools = tools.filter((t) => t.pricingDetails.type === 'PAID');
+    } else if (pricing === 'Trial') {
+      tools = tools.filter((t) => t.pricingDetails.freeTrialAvailable);
+    } else if (pricing === 'Paid') {
+      tools = tools.filter((t) => t.pricingDetails.type === 'PAID');
+    }
   }
+
   if (search && typeof search === 'string' && search.trim()) {
     const q = search.trim().toLowerCase();
     tools = tools.filter(
@@ -132,26 +216,80 @@ export const getCatalog = async (req: Request, res: Response) => {
     );
   }
 
-  return res.json(
-    tools.filter(
-      (t) =>
-        t.activeStatus &&
-        t.verificationStatus !== 'UNVERIFIED' &&
-        t.verificationStatus !== 'DISCOVERED' &&
-        t.verificationStatus !== 'REJECTED'
-    )
+  const activeVerifiedTools = tools.filter(
+    (t) =>
+      t.activeStatus &&
+      t.verificationStatus !== 'UNVERIFIED' &&
+      t.verificationStatus !== 'DISCOVERED' &&
+      t.verificationStatus !== 'REJECTED'
   );
+
+  const getTierRank = (tier: number | null | undefined): number => {
+    if (tier === 1) return 1;
+    if (tier === 2) return 2;
+    if (tier === 3) return 3;
+    if (tier === 4) return 4;
+    return 5;
+  };
+
+  activeVerifiedTools.sort((a, b) => {
+    const rankA = getTierRank(a.marketTier);
+    const rankB = getTierRank(b.marketTier);
+    if (rankA !== rankB) {
+      return rankA - rankB;
+    }
+    return a.name.localeCompare(b.name);
+  });
+
+  const enrichedTools = activeVerifiedTools.map((t) => {
+    const marketTier = (t.marketTier as MarketTier) ?? null;
+    const tierMeta =
+      marketTier && MARKET_TIER_CONFIG[marketTier]
+        ? MARKET_TIER_CONFIG[marketTier]
+        : {
+            name: 'Unrated' as const,
+            label: 'Unrated',
+            description: 'Pending market tier verification',
+          };
+    return {
+      ...t,
+      marketTier,
+      marketTierName: tierMeta.name,
+      marketTierLabel: tierMeta.label,
+    };
+  });
+
+  return res.json(enrichedTools);
 };
 
 /**
  * GET /wallet/tools/:id
+ * Consistent, enriched tool-detail API endpoint.
+ * Returns identity, website URLs, canonical domains, market tier, pricing provenance,
+ * capabilities, use cases, and skill levels.
  */
 export const getToolById = async (req: Request, res: Response) => {
   const tool = await ToolCatalogService.getToolByIdAsync(req.params.id);
   if (!tool) {
     return res.status(404).json({ error: 'AI Tool not found in catalog.' });
   }
-  return res.json(tool);
+
+  const marketTier = (tool.marketTier as MarketTier) ?? null;
+  const tierMeta =
+    marketTier && MARKET_TIER_CONFIG[marketTier]
+      ? MARKET_TIER_CONFIG[marketTier]
+      : {
+          name: 'Unrated' as const,
+          label: 'Unrated',
+          description: 'Pending market tier verification',
+        };
+
+  return res.json({
+    ...tool,
+    marketTier,
+    marketTierName: tierMeta.name,
+    marketTierLabel: tierMeta.label,
+  });
 };
 
 /**
@@ -163,6 +301,8 @@ export const getTaxonomy = (_req: Request, res: Response) => {
 
 /**
  * POST /wallet/compare
+ * Dynamic requirement-first tool comparison (2–4 tools).
+ * Free of charge (0 AC, 0 XP). Enriched with market tier labels.
  */
 export const compareTools = (req: Request, res: Response) => {
   const { toolIds, toolAId, toolBId, userRequirement, task } = req.body;
@@ -178,7 +318,27 @@ export const compareTools = (req: Request, res: Response) => {
       ids,
       userRequirement || task
     );
-    return res.json(comparison);
+    const enrichedTools = comparison.tools.map((t) => {
+      const marketTier = (t.marketTier as MarketTier) ?? null;
+      const tierMeta =
+        marketTier && MARKET_TIER_CONFIG[marketTier]
+          ? MARKET_TIER_CONFIG[marketTier]
+          : {
+              name: 'Unrated' as const,
+              label: 'Unrated',
+              description: 'Pending market tier verification',
+            };
+      return {
+        ...t,
+        marketTier,
+        marketTierName: tierMeta.name,
+        marketTierLabel: tierMeta.label,
+      };
+    });
+    return res.json({
+      ...comparison,
+      tools: enrichedTools,
+    });
   } catch (err: any) {
     return res.status(400).json({ error: err.message });
   }
@@ -607,6 +767,207 @@ export const updateFamiliarity = async (req: AuthenticatedRequest, res: Response
   }
 
   return res.json({ success: true, item });
+};
+
+/**
+ * POST /wallet/remove
+ * Secure removal of a tool from learner's personal AI Wallet.
+ * Authenticated; derives userId strictly from server session.
+ * Authoritative Prisma persistence. 0 AC, 0 XP charged or refunded. Idempotent. Audit logged.
+ */
+export const removeFromWallet = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { toolId } = req.body;
+  if (!toolId || typeof toolId !== 'string' || !toolId.trim()) {
+    return res.status(400).json({ error: 'Valid toolId is required', code: 'INVALID_TOOL_ID' });
+  }
+
+  const cleanToolId = toolId.trim();
+  const userId = String(req.user.id || req.user._id);
+
+  // Authoritative database read
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { aiWalletData: true },
+  });
+  if (!user) {
+    return res.status(404).json({ error: 'User record not found', code: 'USER_NOT_FOUND' });
+  }
+
+  const walletData: any = user.aiWalletData
+    ? toRecord(user.aiWalletData)
+    : req.user.aiWallet || { userTools: [], dismissedRecommendations: [] };
+  let userTools: any[] = Array.isArray(walletData.userTools) ? [...walletData.userTools] : [];
+
+  const initialCount = userTools.length;
+  userTools = userTools.filter((t: any) => t.toolId !== cleanToolId);
+  const wasRemoved = userTools.length < initialCount;
+
+  walletData.userTools = userTools;
+  req.user.aiWallet = walletData;
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { aiWalletData: toJsonInput(walletData) },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: 'Failed to persist wallet update', details: err.message });
+  }
+
+  await writeAuditLog({
+    actor: userId,
+    actorName: req.user.name,
+    actorRole: req.user.role || 'user',
+    action: 'WALLET_TOOL_REMOVED',
+    target: cleanToolId,
+    targetType: 'TOOL',
+    details: { toolId: cleanToolId, wasRemoved },
+  });
+
+  return res.json({
+    success: true,
+    message: wasRemoved ? 'Tool removed from wallet' : 'Tool was not in wallet',
+    toolId: cleanToolId,
+    removed: wasRemoved,
+    userTools: walletData.userTools,
+  });
+};
+
+/**
+ * POST /wallet/tools/:id/report
+ * Authenticated outdated-information reporting endpoint.
+ * Tool ID is derived strictly from route parameter :id.
+ * Validates tool exists in catalog; checks for duplicate pending reports for same category;
+ * forces status to PENDING; rejects learner status/reviewer manipulation;
+ * persists to PostgreSQL; writes audit log.
+ */
+export const reportOutdatedTool = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  const toolId = String(req.params.id || '').trim();
+  if (!toolId) {
+    return res
+      .status(400)
+      .json({ error: 'Valid toolId route parameter is required', code: 'INVALID_TOOL_ID' });
+  }
+
+  // Reject body conflict if client passed toolId in body
+  if (req.body?.toolId && String(req.body.toolId).trim() !== toolId) {
+    return res.status(400).json({
+      error: 'Request body toolId does not match route parameter toolId.',
+      code: 'TOOL_ID_MISMATCH',
+    });
+  }
+
+  const catalogItem =
+    ToolCatalogService.getToolById(toolId) || (await ToolCatalogService.getToolByIdAsync(toolId));
+
+  if (!catalogItem) {
+    return res.status(404).json({
+      error: `Tool '${toolId}' not found in catalog.`,
+      code: 'TOOL_NOT_FOUND',
+    });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { reportCategory, description, sourceUrl } = req.body || {};
+  const userId = String(req.user.id || req.user._id);
+
+  try {
+    const existing = await prisma.toolReport.findFirst({
+      where: {
+        userId,
+        toolId,
+        reportCategory,
+        status: 'PENDING',
+      },
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        error: 'A pending report with this category has already been submitted for this tool.',
+        code: 'DUPLICATE_REPORT',
+        reportId: existing.id,
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({
+      error: 'Failed to verify existing tool reports.',
+      code: 'DATABASE_ERROR',
+      details: err.message,
+    });
+  }
+
+  const reportId = `report-${randomUUID()}`;
+  let createdReport: any;
+
+  try {
+    createdReport = await prisma.toolReport.create({
+      data: {
+        id: reportId,
+        toolId,
+        userId,
+        reportCategory,
+        description: String(description || '').trim(),
+        sourceUrl:
+          sourceUrl && typeof sourceUrl === 'string' && sourceUrl.trim() ? sourceUrl.trim() : null,
+        status: 'PENDING',
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      error: 'Failed to persist tool report in database.',
+      code: 'DATABASE_PERSISTENCE_FAILED',
+      details: err.message,
+    });
+  }
+
+  await writeAuditLog({
+    actor: userId,
+    actorName: req.user.name,
+    actorRole: req.user.role || 'user',
+    action: 'TOOL_REPORT_SUBMITTED',
+    target: toolId,
+    targetType: 'TOOL_REPORT',
+    details: {
+      reportId: createdReport.id,
+      toolId,
+      reportCategory,
+    },
+  });
+
+  return res.status(201).json({
+    success: true,
+    message: 'Report submitted successfully for review.',
+    report: {
+      id: createdReport.id,
+      toolId: createdReport.toolId,
+      reportCategory: createdReport.reportCategory,
+      description: createdReport.description,
+      sourceUrl: createdReport.sourceUrl,
+      status: createdReport.status,
+      createdAt: createdReport.createdAt,
+    },
+  });
 };
 
 /**

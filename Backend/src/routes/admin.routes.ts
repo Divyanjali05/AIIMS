@@ -13,6 +13,9 @@ import {
   getSummaryReport,
   getAuditLogs,
   getFinancialSummary,
+  adminListToolReports,
+  adminGetToolReportById,
+  adminUpdateToolReportStatus,
 } from '../controllers/admin.controller';
 import {
   adminListQuestionsHandler,
@@ -50,6 +53,16 @@ router.delete('/admin/tasks/:id', requireAuth, requireRole('admin'), deleteTask)
 router.get('/admin/reports/summary', requireAuth, requireRole('admin'), getSummaryReport);
 router.get('/admin/audit-logs', requireAuth, requireRole('admin'), getAuditLogs);
 router.get('/admin/billing/summary', requireAuth, requireRole('admin'), getFinancialSummary);
+
+// Admin AI Tools Outdated Information Reports & QA Workflow
+router.get('/admin/tool-reports', requireAuth, requireRole('admin'), adminListToolReports);
+router.get('/admin/tool-reports/:id', requireAuth, requireRole('admin'), adminGetToolReportById);
+router.patch(
+  '/admin/tool-reports/:id',
+  requireAuth,
+  requireRole('admin'),
+  adminUpdateToolReportStatus
+);
 
 // Admin Device Binding Management
 router.post(

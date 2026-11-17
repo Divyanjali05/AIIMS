@@ -370,6 +370,22 @@ export interface AITool {
   iconName?: string;
   activeStatus: boolean;
 
+  // Market AI Tools Catalog Phase A/C/D Tier Provenance
+  marketTier?: number | null;
+  marketTierName?: 'Starter' | 'Growth' | 'Leading' | 'Enterprise' | 'Unrated';
+  marketTierLabel?: string;
+  pricingSourceUrl?: string | null;
+  pricingVerifiedAt?: string | null;
+  paidPlans?: Array<{
+    name: string;
+    price: number | string;
+    currency: string;
+    billingPeriod: string;
+    limits?: string;
+  }>;
+  freePlan?: string;
+  freePlanDetails?: string;
+
   // Metadata helpers for matching & recommendations
   taskMappings: string[];
   relevantRoles?: string[];
@@ -422,6 +438,271 @@ export interface SearchIntentConstraints {
 export interface ComparisonIntentDetails {
   type: 'alternative' | 'compare' | 'like_tool' | null;
   referenceTool?: string;
+}
+
+// -------------------------------------------------------------
+// Market AI Tools Catalog 13-Domain Taxonomy & Market Tiers
+// -------------------------------------------------------------
+export type MarketTier = 1 | 2 | 3 | 4;
+export type MarketTierName = 'Starter' | 'Growth' | 'Leading' | 'Enterprise' | 'Unrated';
+
+export interface MarketTierDefinition {
+  tier: MarketTier;
+  name: MarketTierName;
+  label: string;
+  badgeVariant: 'level1' | 'level2' | 'level3' | 'level4';
+  description: string;
+}
+
+export const MARKET_TIER_DEFINITIONS: Record<MarketTier, MarketTierDefinition> = {
+  1: {
+    tier: 1,
+    name: 'Starter',
+    label: 'Starter (Tier 1)',
+    badgeVariant: 'level1',
+    description: 'Emerging, open-source, indie-developed, and low-cost AI tools.',
+  },
+  2: {
+    tier: 2,
+    name: 'Growth',
+    label: 'Growth (Tier 2)',
+    badgeVariant: 'level2',
+    description: 'Popular high-velocity SaaS AI products with established team tiers.',
+  },
+  3: {
+    tier: 3,
+    name: 'Leading',
+    label: 'Leading (Tier 3)',
+    badgeVariant: 'level3',
+    description: 'Flagship category benchmarks with widespread global user adoption.',
+  },
+  4: {
+    tier: 4,
+    name: 'Enterprise',
+    label: 'Enterprise (Tier 4)',
+    badgeVariant: 'level4',
+    description: 'Mission-critical enterprise platforms with strict compliance and SLAs.',
+  },
+};
+
+export type CanonicalDomainId =
+  | 'video-editing'
+  | 'data-analytics'
+  | 'graphic-design'
+  | 'reasoning-writing'
+  | 'agentic-coding'
+  | 'research-rag'
+  | 'presentation'
+  | 'automation'
+  | 'audio-voice'
+  | 'business-operations'
+  | 'marketing-growth'
+  | 'health-medical'
+  | 'legal-compliance';
+
+export interface CanonicalDomainMeta {
+  id: CanonicalDomainId;
+  name: string;
+  description: string;
+  iconName: string;
+}
+
+export const CANONICAL_DOMAINS: CanonicalDomainMeta[] = [
+  {
+    id: 'video-editing',
+    name: 'Video Editing & Generation',
+    description: 'Cinematic video synthesis, automated timeline editing, and avatar presentation.',
+    iconName: 'Video',
+  },
+  {
+    id: 'data-analytics',
+    name: 'Data Analytics & Intelligence',
+    description:
+      'Natural language SQL queries, automated metric insights, and computational notebooks.',
+    iconName: 'BarChart2',
+  },
+  {
+    id: 'graphic-design',
+    name: 'Graphic Design & Visual Arts',
+    description:
+      'Photorealistic image generation, brand asset design, vector illustration, and canvas workflows.',
+    iconName: 'Palette',
+  },
+  {
+    id: 'reasoning-writing',
+    name: 'Reasoning & Long-Form Writing',
+    description:
+      'Deep structured analysis, long-context writing, editorial review, and conversational reasoning.',
+    iconName: 'BookOpen',
+  },
+  {
+    id: 'agentic-coding',
+    name: 'Agentic Coding & Software Engineering',
+    description:
+      'AI IDE copilots, automated full-stack code scaffolding, terminal agents, and debugging assistants.',
+    iconName: 'Code',
+  },
+  {
+    id: 'research-rag',
+    name: 'Research & Grounded Citations',
+    description:
+      'Academic literature synthesis, verified web citations, notebook RAG, and document grounding.',
+    iconName: 'Search',
+  },
+  {
+    id: 'presentation',
+    name: 'Presentation & Pitch Deck Generation',
+    description:
+      'AI slide deck creation, dynamic layout generation, and executive pitch deck structuring.',
+    iconName: 'Layers',
+  },
+  {
+    id: 'automation',
+    name: 'Workflow Automation & Integration',
+    description:
+      'Visual API automation, multi-app routing, scheduled task execution, and workspace sync.',
+    iconName: 'Zap',
+  },
+  {
+    id: 'audio-voice',
+    name: 'Audio & Voice Synthesis',
+    description:
+      'Studio-quality voice cloning, speech-to-text transcription, and generative music creation.',
+    iconName: 'Volume2',
+  },
+  {
+    id: 'business-operations',
+    name: 'Business Operations & Strategy',
+    description:
+      'Meeting intelligence, internal corporate knowledge search, and operational workflow orchestration.',
+    iconName: 'Briefcase',
+  },
+  {
+    id: 'marketing-growth',
+    name: 'Marketing & Growth Content',
+    description:
+      'Copywriting, SEO optimization, social audience growth, and multi-channel campaign generation.',
+    iconName: 'TrendingUp',
+  },
+  {
+    id: 'health-medical',
+    name: 'Health & Clinical Research',
+    description:
+      'Clinical documentation copilot, medical evidence retrieval, and diagnostic literature analysis.',
+    iconName: 'Activity',
+  },
+  {
+    id: 'legal-compliance',
+    name: 'Legal & Contract Analysis',
+    description:
+      'Contract risk extraction, case law research, regulatory compliance audit, and legal document review.',
+    iconName: 'Shield',
+  },
+];
+
+export type ReportCategory =
+  'PRICING_OUTDATED' | 'LINK_BROKEN' | 'TIER_INCORRECT' | 'CAPABILITY_CHANGED' | 'OTHER';
+
+export interface ToolReportInput {
+  reportCategory: ReportCategory;
+  description: string;
+  sourceUrl?: string;
+}
+
+export interface ToolReportResponse {
+  success: boolean;
+  message: string;
+  report?: {
+    id: string;
+    toolId: string;
+    reportCategory: string;
+    description: string;
+    sourceUrl?: string | null;
+    status: string;
+    createdAt: string;
+  };
+  error?: string;
+  code?: string;
+}
+
+export type ToolReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
+
+export interface AdminToolReportToolInfo {
+  id: string;
+  name: string;
+  provider: string;
+  category?: string;
+  marketTier?: number | null;
+  officialWebsite?: string;
+  pricingSourceUrl?: string | null;
+  pricingVerifiedAt?: string | null;
+  verificationStatus?: string;
+  activeStatus?: boolean;
+  description?: string;
+  pricingDetails?: Record<string, unknown>;
+}
+
+export interface AdminToolReportReporterInfo {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+export interface AdminToolReportReviewerInfo {
+  id: string;
+  name?: string;
+  email?: string;
+}
+
+export interface AdminToolReportItem {
+  id: string;
+  toolId: string;
+  reportCategory: ReportCategory;
+  description: string;
+  sourceUrl?: string | null;
+  status: ToolReportStatus;
+  reviewerId?: string | null;
+  reviewNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  tool?: AdminToolReportToolInfo | null;
+  reporter?: AdminToolReportReporterInfo | null;
+  reviewer?: AdminToolReportReviewerInfo | null;
+}
+
+export interface AdminToolReportMetrics {
+  pending: number;
+  underReview: number;
+  resolved: number;
+  rejected: number;
+  total: number;
+}
+
+export interface AdminToolReportsListResponse {
+  success: boolean;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  metrics: AdminToolReportMetrics;
+  reports: AdminToolReportItem[];
+  error?: string;
+  code?: string;
+}
+
+export interface AdminToolReportDetailResponse {
+  success: boolean;
+  report: AdminToolReportItem;
+  error?: string;
+  code?: string;
+}
+
+export interface AdminUpdateToolReportResponse {
+  success: boolean;
+  message: string;
+  report: AdminToolReportItem;
+  error?: string;
+  code?: string;
 }
 
 export interface AmbiguityInfo {

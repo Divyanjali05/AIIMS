@@ -122,6 +122,135 @@ export type TaskCategory =
   | 'Audio & Voice'
   | 'Automation';
 
+// ============================================================================
+// Market AI Tools Catalog — Market Tiers, Domains & Report Models
+// ============================================================================
+
+export type MarketTier = 1 | 2 | 3 | 4 | null;
+export type MarketTierName = 'Starter' | 'Growth' | 'Leading' | 'Enterprise' | 'Unrated';
+
+export const MARKET_TIER_CONFIG: Record<
+  1 | 2 | 3 | 4,
+  { name: MarketTierName; label: string; description: string }
+> = {
+  1: {
+    name: 'Starter',
+    label: 'Starter (Tier 1)',
+    description: 'Small teams, indie tools, open-source or low-cost newer entrants',
+  },
+  2: {
+    name: 'Growth',
+    label: 'Growth (Tier 2)',
+    description: 'Popular SaaS with team plans, published user counts and paid tiers',
+  },
+  3: {
+    name: 'Leading',
+    label: 'Leading (Tier 3)',
+    description:
+      'Category leaders with large published user bases and widespread industry adoption',
+  },
+  4: {
+    name: 'Enterprise',
+    label: 'Enterprise (Tier 4)',
+    description:
+      'Large vendors with compliance, SSO/SAML, security certifications and enterprise tiers',
+  },
+};
+
+export const CANONICAL_DOMAIN_IDS = [
+  'video-editing',
+  'data-analytics',
+  'graphic-design',
+  'reasoning-writing',
+  'agentic-coding',
+  'research-rag',
+  'presentation',
+  'automation',
+  'audio-voice',
+  'business-operations',
+  'marketing-growth',
+  'health-medical',
+  'legal-compliance',
+] as const;
+
+export type CanonicalDomainId = (typeof CANONICAL_DOMAIN_IDS)[number];
+
+export const DOMAIN_SPEC_ALIASES: Record<string, CanonicalDomainId> = {
+  // Direct ID mappings
+  'video-editing': 'video-editing',
+  'data-analytics': 'data-analytics',
+  'graphic-design': 'graphic-design',
+  'reasoning-writing': 'reasoning-writing',
+  'agentic-coding': 'agentic-coding',
+  'research-rag': 'research-rag',
+  presentation: 'presentation',
+  automation: 'automation',
+  'audio-voice': 'audio-voice',
+  'business-operations': 'business-operations',
+  'marketing-growth': 'marketing-growth',
+  'health-medical': 'health-medical',
+  'legal-compliance': 'legal-compliance',
+
+  // Spec & Legacy Synonyms
+  programming: 'agentic-coding',
+  coding: 'agentic-coding',
+  'agentic coding': 'agentic-coding',
+  'software engineering': 'agentic-coding',
+  'data analysis': 'data-analytics',
+  'data analytics': 'data-analytics',
+  'data intelligence': 'data-analytics',
+  'content creation': 'marketing-growth',
+  marketing: 'marketing-growth',
+  'growth content': 'marketing-growth',
+  writing: 'reasoning-writing',
+  reasoning: 'reasoning-writing',
+  'long-form writing': 'reasoning-writing',
+  'image generation': 'graphic-design',
+  'visual arts': 'graphic-design',
+  'graphic design': 'graphic-design',
+  'audio generation': 'audio-voice',
+  audio: 'audio-voice',
+  'voice synthesis': 'audio-voice',
+  'video editing': 'video-editing',
+  'video generation': 'video-editing',
+  video: 'video-editing',
+  productivity: 'automation',
+  'workflow automation': 'automation',
+  integration: 'automation',
+  research: 'research-rag',
+  citations: 'research-rag',
+  rag: 'research-rag',
+  'pitch decks': 'presentation',
+  'slide generation': 'presentation',
+  'business operations': 'business-operations',
+  strategy: 'business-operations',
+  health: 'health-medical',
+  'clinical research': 'health-medical',
+  medical: 'health-medical',
+  legal: 'legal-compliance',
+  'contract analysis': 'legal-compliance',
+  compliance: 'legal-compliance',
+};
+
+export type ToolReportCategory =
+  'PRICING_OUTDATED' | 'LINK_BROKEN' | 'TIER_INCORRECT' | 'CAPABILITY_CHANGED' | 'OTHER';
+
+export type ToolReportStatus = 'PENDING' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
+
+export interface ToolReportItem {
+  id: string;
+  toolId: string;
+  userId: string;
+  reportCategory: ToolReportCategory;
+  description: string;
+  sourceUrl?: string | null;
+  status: ToolReportStatus;
+  reviewerId?: string | null;
+  reviewNotes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type ToolFamiliarity = 'exploring' | 'practicing' | 'proficient' | 'mastered';
 
 export type ToolLifecycleStatus =
@@ -194,6 +323,9 @@ export interface AITool {
   versionInformation?: string;
   pricingDetails: ToolPricing;
   pricing?: string; // Concise summary text
+  marketTier?: MarketTier;
+  pricingSourceUrl?: string;
+  pricingVerifiedAt?: string;
   learningTrack?: ToolLearningTrackLevel[];
   firstSeenAt: string; // ISO string
   lastVerifiedAt: string; // ISO string

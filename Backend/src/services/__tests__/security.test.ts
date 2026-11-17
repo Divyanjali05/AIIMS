@@ -304,8 +304,8 @@ describe('AIIMS Security Test Suite', () => {
       expect(res.headers.get('access-control-allow-origin')).toBe('http://localhost:3000');
     });
 
-    it('3D: Request with newly added LAN origin http://192.168.0.68:3000 succeeds with HTTP 200 and credentials true', async () => {
-      const allowedOrigin = 'http://192.168.0.68:3000';
+    it('3D: Request with user LAN origin http://192.168.1.83:3000 succeeds with HTTP 200 and credentials true', async () => {
+      const allowedOrigin = 'http://192.168.1.83:3000';
       const res = await makeRequest('/api/health', {
         headers: {
           Origin: allowedOrigin,
@@ -316,8 +316,8 @@ describe('AIIMS Security Test Suite', () => {
       expect(res.headers.get('access-control-allow-credentials')).toBe('true');
     });
 
-    it('3E: Preflight OPTIONS request from http://192.168.0.68:3000 returns HTTP 204 with device headers allowed', async () => {
-      const allowedOrigin = 'http://192.168.0.68:3000';
+    it('3E: Preflight OPTIONS request from http://192.168.1.83:3000 returns HTTP 204 with device headers allowed', async () => {
+      const allowedOrigin = 'http://192.168.1.83:3000';
       const res = await makeRequest('/api/health', {
         method: 'OPTIONS',
         headers: {
@@ -331,10 +331,10 @@ describe('AIIMS Security Test Suite', () => {
       expect(res.headers.get('access-control-allow-credentials')).toBe('true');
     });
 
-    it('3F: Request with untrusted LAN Origin http://192.168.0.99:3000 is blocked with HTTP 403 and CORS_FORBIDDEN', async () => {
+    it('3F: Request with untrusted external public IP http://8.8.8.8:3000 is blocked with HTTP 403 and CORS_FORBIDDEN', async () => {
       const res = await makeRequest('/api/health', {
         headers: {
-          Origin: 'http://192.168.0.99:3000',
+          Origin: 'http://8.8.8.8:3000',
         },
       });
       expect(res.status).toBe(403);

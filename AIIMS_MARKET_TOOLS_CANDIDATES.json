@@ -1,0 +1,3602 @@
+[
+  {
+    "id": "tool-runway",
+    "name": "Runway Gen-3 Alpha",
+    "provider": "Runway AI, Inc.",
+    "officialWebsite": "https://runwayml.com",
+    "officialProductPage": "https://runwayml.com/research/introducing-gen-3-alpha",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "graphic-design",
+      "marketing-growth"
+    ],
+    "shortDescription": "State-of-the-art cinematic text-to-video, image-to-video, and camera control platform for creative video production.",
+    "freePlan": "Trial",
+    "freePlanDetails": "One-time 125 free generation credits on signup; no daily recurring free generation.",
+    "paidPlans": [
+      {
+        "name": "Standard",
+        "price": 12,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "625 credits/month (~125s of video)"
+      },
+      {
+        "name": "Pro",
+        "price": 28,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "2250 credits/month (~450s of video)"
+      },
+      {
+        "name": "Unlimited",
+        "price": 76,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited generation in relaxed mode"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom seats, SSO, dedicated render pipelines"
+      }
+    ],
+    "pricingSourceUrl": "https://runwayml.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Category leader in generative AI video with hundreds of millions in venture backing, widely covered in industry press, and standard creative agency adoption.",
+    "tierSourceUrl": "https://runwayml.com/about",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Cinematic B-roll generation",
+      "Motion brush video editing",
+      "Camera direction simulation",
+      "Visual effects prototyping"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Adobe Premiere Pro plugin",
+      "Figma integration"
+    ],
+    "limitations": "High computational cost; fine facial micro-expressions occasionally warp at high motion speeds.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-descript",
+    "name": "Descript",
+    "provider": "Descript Inc",
+    "officialWebsite": "https://www.descript.com",
+    "officialProductPage": "https://www.descript.com/video-editing",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "audio-voice",
+      "marketing-growth"
+    ],
+    "shortDescription": "Doc-style audio and video editor with automatic transcription, filler word removal, eye contact correction, and text-based timeline editing.",
+    "freePlan": "Yes",
+    "freePlanDetails": "1 transcription hour/month, 720p watermark export, 1 AI eye contact video.",
+    "paidPlans": [
+      {
+        "name": "Hobbyist",
+        "price": 12,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "10 transcription hrs/month, 1080p watermark-free"
+      },
+      {
+        "name": "Creator",
+        "price": 24,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "30 transcription hrs/month, 4K export, unlimited filler words"
+      },
+      {
+        "name": "Business",
+        "price": 40,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "40 transcription hrs/month, full AI speech suite, priority support"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Dedicated account manager, SSO, custom security audit"
+      }
+    ],
+    "pricingSourceUrl": "https://www.descript.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Established SaaS with several published paid tiers, extensive creator adoption, and dedicated team collaboration plans.",
+    "tierSourceUrl": "https://www.descript.com/press",
+    "tierEvidenceDate": "2026-09-15",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Podcast video editing",
+      "Automated filler word removal",
+      "AI eye contact correction",
+      "Social media video clips"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "YouTube",
+      "Spotify",
+      "Riverside.fm",
+      "Slack"
+    ],
+    "limitations": "Text-based video cuts can occasionally produce rough audio transitions without crossfade adjustment.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-capcut",
+    "name": "CapCut AI",
+    "provider": "ByteDance Ltd.",
+    "officialWebsite": "https://www.capcut.com",
+    "officialProductPage": "https://www.capcut.com/tools/ai-video-generator",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "marketing-growth",
+      "audio-voice"
+    ],
+    "shortDescription": "Ubiquitous short-form video creation suite with automated subtitle generation, script-to-video rendering, and viral video templates.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free desktop and mobile editing with standard cloud storage and basic auto-captions.",
+    "paidPlans": [
+      {
+        "name": "CapCut Pro Monthly",
+        "price": 9.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "100GB cloud storage, pro AI transitions, voice isolation, 4K exports"
+      },
+      {
+        "name": "CapCut Pro Annual",
+        "price": 89.99,
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Full pro effects suite, priority rendering"
+      }
+    ],
+    "pricingSourceUrl": "https://www.capcut.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Category leader backed by ByteDance with hundreds of millions of monthly active users worldwide across TikTok and mobile video creators.",
+    "tierSourceUrl": "https://newsroom.tiktok.com",
+    "tierEvidenceDate": "2026-10-10",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Viral TikTok/Reels captions",
+      "Automatic script-to-video synthesis",
+      "Background removal",
+      "Voice isolation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "TikTok",
+      "Instagram Reels",
+      "YouTube Shorts"
+    ],
+    "limitations": "Cloud storage sync can be restrictive on the free tier; template-heavy workflow reduces timeline flexibility.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-synthesia",
+    "name": "Synthesia",
+    "provider": "Synthesia Ltd.",
+    "officialWebsite": "https://www.synthesia.io",
+    "officialProductPage": "https://www.synthesia.io/features",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "business-operations",
+      "presentation"
+    ],
+    "shortDescription": "Enterprise AI video communications platform generating photorealistic human avatar presentations from text in 130+ languages.",
+    "freePlan": "Trial",
+    "freePlanDetails": "Free test video generation with standard avatar watermark.",
+    "paidPlans": [
+      {
+        "name": "Starter",
+        "price": 22,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1 editor, 3 guests, 120 mins/year, 60+ avatars"
+      },
+      {
+        "name": "Creator",
+        "price": 67,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1 editor, 5 guests, 360 mins/year, 90+ avatars, audio uploads"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom seats, unlimited mins, custom avatar cloning, SOC2, SAML SSO"
+      }
+    ],
+    "pricingSourceUrl": "https://www.synthesia.io/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Large enterprise vendor with SOC 2 Type II compliance, SSO, enterprise-grade AI avatars, and Fortune 500 training deployments.",
+    "tierSourceUrl": "https://www.synthesia.io/security",
+    "tierEvidenceDate": "2026-08-20",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Corporate training videos",
+      "Multilingual customer onboarding",
+      "Executive briefing presentations",
+      "Product walkthroughs"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "PowerPoint",
+      "LMS (SCORM)",
+      "Descript",
+      "Notion"
+    ],
+    "limitations": "Lacks natural body gesture variability; avatar movement remains largely neck-up and upper torso.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-kling",
+    "name": "Kling AI",
+    "provider": "Kuaishou Technology",
+    "officialWebsite": "https://klingai.com",
+    "officialProductPage": "https://klingai.com",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "graphic-design"
+    ],
+    "shortDescription": "High-fidelity AI video generation model capable of simulating real-world physics, high-framerate motion, and 1080p 10-second continuous scenes.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Daily 66 free creation credits upon login; non-accumulative.",
+    "paidPlans": [
+      {
+        "name": "Standard",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "660 monthly credits, high quality generation, watermark removal"
+      },
+      {
+        "name": "Pro",
+        "price": 37,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "3000 monthly credits, priority queue, professional camera control"
+      },
+      {
+        "name": "Premier",
+        "price": 92,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "8000 monthly credits, highest priority render queue"
+      }
+    ],
+    "pricingSourceUrl": "https://klingai.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging new entrant in the global market with competitive low-cost starter plans and free daily credits.",
+    "tierSourceUrl": "https://klingai.com/about",
+    "tierEvidenceDate": "2026-10-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Photorealistic physics-grounded scenes",
+      "Complex motion video synthesis",
+      "Text-to-video concept pitching"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Web API (Beta)"
+    ],
+    "limitations": "Generation queue times can be substantial on the free tier during peak hours.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-julius",
+    "name": "Julius AI",
+    "provider": "Julius Technologies Inc.",
+    "officialWebsite": "https://julius.ai",
+    "officialProductPage": "https://julius.ai",
+    "primaryDomain": "data-analytics",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Conversational data analyst capable of executing Python and R code against uploaded CSV, Excel, and SQL data to create charts and predictive models.",
+    "freePlan": "Yes",
+    "freePlanDetails": "15 free message computations per month.",
+    "paidPlans": [
+      {
+        "name": "Basic",
+        "price": 19.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "250 messages/month, standard speed"
+      },
+      {
+        "name": "Pro",
+        "price": 37.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited messages, advanced models, code export"
+      },
+      {
+        "name": "Team",
+        "price": 45,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user, shared workspace, centralized billing"
+      }
+    ],
+    "pricingSourceUrl": "https://julius.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Popular specialized SaaS tool with published traction, active university researcher user base, and established team tiers.",
+    "tierSourceUrl": "https://julius.ai/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Spreadsheet data exploration",
+      "Automated linear and logistic regression",
+      "Interactive charting",
+      "Cohort retention analysis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Google Sheets",
+      "PostgreSQL",
+      "Snowflake",
+      "GitHub"
+    ],
+    "limitations": "Dataset size capped in browser memory; large multi-gigabyte queries require external SQL connection.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-hex",
+    "name": "Hex",
+    "provider": "Hex Technologies, Inc.",
+    "officialWebsite": "https://hex.tech",
+    "officialProductPage": "https://hex.tech/product",
+    "primaryDomain": "data-analytics",
+    "secondaryDomains": [
+      "agentic-coding"
+    ],
+    "shortDescription": "Modern collaborative analytics workspace combining SQL notebooks, Python dataframes, reactive visualization, and AI data drafting (Magic).",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free Community tier with up to 5 published projects, basic compute, and standard SQL support.",
+    "paidPlans": [
+      {
+        "name": "Teams",
+        "price": 36,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per editor/month (billed annually), unlimited projects, version history"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Private clusters, HIPAA compliance, SAML SSO, audit logs"
+      }
+    ],
+    "pricingSourceUrl": "https://hex.tech/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Rapidly growing analytics platform with strong mid-market traction, substantial Series B funding, and widespread data team adoption.",
+    "tierSourceUrl": "https://hex.tech/company",
+    "tierEvidenceDate": "2026-08-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Collaborative SQL/Python notebooks",
+      "AI-assisted SQL query drafting",
+      "Interactive data apps",
+      "Executive KPI dashboards"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Snowflake",
+      "BigQuery",
+      "dbt",
+      "Databricks",
+      "PostgreSQL"
+    ],
+    "limitations": "Requires fundamental understanding of relational database schemas and SQL constructs.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-tableau-pulse",
+    "name": "Tableau Pulse",
+    "provider": "Salesforce, Inc.",
+    "officialWebsite": "https://www.tableau.com",
+    "officialProductPage": "https://www.tableau.com/products/pulse",
+    "primaryDomain": "data-analytics",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Enterprise metric intelligence layer powered by Salesforce Einstein, delivering automated personalized KPI summaries and natural language insights.",
+    "freePlan": "No",
+    "freePlanDetails": "No standalone free plan; requires Tableau Cloud deployment (trial available).",
+    "paidPlans": [
+      {
+        "name": "Tableau Cloud Creator",
+        "price": 75,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually, full authoring, Pulse metrics, Einstein Trust Layer"
+      },
+      {
+        "name": "Tableau Cloud Explorer",
+        "price": 42,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually, self-service exploration and Pulse subscriptions"
+      },
+      {
+        "name": "Tableau Cloud Viewer",
+        "price": 15,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually, KPI viewing and Pulse digest alerts"
+      }
+    ],
+    "pricingSourceUrl": "https://www.tableau.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Flagship enterprise data analytics product from Salesforce with Fortune 500 deployments, strict enterprise compliance, and SSO integration.",
+    "tierSourceUrl": "https://www.salesforce.com/products/tableau/overview",
+    "tierEvidenceDate": "2026-07-10",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Automated KPI driver explanations",
+      "Executive performance digests",
+      "Enterprise data warehouse metrics",
+      "Slack insight bots"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Salesforce CRM",
+      "Slack",
+      "Snowflake",
+      "AWS Redshift",
+      "Microsoft Azure"
+    ],
+    "limitations": "High pricing floor; mandates enterprise data warehouse infrastructure and Tableau Cloud license.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-rows",
+    "name": "Rows AI",
+    "provider": "Rows Inc.",
+    "officialWebsite": "https://rows.com",
+    "officialProductPage": "https://rows.com/ai",
+    "primaryDomain": "data-analytics",
+    "secondaryDomains": [
+      "automation"
+    ],
+    "shortDescription": "AI-native spreadsheet platform with built-in data enrichment, AI formula generation, and seamless API integrations.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with unlimited personal spreadsheets, up to 10 guest shares, and basic AI analyst executions.",
+    "paidPlans": [
+      {
+        "name": "Plus",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/month, 10,000 integration tasks, unlimited AI analyst"
+      },
+      {
+        "name": "Pro",
+        "price": 24,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/month, 100,000 integration tasks, custom domain sharing"
+      }
+    ],
+    "pricingSourceUrl": "https://rows.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Innovative indie spreadsheet challenger targeting individual learners and small startups with low-cost starter plans.",
+    "tierSourceUrl": "https://rows.com/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Automated spreadsheet formula writing",
+      "Lead enrichment from web APIs",
+      "Fast tabular summaries",
+      "Sales dashboard tracking"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "OpenAI",
+      "Google Analytics",
+      "Twitter",
+      "HubSpot",
+      "Stripe"
+    ],
+    "limitations": "Not designed for massive multi-million row datasets; optimized for spreadsheet-scale data.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-canva",
+    "name": "Canva Magic Studio",
+    "provider": "Canva Pty Ltd",
+    "officialWebsite": "https://www.canva.com",
+    "officialProductPage": "https://www.canva.com/magic-studio",
+    "primaryDomain": "graphic-design",
+    "secondaryDomains": [
+      "presentation",
+      "marketing-growth"
+    ],
+    "shortDescription": "Comprehensive graphic design suite with AI design generation, background eraser, magic expand, and multi-format brand kits.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Extensive free design suite with 1M+ free templates, limited Magic Studio credits, 5GB storage.",
+    "paidPlans": [
+      {
+        "name": "Canva Pro",
+        "price": 15,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1 person, unlimited Magic Studio tools, 100M+ assets, 1TB storage"
+      },
+      {
+        "name": "Canva for Teams",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per person (min 3), brand kit controls, workflow approvals, SOC2 compliance"
+      }
+    ],
+    "pricingSourceUrl": "https://www.canva.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Global market leader with over 180 million monthly active users, ubiquitous consumer/business brand awareness, and multi-billion valuation.",
+    "tierSourceUrl": "https://www.canva.com/newsroom",
+    "tierEvidenceDate": "2026-09-30",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Marketing posters and flyers",
+      "Social media visual templates",
+      "Brand identity drafting",
+      "Automated image background cleanup"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Google Drive",
+      "Dropbox",
+      "Slack",
+      "Instagram",
+      "HubSpot"
+    ],
+    "limitations": "Vector output is constrained compared to dedicated professional vector software like Illustrator.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-midjourney",
+    "name": "Midjourney v6",
+    "provider": "Midjourney Inc",
+    "officialWebsite": "https://www.midjourney.com",
+    "officialProductPage": "https://docs.midjourney.com",
+    "primaryDomain": "graphic-design",
+    "secondaryDomains": [
+      "video-editing"
+    ],
+    "shortDescription": "Industry standard image synthesis engine renowned for artistic coherence, realistic text rendering, and cinematic lighting control.",
+    "freePlan": "No",
+    "freePlanDetails": "Free trial currently paused due to high server demand; requires paid tier.",
+    "paidPlans": [
+      {
+        "name": "Basic Plan",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "3.3 hrs/mo Fast GPU time (~200 generations)"
+      },
+      {
+        "name": "Standard Plan",
+        "price": 30,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "15 hrs/mo Fast GPU time, unlimited Relaxed GPU"
+      },
+      {
+        "name": "Pro Plan",
+        "price": 60,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "30 hrs Fast GPU, stealth mode generation"
+      },
+      {
+        "name": "Mega Plan",
+        "price": 120,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "60 hrs Fast GPU, maximum concurrent jobs"
+      }
+    ],
+    "pricingSourceUrl": "https://docs.midjourney.com/docs/plans",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Recognized category leader in aesthetic generative art, widely praised in global creative press, with millions of community members.",
+    "tierSourceUrl": "https://www.midjourney.com",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Concept art visualization",
+      "Product rendering concepts",
+      "Photorealistic portrait synthesis",
+      "Brand mood boards"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Discord",
+      "Web Canvas"
+    ],
+    "limitations": "Requires Discord interaction or alpha web app access; no direct API support.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-adobe-firefly",
+    "name": "Adobe Firefly",
+    "provider": "Adobe Inc.",
+    "officialWebsite": "https://www.adobe.com/products/firefly.html",
+    "officialProductPage": "https://www.adobe.com/products/firefly.html",
+    "primaryDomain": "graphic-design",
+    "secondaryDomains": [
+      "video-editing"
+    ],
+    "shortDescription": "Commercially safe generative AI model trained on licensed Adobe Stock and public domain content, integrated natively into Photoshop and Illustrator.",
+    "freePlan": "Yes",
+    "freePlanDetails": "25 free generative credits per month with Adobe ID.",
+    "paidPlans": [
+      {
+        "name": "Firefly Premium",
+        "price": 4.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "100 monthly generative credits, watermark removal"
+      },
+      {
+        "name": "Creative Cloud All Apps",
+        "price": 59.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Full desktop suite + 1,000 monthly credits"
+      },
+      {
+        "name": "Firefly Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Commercial IP indemnification, custom brand fine-tuning, enterprise admin console"
+      }
+    ],
+    "pricingSourceUrl": "https://www.adobe.com/products/firefly.html#plans",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Leading enterprise creative software vendor offering formal commercial intellectual property indemnification and enterprise admin controls.",
+    "tierSourceUrl": "https://www.adobe.com/news-room",
+    "tierEvidenceDate": "2026-08-30",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Generative fill inside Photoshop",
+      "Commercially compliant graphic synthesis",
+      "Text-to-vector artwork in Illustrator",
+      "Marketing asset variations"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Adobe Photoshop",
+      "Adobe Illustrator",
+      "Adobe InDesign",
+      "Adobe Express"
+    ],
+    "limitations": "Strict safety filters occasionally over-censor benign creative prompt nuances.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-recraft",
+    "name": "Recraft AI",
+    "provider": "Recraft Inc.",
+    "officialWebsite": "https://www.recraft.ai",
+    "officialProductPage": "https://www.recraft.ai",
+    "primaryDomain": "graphic-design",
+    "secondaryDomains": [
+      "marketing-growth"
+    ],
+    "shortDescription": "Design-focused AI canvas that generates clean, fully editable SVG vector illustrations, 3D icons, and complete brand design systems.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Daily free generation credits; public image gallery.",
+    "paidPlans": [
+      {
+        "name": "Basic",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1,000 monthly credits, private generations, commercial license"
+      },
+      {
+        "name": "Pro",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited relaxed generations, priority queue, vector export"
+      },
+      {
+        "name": "Team",
+        "price": 25,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per seat, shared brand libraries, collaborative canvas"
+      }
+    ],
+    "pricingSourceUrl": "https://www.recraft.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging independent creative tool with innovative true vector SVG synthesis, popular among UI/UX designers and indie developers.",
+    "tierSourceUrl": "https://www.recraft.ai/about",
+    "tierEvidenceDate": "2026-09-12",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Clean SVG vector icon drafting",
+      "3D style app illustrations",
+      "Brand palette generation",
+      "UI concept art"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Figma plugin",
+      "SVG Web Download"
+    ],
+    "limitations": "Advanced photorealism is secondary to graphic/vector design styles.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-chatgpt",
+    "name": "ChatGPT (GPT-4o)",
+    "provider": "OpenAI, LLC",
+    "officialWebsite": "https://chatgpt.com",
+    "officialProductPage": "https://openai.com/chatgpt",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [
+      "agentic-coding",
+      "data-analytics",
+      "research-rag"
+    ],
+    "shortDescription": "The world benchmark general-purpose conversational model supporting complex reasoning, web browsing, Python analysis, and multimodal input.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free access to GPT-4o mini and limited GPT-4o access, memory, and custom GPTs.",
+    "paidPlans": [
+      {
+        "name": "Plus",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Up to 5x higher GPT-4o limits, o1-preview access, DALL-E 3"
+      },
+      {
+        "name": "Team",
+        "price": 25,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo billed annually ($30 monthly), admin workspace, no training on data"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Unlimited speed, 128k context, SOC2, SAML SSO, admin controls"
+      }
+    ],
+    "pricingSourceUrl": "https://openai.com/chatgpt/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Pioneering category leader with over 250 million weekly active users, defining the modern generative AI landscape.",
+    "tierSourceUrl": "https://openai.com/about",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Complex logic and essay formulation",
+      "Structured prompt design",
+      "Python data script generation",
+      "Brainstorming and research synthesis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Zapier",
+      "Google Drive",
+      "Microsoft OneDrive",
+      "GitHub"
+    ],
+    "limitations": "Free tier has dynamic rate limits during peak usage periods.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-claude",
+    "name": "Claude 3.5 Sonnet",
+    "provider": "Anthropic PBC",
+    "officialWebsite": "https://claude.ai",
+    "officialProductPage": "https://www.anthropic.com/claude",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [
+      "agentic-coding",
+      "research-rag"
+    ],
+    "shortDescription": "Frontier AI model renowned for nuanced writing tone, 200k token context reasoning, Artifacts interactive previews, and code generation.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free access with standard daily message limits based on system capacity.",
+    "paidPlans": [
+      {
+        "name": "Claude Pro",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "5x usage versus free tier, priority access, early feature access"
+      },
+      {
+        "name": "Claude Team",
+        "price": 25,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo (min 5 members, billed annually), higher limits, admin billing"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "500k context window, SSO, audit logging, data retention compliance"
+      }
+    ],
+    "pricingSourceUrl": "https://www.anthropic.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Recognized top-tier industry leader competing directly with GPT-4o, widely favored by developers and professional writers.",
+    "tierSourceUrl": "https://www.anthropic.com/news",
+    "tierEvidenceDate": "2026-09-15",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Long-form academic essay drafting",
+      "Interactive code artifacts rendering",
+      "Multi-document synthesis",
+      "Nuanced technical documentation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Artifacts web preview",
+      "Slack integration",
+      "Anthropic Console API"
+    ],
+    "limitations": "Usage quotas are dynamic and can deplete quickly during intensive reasoning prompts.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-deepseek",
+    "name": "DeepSeek",
+    "provider": "DeepSeek AI",
+    "officialWebsite": "https://www.deepseek.com",
+    "officialProductPage": "https://www.deepseek.com",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [
+      "agentic-coding"
+    ],
+    "shortDescription": "Open-weights frontier reasoning and coding model with exceptional mathematical and architectural comprehension at ultra-low inference costs.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free conversational web chat and mobile app access.",
+    "paidPlans": [
+      {
+        "name": "Pay-As-You-Go API",
+        "price": "Usage",
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "$0.14 per 1M input tokens, $0.28 per 1M output tokens (deep discount caching)"
+      }
+    ],
+    "pricingSourceUrl": "https://platform.deepseek.com/api-docs/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Rapidly ascending open-weights provider achieving major developer community adoption and high benchmark scores.",
+    "tierSourceUrl": "https://github.com/deepseek-ai",
+    "tierEvidenceDate": "2026-10-20",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Mathematical proofs and formal verification",
+      "Cost-effective large-scale text reasoning",
+      "Open-source coding assistant",
+      "API prototyping"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "OpenAI-compatible REST API",
+      "Ollama",
+      "Hugging Face"
+    ],
+    "limitations": "Web interface can experience high latency during global usage spikes.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-paperpal",
+    "name": "Paperpal",
+    "provider": "Cactus Communications",
+    "officialWebsite": "https://paperpal.com",
+    "officialProductPage": "https://paperpal.com/researchers",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Academic AI writing assistant trained on millions of published journal articles to check grammar, academic tone, citation integrity, and journal compliance.",
+    "freePlan": "Yes",
+    "freePlanDetails": "200 language suggestions per month with basic structural checks.",
+    "paidPlans": [
+      {
+        "name": "Paperpal Prime Monthly",
+        "price": 19,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited language checks, 7,000 rewrite words/month, plagiarism check (7,000 words)"
+      },
+      {
+        "name": "Paperpal Prime Annual",
+        "price": 119,
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Billed annually ($9.92/mo), full journal compliance checks"
+      }
+    ],
+    "pricingSourceUrl": "https://paperpal.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Established academic publication SaaS backed by Cactus Communications with deep penetration in universities and scholarly journals worldwide.",
+    "tierSourceUrl": "https://paperpal.com/about",
+    "tierEvidenceDate": "2026-08-10",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Peer-review manuscript editing",
+      "Journal submission formatting compliance",
+      "Academic phrasing suggestions",
+      "Scholarly citation verification"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Microsoft Word Add-in",
+      "Web Editor",
+      "Overleaf (Chrome extension)"
+    ],
+    "limitations": "Strict academic tone formatting is unsuitable for casual or marketing content.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-huggingchat",
+    "name": "HuggingChat",
+    "provider": "Hugging Face Inc",
+    "officialWebsite": "https://huggingface.co/chat",
+    "officialProductPage": "https://huggingface.co/chat",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Open-source conversational interface letting learners explore and switch between leading open-weights models like Llama 3, Mistral, and Qwen.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% free open access with optional Hugging Face login.",
+    "paidPlans": [
+      {
+        "name": "Hugging Face PRO",
+        "price": 9,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Higher rate limits, access to exclusive compute partners, early feature access"
+      }
+    ],
+    "pricingSourceUrl": "https://huggingface.co/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Open-source reference platform and public showcase for emerging open-weights models with zero barrier to entry.",
+    "tierSourceUrl": "https://huggingface.co",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Benchmarking open models side-by-side",
+      "Free private text drafting",
+      "Web-grounded search with open LLMs",
+      "Educational LLM experimentation"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Hugging Face Hub",
+      "Web Search",
+      "Custom Assistants"
+    ],
+    "limitations": "Model availability can fluctuate based on community hosting nodes and partner GPU allotments.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-cursor",
+    "name": "Cursor IDE",
+    "provider": "Anysphere Inc",
+    "officialWebsite": "https://cursor.com",
+    "officialProductPage": "https://cursor.com",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "AI-first code editor forked from VS Code with whole-repository indexing, multi-file agent composer, terminal debugging, and predictive typing.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free Hobby plan with 2,000 completions and 50 slow premium requests.",
+    "paidPlans": [
+      {
+        "name": "Pro",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "500 fast premium requests/mo, unlimited slow requests, 10 agent runs/mo"
+      },
+      {
+        "name": "Business",
+        "price": 40,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user, centralized billing, admin privacy controls, zero data retention"
+      }
+    ],
+    "pricingSourceUrl": "https://cursor.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "High-growth breakout developer tool with massive community adoption, substantial Series A funding from OpenAI Fund, and team tiers.",
+    "tierSourceUrl": "https://cursor.com/about",
+    "tierEvidenceDate": "2026-10-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Multi-file code refactoring with Composer",
+      "Repository-wide question answering",
+      "Instant terminal traceback diagnosis",
+      "Tab-completion code generation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Full VS Code extension ecosystem",
+      "GitHub",
+      "Terminal CLI"
+    ],
+    "limitations": "Requires standard VS Code workspace setup; indexing large monorepos requires local machine RAM.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-copilot",
+    "name": "GitHub Copilot",
+    "provider": "GitHub, Inc. / Microsoft",
+    "officialWebsite": "https://github.com/features/copilot",
+    "officialProductPage": "https://github.com/features/copilot",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "The world's most widely adopted AI developer companion, offering code completions, pull request summaries, CLI assistance, and multi-model chat.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% free for verified college students, educators, and maintainers of popular open source repositories.",
+    "paidPlans": [
+      {
+        "name": "Copilot Individual",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited code completions, Copilot Chat, multi-model selection"
+      },
+      {
+        "name": "Copilot Business",
+        "price": 19,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo, organization policy management, IP indemnity, privacy guards"
+      },
+      {
+        "name": "Copilot Enterprise",
+        "price": 39,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo, codebase indexing, PR reviews, custom fine-tuning"
+      }
+    ],
+    "pricingSourceUrl": "https://github.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Industry category leader with over 1.8 million paying subscribers, backed by Microsoft and GitHub's global enterprise footprint.",
+    "tierSourceUrl": "https://github.blog",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Real-time inline code completion",
+      "Automated Pull Request description drafting",
+      "Legacy codebase explanation",
+      "Test suite generation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "VS Code",
+      "Visual Studio",
+      "JetBrains IDEs",
+      "Neovim",
+      "GitHub.com"
+    ],
+    "limitations": "Individual tier does not index entire proprietary company knowledge bases without Enterprise upgrade.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-v0",
+    "name": "v0 by Vercel",
+    "provider": "Vercel Inc.",
+    "officialWebsite": "https://v0.dev",
+    "officialProductPage": "https://v0.dev",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "graphic-design"
+    ],
+    "shortDescription": "Generative UI system producing production-ready React components with Tailwind CSS and shadcn/ui from natural language and screenshot inputs.",
+    "freePlan": "Yes",
+    "freePlanDetails": "200 free generation credits per month upon login with GitHub.",
+    "paidPlans": [
+      {
+        "name": "Premium",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "5,000 monthly credits, private generations, custom design systems"
+      },
+      {
+        "name": "Team",
+        "price": 30,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo, centralized credit pool, collaborative canvas, team sharing"
+      }
+    ],
+    "pricingSourceUrl": "https://v0.dev/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Popular specialized generative UI tool backed by Vercel with widespread adoption among web frontend developers and startup founders.",
+    "tierSourceUrl": "https://vercel.com/blog",
+    "tierEvidenceDate": "2026-08-20",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Rapid React UI component prototyping",
+      "Screenshot-to-code cloning",
+      "Tailwind CSS dashboard scaffolding",
+      "Design system implementation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Next.js",
+      "Vercel CLI",
+      "shadcn/ui",
+      "Figma"
+    ],
+    "limitations": "Focused purely on React/Tailwind frontend code; does not write backend database migrations or APIs directly.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-cody",
+    "name": "Sourcegraph Cody",
+    "provider": "Sourcegraph Inc.",
+    "officialWebsite": "https://sourcegraph.com/cody",
+    "officialProductPage": "https://sourcegraph.com/cody",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Enterprise code intelligence agent with deep semantic search across multi-repo codebases, comprehensive security guardrails, and model flexibility.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with 500 autocompletions/mo and 20 chat messages/mo.",
+    "paidPlans": [
+      {
+        "name": "Cody Pro",
+        "price": 9,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited autocompletions and chat, choice of Claude 3.5 Sonnet / GPT-4o"
+      },
+      {
+        "name": "Cody Enterprise",
+        "price": 19,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo (annual), multi-repo context, self-hosted LLMs, SAML, zero-retention"
+      }
+    ],
+    "pricingSourceUrl": "https://sourcegraph.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Enterprise-focused developer tool with extensive corporate compliance, multi-repository code graph indexing, and on-premise deployment options.",
+    "tierSourceUrl": "https://sourcegraph.com/customers",
+    "tierEvidenceDate": "2026-07-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Multi-repository enterprise code search",
+      "Unit test scaffolding",
+      "Architectural refactoring assistance",
+      "Documentation generation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "VS Code",
+      "JetBrains",
+      "GitLab",
+      "GitHub",
+      "Bitbucket"
+    ],
+    "limitations": "Full multi-repo semantic indexing requires connecting to a Sourcegraph enterprise instance.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-aider",
+    "name": "Aider",
+    "provider": "Paul Gauthier",
+    "officialWebsite": "https://aider.chat",
+    "officialProductPage": "https://aider.chat",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "Command-line AI pair programmer allowing developers to edit multi-file codebases in local git repositories via terminal conversations.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% Free and open source (Apache 2.0); users provide their own LLM API key (OpenAI, Anthropic, or local Ollama).",
+    "paidPlans": [
+      {
+        "name": "Open Source",
+        "price": 0,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Free software; pay only your LLM provider for API tokens"
+      }
+    ],
+    "pricingSourceUrl": "https://aider.chat",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Independent open-source developer tool with widespread grassroots developer acclaim and zero software subscription fees.",
+    "tierSourceUrl": "https://github.com/paul-gauthier/aider",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Terminal-driven git code editing",
+      "Automatic git commit message generation",
+      "Refactoring across multiple source files",
+      "Bug fixing from compiler errors"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Git CLI",
+      "Ollama",
+      "Claude API",
+      "OpenAI API",
+      "DeepSeek API"
+    ],
+    "limitations": "Strictly terminal/CLI based; lacks graphical point-and-click UI.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-perplexity",
+    "name": "Perplexity AI",
+    "provider": "Perplexity AI, Inc.",
+    "officialWebsite": "https://www.perplexity.ai",
+    "officialProductPage": "https://www.perplexity.ai",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "Conversational search engine delivering direct, synthesized answers backed by clickable, real-time verified web citations.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free standard searches with basic citations, up to 5 Pro Searches every 4 hours.",
+    "paidPlans": [
+      {
+        "name": "Perplexity Pro",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "300+ Pro Searches/day, model selection (Claude 3.5, GPT-4o), file uploads"
+      },
+      {
+        "name": "Enterprise Pro",
+        "price": 40,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per seat, SOC2, data privacy, user management, internal knowledge search"
+      }
+    ],
+    "pricingSourceUrl": "https://www.perplexity.ai/pro",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Recognized category leader in AI search with multi-billion valuation, massive public adoption, and extensive press coverage.",
+    "tierSourceUrl": "https://www.perplexity.ai/about",
+    "tierEvidenceDate": "2026-09-20",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Fact-checked academic literature search",
+      "Market competitor analysis",
+      "Up-to-the-minute tech news synthesis",
+      "Document Q&A with citations"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Chrome extension",
+      "iOS/Android apps",
+      "Perplexity API"
+    ],
+    "limitations": "Pro searches are capped daily; occasionally summarizes paywalled news articles inaccurately.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-notebooklm",
+    "name": "Google NotebookLM",
+    "provider": "Google LLC",
+    "officialWebsite": "https://notebooklm.google.com",
+    "officialProductPage": "https://notebooklm.google.com",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "audio-voice",
+      "reasoning-writing"
+    ],
+    "shortDescription": "Personalized AI research notebook powered by Gemini 1.5, grounding answers strictly in user-uploaded documents and generating Audio Overviews.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% free with a Google Account; upload up to 50 sources per notebook (500k words per source).",
+    "paidPlans": [
+      {
+        "name": "Google Workspace Integration",
+        "price": "Included",
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Included with Google Workspace enterprise and educational accounts"
+      }
+    ],
+    "pricingSourceUrl": "https://notebooklm.google.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Flagship grounded research tool from Google with viral global adoption of its AI Audio Overviews and strong university presence.",
+    "tierSourceUrl": "https://blog.google/technology/ai/notebooklm-audio-overviews/",
+    "tierEvidenceDate": "2026-09-15",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Podcast-style two-host Audio Overview of research papers",
+      "Strict zero-hallucination PDF question answering",
+      "Study guide and FAQ generation",
+      "Cross-document synthesis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Google Drive",
+      "Google Docs",
+      "YouTube links",
+      "Web URLs"
+    ],
+    "limitations": "Strictly bounded to provided source material; cannot query live web data outside uploaded files.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-consensus",
+    "name": "Consensus",
+    "provider": "Consensus NLP Inc",
+    "officialWebsite": "https://consensus.app",
+    "officialProductPage": "https://consensus.app",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "health-medical"
+    ],
+    "shortDescription": "Academic AI search engine querying 200M+ peer-reviewed papers to provide scientific consensus meters, study extract summaries, and verified citations.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Unlimited basic searches, up to 20 AI Consensus Meter credits/month.",
+    "paidPlans": [
+      {
+        "name": "Premium Monthly",
+        "price": 11.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited AI summaries, Consensus meters, study filters, bookmarking"
+      },
+      {
+        "name": "Premium Annual",
+        "price": 9.99,
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Billed annually ($119.88), full academic export suite"
+      },
+      {
+        "name": "Teams",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "University library and research group institutional licensing"
+      }
+    ],
+    "pricingSourceUrl": "https://consensus.app/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Specialized high-traction scientific search SaaS with widespread university adoption and clear multi-tiered paid offerings.",
+    "tierSourceUrl": "https://consensus.app/about",
+    "tierEvidenceDate": "2026-08-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Evidence-based scientific claim verification",
+      "Meta-analysis consensus check",
+      "Literature review synthesis",
+      "Medical study sample size auditing"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Zotero",
+      "Connected Papers",
+      "Custom GPT integration"
+    ],
+    "limitations": "Restricted strictly to published academic research; unsuitable for commercial market intelligence.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-elicit",
+    "name": "Elicit",
+    "provider": "Elicit Inc.",
+    "officialWebsite": "https://elicit.com",
+    "officialProductPage": "https://elicit.com",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "data-analytics"
+    ],
+    "shortDescription": "AI research assistant automating systematic literature reviews, custom data extraction from PDFs, and methodology synthesis across 125M+ papers.",
+    "freePlan": "Yes",
+    "freePlanDetails": "One-time 5,000 free research credits on account signup.",
+    "paidPlans": [
+      {
+        "name": "Plus",
+        "price": 12,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "12,000 monthly credits, PDF exports, high-speed extraction"
+      },
+      {
+        "name": "Pro",
+        "price": 49,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "50,000 monthly credits, advanced screening, shared team collections"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Institutional security review, unlimited credits, dedicated support"
+      }
+    ],
+    "pricingSourceUrl": "https://elicit.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Pioneering academic research SaaS spun out of Ought, widely cited in scientific methodology papers with established paid plans.",
+    "tierSourceUrl": "https://elicit.com/about",
+    "tierEvidenceDate": "2026-07-25",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Systematic literature reviews",
+      "Custom column data extraction from 50+ PDFs",
+      "Finding papers without keyword matching",
+      "Paper synthesis tables"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Zotero",
+      "PDF Batch Upload"
+    ],
+    "limitations": "Credit-based consumption model can exhaust credits rapidly when extracting dense tables from large PDFs.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-storm",
+    "name": "Stanford STORM",
+    "provider": "Stanford OVAL",
+    "officialWebsite": "https://github.com/stanford-oval/storm",
+    "officialProductPage": "https://storm.genie.stanford.edu",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "Open-source research system that simulates perspective-guided expert interviews to generate comprehensive, cited Wikipedia-style long-form reports.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% Free open-source software and free public academic demo.",
+    "paidPlans": [
+      {
+        "name": "Open Source",
+        "price": 0,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Free software; user provides own web search and LLM API keys for self-hosting"
+      }
+    ],
+    "pricingSourceUrl": "https://github.com/stanford-oval/storm",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Academic open-source breakthrough tool developed by Stanford researchers, freely accessible with no commercial tier.",
+    "tierSourceUrl": "https://arxiv.org/abs/2402.14207",
+    "tierEvidenceDate": "2026-06-15",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Comprehensive multi-topic background reports",
+      "Automated citation discovery across diverse viewpoints",
+      "Pre-writing research outlining",
+      "Educational topic deep-dives"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "You.com API",
+      "Bing Search API",
+      "OpenAI / Anthropic APIs"
+    ],
+    "limitations": "Self-hosting requires configuring multiple API keys for search and language models.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-gamma",
+    "name": "Gamma App",
+    "provider": "Gamma Tech Inc.",
+    "officialWebsite": "https://gamma.app",
+    "officialProductPage": "https://gamma.app",
+    "primaryDomain": "presentation",
+    "secondaryDomains": [
+      "graphic-design",
+      "marketing-growth"
+    ],
+    "shortDescription": "AI presentation generator creating responsive, interactive slide decks, webpages, and documentation with dynamic cards and embeds.",
+    "freePlan": "Yes",
+    "freePlanDetails": "400 creation credits upon signup; 'Made with Gamma' badge on exports.",
+    "paidPlans": [
+      {
+        "name": "Plus",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($8 billed annually), remove badge, export to PDF/PPT, 400 credits/mo"
+      },
+      {
+        "name": "Pro",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($15 billed annually), unlimited AI creation, custom fonts, analytics"
+      }
+    ],
+    "pricingSourceUrl": "https://gamma.app/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "High-growth breakout presentation SaaS with millions of decks generated and established individual and team subscription tiers.",
+    "tierSourceUrl": "https://gamma.app/about",
+    "tierEvidenceDate": "2026-09-10",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Startup pitch deck generation",
+      "Interactive student course lectures",
+      "One-page product briefs",
+      "Investor updates"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "PowerPoint export",
+      "Google Analytics",
+      "Figma embeds",
+      "Loom"
+    ],
+    "limitations": "Exporting to traditional PowerPoint can occasionally cause minor formatting shifts due to Gamma's fluid card layout.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-tome",
+    "name": "Tome",
+    "provider": "Tome Inc",
+    "officialWebsite": "https://tome.app",
+    "officialProductPage": "https://tome.app",
+    "primaryDomain": "presentation",
+    "secondaryDomains": [
+      "graphic-design"
+    ],
+    "shortDescription": "AI-powered storytelling canvas transforming documents and raw notes into compelling visual presentations with generated imagery.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with 500 one-time AI creation credits and unlimited manual editing.",
+    "paidPlans": [
+      {
+        "name": "Professional",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per person/mo ($8 billed annually), unlimited AI generation, custom branding, PDF export"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Team workspaces, SSO, custom domain embeds, dedicated customer success"
+      }
+    ],
+    "pricingSourceUrl": "https://tome.app/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Well-funded presentation tech company with millions of registered users and widely marketed storytelling tools.",
+    "tierSourceUrl": "https://tome.app/about",
+    "tierEvidenceDate": "2026-08-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Story-driven founder pitch decks",
+      "Visual design portfolios",
+      "Product concept walkthroughs",
+      "Classroom visual lessons"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Figma",
+      "Airtable",
+      "Twitter",
+      "Giphy"
+    ],
+    "limitations": "Highly stylized default visual formats may require adjustment for formal corporate board meetings.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-beautiful-ai",
+    "name": "Beautiful.ai",
+    "provider": "Beautiful.ai",
+    "officialWebsite": "https://www.beautiful.ai",
+    "officialProductPage": "https://www.beautiful.ai",
+    "primaryDomain": "presentation",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Design-intelligent presentation maker with smart slide templates that adapt automatically as content is added or modified.",
+    "freePlan": "Trial",
+    "freePlanDetails": "14-day free trial; no permanent free tier.",
+    "paidPlans": [
+      {
+        "name": "Pro",
+        "price": 12,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($144/yr) or $45/mo flex, unlimited slides, AI bot generation, PPT export"
+      },
+      {
+        "name": "Team",
+        "price": 40,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo (annual), centralized company branding kit, collaborative slide sharing"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Dedicated account manager, audit logs, SSO, custom template design"
+      }
+    ],
+    "pricingSourceUrl": "https://www.beautiful.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Established SaaS platform specializing in smart slide formatting with strong mid-market and corporate adoption.",
+    "tierSourceUrl": "https://www.beautiful.ai/about-us",
+    "tierEvidenceDate": "2026-07-20",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Corporate sales presentations",
+      "Automated smart chart layouts",
+      "Executive quarterly reviews",
+      "Client proposal decks"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Slack",
+      "Dropbox",
+      "PowerPoint import/export"
+    ],
+    "limitations": "Lack of a permanent free tier limits accessibility for students on tight budgets.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-microsoft-copilot-ppt",
+    "name": "Microsoft 365 Copilot (PowerPoint)",
+    "provider": "Microsoft Corporation",
+    "officialWebsite": "https://www.microsoft.com/en-us/microsoft-365/copilot",
+    "officialProductPage": "https://www.microsoft.com/en-us/microsoft-365/enterprise/copilot-for-powerpoint",
+    "primaryDomain": "presentation",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Enterprise AI assistant integrated directly into Microsoft PowerPoint, creating fully styled decks from Word documents, Excel spreadsheets, and prompts.",
+    "freePlan": "No",
+    "freePlanDetails": "Requires paid Microsoft 365 license plus Copilot add-on.",
+    "paidPlans": [
+      {
+        "name": "Microsoft 365 Copilot",
+        "price": 30,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo (annual commitment), requires M365 Business Standard/Premium or Office 365 E3/E5"
+      }
+    ],
+    "pricingSourceUrl": "https://www.microsoft.com/en-us/microsoft-365/enterprise/copilot-pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Massive enterprise platform from Microsoft embedded directly into the ubiquitous Office suite with enterprise security and governance.",
+    "tierSourceUrl": "https://www.microsoft.com/en-us/microsoft-365/enterprise/copilot",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Converting dense Word proposals into PowerPoint decks",
+      "Formatting branded executive briefings",
+      "Summarizing slide presentations",
+      "Organizing slide layouts"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Microsoft Word",
+      "Microsoft Excel",
+      "SharePoint",
+      "Teams",
+      "OneDrive"
+    ],
+    "limitations": "Requires existing Microsoft 365 commercial subscription; substantial minimum cost floor.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-make",
+    "name": "Make.com AI",
+    "provider": "Make.com / Celonis SE",
+    "officialWebsite": "https://www.make.com",
+    "officialProductPage": "https://www.make.com/en/ai",
+    "primaryDomain": "automation",
+    "secondaryDomains": [
+      "agentic-coding",
+      "business-operations"
+    ],
+    "shortDescription": "Visual workflow automation platform connecting 1,500+ apps with AI assistants to transform data, route events, and automate logic.",
+    "freePlan": "Yes",
+    "freePlanDetails": "1,000 operations/month, 2 active scenarios, 15-minute minimum execution intervals.",
+    "paidPlans": [
+      {
+        "name": "Core",
+        "price": 9,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "10,000 operations/month, unlimited active scenarios, 1-minute intervals"
+      },
+      {
+        "name": "Pro",
+        "price": 16,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "10,000 operations, custom variables, priority execution, full-text execution log"
+      },
+      {
+        "name": "Teams",
+        "price": 29,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per team, team roles, shared scenarios, high concurrency"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "SOC 2 Type II, custom SLA, dedicated customer success, custom apps"
+      }
+    ],
+    "pricingSourceUrl": "https://www.make.com/en/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Popular global automation platform owned by enterprise process mining giant Celonis with millions of workflows executing daily.",
+    "tierSourceUrl": "https://www.make.com/en/about-us",
+    "tierEvidenceDate": "2026-08-30",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Webhook event routing and enrichment",
+      "Automated customer email sequences",
+      "AI-driven CRM data syncing",
+      "Content syndication across social platforms"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "OpenAI",
+      "Anthropic",
+      "Google Sheets",
+      "Slack",
+      "HubSpot",
+      "Shopify"
+    ],
+    "limitations": "Complex visual routing scenarios require debugging logical branching and data structure mapping.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-zapier-ai",
+    "name": "Zapier Central & AI",
+    "provider": "Zapier Inc",
+    "officialWebsite": "https://zapier.com",
+    "officialProductPage": "https://zapier.com/central",
+    "primaryDomain": "automation",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "The undisputed pioneer in no-code app connectors with 6,000+ app integrations, AI Copilot builder, and experimental AI agent bots.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100 tasks/month, 5 single-step Zaps, 15-minute update intervals.",
+    "paidPlans": [
+      {
+        "name": "Starter",
+        "price": 19.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "750 tasks/month, multi-step Zaps, webhooks, 3 filters"
+      },
+      {
+        "name": "Professional",
+        "price": 49,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "2,000 tasks/month, custom logic paths, 2-minute updates"
+      },
+      {
+        "name": "Team",
+        "price": 69,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per team/mo billed annually, unlimited users, shared app connections"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "SAML SSO, custom data retention, dedicated support, audit logs"
+      }
+    ],
+    "pricingSourceUrl": "https://zapier.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Industry category leader with thousands of integrations, multi-billion valuation, and universal business brand recognition.",
+    "tierSourceUrl": "https://zapier.com/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "No-code API data transfers",
+      "Lead capture alert dispatching",
+      "Automated invoice creation",
+      "AI workspace agent workflows"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Over 6,000 SaaS integrations including Google, Salesforce, Slack, Notion"
+    ],
+    "limitations": "Task-based pricing can scale expensively if high-frequency polling triggers run unchecked.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-n8n",
+    "name": "n8n",
+    "provider": "n8n GmbH",
+    "officialWebsite": "https://n8n.io",
+    "officialProductPage": "https://n8n.io",
+    "primaryDomain": "automation",
+    "secondaryDomains": [
+      "agentic-coding"
+    ],
+    "shortDescription": "Fair-code, node-based workflow automation tool that can be self-hosted with full control over data privacy, custom JavaScript/Python, and LangChain nodes.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% free self-hosted Community edition with unlimited executions.",
+    "paidPlans": [
+      {
+        "name": "Cloud Starter",
+        "price": 20,
+        "currency": "EUR",
+        "billingPeriod": "monthly",
+        "limits": "2,500 executions/month, 5 active workflows, managed hosting"
+      },
+      {
+        "name": "Cloud Pro",
+        "price": 50,
+        "currency": "EUR",
+        "billingPeriod": "monthly",
+        "limits": "10,000 executions/month, unlimited workflows, sharing"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "EUR",
+        "billingPeriod": "annual",
+        "limits": "Self-hosted enterprise license, SAML SSO, audit logging, multi-tenancy"
+      }
+    ],
+    "pricingSourceUrl": "https://n8n.io/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Independent fair-code tool beloved by developers and privacy-conscious startups, offering free self-hosted parity with commercial SaaS.",
+    "tierSourceUrl": "https://n8n.io/about",
+    "tierEvidenceDate": "2026-09-15",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Self-hosted private workflow automation",
+      "Local LangChain agent orchestration",
+      "Custom JavaScript transformation pipelines",
+      "Internal backend webhook processing"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Docker",
+      "LangChain",
+      "PostgreSQL",
+      "OpenAI",
+      "Self-hosted Ollama"
+    ],
+    "limitations": "Self-hosting requires server administration and manual updates.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-notion-ai",
+    "name": "Notion AI",
+    "provider": "Notion Labs, Inc.",
+    "officialWebsite": "https://www.notion.so/product/ai",
+    "officialProductPage": "https://www.notion.so/product/ai",
+    "primaryDomain": "automation",
+    "secondaryDomains": [
+      "reasoning-writing",
+      "business-operations"
+    ],
+    "shortDescription": "Integrated AI assistant inside the Notion connected workspace that searches team databases, drafts documents, extracts action items, and answers questions.",
+    "freePlan": "Trial",
+    "freePlanDetails": "Limited free trial responses per member before requiring add-on subscription.",
+    "paidPlans": [
+      {
+        "name": "Notion AI Add-on",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per member/month ($8 billed annually), unlimited Q&A across Notion workspace, auto-fill databases"
+      }
+    ],
+    "pricingSourceUrl": "https://www.notion.so/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Category leader in collaborative docs and knowledge bases with tens of millions of users worldwide and viral adoption across tech startups.",
+    "tierSourceUrl": "https://www.notion.so/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Universal workspace Q&A",
+      "Meeting note action item extraction",
+      "Automated database property autofill",
+      "Drafting project requirements"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Slack",
+      "GitHub",
+      "Google Drive",
+      "Asana",
+      "Jira"
+    ],
+    "limitations": "Requires existing Notion workspace adoption to provide meaningful value.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-elevenlabs",
+    "name": "ElevenLabs",
+    "provider": "ElevenLabs Inc",
+    "officialWebsite": "https://elevenlabs.io",
+    "officialProductPage": "https://elevenlabs.io",
+    "primaryDomain": "audio-voice",
+    "secondaryDomains": [
+      "video-editing"
+    ],
+    "shortDescription": "Industry benchmark voice synthesis engine delivering emotionally nuanced speech generation, multilingual dubbing, and instant voice cloning.",
+    "freePlan": "Yes",
+    "freePlanDetails": "10,000 characters per month, up to 3 custom voices, requires attribution.",
+    "paidPlans": [
+      {
+        "name": "Starter",
+        "price": 5,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "30,000 characters/mo ($1 for first month), instant voice clone"
+      },
+      {
+        "name": "Creator",
+        "price": 22,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "100,000 characters/mo ($11 first month), professional voice clone, higher quality audio"
+      },
+      {
+        "name": "Pro",
+        "price": 99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "500,000 characters/mo, usage analytics, commercial licensing"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Volume discounts, custom voices, dedicated support, SOC2, HIPAA compliance"
+      }
+    ],
+    "pricingSourceUrl": "https://elevenlabs.io/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "Recognized global category leader in AI voice technology with unicorn valuation, widespread media production usage, and deep tech investment.",
+    "tierSourceUrl": "https://elevenlabs.io/about",
+    "tierEvidenceDate": "2026-09-25",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Audiobook narration",
+      "Automated multilingual video dubbing",
+      "Realistic character voice acting",
+      "Podcast voiceover creation"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "REST API",
+      "Python SDK",
+      "Node.js SDK",
+      "Descript"
+    ],
+    "limitations": "Character limits can be consumed quickly during full book audio rendering.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-suno",
+    "name": "Suno AI",
+    "provider": "Suno Inc.",
+    "officialWebsite": "https://suno.com",
+    "officialProductPage": "https://suno.com",
+    "primaryDomain": "audio-voice",
+    "secondaryDomains": [
+      "marketing-growth"
+    ],
+    "shortDescription": "Generative audio platform producing complete, full-length musical compositions with realistic vocal singing, instrumentation, and lyric arrangement.",
+    "freePlan": "Yes",
+    "freePlanDetails": "50 free daily credits (10 songs per day), non-commercial use only.",
+    "paidPlans": [
+      {
+        "name": "Pro Plan",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "2,500 monthly credits (500 songs), general commercial terms, priority queue"
+      },
+      {
+        "name": "Premier Plan",
+        "price": 30,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "10,000 monthly credits (2,000 songs), commercial rights, top priority"
+      }
+    ],
+    "pricingSourceUrl": "https://suno.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Rapidly growing breakout music generation platform with millions of active users and major venture backing.",
+    "tierSourceUrl": "https://suno.com/about",
+    "tierEvidenceDate": "2026-09-10",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Background music for podcasts and videos",
+      "Jingle creation for marketing ads",
+      "Creative songwriting experimentation",
+      "Musical prototype drafting"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Web Studio",
+      "Microsoft Copilot plugin"
+    ],
+    "limitations": "Song stems (individual instrument tracks) have limited separation control on standard tiers.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-udio",
+    "name": "Udio",
+    "provider": "Udio / Uncharted Labs",
+    "officialWebsite": "https://www.udio.com",
+    "officialProductPage": "https://www.udio.com",
+    "primaryDomain": "audio-voice",
+    "secondaryDomains": [
+      "marketing-growth"
+    ],
+    "shortDescription": "AI music creation tool engineered by former DeepMind researchers, specializing in high-fidelity vocal production, genre authenticity, and track extensions.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Standard free plan with 100 monthly credits and basic audio download.",
+    "paidPlans": [
+      {
+        "name": "Standard",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1,200 credits/month, concurrent generations, audio upload context"
+      },
+      {
+        "name": "Pro",
+        "price": 30,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "4,800 credits/month, priority processing, stem downloads, custom cover art"
+      }
+    ],
+    "pricingSourceUrl": "https://www.udio.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "High-profile music synthesis startup with significant technical acclaim, competitive paid tiers, and active creative community.",
+    "tierSourceUrl": "https://www.udio.com/about",
+    "tierEvidenceDate": "2026-08-15",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "High-fidelity song production",
+      "Musical track stem extraction",
+      "Creative genre exploration",
+      "Vocal melody drafting"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Web Studio",
+      "WAV Audio Export"
+    ],
+    "limitations": "Audio tracks require progressive manual extension segments to build full songs.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-whisper",
+    "name": "OpenAI Whisper",
+    "provider": "OpenAI, LLC",
+    "officialWebsite": "https://github.com/openai/whisper",
+    "officialProductPage": "https://openai.com/research/whisper",
+    "primaryDomain": "audio-voice",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "General-purpose speech recognition model trained on 680,000 hours of multilingual data, providing robust transcription and speech translation.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% Free and open source (MIT license) for self-hosting; pay-as-you-go API available.",
+    "paidPlans": [
+      {
+        "name": "Hosted API",
+        "price": "Usage",
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "$0.006 per minute of audio processed"
+      }
+    ],
+    "pricingSourceUrl": "https://openai.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 3,
+    "tierReason": "The global foundational open-source benchmark for speech-to-text, adopted by virtually every transcription service and AI platform.",
+    "tierSourceUrl": "https://openai.com/research/whisper",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Automated lecture transcription",
+      "Multilingual subtitle translation",
+      "Voice command recognition in applications",
+      "Meeting recording audio-to-text"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Python",
+      "Hugging Face",
+      "REST API",
+      "macOS MacWhisper",
+      "Local Ollama"
+    ],
+    "limitations": "Large model requires adequate GPU VRAM for fast real-time transcription when self-hosted.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-fish-audio",
+    "name": "Fish Audio",
+    "provider": "Fish Audio Inc.",
+    "officialWebsite": "https://fish.audio",
+    "officialProductPage": "https://fish.audio",
+    "primaryDomain": "audio-voice",
+    "secondaryDomains": [
+      "agentic-coding"
+    ],
+    "shortDescription": "Modern open-weights voice generation and zero-shot voice cloning model with ultra-low latency inference for interactive applications.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free daily trial credits on web platform.",
+    "paidPlans": [
+      {
+        "name": "Pay-As-You-Go",
+        "price": 5,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Credit packages starting at $5 for cloud API tokens"
+      },
+      {
+        "name": "Open Source Self-Hosted",
+        "price": 0,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Free open-weights model on GitHub"
+      }
+    ],
+    "pricingSourceUrl": "https://fish.audio/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging indie startup and open-weights developer favorite offering accessible, low-latency zero-shot voice cloning.",
+    "tierSourceUrl": "https://github.com/fishaudio/fish-speech",
+    "tierEvidenceDate": "2026-10-10",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Ultra-low latency conversational voice agents",
+      "Open-weights voice cloning",
+      "Interactive gaming voice synthesis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Python SDK",
+      "REST API",
+      "Docker"
+    ],
+    "limitations": "Web documentation and ecosystem tooling are newer and evolving rapidly.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-otter-ai",
+    "name": "Otter.ai",
+    "provider": "Otter.ai Inc",
+    "officialWebsite": "https://otter.ai",
+    "officialProductPage": "https://otter.ai",
+    "primaryDomain": "business-operations",
+    "secondaryDomains": [
+      "audio-voice",
+      "automation"
+    ],
+    "shortDescription": "Automated meeting transcription, automated slide capture, executive meeting summary generation, and interactive OtterPilot assistant.",
+    "freePlan": "Yes",
+    "freePlanDetails": "300 monthly transcription minutes (30 minutes max per conversation).",
+    "paidPlans": [
+      {
+        "name": "Pro",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($16.99 monthly), 1,200 minutes/month, 90 mins per meeting, team sharing"
+      },
+      {
+        "name": "Business",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($30 monthly), 6,000 minutes/month, 4 hrs per meeting, admin analytics"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Company-wide deployment, single sign-on (SSO), domain capture, audit logs"
+      }
+    ],
+    "pricingSourceUrl": "https://otter.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Well-established SaaS company with millions of meeting participants transcribed and extensive business and university adoption.",
+    "tierSourceUrl": "https://otter.ai/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Meeting note automation",
+      "Executive summary bullet points",
+      "Real-time automated slide screenshot indexing",
+      "Cross-meeting keyword search"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Zoom",
+      "Google Meet",
+      "Microsoft Teams",
+      "Slack",
+      "Dropbox"
+    ],
+    "limitations": "Audio recorded in echoing or noisy conference rooms can produce partial transcription errors.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-fireflies",
+    "name": "Fireflies.ai",
+    "provider": "Fireflies.ai Inc.",
+    "officialWebsite": "https://fireflies.ai",
+    "officialProductPage": "https://fireflies.ai",
+    "primaryDomain": "business-operations",
+    "secondaryDomains": [
+      "automation"
+    ],
+    "shortDescription": "AI meeting assistant that automatically joins video calls, transcribes discussions, extracts action items, and syncs summaries to CRM software.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with 800 minutes of storage and limited transcription summaries.",
+    "paidPlans": [
+      {
+        "name": "Pro",
+        "price": 10,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($18 billed monthly), unlimited transcription, 8,000 mins storage, AI apps"
+      },
+      {
+        "name": "Business",
+        "price": 19,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($29 billed monthly), unlimited storage, video screen recording, CRM integrations"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom data retention, HIPAA, private storage, dedicated onboarding"
+      }
+    ],
+    "pricingSourceUrl": "https://fireflies.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Popular meeting intelligence platform with extensive team tiers, robust CRM connectors, and strong startup traction.",
+    "tierSourceUrl": "https://fireflies.ai/about",
+    "tierEvidenceDate": "2026-08-20",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Automatic CRM note updates from sales calls",
+      "Action item delegation across team members",
+      "Sentiment and talk-time analytics",
+      "Searchable audio meeting archive"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "HubSpot",
+      "Salesforce",
+      "Asana",
+      "Trello",
+      "Slack",
+      "Google Calendar"
+    ],
+    "limitations": "Joining bot presence in external executive meetings can occasionally feel intrusive unless configured discreetly.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-glean",
+    "name": "Glean",
+    "provider": "Glean Technologies, Inc.",
+    "officialWebsite": "https://www.glean.com",
+    "officialProductPage": "https://www.glean.com/product",
+    "primaryDomain": "business-operations",
+    "secondaryDomains": [
+      "research-rag",
+      "automation"
+    ],
+    "shortDescription": "Enterprise AI search and work assistant indexing internal corporate tools (Slack, Jira, Google Drive, Salesforce) with strict permission compliance.",
+    "freePlan": "No",
+    "freePlanDetails": "No free plan; enterprise contracts only.",
+    "paidPlans": [
+      {
+        "name": "Enterprise Subscription",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Quote-based per employee seat (~$40-$50/user/month), full enterprise security, SOC2 Type II, custom connectors"
+      }
+    ],
+    "pricingSourceUrl": "https://www.glean.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Premier multi-billion dollar enterprise work assistant with Fortune 500 deployments, strict security audits, and enterprise-wide knowledge graph indexing.",
+    "tierSourceUrl": "https://www.glean.com/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Unified enterprise search across all company SaaS tools",
+      "Internal policy and documentation lookup",
+      "Personalized work assistant for onboarding",
+      "Cross-department knowledge discovery"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "100+ enterprise connectors including Slack, Jira, GitHub, Salesforce, Google Drive, Microsoft 365"
+    ],
+    "limitations": "Enterprise only; completely inaccessible for individual students or pre-revenue startups.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-fathom",
+    "name": "Fathom Video",
+    "provider": "Fathom Video Inc.",
+    "officialWebsite": "https://fathom.video",
+    "officialProductPage": "https://fathom.video",
+    "primaryDomain": "business-operations",
+    "secondaryDomains": [
+      "audio-voice"
+    ],
+    "shortDescription": "Completely free individual AI meeting recorder and note-taker that transcribes calls, generates action summaries, and syncs to productivity tools.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% Free individual edition with unlimited meeting recording, transcription, and summaries.",
+    "paidPlans": [
+      {
+        "name": "Team Edition",
+        "price": 19,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($15 billed annually), shared team repository, CRM integration, auto-syncing"
+      },
+      {
+        "name": "Team Pro",
+        "price": 29,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Advanced AI summary templates, custom integrations, priority support"
+      }
+    ],
+    "pricingSourceUrl": "https://fathom.video/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging independent challenger offering an extraordinarily generous free individual tier that disrupted the meeting transcription space.",
+    "tierSourceUrl": "https://fathom.video/about",
+    "tierEvidenceDate": "2026-09-10",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Free zoom and meet transcription",
+      "One-click copy-paste meeting highlights",
+      "Personal client call archives",
+      "Automated call follow-up drafting"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Zoom",
+      "Google Meet",
+      "Microsoft Teams",
+      "HubSpot",
+      "Salesforce",
+      "Notion"
+    ],
+    "limitations": "Team collaboration features require upgrading to paid plans.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-copyai",
+    "name": "Copy.ai",
+    "provider": "Copy.ai Inc",
+    "officialWebsite": "https://www.copy.ai",
+    "officialProductPage": "https://www.copy.ai/platform",
+    "primaryDomain": "marketing-growth",
+    "secondaryDomains": [
+      "reasoning-writing",
+      "automation"
+    ],
+    "shortDescription": "AI marketing workflow platform automating go-to-market copy, content pipelines, outbound sales email personalization, and SEO articles.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free plan with 2,000 words in chat, 1 user seat, and 200 bonus credits.",
+    "paidPlans": [
+      {
+        "name": "Starter",
+        "price": 49,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($36 monthly), unlimited words in chat, 500 workflow credits/month"
+      },
+      {
+        "name": "Advanced",
+        "price": 249,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($186 monthly), up to 5 seats, 2,000 workflow credits, workflow builder"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Dedicated workflow architect, custom integrations, SSO, compliance review"
+      }
+    ],
+    "pricingSourceUrl": "https://www.copy.ai/prices",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Established marketing SaaS with over 10 million registered users, pivoting successfully into automated enterprise go-to-market workflows.",
+    "tierSourceUrl": "https://www.copy.ai/about",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "High-volume ad copy variations",
+      "SEO blog article outlining",
+      "Outbound email sequence personalization",
+      "Social media caption drafting"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Zapier",
+      "HubSpot",
+      "Google Sheets",
+      "Webflow"
+    ],
+    "limitations": "Advanced multi-step automated workflows require the higher-priced tier.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-jasper",
+    "name": "Jasper AI",
+    "provider": "Jasper AI Inc.",
+    "officialWebsite": "https://www.jasper.ai",
+    "officialProductPage": "https://www.jasper.ai",
+    "primaryDomain": "marketing-growth",
+    "secondaryDomains": [
+      "graphic-design"
+    ],
+    "shortDescription": "Enterprise marketing AI co-pilot tailored for brand voice enforcement, multi-channel marketing campaigns, and SEO content scaling.",
+    "freePlan": "Trial",
+    "freePlanDetails": "7-day free trial with credit card required.",
+    "paidPlans": [
+      {
+        "name": "Creator",
+        "price": 49,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($39 monthly), 1 seat, 1 brand voice, 50 knowledge assets"
+      },
+      {
+        "name": "Pro",
+        "price": 69,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($59 monthly), up to 5 seats, 3 brand voices, collaboration tools"
+      },
+      {
+        "name": "Business",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Unlimited brand voices, custom style guides, API access, SSO, SOC2"
+      }
+    ],
+    "pricingSourceUrl": "https://www.jasper.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Well-known marketing copy brand with hundreds of thousands of paying users, unicorn valuation, and enterprise marketing team focus.",
+    "tierSourceUrl": "https://www.jasper.ai/company",
+    "tierEvidenceDate": "2026-08-15",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Brand voice-aligned corporate campaigns",
+      "Omni-channel marketing assets",
+      "Long-form SEO blog generation",
+      "Company style guide enforcement"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Surfer SEO",
+      "Google Chrome extension",
+      "Google Docs",
+      "Webflow"
+    ],
+    "limitations": "Lack of permanent free tier makes adoption difficult for exploratory student learning.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-surfer-seo",
+    "name": "Surfer SEO",
+    "provider": "Surfer Sp. z o.o.",
+    "officialWebsite": "https://surferseo.com",
+    "officialProductPage": "https://surferseo.com",
+    "primaryDomain": "marketing-growth",
+    "secondaryDomains": [
+      "data-analytics"
+    ],
+    "shortDescription": "Data-driven SEO content editor analyzing live search engine results pages to provide real-time keyword density, header, and semantic guidance.",
+    "freePlan": "Trial",
+    "freePlanDetails": "7-day money-back guarantee; free Chrome extension available.",
+    "paidPlans": [
+      {
+        "name": "Essential",
+        "price": 89,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "30 articles/month, 100 keyword research queries/day"
+      },
+      {
+        "name": "Scale",
+        "price": 129,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "100 articles/month, internal links suggestions, audit tools"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom articles, API access, dedicated account manager, white-label reports"
+      }
+    ],
+    "pricingSourceUrl": "https://surferseo.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "High-profile specialized growth SaaS with strong global organic search adoption and clear multi-tiered pricing.",
+    "tierSourceUrl": "https://surferseo.com/about",
+    "tierEvidenceDate": "2026-07-20",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Real-time on-page SEO content optimization",
+      "Competitor SERP keyword density analysis",
+      "Internal linking recommendations",
+      "Topical cluster mapping"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Jasper AI",
+      "Google Docs",
+      "WordPress",
+      "Contentful"
+    ],
+    "limitations": "Relatively high pricing barrier for early-stage individual bloggers.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-hubspot-breeze",
+    "name": "HubSpot Breeze AI",
+    "provider": "HubSpot, Inc.",
+    "officialWebsite": "https://www.hubspot.com/products/artificial-intelligence",
+    "officialProductPage": "https://www.hubspot.com/products/artificial-intelligence",
+    "primaryDomain": "marketing-growth",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Built-in AI engine across HubSpot Customer Platform providing copilot assistants, automated prospecting agents, and buyer intent intelligence.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Basic AI assistant features included in HubSpot's free CRM tools tier.",
+    "paidPlans": [
+      {
+        "name": "Marketing Hub Starter",
+        "price": 20,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Billed annually ($15/mo), basic Breeze AI email creation"
+      },
+      {
+        "name": "Marketing Hub Professional",
+        "price": 890,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Full Breeze Copilot, omnichannel automation, custom reporting"
+      },
+      {
+        "name": "Marketing Hub Enterprise",
+        "price": 3600,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Breeze Content Agent, multi-touch revenue attribution, single sign-on"
+      }
+    ],
+    "pricingSourceUrl": "https://www.hubspot.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Publicly traded CRM and marketing giant (NYSE: HUBS) serving over 200,000 corporate customers globally with enterprise governance.",
+    "tierSourceUrl": "https://www.hubspot.com/company-info",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Automated inbound lead scoring and nurturing",
+      "Predictive marketing campaign generation",
+      "Breeze AI prospecting agents",
+      "Customer journey analytics"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Full HubSpot CRM ecosystem",
+      "Salesforce",
+      "Google Ads",
+      "LinkedIn Ads"
+    ],
+    "limitations": "Pro and Enterprise tiers carry substantial recurring costs suitable only for established companies.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-postwise",
+    "name": "Postwise",
+    "provider": "Postwise Inc.",
+    "officialWebsite": "https://postwise.ai",
+    "officialProductPage": "https://postwise.ai",
+    "primaryDomain": "marketing-growth",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "AI social media growth assistant crafted specifically to draft viral Twitter/X threads and LinkedIn carousels with automated scheduling.",
+    "freePlan": "Trial",
+    "freePlanDetails": "7-day free trial on signup.",
+    "paidPlans": [
+      {
+        "name": "Basic",
+        "price": 29,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "1 social account, auto-plug promotional links, AI writer"
+      },
+      {
+        "name": "Unlimited",
+        "price": 49,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "3 accounts, unlimited scheduled posts, thread hook generator"
+      },
+      {
+        "name": "Agency",
+        "price": 99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "10 accounts, team collaboration, client approvals"
+      }
+    ],
+    "pricingSourceUrl": "https://postwise.ai/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging indie startup specializing in social media growth hacking with accessible low-cost starter plans.",
+    "tierSourceUrl": "https://postwise.ai",
+    "tierEvidenceDate": "2026-09-10",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Drafting viral X (Twitter) threads",
+      "LinkedIn professional post scheduling",
+      "Automatic promo tweet reply generation",
+      "Audience engagement tracking"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Twitter / X API",
+      "LinkedIn API"
+    ],
+    "limitations": "Narrow focus on X and LinkedIn short-form social content; does not support long-form blogs.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-openevidence",
+    "name": "OpenEvidence",
+    "provider": "OpenEvidence Inc",
+    "officialWebsite": "https://www.openevidence.com",
+    "officialProductPage": "https://www.openevidence.com",
+    "primaryDomain": "health-medical",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Medical AI clinical decision platform providing physicians with evidence-grounded answers to medical questions backed by peer-reviewed literature.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free access for verified medical professionals, physicians, and medical students with institutional credentials.",
+    "paidPlans": [
+      {
+        "name": "Verified Clinician Access",
+        "price": 0,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Free for credentialed US/international medical doctors"
+      },
+      {
+        "name": "Health System Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "EMR integration, hospital-wide clinical audit trails, BAA compliance"
+      }
+    ],
+    "pricingSourceUrl": "https://www.openevidence.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "High-growth specialized medical AI company used by physicians across thousands of medical centers in the United States.",
+    "tierSourceUrl": "https://www.openevidence.com/about",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Point-of-care clinical evidence query",
+      "Medical guideline verification",
+      "Drug interaction checking with citations",
+      "Clinical trial finding"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "PubMed",
+      "JAMA Network",
+      "New England Journal of Medicine citations"
+    ],
+    "limitations": "Restricted primarily to verified medical professionals; outputs must be reviewed by clinicians before patient care.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-ambience",
+    "name": "Ambience Healthcare",
+    "provider": "Ambience Healthcare Inc.",
+    "officialWebsite": "https://www.ambiencehealthcare.com",
+    "officialProductPage": "https://www.ambiencehealthcare.com/platform",
+    "primaryDomain": "health-medical",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Comprehensive enterprise AI clinical operating system generating complete documentation, billing coding, and clinical summaries during patient visits.",
+    "freePlan": "No",
+    "freePlanDetails": "No free public tier; health system pilot evaluations upon request.",
+    "paidPlans": [
+      {
+        "name": "Health System Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Hospital-wide contracts (~$300-$500/clinician/month), Epic/Cerner integration, HIPAA BAA"
+      }
+    ],
+    "pricingSourceUrl": "https://www.ambiencehealthcare.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Large venture-backed enterprise health system vendor deployed across major US medical networks with strict HIPAA and EMR integration.",
+    "tierSourceUrl": "https://www.ambiencehealthcare.com/about",
+    "tierEvidenceDate": "2026-08-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Ambient patient encounter scribing",
+      "Automated ICD-10 medical coding",
+      "Clinical after-visit summary generation",
+      "Referral letter drafting"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Epic Systems",
+      "Oracle Cerner",
+      "Athenahealth",
+      "eClinicalWorks"
+    ],
+    "limitations": "Requires multi-month enterprise deployment and EHR integration.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-glass-health",
+    "name": "Glass Health",
+    "provider": "Glass Health Inc.",
+    "officialWebsite": "https://glass.health",
+    "officialProductPage": "https://glass.health/ai",
+    "primaryDomain": "health-medical",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "Digital notebook and AI clinical decision support platform helping medical students and residents formulate differential diagnoses and care plans.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with 10 clinical queries/month and personal medical notebook.",
+    "paidPlans": [
+      {
+        "name": "Glass Pro",
+        "price": 19.99,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Unlimited clinical reasoning queries, guideline grounding, full notebook export"
+      },
+      {
+        "name": "Institutional",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Medical school cohort licensing and residency program training dashboards"
+      }
+    ],
+    "pricingSourceUrl": "https://glass.health/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Emerging clinical education tool founded by physicians for medical trainees, offering accessible low-cost individual subscription tiers.",
+    "tierSourceUrl": "https://glass.health/about",
+    "tierEvidenceDate": "2026-09-10",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Differential diagnosis formulation practice",
+      "Clinical plan structuring for medical students",
+      "Medical knowledge notebooking",
+      "Case presentation drafting"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Web Notebook",
+      "Mobile Responsive Web"
+    ],
+    "limitations": "Intended strictly for medical training and simulation; not FDA-cleared for autonomous clinical treatment.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-nabla",
+    "name": "Nabla Copilot",
+    "provider": "Nabla Technologies",
+    "officialWebsite": "https://www.nabla.com",
+    "officialProductPage": "https://www.nabla.com",
+    "primaryDomain": "health-medical",
+    "secondaryDomains": [
+      "audio-voice"
+    ],
+    "shortDescription": "Ambient AI clinical scribe generating clinical notes across 55+ medical specialties in real-time without storing patient audio recordings.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free tier with 30 clinical consultations per month.",
+    "paidPlans": [
+      {
+        "name": "Pro",
+        "price": 119,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per clinician/month, unlimited consultations, custom EHR note templates, multi-language support"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "EHR integration, BAA, team management, analytics dashboard, dedicated support"
+      }
+    ],
+    "pricingSourceUrl": "https://www.nabla.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Prominent European and US healthtech SaaS with published pricing, widespread private clinic adoption, and HIPAA/GDPR certifications.",
+    "tierSourceUrl": "https://www.nabla.com/about",
+    "tierEvidenceDate": "2026-08-25",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Outpatient clinic encounter documentation",
+      "Multilingual clinical translation",
+      "Telehealth visit note generation",
+      "Medical prescription drafting"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Epic",
+      "Athenahealth",
+      "Chrome Extension for EHRs"
+    ],
+    "limitations": "Requires physician verification and sign-off on every generated note before saving to patient record.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-robin-ai",
+    "name": "Robin AI",
+    "provider": "Robin AI Ltd",
+    "officialWebsite": "https://www.robinai.com",
+    "officialProductPage": "https://www.robinai.com/product",
+    "primaryDomain": "legal-compliance",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Legal AI assistant combining Anthropic Claude with proprietary legal models to review contracts, redline clauses, and query agreements 85% faster.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Free individual plan with basic contract review (up to 3 contracts/month) and Word add-in.",
+    "paidPlans": [
+      {
+        "name": "Team",
+        "price": 120,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/month (annual), unlimited contract reviews, custom playbooks, redlining assistant"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Full repository search, custom clause libraries, human-in-the-loop review, SOC2"
+      }
+    ],
+    "pricingSourceUrl": "https://www.robinai.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Leading UK/US legaltech company with major venture backing, partner ecosystem with Anthropic, and active mid-market/enterprise customer base.",
+    "tierSourceUrl": "https://www.robinai.com/company",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Automated NDA and MSA redlining",
+      "Contract clause risk identification",
+      "Negotiation playbook compliance check",
+      "Legal repository querying"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Microsoft Word Add-in",
+      "Salesforce",
+      "DocuSign",
+      "Ironclad"
+    ],
+    "limitations": "Complex cross-border M&A agreements require senior legal counsel oversight.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-harvey-ai",
+    "name": "Harvey AI",
+    "provider": "Counsel AI Inc",
+    "officialWebsite": "https://www.harvey.ai",
+    "officialProductPage": "https://www.harvey.ai",
+    "primaryDomain": "legal-compliance",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Elite legal AI platform built on custom OpenAI models, deployed by the world's largest law firms for contract analysis, due diligence, and litigation research.",
+    "freePlan": "No",
+    "freePlanDetails": "No public or free plan; strictly selective enterprise law firm deployments.",
+    "paidPlans": [
+      {
+        "name": "Enterprise Law Firm Contract",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Annual enterprise contract (~$1,000+/user/month typical minimum), dedicated enterprise instance, SOC2 Type II, custom models"
+      }
+    ],
+    "pricingSourceUrl": "https://www.harvey.ai",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Preeminent enterprise legal tech platform backed by the OpenAI Startup Fund, utilized by multinational law firms like Allen & Overy.",
+    "tierSourceUrl": "https://www.harvey.ai",
+    "tierEvidenceDate": "2026-08-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Complex M&A due diligence review",
+      "Litigation brief preparation",
+      "Multijurisdictional regulatory compliance auditing",
+      "Tax law interpretation"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Proprietary law firm document management systems (iManage, NetDocuments)"
+    ],
+    "limitations": "Strictly enterprise gated; completely unavailable to individual practitioners or law students.",
+    "verificationStatus": "NEEDS_REVIEW"
+  },
+  {
+    "id": "tool-casetext-cocounsel",
+    "name": "CoCounsel",
+    "provider": "Thomson Reuters / Casetext",
+    "officialWebsite": "https://casetext.com/cocounsel",
+    "officialProductPage": "https://casetext.com/cocounsel",
+    "primaryDomain": "legal-compliance",
+    "secondaryDomains": [
+      "research-rag"
+    ],
+    "shortDescription": "Legal AI assistant powered by GPT-4 and Thomson Reuters comprehensive legal database, automating legal research, document review, and deposition prep.",
+    "freePlan": "No",
+    "freePlanDetails": "No free plan; institutional legal demonstrations available.",
+    "paidPlans": [
+      {
+        "name": "CoCounsel Core",
+        "price": 250,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per seat/month (billed annually), legal research, document review, deposition preparation"
+      },
+      {
+        "name": "Thomson Reuters Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Integration with Westlaw Precision, Practical Law, enterprise security"
+      }
+    ],
+    "pricingSourceUrl": "https://casetext.com/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 4,
+    "tierReason": "Owned by global legal intelligence powerhouse Thomson Reuters ($650M acquisition), deployed across thousands of major law departments.",
+    "tierSourceUrl": "https://www.thomsonreuters.com",
+    "tierEvidenceDate": "2026-07-15",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Primary source legal case law research",
+      "Deposition outline question preparation",
+      "Contract compliance auditing against Westlaw data",
+      "Witness testimony analysis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Westlaw Precision",
+      "Microsoft Word",
+      "LexisNexis compatible"
+    ],
+    "limitations": "High subscription cost designed for established law firms and legal departments.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-spellbook",
+    "name": "Spellbook",
+    "provider": "Rally Computing Inc.",
+    "officialWebsite": "https://www.spellbook.legal",
+    "officialProductPage": "https://www.spellbook.legal",
+    "primaryDomain": "legal-compliance",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "GPT-4 powered contract drafting assistant embedded in Microsoft Word that reviews terms, suggests missing clauses, and drafts aggressive/friendly revisions.",
+    "freePlan": "Trial",
+    "freePlanDetails": "7-day free trial for practicing attorneys and legal teams.",
+    "paidPlans": [
+      {
+        "name": "Starter",
+        "price": 89,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($69 billed annually), 25 contract reviews/month, standard Word add-in"
+      },
+      {
+        "name": "Pro",
+        "price": 149,
+        "currency": "USD",
+        "billingPeriod": "monthly",
+        "limits": "Per user/mo ($119 billed annually), unlimited reviews, custom playbook terms, clause library"
+      },
+      {
+        "name": "Enterprise",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom law firm playbooks, team collaboration, dedicated account manager"
+      }
+    ],
+    "pricingSourceUrl": "https://www.spellbook.legal/pricing",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 2,
+    "tierReason": "Rapidly growing legal SaaS company with thousands of law firms using its Word extension across North America and Europe.",
+    "tierSourceUrl": "https://www.spellbook.legal/about",
+    "tierEvidenceDate": "2026-08-10",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "In-line Microsoft Word contract redlining",
+      "Missing clause auto-detection",
+      "Negotiation posture adjustment (aggressive vs balanced)",
+      "Term sheet summarizing"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Microsoft Word",
+      "Outlook"
+    ],
+    "limitations": "Requires Microsoft Word desktop or web environment; cannot audit large PDF archives directly.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-openlaw",
+    "name": "OpenLaw",
+    "provider": "OpenLaw Ltd",
+    "officialWebsite": "https://openlaw.io",
+    "officialProductPage": "https://openlaw.io",
+    "primaryDomain": "legal-compliance",
+    "secondaryDomains": [
+      "automation"
+    ],
+    "shortDescription": "Open-source legal protocol and document automation framework for generating smart legal agreements and executing dynamic contract workflows.",
+    "freePlan": "Yes",
+    "freePlanDetails": "100% Free open-source community templates and framework.",
+    "paidPlans": [
+      {
+        "name": "Open Source Community",
+        "price": 0,
+        "currency": "USD",
+        "billingPeriod": "one-time",
+        "limits": "Free open-source legal repository; self-hosted and community-maintained"
+      }
+    ],
+    "pricingSourceUrl": "https://openlaw.io",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": 1,
+    "tierReason": "Independent open-source legal tech initiative with community-driven legal agreement automation.",
+    "tierSourceUrl": "https://github.com/openlawteam",
+    "tierEvidenceDate": "2026-06-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "Free template-based legal contract generation",
+      "Automated employment and advisor agreements",
+      "Smart legal agreement execution"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Ethereum blockchain",
+      "GitHub",
+      "REST API"
+    ],
+    "limitations": "Community templates require independent qualified legal counsel review before commercial execution.",
+    "verificationStatus": "VERIFIED"
+  },
+  {
+    "id": "tool-gpt-researcher",
+    "name": "GPT Researcher",
+    "provider": "Tavily / Assaf Elovic",
+    "officialWebsite": "https://gptr-test.dev",
+    "officialProductPage": "https://github.com/assafelovic/gpt-researcher",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "agentic-coding"
+    ],
+    "shortDescription": "Autonomous research agent designed for comprehensive online research on any given task with parallel web crawling.",
+    "freePlan": "Unknown",
+    "freePlanDetails": "Open-source repo under test; cloud hosting pricing not officially listed on vendor page.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://gptr-test.dev",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Candidate pending reviewer verification of public traction and commercial tier status.",
+    "tierSourceUrl": "https://github.com/assafelovic/gpt-researcher",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Autonomous multi-agent research gathering"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [
+      "Tavily Search API",
+      "Python CLI"
+    ],
+    "limitations": "Commercial SaaS pricing and enterprise support not formally confirmed.",
+    "verificationStatus": "UNVERIFIED"
+  },
+  {
+    "id": "tool-open-interpreter",
+    "name": "Open Interpreter",
+    "provider": "Open Interpreter Project",
+    "officialWebsite": "https://openinterpreter.com",
+    "officialProductPage": "https://openinterpreter.com",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "automation"
+    ],
+    "shortDescription": "Natural language interface for computers to run code locally (Python, JS, Shell) to control OS environments.",
+    "freePlan": "Yes",
+    "freePlanDetails": "Open-source terminal tool.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://openinterpreter.com",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Open source tool awaiting official evaluation of team/enterprise offerings.",
+    "tierSourceUrl": "https://github.com/openinterpreter/open-interpreter",
+    "tierEvidenceDate": "2026-09-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Local machine automation via natural language"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Terminal CLI",
+      "Local Ollama"
+    ],
+    "limitations": "Executes system-level commands; requires sandboxed environment.",
+    "verificationStatus": "UNVERIFIED"
+  },
+  {
+    "id": "tool-devin",
+    "name": "Devin AI",
+    "provider": "Cognition AI Inc",
+    "officialWebsite": "https://cognition.ai",
+    "officialProductPage": "https://cognition.ai/devin",
+    "primaryDomain": "agentic-coding",
+    "secondaryDomains": [
+      "business-operations"
+    ],
+    "shortDescription": "Autonomous software development agent capable of planning, executing complex multi-step engineering projects, and self-debugging.",
+    "freePlan": "No",
+    "freePlanDetails": "No public free plan; access restricted to gated customer evaluations.",
+    "paidPlans": [
+      {
+        "name": "Enterprise Evaluation",
+        "price": "Custom",
+        "currency": "USD",
+        "billingPeriod": "annual",
+        "limits": "Custom ACV contracts for engineering teams"
+      }
+    ],
+    "pricingSourceUrl": "https://cognition.ai",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Candidate pending general commercial availability and verified public pricing documentation.",
+    "tierSourceUrl": "https://cognition.ai/blog",
+    "tierEvidenceDate": "2026-07-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Autonomous bug resolution from GitHub issues",
+      "End-to-end web app builds"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "GitHub",
+      "Terminal sandbox",
+      "Browser"
+    ],
+    "limitations": "High gating bar; invite-only commercial queue.",
+    "verificationStatus": "UNVERIFIED"
+  },
+  {
+    "id": "tool-sora",
+    "name": "OpenAI Sora",
+    "provider": "OpenAI, LLC",
+    "officialWebsite": "https://openai.com/sora",
+    "officialProductPage": "https://openai.com/sora",
+    "primaryDomain": "video-editing",
+    "secondaryDomains": [
+      "graphic-design"
+    ],
+    "shortDescription": "Text-to-video foundation model capable of generating up to 60-second high-definition videos with complex scenes and physical motion.",
+    "freePlan": "Unknown",
+    "freePlanDetails": "Public release pricing and availability pending official OpenAI rollout schedule.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://openai.com/sora",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Under research evaluation; public commercial tiers and general availability not finalized.",
+    "tierSourceUrl": "https://openai.com/news",
+    "tierEvidenceDate": "2026-10-01",
+    "skillLevel": "Intermediate",
+    "useCases": [
+      "High-definition video sequence synthesis"
+    ],
+    "relevantPersonas": [
+      "student",
+      "entrepreneur"
+    ],
+    "integrations": [
+      "OpenAI Platform"
+    ],
+    "limitations": "Not yet generally available for self-service public subscriptions.",
+    "verificationStatus": "UNVERIFIED"
+  },
+  {
+    "id": "tool-galactica",
+    "name": "Galactica",
+    "provider": "Meta AI",
+    "officialWebsite": "https://galactica.org",
+    "officialProductPage": "https://galactica.org",
+    "primaryDomain": "research-rag",
+    "secondaryDomains": [
+      "reasoning-writing"
+    ],
+    "shortDescription": "Scientific research AI model designed to organize science; discontinued following launch controversies regarding scientific hallucinations.",
+    "freePlan": "No",
+    "freePlanDetails": "Demo paused indefinitely; service discontinued.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://galactica.org",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Discontinued service; cannot be recommended to active learners.",
+    "tierSourceUrl": "https://www.nature.com/articles/d41586-022-03762-2",
+    "tierEvidenceDate": "2026-01-01",
+    "skillLevel": "Advanced",
+    "useCases": [
+      "Scientific literature search (discontinued)"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [],
+    "limitations": "Service officially decommissioned.",
+    "verificationStatus": "REJECTED"
+  },
+  {
+    "id": "tool-jasper-art",
+    "name": "Jasper Art (Standalone)",
+    "provider": "Jasper AI Inc.",
+    "officialWebsite": "https://www.jasper.ai",
+    "officialProductPage": "https://www.jasper.ai",
+    "primaryDomain": "graphic-design",
+    "secondaryDomains": [
+      "marketing-growth"
+    ],
+    "shortDescription": "Standalone image generator add-on previously sold by Jasper; discontinued as an independent SKU and merged into core Jasper subscriptions.",
+    "freePlan": "No",
+    "freePlanDetails": "Standalone SKU retired.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://www.jasper.ai",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Standalone product discontinued and consolidated into tool-jasper.",
+    "tierSourceUrl": "https://www.jasper.ai",
+    "tierEvidenceDate": "2026-06-01",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "AI image generation for blog posts"
+    ],
+    "relevantPersonas": [
+      "entrepreneur"
+    ],
+    "integrations": [
+      "Jasper Copy Editor"
+    ],
+    "limitations": "Duplicate/retired offering; superseded by core Jasper platform.",
+    "verificationStatus": "REJECTED"
+  },
+  {
+    "id": "tool-cascade-ai-broken",
+    "name": "Cascade AI Writer",
+    "provider": "Cascade Tech (Defunct)",
+    "officialWebsite": "https://cascade-ai-broken-domain.example",
+    "officialProductPage": "https://cascade-ai-broken-domain.example",
+    "primaryDomain": "reasoning-writing",
+    "secondaryDomains": [],
+    "shortDescription": "Early AI text generation wrapper with expired domain and defunct corporate registration.",
+    "freePlan": "Unknown",
+    "freePlanDetails": "Domain unreachable.",
+    "paidPlans": [],
+    "pricingSourceUrl": "https://cascade-ai-broken-domain.example",
+    "pricingVerifiedAt": "2026-11-15T00:00:00.000Z",
+    "marketTier": null,
+    "tierReason": "Dead domain, unreachable vendor infrastructure, failed security hygiene audit.",
+    "tierSourceUrl": "https://cascade-ai-broken-domain.example",
+    "tierEvidenceDate": "2026-11-15",
+    "skillLevel": "Beginner",
+    "useCases": [
+      "Defunct wrapper tool"
+    ],
+    "relevantPersonas": [
+      "student"
+    ],
+    "integrations": [],
+    "limitations": "Completely offline.",
+    "verificationStatus": "REJECTED"
+  }
+]

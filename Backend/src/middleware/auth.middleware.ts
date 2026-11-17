@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
+import { isAllowedOrigin } from '../config/cors';
 import { prisma, isDatabaseConnected } from '../config/prisma';
 import { IUser, UserRole } from '../types/models';
 import { isSafeKey, isValidId } from '../utils/id';
@@ -56,7 +57,7 @@ const passesOriginCheck = (req: Request): boolean => {
   }
   if (!candidate) return false; // no valid origin on a mutation = reject
 
-  return config.allowedOrigins.includes(candidate);
+  return isAllowedOrigin(candidate);
 };
 
 /**

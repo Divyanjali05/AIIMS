@@ -78,6 +78,8 @@ model User {
   focusSessions        FocusSession[]
   deviceResetTargets   DeviceResetAudit[] @relation("DeviceResetTarget")
   deviceResetAdmins    DeviceResetAudit[] @relation("DeviceResetAdmin")
+  toolReports          ToolReport[]       @relation("UserToolReports")
+  reviewedToolReports  ToolReport[]       @relation("ReviewerToolReports")
 
   @@index([role, createdAt(sort: Desc)])
   @@index([inviteToken])
@@ -564,16 +566,21 @@ model AiTool {
   clarityTopics       String[] @default([]) @map("clarity_topics")
   focusTracks         String[] @default([]) @map("focus_tracks")
   familiarityGuidance Json?    @map("familiarity_guidance")
+  marketTier          Int?     @map("market_tier")
+  pricingSourceUrl    String?  @map("pricing_source_url")
+  pricingVerifiedAt   DateTime? @map("pricing_verified_at")
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   evidences        ToolEvidence[]
   versionHistories ToolVersionHistory[]
+  reports          ToolReport[]
 
   @@index([activeStatus, verificationStatus])
   @@index([category])
   @@index([provider])
   @@index([status])
+  @@index([marketTier])
   @@map("ai_tools")
 }
 
@@ -648,5 +655,33 @@ model ToolDiscoveryRun {
   @@index([startedAt(sort: Desc)])
   @@index([status])
   @@map("tool_discovery_runs")
+}
+
+// ============================================================================
+// 12. Market AI Tools Catalog — Outdated Information & Community Reports
+// ============================================================================
+
+model ToolReport {
+  id             String    @id @default(uuid())
+  toolId         String    @map("tool_id")
+  tool           AiTool    @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  userId         String    @map("user_id")
+  reporter       User      @relation("UserToolReports", fields: [userId], references: [id], onDelete: Cascade)
+  reportCategory String    @map("report_category") // PRICING_OUTDATED | LINK_BROKEN | TIER_INCORRECT | CAPABILITY_CHANGED | OTHER
+  description    String
+  sourceUrl      String?   @map("source_url")
+  status         String    @default("PENDING") // PENDING | UNDER_REVIEW | RESOLVED | REJECTED
+  reviewerId     String?   @map("reviewer_id")
+  reviewer       User?     @relation("ReviewerToolReports", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewNotes    String?   @map("review_notes")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([toolId])
+  @@index([userId])
+  @@index([status])
+  @@index([reportCategory])
+  @@index([createdAt(sort: Desc)])
+  @@map("tool_reports")
 }
 

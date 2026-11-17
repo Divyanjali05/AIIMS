@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 import { config } from '../config/env';
+import { isAllowedOrigin } from '../config/cors';
 
 const CSRF_SECRET = config.jwtSecret || 'aiims-default-csrf-secret-key-32chars!';
 
@@ -69,7 +70,7 @@ export const passesOriginCheck = (req: Request): boolean => {
   // Requests without origin/referer from non-browser clients (curl, mobile)
   if (!candidate) return true;
 
-  return config.allowedOrigins.includes(candidate);
+  return isAllowedOrigin(candidate);
 };
 
 /**
@@ -106,7 +107,7 @@ export const csrfMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   // 2. Defense-in-depth: Origin/Referer header check
   const origin = req.headers['origin'] as string | undefined;
-  if (origin && !config.allowedOrigins.includes(origin)) {
+  if (origin && !isAllowedOrigin(origin)) {
     return res.status(403).json({
       error: 'CSRF check failed: request origin is not allowed.',
       code: 'CSRF_FORBIDDEN',
@@ -127,7 +128,7 @@ export const csrfMiddleware = (req: Request, res: Response, next: NextFunction) 
       }
 
       // If token verification didn't match, but request origin is explicitly trusted (same-origin web client)
-      if (origin && config.allowedOrigins.includes(origin)) {
+      if (origin && isAllowedOrigin(origin)) {
         return next();
       }
 
@@ -138,7 +139,7 @@ export const csrfMiddleware = (req: Request, res: Response, next: NextFunction) 
     }
 
     // If no token header was provided, but origin is allowed (e.g. trusted same-origin web client or test runner)
-    if (origin && config.allowedOrigins.includes(origin)) {
+    if (origin && isAllowedOrigin(origin)) {
       return next();
     }
 

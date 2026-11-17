@@ -4,6 +4,11 @@ import {
   buildWritableLearnerStatePayload,
   type LearnerStateSyncInput,
 } from '../utils/learnerStateSync';
+import type {
+  AdminToolReportsListResponse,
+  AdminToolReportDetailResponse,
+  AdminUpdateToolReportResponse,
+} from '../types';
 
 /**
  * Dynamic API Base URL resolution for Web and Android environments.
@@ -17,26 +22,57 @@ import {
  *   4. Web default fallback '/api'
  */
 export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem('aiims_api_base_url');
-    if (custom && custom.trim()) {
-      return custom.trim().replace(/\/+$/, '');
-    }
-  }
-  const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
-    ?.VITE_API_BASE_URL;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, '');
-  }
-
-  // Native Android & Mobile default resolution
+  // 1. Native Android & Mobile default resolution
   try {
     if (Capacitor.isNativePlatform()) {
+      if (typeof window !== 'undefined') {
+        const custom = localStorage.getItem('aiims_api_base_url');
+        if (custom && custom.trim()) {
+          return custom.trim().replace(/\/+$/, '');
+        }
+      }
+      const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+        ?.VITE_API_BASE_URL;
+      if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+        return envUrl.trim().replace(/\/+$/, '');
+      }
       // Android emulator default bridge to local development backend on host machine (port 5001)
       return 'http://10.0.2.2:5001/api';
     }
   } catch {
     // Ignore error if Capacitor is not yet initialized
+  }
+
+  // 2. Web Browser & LAN environment:
+  // Prefer consistent relative '/api' through Vite development proxy or web server.
+  // Avoid browser requests to 'localhost' or stale LAN IPs when accessed via a LAN IP.
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('aiims_api_base_url');
+    if (custom && custom.trim()) {
+      const trimmed = custom.trim().replace(/\/+$/, '');
+      // If custom points to relative /api or matches current browser origin, accept it
+      if (
+        trimmed.startsWith('/') ||
+        (window.location && window.location.hostname && trimmed.includes(window.location.hostname))
+      ) {
+        return trimmed;
+      }
+      // Stale cross-origin or localhost override on a LAN browser session is safely ignored in favor of relative /api
+    }
+  }
+
+  const envUrl = (import.meta as unknown as { env?: Record<string, string | undefined> }).env
+    ?.VITE_API_BASE_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    const trimmedEnv = envUrl.trim().replace(/\/+$/, '');
+    if (
+      trimmedEnv.startsWith('/') ||
+      (typeof window !== 'undefined' &&
+        window.location.hostname &&
+        trimmedEnv.includes(window.location.hostname))
+    ) {
+      return trimmedEnv;
+    }
   }
 
   return '/api';
@@ -155,8 +191,7 @@ export const apiFetch = async (input: string, init: RequestInit = {}): Promise<R
   // Mobile request timeout protection (adaptive timeout on mobile candidate endpoints)
   const isMobile = isMobileClient();
   const isCandidateUrl =
-    typeof input === 'string' &&
-    (input.includes('10.0.2.2:5001') || input.includes('192.168.1.5:5001'));
+    typeof input === 'string' && (input.includes(':5001') || input.includes('10.0.2.2'));
   const timeoutMs = isMobile && isCandidateUrl ? 5000 : 15000;
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   let signal = init.signal;
@@ -178,13 +213,23 @@ export const apiFetch = async (input: string, init: RequestInit = {}): Promise<R
     // If on native mobile and connection to candidate 1 fails, attempt automatic candidate 2 fallback
     if (isMobileClient() && typeof input === 'string') {
       const isEmulatorUrl = input.includes('10.0.2.2:5001');
-      const isLanUrl = input.includes('192.168.1.5:5001');
+      const detectedLanHost =
+        typeof window !== 'undefined' &&
+        window.location.hostname &&
+        window.location.hostname !== 'localhost' &&
+        window.location.hostname !== '127.0.0.1'
+          ? window.location.hostname
+          : '192.168.1.83';
+      const lanPort = '5001';
+      const isLanCandidate = input.includes(`:${lanPort}`) && !isEmulatorUrl;
 
-      if (isEmulatorUrl || isLanUrl) {
+      if (isEmulatorUrl || isLanCandidate) {
         const altUrl = isEmulatorUrl
-          ? input.replace('10.0.2.2:5001', '192.168.1.5:5001')
-          : input.replace('192.168.1.5:5001', '10.0.2.2:5001');
-        const altBase = isEmulatorUrl ? 'http://192.168.1.5:5001/api' : 'http://10.0.2.2:5001/api';
+          ? input.replace('10.0.2.2:5001', `${detectedLanHost}:${lanPort}`)
+          : input.replace(/https?:\/\/[^/]+(?::\d+)?/, `http://10.0.2.2:${lanPort}`);
+        const altBase = isEmulatorUrl
+          ? `http://${detectedLanHost}:${lanPort}/api`
+          : 'http://10.0.2.2:5001/api';
 
         let fallbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
         const fallbackController =
@@ -525,18 +570,76 @@ export const apiClient = {
     status?: string;
     pricing?: string;
     search?: string;
+    marketTier?: number | string;
+    freeTierAvailable?: boolean | string;
+    skillLevel?: string;
   }) {
     const queryEntries: [string, string][] = [];
     if (params) {
       for (const [key, val] of Object.entries(params)) {
-        if (val !== undefined && val !== null) queryEntries.push([key, String(val)]);
+        if (val !== undefined && val !== null && val !== '') queryEntries.push([key, String(val)]);
       }
     }
     const query = new URLSearchParams(queryEntries).toString();
-    const res = await apiFetch(`${API_BASE}/wallet/catalog?${query}`, {
+    const res = await apiFetch(`${API_BASE}/wallet/catalog${query ? `?${query}` : ''}`, {
       headers: getAuthHeaders(),
     });
     return res.json();
+  },
+
+  async getWalletTaxonomy() {
+    const res = await apiFetch(`${API_BASE}/wallet/taxonomy`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async removeFromWallet(toolId: string): Promise<{
+    success: boolean;
+    message: string;
+    toolId: string;
+    removed: boolean;
+    userTools?: unknown[];
+    error?: string;
+    code?: string;
+  }> {
+    const res = await apiFetch(`${API_BASE}/wallet/remove`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ toolId }),
+    });
+    return res.json();
+  },
+
+  async reportOutdatedTool(
+    toolId: string,
+    payload: {
+      reportCategory: string;
+      description: string;
+      sourceUrl?: string;
+    }
+  ): Promise<{
+    success: boolean;
+    message: string;
+    report?: any;
+    error?: string;
+    code?: string;
+  }> {
+    const res = await apiFetch(`${API_BASE}/wallet/tools/${encodeURIComponent(toolId)}/report`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        message: data?.error || data?.message || `HTTP ${res.status}`,
+        error: data?.error || 'Failed to submit report',
+        code: data?.code || `HTTP_${res.status}`,
+      };
+    }
+    return data;
   },
 
   async searchRequirement(query: string, userTools?: unknown[]) {
@@ -828,6 +931,50 @@ export const apiClient = {
   async getAdminDashboard() {
     const res = await apiFetch(`${API_BASE}/admin/intelligence/dashboard`, {
       headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: Retrieves submitted tool reports with optional status, category, search filters, and metrics */
+  async getAdminToolReports(params?: {
+    status?: string;
+    category?: string;
+    search?: string;
+    toolId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AdminToolReportsListResponse> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.category) query.set('category', params.category);
+    if (params?.search) query.set('search', params.search);
+    if (params?.toolId) query.set('toolId', params.toolId);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await apiFetch(`${API_BASE}/admin/tool-reports${qs}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: Retrieves detailed information for a single tool report */
+  async getAdminToolReportById(id: string): Promise<AdminToolReportDetailResponse> {
+    const res = await apiFetch(`${API_BASE}/admin/tool-reports/${encodeURIComponent(id)}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  /** Admin: Updates the review status and notes for a tool report */
+  async updateAdminToolReport(
+    id: string,
+    payload: { status: string; reviewNotes?: string }
+  ): Promise<AdminUpdateToolReportResponse> {
+    const res = await apiFetch(`${API_BASE}/admin/tool-reports/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
     });
     return res.json();
   },

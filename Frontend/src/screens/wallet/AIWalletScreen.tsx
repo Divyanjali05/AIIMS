@@ -53,6 +53,10 @@ import { DomainCardsSection } from './DomainCardsSection';
 import { UsageConfirmationModal } from './UsageConfirmationModal';
 import { PersonalizedDomainMatchingView } from './PersonalizedDomainMatchingView';
 import { WalletOperationCard } from './WalletOperationCard';
+import { MarketCatalogView } from '../catalog/MarketCatalogView';
+import { MarketTierBadge } from '../../components/wallet/MarketTierBadge';
+import { ConfirmRemoveModal } from '../../components/wallet/ConfirmRemoveModal';
+import { ToolComparisonView } from '../../components/wallet/ToolComparisonView';
 
 /**
  * Startup Toolkit Gaps — capability categories identified as essential
@@ -216,6 +220,26 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
     name: string;
   } | null>(null);
   const [confirmedToolIds, setConfirmedToolIds] = useState<string[]>([]);
+
+  // Phase D Wallet Removal Confirmation State
+  const [confirmRemoveTool, setConfirmRemoveTool] = useState<{ id: string; name: string } | null>(
+    null
+  );
+  const [isRemovingTool, setIsRemovingTool] = useState<boolean>(false);
+
+  const handleConfirmRemoveTool = async (toolId: string) => {
+    setIsRemovingTool(true);
+    try {
+      removeToolFromWallet(toolId);
+      await apiClient.removeFromWallet(toolId);
+      setConfirmRemoveTool(null);
+    } catch (err) {
+      console.warn('Remove tool warning:', err);
+      setConfirmRemoveTool(null);
+    } finally {
+      setIsRemovingTool(false);
+    }
+  };
 
   // Discovery Job Status State
   const [_discoveryStatus, setDiscoveryStatus] = useState<any | null>(null);
@@ -1635,392 +1659,8 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
             />
           )}
 
-          {/* MULTI-DOMAIN CATEGORY EXPLORER */}
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '12px',
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '18px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading)',
-                  margin: 0,
-                }}
-              >
-                Explore Verified Tools by Category & Domain
-              </h3>
-
-              {/* Filters Bar */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', minWidth: '220px' }}>
-                  <input
-                    type="text"
-                    value={catalogSearchKeyword}
-                    onChange={(e) => setCatalogSearchKeyword(e.target.value)}
-                    placeholder="Filter by name, model, provider..."
-                    aria-label="Filter catalog by name, model, or provider"
-                    style={{
-                      padding: '6px 28px 6px 30px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--aiims-input-border)',
-                      backgroundColor: 'var(--aiims-input-bg)',
-                      color: 'var(--aiims-input-text)',
-                      fontSize: '12px',
-                      outline: 'none',
-                      width: '100%',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <Search
-                    size={13}
-                    style={{
-                      position: 'absolute',
-                      left: '9px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      color: 'var(--aiims-text-muted)',
-                    }}
-                  />
-                  {catalogSearchKeyword && (
-                    <button
-                      type="button"
-                      onClick={() => setCatalogSearchKeyword('')}
-                      aria-label="Clear catalog search"
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        color: 'var(--aiims-text-muted)',
-                        padding: '2px',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-
-                <select
-                  value={selectedPricing}
-                  onChange={(e) => setSelectedPricing(e.target.value)}
-                  aria-label="Filter catalog by pricing"
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid var(--aiims-input-border)',
-                    backgroundColor: 'var(--aiims-input-bg)',
-                    color: 'var(--aiims-input-text)',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    outline: 'none',
-                  }}
-                >
-                  <option value="All">All Pricing</option>
-                  <option value="Free">Free / Free Tier</option>
-                  <option value="Trial">Free Trial Available</option>
-                  <option value="Paid">Paid</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Category Filter Chips */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '6px',
-                overflowX: 'auto',
-                paddingBottom: '8px',
-                marginBottom: '16px',
-              }}
-            >
-              {['All', ...categories].map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '9999px',
-                    border:
-                      selectedCategory === cat
-                        ? '1px solid var(--aiims-primary)'
-                        : '1px solid var(--aiims-border-subtle)',
-                    backgroundColor:
-                      selectedCategory === cat
-                        ? 'var(--aiims-card-banner-bg)'
-                        : 'var(--aiims-bg-card)',
-                    color:
-                      selectedCategory === cat
-                        ? 'var(--aiims-primary)'
-                        : 'var(--aiims-text-secondary)',
-                    fontSize: '12px',
-                    fontWeight: selectedCategory === cat ? 800 : 600,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            {/* Catalog Grid with Loading and Empty States */}
-            {loading ? (
-              <Surface variant="bordered" radius="lg" padding="lg" style={{ textAlign: 'center' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '12px',
-                    padding: '32px 0',
-                  }}
-                >
-                  <RefreshCw size={28} className="spin" style={{ color: 'var(--aiims-primary)' }} />
-                  <div
-                    style={{
-                      fontSize: '15px',
-                      fontWeight: 800,
-                      color: 'var(--aiims-text-heading)',
-                    }}
-                  >
-                    Loading AIIMS Verified Tool Intelligence...
-                  </div>
-                  <p style={{ fontSize: '13px', color: 'var(--aiims-text-muted)', margin: 0 }}>
-                    Fetching verified tool specifications, pricing summaries, and learning tracks.
-                  </p>
-                </div>
-              </Surface>
-            ) : (
-              (() => {
-                const filteredTools = catalog
-                  .filter(
-                    (t) =>
-                      selectedCategory === 'All' ||
-                      t.category === selectedCategory ||
-                      (t.categories && t.categories.includes(selectedCategory as any))
-                  )
-                  .filter((t) => {
-                    if (selectedPricing === 'Free')
-                      return (
-                        t.pricingDetails?.type === 'FREE' ||
-                        t.pricingDetails?.freeTierAvailable ||
-                        (t.pricing && t.pricing.toLowerCase().includes('free'))
-                      );
-                    if (selectedPricing === 'Trial') return t.pricingDetails?.freeTrialAvailable;
-                    if (selectedPricing === 'Paid') return t.pricingDetails?.type === 'PAID';
-                    return true;
-                  })
-                  .filter((t) => {
-                    if (!catalogSearchKeyword.trim()) return true;
-                    const kw = catalogSearchKeyword.toLowerCase().trim();
-                    return (
-                      t.name.toLowerCase().includes(kw) ||
-                      t.provider.toLowerCase().includes(kw) ||
-                      (t.shortDescription && t.shortDescription.toLowerCase().includes(kw)) ||
-                      (t.description && t.description.toLowerCase().includes(kw)) ||
-                      (t.domains && t.domains.some((d) => d.toLowerCase().includes(kw))) ||
-                      (t.capabilities && t.capabilities.some((c) => c.toLowerCase().includes(kw)))
-                    );
-                  });
-
-                if (filteredTools.length === 0) {
-                  return (
-                    <Surface
-                      variant="bordered"
-                      radius="lg"
-                      padding="lg"
-                      style={{ textAlign: 'center' }}
-                    >
-                      <AlertCircle
-                        size={36}
-                        style={{
-                          color: 'var(--aiims-tint-amber-text, #f59e0b)',
-                          margin: '0 auto 12px',
-                        }}
-                      />
-                      <h3
-                        style={{
-                          fontSize: '16px',
-                          fontWeight: 800,
-                          color: 'var(--aiims-text-heading)',
-                          margin: '0 0 6px',
-                        }}
-                      >
-                        No Tools Match the Selected Filters
-                      </h3>
-                      <p
-                        style={{
-                          fontSize: '13px',
-                          color: 'var(--aiims-text-secondary)',
-                          margin: '0 0 16px',
-                        }}
-                      >
-                        {catalogSearchKeyword
-                          ? `No verified tools match "${catalogSearchKeyword}" in ${selectedCategory === 'All' ? 'any category' : selectedCategory}.`
-                          : `No tools found under category "${selectedCategory}" with pricing filter "${selectedPricing}".`}
-                      </p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedCategory('All');
-                          setSelectedPricing('All');
-                          setCatalogSearchKeyword('');
-                        }}
-                      >
-                        Reset All Filters ({catalog.length} Available Tools)
-                      </Button>
-                    </Surface>
-                  );
-                }
-
-                return (
-                  <div
-                    className="aiims-card-grid"
-                    style={{
-                      gridTemplateColumns:
-                        'repeat(auto-fill, minmax(var(--aiims-card-min-width-desktop, 260px), 1fr))',
-                    }}
-                  >
-                    {filteredTools.map((tool) => {
-                      const isAlreadyInWallet = userTools.some((t) => t.toolId === tool.id);
-                      return (
-                        <Surface
-                          key={tool.id}
-                          variant="bordered"
-                          radius="lg"
-                          padding="md"
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'space-between',
-                            gap: '14px',
-                          }}
-                        >
-                          <div>
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                justifyContent: 'space-between',
-                                marginBottom: '6px',
-                              }}
-                            >
-                              <div>
-                                <h4
-                                  style={{
-                                    margin: '0 0 2px',
-                                    fontSize: '16px',
-                                    fontWeight: 800,
-                                    color: 'var(--aiims-text-heading)',
-                                  }}
-                                >
-                                  {tool.name}
-                                </h4>
-                                <span
-                                  style={{
-                                    fontSize: '11px',
-                                    color: 'var(--aiims-text-muted)',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {tool.provider} • {tool.category}
-                                </span>
-                              </div>
-                              {getStatusBadge(tool.status)}
-                            </div>
-
-                            <p
-                              style={{
-                                margin: '0 0 12px',
-                                fontSize: '12.5px',
-                                color: 'var(--aiims-text-secondary)',
-                                lineHeight: 1.45,
-                              }}
-                            >
-                              {tool.shortDescription || tool.description}
-                            </p>
-
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: '6px',
-                                flexWrap: 'wrap',
-                                marginBottom: '10px',
-                              }}
-                            >
-                              <Badge variant="purple" size="sm">
-                                {tool.pricingDetails?.summary ||
-                                  tool.pricing ||
-                                  'Free tier available'}
-                              </Badge>
-                              {(tool.domains || []).slice(0, 1).map((d, i) => (
-                                <Badge key={i} variant="neutral" size="sm">
-                                  {d}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              paddingTop: '8px',
-                              borderTop: '1px solid var(--aiims-border-subtle)',
-                            }}
-                          >
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              icon={<Info size={12} />}
-                              onClick={() => handleOpenDetailModal(tool)}
-                            >
-                              View Detail & Track
-                            </Button>
-                            <Button
-                              variant={isAlreadyInWallet ? 'green' : 'primary'}
-                              size="sm"
-                              disabled={isAlreadyInWallet || addingToolId === tool.id}
-                              icon={
-                                isAlreadyInWallet ? (
-                                  <CheckCircle2 size={12} />
-                                ) : addingToolId === tool.id ? (
-                                  <RefreshCw size={12} className="spin" />
-                                ) : (
-                                  <Plus size={12} />
-                                )
-                              }
-                              onClick={() => handleAddToolWithFeedback(tool)}
-                            >
-                              {isAlreadyInWallet
-                                ? 'In Wallet'
-                                : addingToolId === tool.id
-                                  ? 'Adding...'
-                                  : 'Add to Wallet'}
-                            </Button>
-                          </div>
-                        </Surface>
-                      );
-                    })}
-                  </div>
-                );
-              })()
-            )}
-          </div>
+          {/* MARKET AI TOOLS CATALOG (13 CANONICAL DOMAINS & 4 MARKET TIERS) */}
+          <MarketCatalogView onNavigateToWallet={() => setActiveSection('wallet')} />
         </div>
       )}
 
@@ -2220,6 +1860,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
                           >
                             {tool.name}
                           </h3>
+                          <MarketTierBadge
+                            marketTier={tool.detail?.marketTier}
+                            marketTierName={tool.detail?.marketTierName}
+                            marketTierLabel={tool.detail?.marketTierLabel}
+                            size="sm"
+                          />
                           {(tool.userNotes?.toLowerCase().includes('assessment') ||
                             tool.customTags?.some((t) => t.includes('assessment'))) && (
                             <span
@@ -2455,7 +2101,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
                       variant="ghost"
                       size="sm"
                       icon={<Trash2 size={12} />}
-                      onClick={() => removeToolFromWallet(tool.toolId)}
+                      onClick={() => setConfirmRemoveTool({ id: tool.toolId, name: tool.name })}
                       style={{ color: 'var(--aiims-error, #ef4444)' }}
                     >
                       Remove
@@ -2473,322 +2119,19 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       {/* ========================================================================= */}
       {activeSection === 'compare' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <Surface variant="gradient-hero" radius="lg" padding="md">
-            <div>
-              <h2
-                style={{
-                  margin: '0 0 4px 0',
-                  fontSize: '18px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-text-heading)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <ArrowRightLeft size={20} style={{ color: 'var(--aiims-primary)' }} />
-                <span>
-                  {currentAudienceMode === 'entrepreneur'
-                    ? 'Requirement-First Dynamic Tool Comparison (Startup & Commercial)'
-                    : 'Requirement-First Dynamic Tool Comparison (Academic & Learning)'}
-                </span>
-              </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--aiims-text-secondary)' }}>
-                {currentAudienceMode === 'entrepreneur'
-                  ? 'Compare 2 to 4 AI tools side-by-side for your venture workflows, MVP builds, or customer validation.'
-                  : 'Compare 2 to 4 AI tools side-by-side for your specific coursework, coding assignments, or research tasks.'}
-              </p>
-            </div>
-          </Surface>
-
-          {/* Selector & Requirement Form */}
-          <Surface variant="bordered" radius="lg" padding="md">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: 'var(--aiims-text-secondary)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  What task are you comparing tools for? (Optional):
-                </label>
-                <input
-                  type="text"
-                  value={comparisonRequirement}
-                  onChange={(e) => setComparisonRequirement(e.target.value)}
-                  placeholder={
-                    currentAudienceMode === 'entrepreneur'
-                      ? 'e.g. Analyzing market trends & competitor pricing vs. automated customer outreach...'
-                      : 'e.g. Analyzing 100-page research PDFs and drafting summaries...'
-                  }
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--aiims-input-border)',
-                    backgroundColor: 'var(--aiims-input-bg)',
-                    color: 'var(--aiims-input-text)',
-                    fontSize: '13px',
-                    outline: 'none',
-                  }}
-                />
-                {/* Comparison Preset Chips */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    marginTop: '8px',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <span
-                    style={{ fontSize: '11px', fontWeight: 700, color: 'var(--aiims-text-muted)' }}
-                  >
-                    Quick Tasks:
-                  </span>
-                  {(currentAudienceMode === 'entrepreneur'
-                    ? ['Competitor Market Analysis', 'MVP Code Scaffolding', 'Pitch Deck Narrative']
-                    : [
-                        'Research Paper Synthesis',
-                        'Code Generation & Debugging',
-                        'Slide Presentation Creation',
-                      ]
-                  ).map((preset, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setComparisonRequirement(preset)}
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        border: '1px solid var(--aiims-border-card-hover)',
-                        backgroundColor: 'var(--aiims-bg-card)',
-                        color: 'var(--aiims-primary)',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '12px',
-                    fontWeight: 800,
-                    color: 'var(--aiims-text-secondary)',
-                    marginBottom: '6px',
-                  }}
-                >
-                  Select 2 to 4 tools to compare:
-                </label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {catalog.map((t) => {
-                    const isSelected = selectedCompareIds.includes(t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => toggleSelectCompareId(t.id)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: isSelected
-                            ? '2px solid var(--aiims-primary)'
-                            : '1px solid var(--aiims-border-subtle)',
-                          backgroundColor: isSelected
-                            ? 'var(--aiims-card-banner-bg)'
-                            : 'var(--aiims-bg-card)',
-                          color: isSelected ? 'var(--aiims-primary)' : 'var(--aiims-text-body)',
-                          fontSize: '12px',
-                          fontWeight: isSelected ? 800 : 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {isSelected ? '✓ ' : '+ '} {t.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="violet"
-                  size="md"
-                  icon={
-                    isComparing ? (
-                      <RefreshCw size={14} className="spin" />
-                    ) : (
-                      <ArrowRightLeft size={14} />
-                    )
-                  }
-                  disabled={isComparing || selectedCompareIds.length < 2}
-                  onClick={handleRunRequirementComparison}
-                >
-                  {isComparing ? 'Comparing...' : 'Compare Selected Tools'}
-                </Button>
-              </div>
-            </div>
-          </Surface>
-
-          {/* Dynamic Comparison Matrix */}
-          {reqComparisonData && (
-            <Surface variant="bordered" radius="lg" padding="lg">
-              <div style={{ marginBottom: '16px' }}>
-                <Badge variant="purple" icon={<Sparkles size={12} />}>
-                  Domain: {reqComparisonData.taskDomain}
-                </Badge>
-                <h3
-                  style={{
-                    fontSize: '18px',
-                    fontWeight: 800,
-                    color: 'var(--aiims-text-heading)',
-                    margin: '8px 0 4px',
-                  }}
-                >
-                  How These Tools Fit Your Task
-                </h3>
-                <p
-                  style={{
-                    fontSize: '13px',
-                    color: 'var(--aiims-text-secondary)',
-                    margin: 0,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  "{reqComparisonData.overallSynthesis}"
-                </p>
-              </div>
-
-              {/* Side-by-Side Criteria Table */}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-                  <thead>
-                    <tr
-                      style={{
-                        backgroundColor: 'var(--aiims-bg-subtle)',
-                        borderBottom: '2px solid var(--aiims-border-subtle)',
-                      }}
-                    >
-                      <th
-                        style={{
-                          textAlign: 'left',
-                          padding: '12px',
-                          color: 'var(--aiims-text-secondary)',
-                          fontWeight: 800,
-                        }}
-                      >
-                        Comparison Criterion
-                      </th>
-                      {reqComparisonData.tools.map((t) => (
-                        <th
-                          key={t.id}
-                          style={{
-                            textAlign: 'left',
-                            padding: '12px',
-                            color: 'var(--aiims-text-heading)',
-                            fontWeight: 800,
-                            minWidth: '180px',
-                          }}
-                        >
-                          {t.name}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reqComparisonData.comparisonCriteria.map((crit, idx) => (
-                      <tr
-                        key={idx}
-                        style={{ borderBottom: '1px solid var(--aiims-border-subtle)' }}
-                      >
-                        <td
-                          style={{
-                            padding: '12px',
-                            fontWeight: 700,
-                            color: 'var(--aiims-text-heading)',
-                            backgroundColor: 'var(--aiims-bg-subtle)',
-                          }}
-                        >
-                          {crit.criterion}
-                        </td>
-                        {reqComparisonData.tools.map((t) => (
-                          <td
-                            key={t.id}
-                            style={{
-                              padding: '12px',
-                              color: 'var(--aiims-text-body)',
-                              lineHeight: 1.45,
-                            }}
-                          >
-                            {crit.evaluations[t.id] || 'N/A'}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    <tr style={{ borderBottom: '1px solid var(--aiims-border-subtle)' }}>
-                      <td
-                        style={{
-                          padding: '12px',
-                          fontWeight: 700,
-                          color: 'var(--aiims-text-heading)',
-                          backgroundColor: 'var(--aiims-bg-subtle)',
-                        }}
-                      >
-                        Why It Fits
-                      </td>
-                      {reqComparisonData.tools.map((t) => (
-                        <td
-                          key={t.id}
-                          style={{
-                            padding: '12px',
-                            color: 'var(--aiims-tint-emerald-text)',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {reqComparisonData.fitAnalysis[t.id]?.whyItFits}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td
-                        style={{
-                          padding: '12px',
-                          fontWeight: 700,
-                          color: 'var(--aiims-text-heading)',
-                          backgroundColor: 'var(--aiims-bg-subtle)',
-                        }}
-                      >
-                        Key Trade-off
-                      </td>
-                      {reqComparisonData.tools.map((t) => (
-                        <td
-                          key={t.id}
-                          style={{
-                            padding: '12px',
-                            color: 'var(--aiims-tint-amber-text)',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {reqComparisonData.fitAnalysis[t.id]?.keyTradeoff}
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </Surface>
-          )}
+          <ToolComparisonView
+            allCatalogTools={catalog}
+            selectedToolIds={selectedCompareIds}
+            onRemoveTool={(id) =>
+              setSelectedCompareIds((prev) => prev.filter((item) => item !== id))
+            }
+            onAddTool={(id) => {
+              if (selectedCompareIds.length < 4 && !selectedCompareIds.includes(id)) {
+                setSelectedCompareIds((prev) => [...prev, id]);
+              }
+            }}
+            onClearAll={() => setSelectedCompareIds([])}
+          />
         </div>
       )}
 
@@ -3945,6 +3288,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           }}
         />
       )}
+      {/* Phase D Wallet Removal Confirmation Modal */}
+      <ConfirmRemoveModal
+        tool={confirmRemoveTool}
+        isOpen={Boolean(confirmRemoveTool)}
+        onClose={() => setConfirmRemoveTool(null)}
+        onConfirm={handleConfirmRemoveTool}
+        isRemoving={isRemovingTool}
+      />
     </div>
   );
 };

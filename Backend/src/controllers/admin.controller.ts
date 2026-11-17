@@ -18,6 +18,8 @@ import {
   toJsonInput,
 } from '../utils/userMapper';
 import { isSafeKey, isValidId, withLegacyId, toRecord } from '../utils/id';
+import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
+import { updateToolReportStatusSchema } from '../schemas/wallet.schema';
 
 /**
  * Format milliseconds into human-readable duration.
@@ -622,5 +624,501 @@ export const getFinancialSummary = async (_req: AuthenticatedRequest, res: Respo
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ error: 'Failed to generate financial summary.', details: msg });
+  }
+};
+
+// ============================================================================
+// Admin Quality Assurance: Market AI Tools Outdated Report Review Workflow
+// ============================================================================
+
+/**
+ * GET /admin/tool-reports
+ * Retrieves submitted outdated-tool reports with status/category filtering,
+ * tool name/provider searching, pagination, and status breakdown metrics.
+ * Protected by requireAuth, requireRole('admin').
+ */
+export const adminListToolReports = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  try {
+    const rawStatus = req.query.status as string | undefined;
+    const rawCategory = req.query.category as string | undefined;
+    const rawSearch = (req.query.search as string | undefined)?.trim();
+    const rawToolId = (req.query.toolId as string | undefined)?.trim();
+    const page = Math.max(1, parseInt(String(req.query.page || '1'), 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(String(req.query.limit || '50'), 10) || 50));
+
+    // Validate status if provided
+    if (rawStatus && !['PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED'].includes(rawStatus)) {
+      return res.status(400).json({
+        error: `Invalid status parameter '${rawStatus}'. Allowed: PENDING, UNDER_REVIEW, RESOLVED, REJECTED.`,
+        code: 'INVALID_REPORT_STATUS',
+      });
+    }
+
+    // Validate category if provided
+    if (
+      rawCategory &&
+      ![
+        'PRICING_OUTDATED',
+        'LINK_BROKEN',
+        'TIER_INCORRECT',
+        'CAPABILITY_CHANGED',
+        'OTHER',
+      ].includes(rawCategory)
+    ) {
+      return res.status(400).json({
+        error: `Invalid category parameter '${rawCategory}'. Allowed: PRICING_OUTDATED, LINK_BROKEN, TIER_INCORRECT, CAPABILITY_CHANGED, OTHER.`,
+        code: 'INVALID_REPORT_CATEGORY',
+      });
+    }
+
+    // Status breakdown metrics across entire catalog reports
+    const [pendingCount, underReviewCount, resolvedCount, rejectedCount] = await Promise.all([
+      prisma.toolReport.count({ where: { status: 'PENDING' } }),
+      prisma.toolReport.count({ where: { status: 'UNDER_REVIEW' } }),
+      prisma.toolReport.count({ where: { status: 'RESOLVED' } }),
+      prisma.toolReport.count({ where: { status: 'REJECTED' } }),
+    ]);
+    const totalAll = pendingCount + underReviewCount + resolvedCount + rejectedCount;
+
+    // Build filter where clause
+    const where: any = {};
+    if (rawStatus) where.status = rawStatus;
+    if (rawCategory) where.reportCategory = rawCategory;
+    if (rawToolId) where.toolId = rawToolId;
+
+    if (rawSearch) {
+      const q = rawSearch.toLowerCase();
+      const allTools = ToolCatalogService.getCatalog();
+      const matchingToolIds = allTools
+        .filter(
+          (t: { id: string; name?: string; provider?: string }) =>
+            (t.name && t.name.toLowerCase().includes(q)) ||
+            (t.provider && t.provider.toLowerCase().includes(q)) ||
+            (t.id && t.id.toLowerCase().includes(q))
+        )
+        .map((t: { id: string }) => t.id);
+
+      where.OR = [
+        { toolId: { in: matchingToolIds } },
+        { toolId: { contains: rawSearch, mode: 'insensitive' } },
+        { description: { contains: rawSearch, mode: 'insensitive' } },
+      ];
+    }
+
+    const [totalMatching, reports] = await Promise.all([
+      prisma.toolReport.count({ where }),
+      prisma.toolReport.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          tool: {
+            select: {
+              id: true,
+              name: true,
+              provider: true,
+              category: true,
+              marketTier: true,
+              officialWebsite: true,
+              pricingSourceUrl: true,
+              pricingVerifiedAt: true,
+              verificationStatus: true,
+              activeStatus: true,
+            },
+          },
+          reporter: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          reviewer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const formatted = reports.map((r: any) => {
+      const catalogTool = r.tool || ToolCatalogService.getToolById(r.toolId);
+      return {
+        id: r.id,
+        toolId: r.toolId,
+        reportCategory: r.reportCategory,
+        description: r.description,
+        sourceUrl: r.sourceUrl,
+        status: r.status,
+        reviewerId: r.reviewerId,
+        reviewNotes: r.reviewNotes,
+        createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+        updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : r.updatedAt,
+        tool: catalogTool
+          ? {
+              id: catalogTool.id,
+              name: catalogTool.name,
+              provider: catalogTool.provider,
+              category: catalogTool.category,
+              marketTier: catalogTool.marketTier ?? null,
+              officialWebsite: catalogTool.officialWebsite,
+              pricingSourceUrl: catalogTool.pricingSourceUrl ?? null,
+              pricingVerifiedAt: catalogTool.pricingVerifiedAt ?? null,
+              verificationStatus: catalogTool.verificationStatus,
+            }
+          : null,
+        reporter: r.reporter
+          ? {
+              id: r.reporter.id,
+              name: r.reporter.name,
+              email: r.reporter.email,
+            }
+          : { id: r.userId, name: 'Learner', email: '' },
+        reviewer: r.reviewer
+          ? {
+              id: r.reviewer.id,
+              name: r.reviewer.name,
+              email: r.reviewer.email,
+            }
+          : null,
+      };
+    });
+
+    return res.json({
+      success: true,
+      total: totalMatching,
+      page,
+      limit,
+      totalPages: Math.ceil(totalMatching / limit) || 1,
+      metrics: {
+        pending: pendingCount,
+        underReview: underReviewCount,
+        resolved: resolvedCount,
+        rejected: rejectedCount,
+        total: totalAll,
+      },
+      reports: formatted,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to retrieve tool reports.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+/**
+ * GET /admin/tool-reports/:id
+ * Retrieves full detail of a specific tool report including associated catalog tool data,
+ * original description, source URL, reviewer notes, and reporter info.
+ * Protected by requireAuth, requireRole('admin').
+ */
+export const adminGetToolReportById = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const reportId = String(req.params.id || '').trim();
+  if (!reportId) {
+    return res.status(400).json({
+      error: 'Valid tool report ID is required in route parameter.',
+      code: 'INVALID_REPORT_ID',
+    });
+  }
+
+  try {
+    const report = await prisma.toolReport.findUnique({
+      where: { id: reportId },
+      include: {
+        tool: true,
+        reporter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        error: `Tool report '${reportId}' not found.`,
+        code: 'REPORT_NOT_FOUND',
+      });
+    }
+
+    const catalogTool = (report as any).tool || ToolCatalogService.getToolById(report.toolId);
+
+    const detailed = {
+      id: report.id,
+      toolId: report.toolId,
+      reportCategory: report.reportCategory,
+      description: report.description,
+      sourceUrl: report.sourceUrl,
+      status: report.status,
+      reviewerId: report.reviewerId,
+      reviewNotes: report.reviewNotes,
+      createdAt:
+        report.createdAt instanceof Date ? report.createdAt.toISOString() : report.createdAt,
+      updatedAt:
+        report.updatedAt instanceof Date ? report.updatedAt.toISOString() : report.updatedAt,
+      tool: catalogTool
+        ? {
+            id: catalogTool.id,
+            name: catalogTool.name,
+            provider: catalogTool.provider,
+            description: catalogTool.description,
+            category: catalogTool.category,
+            marketTier: catalogTool.marketTier ?? null,
+            officialWebsite: catalogTool.officialWebsite,
+            pricingDetails: catalogTool.pricingDetails,
+            pricingSourceUrl: catalogTool.pricingSourceUrl ?? null,
+            pricingVerifiedAt: catalogTool.pricingVerifiedAt ?? null,
+            verificationStatus: catalogTool.verificationStatus,
+            activeStatus: catalogTool.activeStatus,
+            lastVerifiedAt: catalogTool.lastVerifiedAt,
+          }
+        : null,
+      reporter: (report as any).reporter
+        ? {
+            id: (report as any).reporter.id,
+            name: (report as any).reporter.name,
+            email: (report as any).reporter.email,
+          }
+        : { id: report.userId, name: 'Learner', email: '' },
+      reviewer: (report as any).reviewer
+        ? {
+            id: (report as any).reviewer.id,
+            name: (report as any).reviewer.name,
+            email: (report as any).reviewer.email,
+          }
+        : null,
+    };
+
+    return res.json({
+      success: true,
+      report: detailed,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to retrieve tool report details.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+/**
+ * PATCH /admin/tool-reports/:id
+ * Updates report review status (PENDING, UNDER_REVIEW, RESOLVED, REJECTED)
+ * and records reviewer notes.
+ * Enforces valid lifecycle status transitions, derives reviewer identity authoritatively
+ * from authenticated administrator session, logs an audit entry, and guarantees catalog immutability.
+ * Protected by requireAuth, requireRole('admin').
+ */
+export const adminUpdateToolReportStatus = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'PostgreSQL database is unavailable.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const reportId = String(req.params.id || '').trim();
+  if (!reportId) {
+    return res.status(400).json({
+      error: 'Valid tool report ID is required in route parameter.',
+      code: 'INVALID_REPORT_ID',
+    });
+  }
+
+  const parsed = updateToolReportStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Invalid request body.',
+      code: 'VALIDATION_ERROR',
+      details: parsed.error.format(),
+    });
+  }
+
+  const { status: targetStatus, reviewNotes } = parsed.data;
+
+  try {
+    const existing = await prisma.toolReport.findUnique({
+      where: { id: reportId },
+    });
+
+    if (!existing) {
+      return res.status(404).json({
+        error: `Tool report '${reportId}' not found.`,
+        code: 'REPORT_NOT_FOUND',
+      });
+    }
+
+    const currentStatus = existing.status;
+
+    // Disallow direct jump from REJECTED to RESOLVED without intermediate UNDER_REVIEW investigation
+    const isDirectRejectedToResolved = currentStatus === 'REJECTED' && targetStatus === 'RESOLVED';
+    if (isDirectRejectedToResolved) {
+      return res.status(400).json({
+        error: `Cannot transition directly from REJECTED to RESOLVED. Move report to UNDER_REVIEW to re-investigate first.`,
+        code: 'INVALID_STATUS_TRANSITION',
+        currentStatus,
+        targetStatus,
+      });
+    }
+
+    const adminId = String(req.user.id || req.user._id);
+    const updatedNotes = reviewNotes !== undefined ? reviewNotes.trim() : existing.reviewNotes;
+
+    const updated = await prisma.toolReport.update({
+      where: { id: reportId },
+      data: {
+        status: targetStatus,
+        reviewerId: adminId,
+        reviewNotes: updatedNotes,
+        updatedAt: new Date(),
+      },
+      include: {
+        tool: {
+          select: {
+            id: true,
+            name: true,
+            provider: true,
+            category: true,
+            marketTier: true,
+            officialWebsite: true,
+            pricingSourceUrl: true,
+            pricingVerifiedAt: true,
+            verificationStatus: true,
+          },
+        },
+        reporter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    // Write audit log
+    const auditAction =
+      targetStatus === 'RESOLVED'
+        ? 'TOOL_REPORT_RESOLVED'
+        : targetStatus === 'REJECTED'
+          ? 'TOOL_REPORT_REJECTED'
+          : targetStatus === 'UNDER_REVIEW'
+            ? 'TOOL_REPORT_UNDER_REVIEW'
+            : 'TOOL_REPORT_REVIEW_UPDATED';
+
+    await writeAuditLog({
+      actor: adminId,
+      actorName: req.user.name,
+      actorRole: req.user.role || 'admin',
+      action: auditAction,
+      target: reportId,
+      targetType: 'ToolReport',
+      details: {
+        reportId,
+        toolId: existing.toolId,
+        previousStatus: currentStatus,
+        newStatus: targetStatus,
+        reviewNotes: updatedNotes,
+      },
+    });
+
+    const catalogTool = (updated as any).tool || ToolCatalogService.getToolById(updated.toolId);
+
+    return res.json({
+      success: true,
+      message: `Tool report '${reportId}' updated to status '${targetStatus}'.`,
+      report: {
+        id: updated.id,
+        toolId: updated.toolId,
+        reportCategory: updated.reportCategory,
+        description: updated.description,
+        sourceUrl: updated.sourceUrl,
+        status: updated.status,
+        reviewerId: updated.reviewerId,
+        reviewNotes: updated.reviewNotes,
+        createdAt:
+          updated.createdAt instanceof Date ? updated.createdAt.toISOString() : updated.createdAt,
+        updatedAt:
+          updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+        tool: catalogTool
+          ? {
+              id: catalogTool.id,
+              name: catalogTool.name,
+              provider: catalogTool.provider,
+              category: catalogTool.category,
+              marketTier: catalogTool.marketTier ?? null,
+              officialWebsite: catalogTool.officialWebsite,
+            }
+          : null,
+        reporter: (updated as any).reporter || { id: updated.userId, name: 'Learner', email: '' },
+        reviewer: (updated as any).reviewer || {
+          id: adminId,
+          name: req.user.name,
+          email: req.user.email,
+        },
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to update tool report review status.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
   }
 };

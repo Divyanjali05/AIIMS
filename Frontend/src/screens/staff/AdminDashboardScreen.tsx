@@ -11,14 +11,16 @@ import {
   ShieldCheck,
   Trash2,
   Edit2,
+  FileText,
 } from 'lucide-react';
 import { apiClient } from '../../api/client';
 import { EvaluatorItem, TaskItem, AuditLogItem, AdminSummaryMetrics } from '../../types';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
+import { ToolReportsQAView } from './ToolReportsQAView';
 
-type AdminTab = 'reports' | 'evaluators' | 'tasks' | 'audit';
+type AdminTab = 'reports' | 'evaluators' | 'tasks' | 'audit' | 'toolReports';
 
 export const AdminDashboardScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('reports');
@@ -471,6 +473,32 @@ export const AdminDashboardScreen: React.FC = () => {
         >
           <ShieldCheck size={16} />
           Audit Logs
+        </button>
+
+        <button
+          onClick={() => setActiveTab('toolReports')}
+          style={{
+            padding: '10px 16px',
+            border: 'none',
+            background: 'none',
+            borderBottom:
+              activeTab === 'toolReports'
+                ? '3px solid var(--aiims-accent-primary, #5b4bff)'
+                : '3px solid transparent',
+            color:
+              activeTab === 'toolReports'
+                ? 'var(--aiims-accent-primary, #5b4bff)'
+                : 'var(--aiims-text-secondary, #64748b)',
+            fontWeight: 800,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <FileText size={16} />
+          Tool Reports QA
         </button>
       </div>
 
@@ -1397,6 +1425,9 @@ export const AdminDashboardScreen: React.FC = () => {
           </Surface>
         </div>
       )}
+
+      {/* TAB 5: AI TOOL REPORTS QA */}
+      {activeTab === 'toolReports' && <ToolReportsQAView />}
     </div>
   );
 };

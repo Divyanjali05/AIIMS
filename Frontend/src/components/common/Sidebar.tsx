@@ -121,6 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ),
         createNavItem('analysis', 'My AI Profile', BarChart3),
         createNavItem('wallet', 'AI Wallet', Wallet),
+        createNavItem('catalog', 'Market AI Tools', Sparkles),
         createNavItem('clarity', 'Clarity', Compass),
         createNavItem('focus', 'Focus', Target),
       ],

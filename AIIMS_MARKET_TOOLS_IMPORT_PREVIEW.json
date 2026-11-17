@@ -1,0 +1,668 @@
+{
+  "generatedAt": "2026-11-17T02:49:10.979Z",
+  "mode": "DRY_RUN",
+  "summary": {
+    "totalInspected": 66,
+    "eligibleVerified": 53,
+    "excludedTotal": 13,
+    "excludedNeedsReview": 6,
+    "excludedUnverified": 4,
+    "excludedRejected": 3,
+    "proposedCreateCount": 53,
+    "proposedUpdateCount": 0,
+    "skippedOwnerApprovalCount": 0,
+    "skippedAlreadyImportedCount": 0,
+    "conflictCount": 0,
+    "validationErrorCount": 0
+  },
+  "previewContext": {
+    "isDatabaseSnapshot": true,
+    "previewType": "DATABASE_SYNCHRONIZED_PREVIEW",
+    "notice": "Verified against live PostgreSQL database snapshot."
+  },
+  "eligibleCandidateIds": [
+    "tool-runway",
+    "tool-descript",
+    "tool-capcut",
+    "tool-kling",
+    "tool-julius",
+    "tool-hex",
+    "tool-rows",
+    "tool-canva",
+    "tool-midjourney",
+    "tool-adobe-firefly",
+    "tool-recraft",
+    "tool-chatgpt",
+    "tool-claude",
+    "tool-deepseek",
+    "tool-paperpal",
+    "tool-huggingchat",
+    "tool-cursor",
+    "tool-copilot",
+    "tool-v0",
+    "tool-cody",
+    "tool-aider",
+    "tool-perplexity",
+    "tool-notebooklm",
+    "tool-consensus",
+    "tool-elicit",
+    "tool-storm",
+    "tool-gamma",
+    "tool-tome",
+    "tool-beautiful-ai",
+    "tool-make",
+    "tool-zapier-ai",
+    "tool-n8n",
+    "tool-notion-ai",
+    "tool-elevenlabs",
+    "tool-suno",
+    "tool-udio",
+    "tool-whisper",
+    "tool-fish-audio",
+    "tool-otter-ai",
+    "tool-fireflies",
+    "tool-fathom",
+    "tool-copyai",
+    "tool-jasper",
+    "tool-surfer-seo",
+    "tool-hubspot-breeze",
+    "tool-postwise",
+    "tool-openevidence",
+    "tool-glass-health",
+    "tool-nabla",
+    "tool-robin-ai",
+    "tool-casetext-cocounsel",
+    "tool-spellbook",
+    "tool-openlaw"
+  ],
+  "excludedCandidates": [
+    {
+      "id": "tool-synthesia",
+      "name": "Synthesia",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "video-editing"
+    },
+    {
+      "id": "tool-tableau-pulse",
+      "name": "Tableau Pulse",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "data-analytics"
+    },
+    {
+      "id": "tool-microsoft-copilot-ppt",
+      "name": "Microsoft 365 Copilot (PowerPoint)",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "presentation"
+    },
+    {
+      "id": "tool-glean",
+      "name": "Glean",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "business-operations"
+    },
+    {
+      "id": "tool-ambience",
+      "name": "Ambience Healthcare",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "health-medical"
+    },
+    {
+      "id": "tool-harvey-ai",
+      "name": "Harvey AI",
+      "status": "NEEDS_REVIEW",
+      "reason": "Excluded (NEEDS_REVIEW): Enterprise quote-only tier requires explicit owner review (Decision D-1)",
+      "tier": 4,
+      "domain": "legal-compliance"
+    },
+    {
+      "id": "tool-gpt-researcher",
+      "name": "GPT Researcher",
+      "status": "UNVERIFIED",
+      "reason": "Excluded (UNVERIFIED): Closed beta / unverified commercial standing",
+      "tier": null,
+      "domain": "research-rag"
+    },
+    {
+      "id": "tool-open-interpreter",
+      "name": "Open Interpreter",
+      "status": "UNVERIFIED",
+      "reason": "Excluded (UNVERIFIED): Closed beta / unverified commercial standing",
+      "tier": null,
+      "domain": "agentic-coding"
+    },
+    {
+      "id": "tool-devin",
+      "name": "Devin AI",
+      "status": "UNVERIFIED",
+      "reason": "Excluded (UNVERIFIED): Closed beta / unverified commercial standing",
+      "tier": null,
+      "domain": "agentic-coding"
+    },
+    {
+      "id": "tool-sora",
+      "name": "OpenAI Sora",
+      "status": "UNVERIFIED",
+      "reason": "Excluded (UNVERIFIED): Closed beta / unverified commercial standing",
+      "tier": null,
+      "domain": "video-editing"
+    },
+    {
+      "id": "tool-galactica",
+      "name": "Galactica",
+      "status": "REJECTED",
+      "reason": "Excluded (REJECTED): Discontinued tool / consolidated SKU / dead domain",
+      "tier": null,
+      "domain": "research-rag"
+    },
+    {
+      "id": "tool-jasper-art",
+      "name": "Jasper Art (Standalone)",
+      "status": "REJECTED",
+      "reason": "Excluded (REJECTED): Discontinued tool / consolidated SKU / dead domain",
+      "tier": null,
+      "domain": "graphic-design"
+    },
+    {
+      "id": "tool-cascade-ai-broken",
+      "name": "Cascade AI Writer",
+      "status": "REJECTED",
+      "reason": "Excluded (REJECTED): Discontinued tool / consolidated SKU / dead domain",
+      "tier": null,
+      "domain": "reasoning-writing"
+    }
+  ],
+  "proposedCreates": [
+    {
+      "id": "tool-runway",
+      "name": "Runway Gen-3 Alpha",
+      "provider": "Runway AI, Inc.",
+      "primaryDomain": "video-editing",
+      "marketTier": 3,
+      "officialWebsite": "https://runwayml.com",
+      "pricingSourceUrl": "https://runwayml.com/pricing"
+    },
+    {
+      "id": "tool-descript",
+      "name": "Descript",
+      "provider": "Descript Inc",
+      "primaryDomain": "video-editing",
+      "marketTier": 2,
+      "officialWebsite": "https://www.descript.com",
+      "pricingSourceUrl": "https://www.descript.com/pricing"
+    },
+    {
+      "id": "tool-capcut",
+      "name": "CapCut AI",
+      "provider": "ByteDance Ltd.",
+      "primaryDomain": "video-editing",
+      "marketTier": 3,
+      "officialWebsite": "https://www.capcut.com",
+      "pricingSourceUrl": "https://www.capcut.com/pricing"
+    },
+    {
+      "id": "tool-kling",
+      "name": "Kling AI",
+      "provider": "Kuaishou Technology",
+      "primaryDomain": "video-editing",
+      "marketTier": 1,
+      "officialWebsite": "https://klingai.com",
+      "pricingSourceUrl": "https://klingai.com"
+    },
+    {
+      "id": "tool-julius",
+      "name": "Julius AI",
+      "provider": "Julius Technologies Inc.",
+      "primaryDomain": "data-analytics",
+      "marketTier": 2,
+      "officialWebsite": "https://julius.ai",
+      "pricingSourceUrl": "https://julius.ai/pricing"
+    },
+    {
+      "id": "tool-hex",
+      "name": "Hex",
+      "provider": "Hex Technologies, Inc.",
+      "primaryDomain": "data-analytics",
+      "marketTier": 2,
+      "officialWebsite": "https://hex.tech",
+      "pricingSourceUrl": "https://hex.tech/pricing"
+    },
+    {
+      "id": "tool-rows",
+      "name": "Rows AI",
+      "provider": "Rows Inc.",
+      "primaryDomain": "data-analytics",
+      "marketTier": 1,
+      "officialWebsite": "https://rows.com",
+      "pricingSourceUrl": "https://rows.com/pricing"
+    },
+    {
+      "id": "tool-canva",
+      "name": "Canva Magic Studio",
+      "provider": "Canva Pty Ltd",
+      "primaryDomain": "graphic-design",
+      "marketTier": 3,
+      "officialWebsite": "https://www.canva.com",
+      "pricingSourceUrl": "https://www.canva.com/pricing"
+    },
+    {
+      "id": "tool-midjourney",
+      "name": "Midjourney v6",
+      "provider": "Midjourney Inc",
+      "primaryDomain": "graphic-design",
+      "marketTier": 3,
+      "officialWebsite": "https://www.midjourney.com",
+      "pricingSourceUrl": "https://docs.midjourney.com/docs/plans"
+    },
+    {
+      "id": "tool-adobe-firefly",
+      "name": "Adobe Firefly",
+      "provider": "Adobe Inc.",
+      "primaryDomain": "graphic-design",
+      "marketTier": 4,
+      "officialWebsite": "https://www.adobe.com/products/firefly.html",
+      "pricingSourceUrl": "https://www.adobe.com/products/firefly.html#plans"
+    },
+    {
+      "id": "tool-recraft",
+      "name": "Recraft AI",
+      "provider": "Recraft Inc.",
+      "primaryDomain": "graphic-design",
+      "marketTier": 1,
+      "officialWebsite": "https://www.recraft.ai",
+      "pricingSourceUrl": "https://www.recraft.ai/pricing"
+    },
+    {
+      "id": "tool-chatgpt",
+      "name": "ChatGPT (GPT-4o)",
+      "provider": "OpenAI, LLC",
+      "primaryDomain": "reasoning-writing",
+      "marketTier": 3,
+      "officialWebsite": "https://chatgpt.com",
+      "pricingSourceUrl": "https://openai.com/chatgpt/pricing"
+    },
+    {
+      "id": "tool-claude",
+      "name": "Claude 3.5 Sonnet",
+      "provider": "Anthropic PBC",
+      "primaryDomain": "reasoning-writing",
+      "marketTier": 3,
+      "officialWebsite": "https://claude.ai",
+      "pricingSourceUrl": "https://www.anthropic.com/pricing"
+    },
+    {
+      "id": "tool-deepseek",
+      "name": "DeepSeek",
+      "provider": "DeepSeek AI",
+      "primaryDomain": "reasoning-writing",
+      "marketTier": 2,
+      "officialWebsite": "https://www.deepseek.com",
+      "pricingSourceUrl": "https://platform.deepseek.com/api-docs/pricing"
+    },
+    {
+      "id": "tool-paperpal",
+      "name": "Paperpal",
+      "provider": "Cactus Communications",
+      "primaryDomain": "reasoning-writing",
+      "marketTier": 2,
+      "officialWebsite": "https://paperpal.com",
+      "pricingSourceUrl": "https://paperpal.com/pricing"
+    },
+    {
+      "id": "tool-huggingchat",
+      "name": "HuggingChat",
+      "provider": "Hugging Face Inc",
+      "primaryDomain": "reasoning-writing",
+      "marketTier": 1,
+      "officialWebsite": "https://huggingface.co/chat",
+      "pricingSourceUrl": "https://huggingface.co/pricing"
+    },
+    {
+      "id": "tool-cursor",
+      "name": "Cursor IDE",
+      "provider": "Anysphere Inc",
+      "primaryDomain": "agentic-coding",
+      "marketTier": 2,
+      "officialWebsite": "https://cursor.com",
+      "pricingSourceUrl": "https://cursor.com/pricing"
+    },
+    {
+      "id": "tool-copilot",
+      "name": "GitHub Copilot",
+      "provider": "GitHub, Inc. / Microsoft",
+      "primaryDomain": "agentic-coding",
+      "marketTier": 3,
+      "officialWebsite": "https://github.com/features/copilot",
+      "pricingSourceUrl": "https://github.com/pricing"
+    },
+    {
+      "id": "tool-v0",
+      "name": "v0 by Vercel",
+      "provider": "Vercel Inc.",
+      "primaryDomain": "agentic-coding",
+      "marketTier": 2,
+      "officialWebsite": "https://v0.dev",
+      "pricingSourceUrl": "https://v0.dev/pricing"
+    },
+    {
+      "id": "tool-cody",
+      "name": "Sourcegraph Cody",
+      "provider": "Sourcegraph Inc.",
+      "primaryDomain": "agentic-coding",
+      "marketTier": 4,
+      "officialWebsite": "https://sourcegraph.com/cody",
+      "pricingSourceUrl": "https://sourcegraph.com/pricing"
+    },
+    {
+      "id": "tool-aider",
+      "name": "Aider",
+      "provider": "Paul Gauthier",
+      "primaryDomain": "agentic-coding",
+      "marketTier": 1,
+      "officialWebsite": "https://aider.chat",
+      "pricingSourceUrl": "https://aider.chat"
+    },
+    {
+      "id": "tool-perplexity",
+      "name": "Perplexity AI",
+      "provider": "Perplexity AI, Inc.",
+      "primaryDomain": "research-rag",
+      "marketTier": 3,
+      "officialWebsite": "https://www.perplexity.ai",
+      "pricingSourceUrl": "https://www.perplexity.ai/pro"
+    },
+    {
+      "id": "tool-notebooklm",
+      "name": "Google NotebookLM",
+      "provider": "Google LLC",
+      "primaryDomain": "research-rag",
+      "marketTier": 3,
+      "officialWebsite": "https://notebooklm.google.com",
+      "pricingSourceUrl": "https://notebooklm.google.com"
+    },
+    {
+      "id": "tool-consensus",
+      "name": "Consensus",
+      "provider": "Consensus NLP Inc",
+      "primaryDomain": "research-rag",
+      "marketTier": 2,
+      "officialWebsite": "https://consensus.app",
+      "pricingSourceUrl": "https://consensus.app/pricing"
+    },
+    {
+      "id": "tool-elicit",
+      "name": "Elicit",
+      "provider": "Elicit Inc.",
+      "primaryDomain": "research-rag",
+      "marketTier": 2,
+      "officialWebsite": "https://elicit.com",
+      "pricingSourceUrl": "https://elicit.com/pricing"
+    },
+    {
+      "id": "tool-storm",
+      "name": "Stanford STORM",
+      "provider": "Stanford OVAL",
+      "primaryDomain": "research-rag",
+      "marketTier": 1,
+      "officialWebsite": "https://github.com/stanford-oval/storm",
+      "pricingSourceUrl": "https://github.com/stanford-oval/storm"
+    },
+    {
+      "id": "tool-gamma",
+      "name": "Gamma App",
+      "provider": "Gamma Tech Inc.",
+      "primaryDomain": "presentation",
+      "marketTier": 2,
+      "officialWebsite": "https://gamma.app",
+      "pricingSourceUrl": "https://gamma.app/pricing"
+    },
+    {
+      "id": "tool-tome",
+      "name": "Tome",
+      "provider": "Tome Inc",
+      "primaryDomain": "presentation",
+      "marketTier": 2,
+      "officialWebsite": "https://tome.app",
+      "pricingSourceUrl": "https://tome.app/pricing"
+    },
+    {
+      "id": "tool-beautiful-ai",
+      "name": "Beautiful.ai",
+      "provider": "Beautiful.ai",
+      "primaryDomain": "presentation",
+      "marketTier": 2,
+      "officialWebsite": "https://www.beautiful.ai",
+      "pricingSourceUrl": "https://www.beautiful.ai/pricing"
+    },
+    {
+      "id": "tool-make",
+      "name": "Make.com AI",
+      "provider": "Make.com / Celonis SE",
+      "primaryDomain": "automation",
+      "marketTier": 2,
+      "officialWebsite": "https://www.make.com",
+      "pricingSourceUrl": "https://www.make.com/en/pricing"
+    },
+    {
+      "id": "tool-zapier-ai",
+      "name": "Zapier Central & AI",
+      "provider": "Zapier Inc",
+      "primaryDomain": "automation",
+      "marketTier": 3,
+      "officialWebsite": "https://zapier.com",
+      "pricingSourceUrl": "https://zapier.com/pricing"
+    },
+    {
+      "id": "tool-n8n",
+      "name": "n8n",
+      "provider": "n8n GmbH",
+      "primaryDomain": "automation",
+      "marketTier": 1,
+      "officialWebsite": "https://n8n.io",
+      "pricingSourceUrl": "https://n8n.io/pricing"
+    },
+    {
+      "id": "tool-notion-ai",
+      "name": "Notion AI",
+      "provider": "Notion Labs, Inc.",
+      "primaryDomain": "automation",
+      "marketTier": 3,
+      "officialWebsite": "https://www.notion.so/product/ai",
+      "pricingSourceUrl": "https://www.notion.so/pricing"
+    },
+    {
+      "id": "tool-elevenlabs",
+      "name": "ElevenLabs",
+      "provider": "ElevenLabs Inc",
+      "primaryDomain": "audio-voice",
+      "marketTier": 3,
+      "officialWebsite": "https://elevenlabs.io",
+      "pricingSourceUrl": "https://elevenlabs.io/pricing"
+    },
+    {
+      "id": "tool-suno",
+      "name": "Suno AI",
+      "provider": "Suno Inc.",
+      "primaryDomain": "audio-voice",
+      "marketTier": 2,
+      "officialWebsite": "https://suno.com",
+      "pricingSourceUrl": "https://suno.com/pricing"
+    },
+    {
+      "id": "tool-udio",
+      "name": "Udio",
+      "provider": "Udio / Uncharted Labs",
+      "primaryDomain": "audio-voice",
+      "marketTier": 2,
+      "officialWebsite": "https://www.udio.com",
+      "pricingSourceUrl": "https://www.udio.com/pricing"
+    },
+    {
+      "id": "tool-whisper",
+      "name": "OpenAI Whisper",
+      "provider": "OpenAI, LLC",
+      "primaryDomain": "audio-voice",
+      "marketTier": 3,
+      "officialWebsite": "https://github.com/openai/whisper",
+      "pricingSourceUrl": "https://openai.com/pricing"
+    },
+    {
+      "id": "tool-fish-audio",
+      "name": "Fish Audio",
+      "provider": "Fish Audio Inc.",
+      "primaryDomain": "audio-voice",
+      "marketTier": 1,
+      "officialWebsite": "https://fish.audio",
+      "pricingSourceUrl": "https://fish.audio/pricing"
+    },
+    {
+      "id": "tool-otter-ai",
+      "name": "Otter.ai",
+      "provider": "Otter.ai Inc",
+      "primaryDomain": "business-operations",
+      "marketTier": 2,
+      "officialWebsite": "https://otter.ai",
+      "pricingSourceUrl": "https://otter.ai/pricing"
+    },
+    {
+      "id": "tool-fireflies",
+      "name": "Fireflies.ai",
+      "provider": "Fireflies.ai Inc.",
+      "primaryDomain": "business-operations",
+      "marketTier": 2,
+      "officialWebsite": "https://fireflies.ai",
+      "pricingSourceUrl": "https://fireflies.ai/pricing"
+    },
+    {
+      "id": "tool-fathom",
+      "name": "Fathom Video",
+      "provider": "Fathom Video Inc.",
+      "primaryDomain": "business-operations",
+      "marketTier": 1,
+      "officialWebsite": "https://fathom.video",
+      "pricingSourceUrl": "https://fathom.video/pricing"
+    },
+    {
+      "id": "tool-copyai",
+      "name": "Copy.ai",
+      "provider": "Copy.ai Inc",
+      "primaryDomain": "marketing-growth",
+      "marketTier": 2,
+      "officialWebsite": "https://www.copy.ai",
+      "pricingSourceUrl": "https://www.copy.ai/prices"
+    },
+    {
+      "id": "tool-jasper",
+      "name": "Jasper AI",
+      "provider": "Jasper AI Inc.",
+      "primaryDomain": "marketing-growth",
+      "marketTier": 2,
+      "officialWebsite": "https://www.jasper.ai",
+      "pricingSourceUrl": "https://www.jasper.ai/pricing"
+    },
+    {
+      "id": "tool-surfer-seo",
+      "name": "Surfer SEO",
+      "provider": "Surfer Sp. z o.o.",
+      "primaryDomain": "marketing-growth",
+      "marketTier": 2,
+      "officialWebsite": "https://surferseo.com",
+      "pricingSourceUrl": "https://surferseo.com/pricing"
+    },
+    {
+      "id": "tool-hubspot-breeze",
+      "name": "HubSpot Breeze AI",
+      "provider": "HubSpot, Inc.",
+      "primaryDomain": "marketing-growth",
+      "marketTier": 4,
+      "officialWebsite": "https://www.hubspot.com/products/artificial-intelligence",
+      "pricingSourceUrl": "https://www.hubspot.com/pricing"
+    },
+    {
+      "id": "tool-postwise",
+      "name": "Postwise",
+      "provider": "Postwise Inc.",
+      "primaryDomain": "marketing-growth",
+      "marketTier": 1,
+      "officialWebsite": "https://postwise.ai",
+      "pricingSourceUrl": "https://postwise.ai/pricing"
+    },
+    {
+      "id": "tool-openevidence",
+      "name": "OpenEvidence",
+      "provider": "OpenEvidence Inc",
+      "primaryDomain": "health-medical",
+      "marketTier": 2,
+      "officialWebsite": "https://www.openevidence.com",
+      "pricingSourceUrl": "https://www.openevidence.com"
+    },
+    {
+      "id": "tool-glass-health",
+      "name": "Glass Health",
+      "provider": "Glass Health Inc.",
+      "primaryDomain": "health-medical",
+      "marketTier": 1,
+      "officialWebsite": "https://glass.health",
+      "pricingSourceUrl": "https://glass.health/pricing"
+    },
+    {
+      "id": "tool-nabla",
+      "name": "Nabla Copilot",
+      "provider": "Nabla Technologies",
+      "primaryDomain": "health-medical",
+      "marketTier": 2,
+      "officialWebsite": "https://www.nabla.com",
+      "pricingSourceUrl": "https://www.nabla.com/pricing"
+    },
+    {
+      "id": "tool-robin-ai",
+      "name": "Robin AI",
+      "provider": "Robin AI Ltd",
+      "primaryDomain": "legal-compliance",
+      "marketTier": 2,
+      "officialWebsite": "https://www.robinai.com",
+      "pricingSourceUrl": "https://www.robinai.com/pricing"
+    },
+    {
+      "id": "tool-casetext-cocounsel",
+      "name": "CoCounsel",
+      "provider": "Thomson Reuters / Casetext",
+      "primaryDomain": "legal-compliance",
+      "marketTier": 4,
+      "officialWebsite": "https://casetext.com/cocounsel",
+      "pricingSourceUrl": "https://casetext.com/pricing"
+    },
+    {
+      "id": "tool-spellbook",
+      "name": "Spellbook",
+      "provider": "Rally Computing Inc.",
+      "primaryDomain": "legal-compliance",
+      "marketTier": 2,
+      "officialWebsite": "https://www.spellbook.legal",
+      "pricingSourceUrl": "https://www.spellbook.legal/pricing"
+    },
+    {
+      "id": "tool-openlaw",
+      "name": "OpenLaw",
+      "provider": "OpenLaw Ltd",
+      "primaryDomain": "legal-compliance",
+      "marketTier": 1,
+      "officialWebsite": "https://openlaw.io",
+      "pricingSourceUrl": "https://openlaw.io"
+    }
+  ],
+  "proposedUpdates": [],
+  "skippedOwnerApproval": [],
+  "skippedAlreadyImported": [],
+  "validationFailures": [],
+  "conflicts": []
+}

@@ -3,6 +3,7 @@ import { prisma, isDatabaseConnected } from '../../config/prisma';
 import { getSeedToolCatalog } from '../../data/aiimsCatalog';
 import {
   AITool,
+  MarketTier,
   TaskCategory,
   ToolFamiliarity,
   ToolLearningTrackLevel,
@@ -101,6 +102,9 @@ export function aiToolRowToDomain(row: PrismaAiTool): IAITool {
     clarityTopics:
       row.clarityTopics && row.clarityTopics.length > 0 ? row.clarityTopics : undefined,
     focusTracks: row.focusTracks && row.focusTracks.length > 0 ? row.focusTracks : undefined,
+    marketTier: (row.marketTier as MarketTier) ?? null,
+    pricingSourceUrl: row.pricingSourceUrl ?? undefined,
+    pricingVerifiedAt: row.pricingVerifiedAt ? row.pricingVerifiedAt.toISOString() : undefined,
   };
 }
 
@@ -167,6 +171,9 @@ export function domainToolToPrismaData(
     radarTopics: Array.isArray(tool.radarTopics) ? tool.radarTopics : [],
     clarityTopics: Array.isArray(tool.clarityTopics) ? tool.clarityTopics : [],
     focusTracks: Array.isArray(tool.focusTracks) ? tool.focusTracks : [],
+    marketTier: typeof tool.marketTier === 'number' ? tool.marketTier : null,
+    pricingSourceUrl: tool.pricingSourceUrl ?? null,
+    pricingVerifiedAt: tool.pricingVerifiedAt ? new Date(tool.pricingVerifiedAt) : null,
     familiarityGuidance: tool.familiarityGuidance
       ? toJsonInput(tool.familiarityGuidance)
       : Prisma.DbNull,

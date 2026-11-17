@@ -55,6 +55,7 @@ import { DiscoverScreen } from './screens/discover/DiscoverScreen';
 import { LoginScreen } from './screens/auth/LoginScreen';
 import { PublicHeroScreen } from './screens/home/PublicHeroScreen';
 import { AIWalletScreen } from './screens/wallet/AIWalletScreen';
+import { MarketCatalogView } from './screens/catalog/MarketCatalogView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LockedInterfaceScreen } from './components/common/LockedInterfaceScreen';
 import { getFeatureAccess } from './services/featureAccessService';
@@ -79,6 +80,13 @@ const mapPathToTab = (path: string): string => {
   if (cleanPath === 'profile' || cleanPath === 'settings') return 'settings';
   if (cleanPath === 'wallet' || cleanPath === 'ai-wallet' || cleanPath === 'aiwallet')
     return 'wallet';
+  if (
+    cleanPath === 'catalog' ||
+    cleanPath === 'market' ||
+    cleanPath === 'market-tools' ||
+    cleanPath === 'tools'
+  )
+    return 'catalog';
   if (cleanPath === 'improve' || cleanPath === 'mentor' || cleanPath === 'mentor-workspace')
     return 'mentor';
   if (cleanPath === 'investigation' || cleanPath === 'signal-investigation') return 'investigation';
@@ -94,6 +102,7 @@ const mapTabToPath = (tab: string): string => {
   if (tab.startsWith('staff/')) return `/${tab}`;
   if (tab === 'staff') return '/staff/queue';
   if (tab === 'home') return '/home';
+  if (tab === 'catalog') return '/catalog';
   if (tab === 'solver') return '/problem-solver';
   if (tab === 'settings') return '/profile';
   if (tab === 'mentor') return '/improve';
@@ -526,6 +535,10 @@ const AppContent: React.FC = () => {
                   {activeTab === 'home' && <HomeScreen setActiveTab={setActiveTab} />}
 
                   {activeTab === 'wallet' && <AIWalletScreen setActiveTab={setActiveTab} />}
+
+                  {activeTab === 'catalog' && (
+                    <MarketCatalogView onNavigateToWallet={() => setActiveTab('wallet')} />
+                  )}
 
                   {activeTab === 'discover' && <DiscoverScreen setActiveTab={setActiveTab} />}
 

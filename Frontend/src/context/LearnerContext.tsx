@@ -2200,6 +2200,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         userTools: (prev.aiWallet?.userTools || []).filter((t) => t.toolId !== toolId),
       },
     }));
+    // Authoritatively persist wallet removal via Phase C backend API
+    apiClient.removeFromWallet(toolId).catch((err) => {
+      console.warn('Backend wallet tool removal warning:', err);
+    });
   };
 
   const updateToolFamiliarity = (

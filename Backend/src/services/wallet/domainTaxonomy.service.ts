@@ -1,4 +1,12 @@
-import { AITool, TaskCategory } from '../../types';
+import {
+  AITool,
+  TaskCategory,
+  MarketTier,
+  CanonicalDomainId,
+  CANONICAL_DOMAIN_IDS,
+  DOMAIN_SPEC_ALIASES,
+  MARKET_TIER_CONFIG,
+} from '../../types';
 
 export interface DomainCard {
   id: string;
@@ -20,6 +28,9 @@ export interface DomainCard {
     pricingType: string;
     freeTierAvailable: boolean;
     skillLevel?: string;
+    marketTier?: MarketTier;
+    pricingSourceUrl?: string;
+    pricingVerifiedAt?: string;
     lastVerifiedAt?: string;
   }>;
   totalTools?: number;
@@ -1336,6 +1347,9 @@ export class DomainTaxonomyService {
         pricingType: t.pricingDetails?.type || 'FREEMIUM',
         freeTierAvailable: Boolean(t.pricingDetails?.freeTierAvailable ?? true),
         skillLevel: t.skillLevel || 'Beginner',
+        marketTier: t.marketTier ?? null,
+        pricingSourceUrl: t.pricingSourceUrl,
+        pricingVerifiedAt: t.pricingVerifiedAt,
         lastVerifiedAt: t.pricingDetails?.lastVerifiedAt || t.lastVerifiedAt || '2026-11',
       }));
 
@@ -1347,4 +1361,26 @@ export class DomainTaxonomyService {
       };
     });
   }
+
+  /**
+   * Resolves an arbitrary string (spec name, legacy synonym, or canonical ID) to a canonical domain ID.
+   */
+  public static resolveCanonicalDomainId(input: string): CanonicalDomainId | undefined {
+    if (!input || typeof input !== 'string') return undefined;
+    const normalized = input.trim().toLowerCase();
+    return DOMAIN_SPEC_ALIASES[normalized];
+  }
+
+  /**
+   * Retrieves canonical domain metadata by canonical ID or spec alias.
+   */
+  public static getCanonicalDomain(
+    input: string
+  ): (typeof DomainTaxonomyService.CANONICAL_DOMAINS)[number] | undefined {
+    const resolvedId = this.resolveCanonicalDomainId(input);
+    if (!resolvedId) return undefined;
+    return this.CANONICAL_DOMAINS.find((d) => d.id === resolvedId);
+  }
 }
+
+export const CANONICAL_DOMAINS = DomainTaxonomyService.CANONICAL_DOMAINS;

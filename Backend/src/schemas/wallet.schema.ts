@@ -66,3 +66,62 @@ export const personalizedMatchSchema = z.object({
   freeOnly: z.boolean().optional(),
   preferredSkillLevel: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
 });
+
+// ============================================================================
+// Market AI Tools Catalog — Market Tiers, Filters & Outdated Reports
+// ============================================================================
+
+export const marketTierSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+  z.literal(4),
+  z.null(),
+]);
+
+export const marketTierParamSchema = z
+  .union([z.literal('1'), z.literal('2'), z.literal('3'), z.literal('4'), z.literal('unrated')])
+  .optional();
+
+export const toolReportCategorySchema = z.enum([
+  'PRICING_OUTDATED',
+  'LINK_BROKEN',
+  'TIER_INCORRECT',
+  'CAPABILITY_CHANGED',
+  'OTHER',
+]);
+
+export const toolReportStatusSchema = z.enum(['PENDING', 'UNDER_REVIEW', 'RESOLVED', 'REJECTED']);
+
+export const removeFromWalletSchema = z.object({
+  toolId: z.string().trim().min(1, 'Valid toolId is required').max(100),
+});
+
+export type RemoveFromWalletInput = z.infer<typeof removeFromWalletSchema>;
+
+export const createToolReportSchema = z.object({
+  toolId: z.string().trim().min(1, 'Valid toolId is required').max(100).optional(),
+  reportCategory: toolReportCategorySchema,
+  description: z.string().trim().min(5, 'Description must be at least 5 characters').max(2000),
+  sourceUrl: z.string().trim().url('Invalid URL format').optional().or(z.literal('')),
+});
+
+export type CreateToolReportInput = z.infer<typeof createToolReportSchema>;
+
+export const updateToolReportStatusSchema = z.object({
+  status: toolReportStatusSchema,
+  reviewNotes: z.string().trim().max(2000).optional(),
+});
+
+export type UpdateToolReportStatusInput = z.infer<typeof updateToolReportStatusSchema>;
+
+export const listToolReportsQuerySchema = z.object({
+  status: toolReportStatusSchema.optional(),
+  category: toolReportCategorySchema.optional(),
+  search: z.string().trim().max(100).optional(),
+  toolId: z.string().trim().max(100).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+export type ListToolReportsQuery = z.infer<typeof listToolReportsQuerySchema>;

@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import lusca from 'lusca';
 import { config, validateStartupConfig } from './config/env';
+import { corsOptions, corsErrorHandler, isAllowedOrigin } from './config/cors';
 import {
   connectDatabase,
   disconnectDatabase,
@@ -36,56 +37,15 @@ app.use(
   })
 );
 
-// 2. CORS Configuration with explicit origin allowlist
+// 2. Centralized CORS Configuration
 export const allowedOrigins = config.allowedOrigins;
-
-export const corsOptions: CorsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-    if (config.allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error(`CORS blocked: Origin ${origin} is not allowed`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Requested-With',
-    'Accept',
-    'Origin',
-    'X-Client',
-    'X-CSRF-Token',
-    'CSRF-Token',
-    'X-Device-Id',
-    'X-Device-Name',
-    'X-Platform',
-  ],
-  exposedHeaders: ['X-RateLimit-Limit', 'X-RateLimit-Remaining', 'Retry-After', 'X-CSRF-Token'],
-  optionsSuccessStatus: 204,
-};
+export { corsOptions, isAllowedOrigin };
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // Safe CORS error response handler
-app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-  if (
-    err &&
-    err.message &&
-    typeof err.message === 'string' &&
-    err.message.startsWith('CORS blocked:')
-  ) {
-    return res.status(403).json({
-      error: 'Access denied by CORS policy',
-      code: 'CORS_FORBIDDEN',
-    });
-  }
-  next(err);
-});
+app.use(corsErrorHandler);
 
 app.use(requestLogger);
 app.use(cookieParser(config.jwtSecret));
@@ -307,7 +267,9 @@ export async function startServer() {
       console.log(`🚀 AIIMS Backend API running on port ${config.port} (0.0.0.0)`);
       console.log(`🐘 Database: PostgreSQL (${dbStatus.connected ? 'Connected' : 'Disconnected'})`);
       console.log(`🛡️  Security Headers: Helmet active`);
-      console.log(`🔒 CORS Origin Policy: ${allowedOrigins.join(', ')}`);
+      console.log(
+        `🔒 CORS Origin Policy: Explicit Allowlist (${allowedOrigins.length}) + Dynamic RFC 1918 Private LAN Subnets (Dev)`
+      );
       console.log(`=================================================`);
     }
 

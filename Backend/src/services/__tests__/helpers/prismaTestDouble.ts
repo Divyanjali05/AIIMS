@@ -413,6 +413,9 @@ const MODEL_SPECS: ModelSpec[] = [
       radarTopics: [],
       clarityTopics: [],
       focusTracks: [],
+      marketTier: null,
+      pricingSourceUrl: null,
+      pricingVerifiedAt: null,
       familiarityGuidance: null,
     }),
   },
@@ -467,6 +470,18 @@ const MODEL_SPECS: ModelSpec[] = [
       rejectedCount: 0,
       errorCount: 0,
       runErrors: [],
+    }),
+  },
+  {
+    name: 'toolReport',
+    uniqueSingle: ['id'],
+    hasCreatedAt: true,
+    hasUpdatedAt: true,
+    defaults: () => ({
+      sourceUrl: null,
+      status: 'PENDING',
+      reviewerId: null,
+      reviewNotes: null,
     }),
   },
 ];
@@ -713,6 +728,50 @@ function applySelect(row: Row, select?: Record<string, boolean>): Row {
   return out;
 }
 
+function applyInclude(spec: ModelSpec, row: Row, include?: Record<string, any>): Row {
+  if (!include || typeof include !== 'object') return row;
+  const out = { ...row };
+  if (spec.name === 'toolReport') {
+    if (include.tool) {
+      const toolRows = tables.get('aiTool') || [];
+      const tool = toolRows.find((t) => t.id === row.toolId);
+      if (tool) {
+        out.tool =
+          typeof include.tool === 'object' && include.tool.select
+            ? applySelect(tool, include.tool.select)
+            : cloneRow(tool);
+      } else {
+        out.tool = null;
+      }
+    }
+    if (include.reporter) {
+      const userRows = tables.get('user') || [];
+      const user = userRows.find((u) => u.id === row.userId);
+      if (user) {
+        out.reporter =
+          typeof include.reporter === 'object' && include.reporter.select
+            ? applySelect(user, include.reporter.select)
+            : cloneRow(user);
+      } else {
+        out.reporter = null;
+      }
+    }
+    if (include.reviewer) {
+      const userRows = tables.get('user') || [];
+      const user = userRows.find((u) => u.id === row.reviewerId);
+      if (user) {
+        out.reviewer =
+          typeof include.reviewer === 'object' && include.reviewer.select
+            ? applySelect(user, include.reviewer.select)
+            : cloneRow(user);
+      } else {
+        out.reviewer = null;
+      }
+    }
+  }
+  return out;
+}
+
 function checkUniqueConstraints(
   spec: ModelSpec,
   existingRows: Row[],
@@ -827,12 +886,22 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
   const getRows = (): Row[] => tables.get(spec.name)!;
 
   return {
-    async findUnique(args: { where: Row; select?: Record<string, boolean> }) {
+    async findUnique(args: {
+      where: Row;
+      select?: Record<string, boolean>;
+      include?: Record<string, any>;
+    }) {
       const match = getRows().find((r) => matchesWhere(spec, r, args?.where));
-      return match ? applySelect(match, args?.select) : null;
+      if (!match) return null;
+      const selected = applySelect(match, args?.select);
+      return applyInclude(spec, selected, args?.include);
     },
 
-    async findUniqueOrThrow(args: { where: Row; select?: Record<string, boolean> }) {
+    async findUniqueOrThrow(args: {
+      where: Row;
+      select?: Record<string, boolean>;
+      include?: Record<string, any>;
+    }) {
       const match = getRows().find((r) => matchesWhere(spec, r, args?.where));
       if (!match) {
         throw makePrismaError(
@@ -840,7 +909,8 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
           `An operation failed because it depends on one or more records that were required but not found.`
         );
       }
-      return applySelect(match, args?.select);
+      const selected = applySelect(match, args?.select);
+      return applyInclude(spec, selected, args?.include);
     },
 
     async findFirst(args?: {
@@ -848,12 +918,15 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
       orderBy?: Row | Row[];
       skip?: number;
       select?: Record<string, boolean>;
+      include?: Record<string, any>;
     }) {
       let matches = getRows().filter((r) => matchesWhere(spec, r, args?.where));
       matches = applyOrderBy(matches, args?.orderBy);
       if (args?.skip) matches = matches.slice(args.skip);
       const first = matches[0];
-      return first ? applySelect(first, args?.select) : null;
+      if (!first) return null;
+      const selected = applySelect(first, args?.select);
+      return applyInclude(spec, selected, args?.include);
     },
 
     async findFirstOrThrow(args?: {
@@ -861,6 +934,7 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
       orderBy?: Row | Row[];
       skip?: number;
       select?: Record<string, boolean>;
+      include?: Record<string, any>;
     }) {
       const found = await this.findFirst(args);
       if (!found) {
@@ -875,6 +949,7 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
       skip?: number;
       take?: number;
       select?: Record<string, boolean>;
+      include?: Record<string, any>;
       distinct?: string[];
     }) {
       let matches = getRows().filter((r) => matchesWhere(spec, r, args?.where));
@@ -891,7 +966,10 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
       const skip = args?.skip ?? 0;
       const take = args?.take;
       matches = take !== undefined ? matches.slice(skip, skip + take) : matches.slice(skip);
-      return matches.map((r) => applySelect(r, args?.select));
+      return matches.map((r) => {
+        const selected = applySelect(r, args?.select);
+        return applyInclude(spec, selected, args?.include);
+      });
     },
 
     async count(args?: { where?: Row }) {
@@ -937,7 +1015,12 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
       return { count: inserted };
     },
 
-    async update(args: { where: Row; data: Row; select?: Record<string, boolean> }) {
+    async update(args: {
+      where: Row;
+      data: Row;
+      select?: Record<string, boolean>;
+      include?: Record<string, any>;
+    }) {
       const rows = getRows();
       const idx = rows.findIndex((r) => matchesWhere(spec, r, args.where));
       if (idx === -1) {
@@ -950,7 +1033,8 @@ function createModelDelegate(spec: ModelSpec, txLog?: TxLog) {
         txLog.updates.push({ model: spec.name, id: rows[idx].id, prev });
       }
       rows[idx] = updated;
-      return applySelect(updated, args?.select);
+      const selected = applySelect(updated, args?.select);
+      return applyInclude(spec, selected, args?.include);
     },
 
     async updateMany(args: { where?: Row; data: Row }) {
