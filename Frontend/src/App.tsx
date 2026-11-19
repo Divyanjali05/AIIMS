@@ -182,10 +182,12 @@ const AppContent: React.FC = () => {
   }, []);
 
   const setActiveTab = (tab: string) => {
-    setActiveTabState(tab);
+    const userRole = state?.profile?.role || 'learner';
+    const effectiveTab = tab === 'catalog' && userRole !== 'admin' ? 'home' : tab;
+    setActiveTabState(effectiveTab);
     try {
-      localStorage.setItem('aiims_active_tab', tab);
-      const newPath = mapTabToPath(tab);
+      localStorage.setItem('aiims_active_tab', effectiveTab);
+      const newPath = mapTabToPath(effectiveTab);
       if (window.location.pathname !== newPath) {
         window.history.pushState(null, '', newPath);
       }
@@ -233,6 +235,19 @@ const AppContent: React.FC = () => {
 
         // 1. Learner opened /staff/* -> redirect away to /home immediately (show nothing role-specific)
         if (userRole === 'learner' && currentPath.startsWith('/staff')) {
+          window.history.replaceState(null, '', '/home');
+          setActiveTabState('home');
+          return;
+        }
+
+        // 2. Learners (both Student & Entrepreneur) opened Market AI Tools (/catalog, /market, /tools) -> redirect to /home
+        if (
+          userRole !== 'admin' &&
+          (currentPath === '/catalog' ||
+            currentPath === '/market' ||
+            currentPath === '/market-tools' ||
+            currentPath === '/tools')
+        ) {
           window.history.replaceState(null, '', '/home');
           setActiveTabState('home');
           return;
@@ -377,8 +392,7 @@ const AppContent: React.FC = () => {
         window.history.pushState(null, '', target);
         setActiveTabState(mapPathToTab(target));
       } else {
-        const targetTab =
-          intendedRoute || (state?.assessment?.status === 'completed' ? 'home' : 'assessment');
+        const targetTab = intendedRoute || 'home';
         setActiveTab(targetTab);
         setIntendedRoute(null);
       }
@@ -536,7 +550,7 @@ const AppContent: React.FC = () => {
 
                   {activeTab === 'wallet' && <AIWalletScreen setActiveTab={setActiveTab} />}
 
-                  {activeTab === 'catalog' && (
+                  {activeTab === 'catalog' && state?.profile?.role === 'admin' && (
                     <MarketCatalogView onNavigateToWallet={() => setActiveTab('wallet')} />
                   )}
 

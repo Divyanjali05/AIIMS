@@ -794,7 +794,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           { id: 'wallet', label: '3. My Tool Stack', icon: Wallet, badge: `${userTools.length}` },
           {
             id: 'discover',
-            label: '4. 13 Domain Cards & Catalog',
+            label:
+              state.profile?.role === 'admin'
+                ? '4. 13 Domain Cards & Catalog'
+                : '4. 13 Domain Cards',
             icon: Compass,
             badge: `${catalog.length}`,
           },
@@ -1659,8 +1662,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
             />
           )}
 
-          {/* MARKET AI TOOLS CATALOG (13 CANONICAL DOMAINS & 4 MARKET TIERS) */}
-          <MarketCatalogView onNavigateToWallet={() => setActiveSection('wallet')} />
+          {/* MARKET AI TOOLS CATALOG (13 CANONICAL DOMAINS & 4 MARKET TIERS) - Admin only */}
+          {state.profile?.role === 'admin' && (
+            <MarketCatalogView onNavigateToWallet={() => setActiveSection('wallet')} />
+          )}
         </div>
       )}
 

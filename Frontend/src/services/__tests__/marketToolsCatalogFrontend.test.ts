@@ -140,7 +140,16 @@ export function runMarketToolsCatalogTestSuite(): {
     'Feature Access: catalog feature is registered as Level 1',
     catalogAccess.level === 'Level 1' && catalogAccess.featureId === 'catalog'
   );
-  record('Feature Access: catalog feature is visible for learners', catalogAccess.visible === true);
+  record(
+    'Feature Access: catalog feature is hidden for learners (Students & Entrepreneurs)',
+    catalogAccess.visible === false && catalogAccess.unlocked === false
+  );
+  const adminState = {
+    ...dummyLearnerState,
+    profile: { ...dummyLearnerState.profile, role: 'admin' },
+  };
+  const adminCatalogAccess = getFeatureAccess('catalog' as FeatureId, adminState as any);
+  record('Feature Access: catalog feature is visible for admins', adminCatalogAccess.visible === true);
   record(
     'Feature Access: normalizeFeatureId maps /catalog to catalog',
     normalizeFeatureId('/catalog') === 'catalog'

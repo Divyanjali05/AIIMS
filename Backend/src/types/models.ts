@@ -77,6 +77,8 @@ export interface IUser {
     currentQuestionIndex: number;
     completedAt: string | null;
     rewardClaimed: boolean;
+    highScoreBonusClaimed?: boolean;
+    chargedFee?: number;
     scores: {
       usageFrequency: number;
       evaluationCapability: number;

@@ -41,7 +41,7 @@ interface Level2AITaskLabProps {
 }
 
 export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onTaskCompleted }) => {
-  const { state } = useLearner();
+  const { state, completeClarityTopic, saveClarityTaskResult } = useLearner();
 
   // Active assignment & question state from centralized Question Bank
   const [activeAssignment, setActiveAssignment] = useState<any | null>(null);
@@ -144,16 +144,28 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
           });
           setElapsedSeconds(res.attempt.timeTakenSeconds || 0);
 
+          const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
+            Easy: 'easy',
+            Medium: 'medium',
+            Hard: 'advanced',
+          };
+          const mappedDiff =
+            diffMap[res.question?.level || res.currentLevel || 'Easy'] || 'easy';
+          const attemptScore = res.attempt.score || 80;
+
+          if (completeClarityTopic) {
+            completeClarityTopic(topicName);
+          }
+          if (saveClarityTaskResult) {
+            saveClarityTaskResult(topicName, mappedDiff, {
+              score: attemptScore,
+              userPrompt: res.attempt.submittedAnswer || 'Level task attempt',
+              output: 'Evaluated against rubric criteria',
+            });
+          }
+
           if (onTaskCompleted) {
-            const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
-              Easy: 'easy',
-              Medium: 'medium',
-              Hard: 'advanced',
-            };
-            onTaskCompleted(
-              diffMap[res.question?.level || res.currentLevel || 'Easy'] || 'easy',
-              res.attempt.score || 80
-            );
+            onTaskCompleted(mappedDiff, attemptScore);
           }
         } else {
           setIsLocked(false);
@@ -351,13 +363,26 @@ export const Level2AITaskLab: React.FC<Level2AITaskLabProps> = ({ topicName, onT
           message: `Task successfully submitted! Score: ${res.score}/100. Awarded +${res.creditsAwarded || 50} AC and +${res.xpAwarded || 100} XP. Task is now locked.`,
         });
 
+        const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
+          Easy: 'easy',
+          Medium: 'medium',
+          Hard: 'advanced',
+        };
+        const mappedDiff = diffMap[currentLevel] || 'easy';
+
+        if (completeClarityTopic) {
+          completeClarityTopic(topicName);
+        }
+        if (saveClarityTaskResult) {
+          saveClarityTaskResult(topicName, mappedDiff, {
+            score: res.score,
+            userPrompt: promptText.trim(),
+            output: res.overallFeedback || 'Evaluated against rubric',
+          });
+        }
+
         if (onTaskCompleted) {
-          const diffMap: Record<string, 'easy' | 'medium' | 'advanced'> = {
-            Easy: 'easy',
-            Medium: 'medium',
-            Hard: 'advanced',
-          };
-          onTaskCompleted(diffMap[currentLevel] || 'easy', res.score);
+          onTaskCompleted(mappedDiff, res.score);
         }
 
         setRefreshSubmissionsKey((k) => k + 1);

@@ -19,6 +19,7 @@ import {
 } from '../config/academicTaxonomy';
 import { isCommonPassword } from '../utils/passwordSecurity';
 import { generateCsrfToken } from '../middleware/csrf.middleware';
+import { loginSecurityService } from '../services/loginSecurity.service';
 import {
   hashPassword,
   verifyPassword,
@@ -261,6 +262,24 @@ export const login = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Email or password is incorrect.' });
   }
 
+  const forwarded = req.headers['x-forwarded-for'];
+  const clientIp =
+    typeof forwarded === 'string'
+      ? forwarded.split(',')[0].trim()
+      : req.ip || req.socket?.remoteAddress || '127.0.0.1';
+
+  // Adaptive per-account brute-force and IP credential-stuffing check
+  const securityCheck = loginSecurityService.checkLoginAttempt(normalizedEmail, clientIp);
+  if (!securityCheck.allowed) {
+    const retryAfter = securityCheck.retryAfterSeconds || 300;
+    res.setHeader('Retry-After', retryAfter);
+    return res.status(429).json({
+      error: securityCheck.reason || 'Too many failed login attempts. Please try again later.',
+      code: 'RATE_LIMIT_EXCEEDED',
+      retryAfterSeconds: retryAfter,
+    });
+  }
+
   if (!isDatabaseConnected()) {
     return res.status(503).json({
       error: 'Database service unavailable. PostgreSQL connection is required.',
@@ -273,13 +292,18 @@ export const login = async (req: Request, res: Response) => {
   try {
     const row = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!row) {
+      loginSecurityService.recordFailedLogin(normalizedEmail, clientIp);
       return res.status(401).json({ error: 'Email or password is incorrect.' });
     }
 
     const { match } = await verifyPassword(row.password, password);
     if (!match) {
+      loginSecurityService.recordFailedLogin(normalizedEmail, clientIp);
       return res.status(401).json({ error: 'Email or password is incorrect.' });
     }
+
+    // Credentials verified successfully: reset account failure trackers
+    loginSecurityService.recordSuccessfulLogin(normalizedEmail, clientIp);
 
     if (row.isActive === false) {
       return res.status(403).json({
@@ -349,6 +373,7 @@ export const register = async (req: Request, res: Response) => {
     password,
     confirmPassword,
     track,
+    educationCategory,
     instituteId,
     instituteName,
     stream,
@@ -440,82 +465,101 @@ export const register = async (req: Request, res: Response) => {
       });
     }
 
-    if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
-      return res.status(400).json({
-        error: 'Please select a valid academic stream.',
-        code: 'INVALID_INPUT',
-        field: 'stream',
-      });
-    }
-    if (
-      !educationLevel ||
-      !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
-    ) {
-      return res.status(400).json({
-        error: 'Please select a valid education level.',
-        code: 'INVALID_INPUT',
-        field: 'educationLevel',
-      });
-    }
-    if (!programId) {
-      return res.status(400).json({
-        error: 'Please select your degree or program.',
-        code: 'INVALID_INPUT',
-        field: 'programId',
-      });
-    }
-    if (!specializationId) {
-      return res.status(400).json({
-        error: 'Please select your branch or specialization.',
-        code: 'INVALID_INPUT',
-        field: 'specializationId',
-      });
-    }
+    const isBelow10th = educationCategory === 'BELOW_10TH';
+    const is9th10th = educationCategory === 'CLASS_9_10';
+    const isIntermediate = educationCategory === 'INTERMEDIATE';
+    const isDiploma = educationCategory === 'DIPLOMA';
 
-    const duration = getProgramDuration(programId);
-    if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > duration) {
-      return res.status(400).json({
-        error: `Please enter a valid year of study (1–${duration}) for this program.`,
-        code: 'INVALID_INPUT',
-        field: 'yearOfStudy',
-      });
-    }
-    if (
-      !admissionYear ||
-      Number(admissionYear) < 1990 ||
-      Number(admissionYear) > currentCalendarYear + 1
-    ) {
-      return res.status(400).json({
-        error: `Please enter a valid admission year (up to ${currentCalendarYear + 1}).`,
-        code: 'INVALID_INPUT',
-        field: 'admissionYear',
-      });
-    }
-    if (!expectedGraduationYear || Number(expectedGraduationYear) <= Number(admissionYear)) {
-      return res.status(400).json({
-        error: 'Expected graduation year must be after admission year.',
-        code: 'INVALID_INPUT',
-        field: 'expectedGraduationYear',
-      });
-    }
+    // For Below 10th and 9th/10th: Do not request academic year, specialization, department, branch, degree-specific fields.
+    // For Intermediate and Diploma: Do not request degree-specific fields.
+    if (!isBelow10th && !is9th10th && !isIntermediate && !isDiploma) {
+      if (!educationCategory) {
+        // Legacy strict check (preserves existing tests where educationCategory is omitted)
+        if (!stream || !['TECH', 'NON_TECH'].includes(stream)) {
+          return res.status(400).json({
+            error: 'Please select a valid academic stream.',
+            code: 'INVALID_INPUT',
+            field: 'stream',
+          });
+        }
+        if (
+          !educationLevel ||
+          !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
+        ) {
+          return res.status(400).json({
+            error: 'Please select a valid education level.',
+            code: 'INVALID_INPUT',
+            field: 'educationLevel',
+          });
+        }
+        if (!programId) {
+          return res.status(400).json({
+            error: 'Please select your degree or program.',
+            code: 'INVALID_INPUT',
+            field: 'programId',
+          });
+        }
+        if (!specializationId) {
+          return res.status(400).json({
+            error: 'Please select your branch or specialization.',
+            code: 'INVALID_INPUT',
+            field: 'specializationId',
+          });
+        }
 
-    // Taxonomy consistency check for Student track
-    const taxonomyCheck = validateAcademicCombination(
-      stream,
-      educationLevel,
-      programId,
-      specializationId
-    );
-    if (!taxonomyCheck.valid) {
-      return res.status(400).json({
-        error: taxonomyCheck.reason || 'Invalid academic combination.',
-        code: 'INVALID_INPUT',
-        field: 'specializationId',
-      });
+        const duration = getProgramDuration(programId);
+        if (!yearOfStudy || Number(yearOfStudy) < 1 || Number(yearOfStudy) > duration) {
+          return res.status(400).json({
+            error: `Please enter a valid year of study (1–${duration}) for this program.`,
+            code: 'INVALID_INPUT',
+            field: 'yearOfStudy',
+          });
+        }
+        if (
+          !admissionYear ||
+          Number(admissionYear) < 1990 ||
+          Number(admissionYear) > currentCalendarYear + 1
+        ) {
+          return res.status(400).json({
+            error: `Please enter a valid admission year (up to ${currentCalendarYear + 1}).`,
+            code: 'INVALID_INPUT',
+            field: 'admissionYear',
+          });
+        }
+        if (!expectedGraduationYear || Number(expectedGraduationYear) <= Number(admissionYear)) {
+          return res.status(400).json({
+            error: 'Expected graduation year must be after admission year.',
+            code: 'INVALID_INPUT',
+            field: 'expectedGraduationYear',
+          });
+        }
+
+        // Taxonomy consistency check for Student track
+        const taxonomyCheck = validateAcademicCombination(
+          stream,
+          educationLevel,
+          programId,
+          specializationId
+        );
+        if (!taxonomyCheck.valid) {
+          return res.status(400).json({
+            error: taxonomyCheck.reason || 'Invalid academic combination.',
+            code: 'INVALID_INPUT',
+            field: 'specializationId',
+          });
+        }
+      }
     }
   } else if (normalizedTrack === 'Entrepreneur') {
     // Cross-track rejection: reject student-only academic fields
-    if (stream || educationLevel || programId || specializationId || yearOfStudy) {
+    if (
+      stream ||
+      educationLevel ||
+      programId ||
+      specializationId ||
+      yearOfStudy ||
+      educationCategory
+    ) {
       return res.status(400).json({
         error: 'Student academic fields are not permitted on the Entrepreneur track.',
         code: 'INVALID_INPUT',
@@ -573,19 +617,92 @@ export const register = async (req: Request, res: Response) => {
     : undefined;
 
   // Student profile field resolution
-  const finalStream = stream || 'TECH';
-  const finalStreamSubCategory =
+  let finalStream = stream || 'TECH';
+  let finalStreamSubCategory =
     streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE');
-  const finalEducationLevel = educationLevel || 'UNDERGRADUATE';
-  const finalProgramId = programId || 'btech';
-  const finalProgramName = programName || programInfo?.label || 'B.Tech / Engineering';
-  const finalSpecializationId = specializationId || 'cs';
-  const finalSpecializationName = specializationName || specInfo?.label || 'Computer Science';
-  const finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
-  const finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
-  const finalGraduationYear = expectedGraduationYear
+  let finalEducationLevel = educationLevel || 'UNDERGRADUATE';
+  let finalProgramId = programId || 'btech';
+  let finalProgramName = programName || programInfo?.label || 'B.Tech / Engineering';
+  let finalSpecializationId = specializationId || 'cs';
+  let finalSpecializationName = specializationName || specInfo?.label || 'Computer Science';
+  let finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+  let finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+  let finalGraduationYear = expectedGraduationYear
     ? Number(expectedGraduationYear)
     : finalAdmissionYear + (programId ? getProgramDuration(programId) : 4);
+
+  if (educationCategory === 'BELOW_10TH') {
+    finalStream = 'NON_TECH';
+    finalStreamSubCategory = 'GENERAL';
+    finalEducationLevel = 'SCHOOL';
+    finalProgramId = 'school_primary';
+    finalProgramName = 'Below 10th';
+    finalSpecializationId = 'general';
+    finalSpecializationName = 'General School Education';
+    finalYearOfStudy = 1;
+    finalAdmissionYear = currentCalendarYear;
+    finalGraduationYear = currentCalendarYear + 1;
+  } else if (educationCategory === 'CLASS_9_10') {
+    finalStream = 'NON_TECH';
+    finalStreamSubCategory = 'GENERAL';
+    finalEducationLevel = 'SCHOOL';
+    finalProgramId = 'school_general';
+    finalProgramName = programName || (yearOfStudy === 2 ? 'Class 10' : 'Class 9') || 'Class 9 / 10';
+    finalSpecializationId = 'general';
+    finalSpecializationName = 'General Secondary Education';
+    finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+    finalAdmissionYear = currentCalendarYear;
+    finalGraduationYear = currentCalendarYear + 1;
+  } else if (educationCategory === 'INTERMEDIATE') {
+    const isTech = ['mpc', 'bipc'].includes((specializationId || '').toLowerCase());
+    finalStream = stream || (isTech ? 'TECH' : 'NON_TECH');
+    finalStreamSubCategory = 'INTERMEDIATE';
+    finalEducationLevel = 'SCHOOL';
+    finalProgramId = 'intermediate';
+    finalProgramName = programName || 'Intermediate (+2)';
+    finalSpecializationId = specializationId || 'mpc';
+    finalSpecializationName = specializationName || (specializationId ? specializationId.toUpperCase() : 'MPC');
+    finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+    finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+    finalGraduationYear = expectedGraduationYear ? Number(expectedGraduationYear) : finalAdmissionYear + 2;
+  } else if (educationCategory === 'DIPLOMA') {
+    finalStream = stream || 'TECH';
+    finalStreamSubCategory = 'DIPLOMA';
+    finalEducationLevel = 'UNDERGRADUATE';
+    finalProgramId = programId || 'diploma_tech';
+    finalProgramName = programName || 'Polytechnic Diploma';
+    finalSpecializationId = specializationId || 'diploma_cs';
+    finalSpecializationName = specializationName || specInfo?.label || 'Diploma in Engineering';
+    finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+    finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+    finalGraduationYear = expectedGraduationYear ? Number(expectedGraduationYear) : finalAdmissionYear + 3;
+  } else if (educationCategory === 'DEGREE') {
+    finalStream = stream || 'TECH';
+    finalStreamSubCategory = streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE');
+    finalEducationLevel = 'UNDERGRADUATE';
+    finalProgramId = programId || 'btech';
+    finalProgramName = programName || programInfo?.label || 'B.Tech / Engineering';
+    finalSpecializationId = specializationId || 'cs';
+    finalSpecializationName = specializationName || specInfo?.label || 'Computer Science';
+    finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+    finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+    finalGraduationYear = expectedGraduationYear
+      ? Number(expectedGraduationYear)
+      : finalAdmissionYear + (programId ? getProgramDuration(programId) : 4);
+  } else if (educationCategory === 'POSTGRADUATE') {
+    finalStream = stream || 'TECH';
+    finalStreamSubCategory = streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'MANAGEMENT');
+    finalEducationLevel = 'POSTGRADUATE';
+    finalProgramId = programId || 'mtech';
+    finalProgramName = programName || programInfo?.label || 'M.Tech / Post-Graduate';
+    finalSpecializationId = specializationId || 'mtech_cs';
+    finalSpecializationName = specializationName || specInfo?.label || 'Computer Science & Engineering';
+    finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
+    finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
+    finalGraduationYear = expectedGraduationYear
+      ? Number(expectedGraduationYear)
+      : finalAdmissionYear + (programId ? getProgramDuration(programId) : 2);
+  }
 
   try {
     const hashedPassword = await hashPassword(password);

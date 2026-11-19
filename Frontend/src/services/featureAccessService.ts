@@ -139,7 +139,6 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
   const isClarityActive =
     isClarityCompleted ||
     state?.clarity?.status === 'in_progress' ||
-    state?.clarity?.status === 'unlocked' ||
     (state?.clarity?.selectedAreas && state?.clarity?.selectedAreas.length > 0) ||
     Object.keys(state?.clarity?.taskScores || {}).length > 0 ||
     !!state?.clarity?.selectedTopic;
@@ -186,14 +185,27 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         requiredConditions: ['Baseline Assessment completed'],
       };
 
-    case 'catalog':
+    case 'catalog': {
+      const isAdmin = state?.profile?.role === 'admin';
+      if (isAdmin) {
+        return {
+          featureId: 'catalog',
+          name: 'Market AI Tools Catalog',
+          level: 'Level 1',
+          visible: true,
+          unlocked: true,
+        };
+      }
       return {
         featureId: 'catalog',
         name: 'Market AI Tools Catalog',
         level: 'Level 1',
-        visible: true,
-        unlocked: true,
+        visible: false,
+        unlocked: false,
+        reason: 'Market AI Tools is not available for this role.',
+        targetTab: 'home',
       };
+    }
 
     case 'wallet':
     case 'discover':

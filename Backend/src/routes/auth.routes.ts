@@ -59,12 +59,11 @@ router.post(
 );
 
 // "Who am I" — lightweight session-restore endpoint used by the frontend on page load
-router.get('/auth/me', generalApiRateLimiter, authenticateStudent, requireAuth, getMe);
+router.get('/auth/me', authenticateStudent, requireAuth, getMe);
 
-router.get('/users/profile', generalApiRateLimiter, requireAuth, getProfile);
+router.get('/users/profile', requireAuth, getProfile);
 router.put(
   '/users/profile',
-  generalApiRateLimiter,
   requireAuth,
   validateBody(updateProfileSchema),
   updateProfile

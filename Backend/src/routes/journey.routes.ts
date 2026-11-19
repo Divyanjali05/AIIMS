@@ -14,8 +14,6 @@ import {
 
 const router = Router();
 
-router.use(generalApiRateLimiter);
-
 // All journey endpoints strictly enforce authentication and device session binding
 router.get('/journey/overview', requireAuth, getJourneyOverview);
 router.get(

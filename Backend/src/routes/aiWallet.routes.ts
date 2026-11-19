@@ -53,8 +53,6 @@ import {
 
 const router = Router();
 
-router.use(generalApiRateLimiter);
-
 // Public / Read-only Catalog routes
 router.post('/wallet/search', validateBody(searchToolsSchema), searchTools);
 router.post('/wallet/match', validateBody(matchToolSchema), matchTools);

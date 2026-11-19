@@ -18,8 +18,6 @@ import {
 
 const router = Router();
 
-router.use(generalApiRateLimiter);
-
 // Assessment routes
 router.get('/assessments/questions', getQuestions);
 router.post(

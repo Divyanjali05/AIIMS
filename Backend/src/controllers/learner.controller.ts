@@ -21,6 +21,42 @@ import { isValidId, toRecord, withLegacyId } from '../utils/id';
  * GET /learner/state - Authoritative learner state retrieval
  */
 export const getLearnerState = async (req: AuthenticatedRequest, res: Response) => {
+  const userId = String(req.user?.id || req.user?._id || '');
+  if (isValidId(userId) && isDatabaseConnected()) {
+    try {
+      const [attemptCount, progressionCount] = await Promise.all([
+        prisma.questionAttempt.count({ where: { learnerId: userId } }),
+        prisma.learnerClarityProgression.count({ where: { learnerId: userId } }),
+      ]);
+
+      if (attemptCount > 0 || progressionCount > 0) {
+        if (!req.user!.clarity) req.user!.clarity = defaultClarity();
+        if (!req.user!.focus) req.user!.focus = defaultFocus();
+
+        const userClarity = req.user!.clarity;
+        if (userClarity.status === 'locked') {
+          userClarity.status = 'completed';
+        }
+        req.user!.focus.status = 'unlocked';
+
+        if (!userClarity.completedTopics || userClarity.completedTopics.length === 0) {
+          const progressions = await prisma.learnerClarityProgression.findMany({
+            where: { learnerId: userId },
+            select: { topic: true },
+          });
+          if (progressions.length > 0) {
+            userClarity.completedTopics = Array.from(new Set(progressions.map((p) => p.topic)));
+            if (!userClarity.selectedTopic) {
+              userClarity.selectedTopic = userClarity.completedTopics[0];
+            }
+          }
+        }
+      }
+    } catch (checkErr) {
+      console.warn('[LearnerController] Non-fatal check of clarity attempts:', checkErr);
+    }
+  }
+
   return res.json({
     success: true,
     state: formatUserState(req.user!),

@@ -41,7 +41,7 @@ interface ClarityTaskLabProps {
 }
 
 export const ClarityTaskLab: React.FC<ClarityTaskLabProps> = () => {
-  const { state } = useLearner();
+  const { state, completeClarityTopic, saveClarityTaskResult } = useLearner();
   const isAdmin = state.profile?.role === 'admin';
 
   // Navigation view state
@@ -207,6 +207,19 @@ export const ClarityTaskLab: React.FC<ClarityTaskLabProps> = () => {
           type: 'success',
           message: `Evaluation Complete! Score: ${res.score}/100. Awarded +${res.xpAwarded} XP!`,
         });
+
+        // Immediately update LearnerContext to unlock Focus
+        const completedTopic = selectedLevel || selectedQuestion?.topic || 'AI Foundations';
+        if (completeClarityTopic) {
+          completeClarityTopic(completedTopic);
+        }
+        if (saveClarityTaskResult) {
+          saveClarityTaskResult(completedTopic, 'easy', {
+            score: res.score,
+            userPrompt: userAnswer.trim(),
+            output: res.overallFeedback || 'Evaluated against rubric',
+          });
+        }
 
         // Refresh progress and levels
         await loadLevelsAndProgress();

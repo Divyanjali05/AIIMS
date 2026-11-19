@@ -26,9 +26,6 @@ import {
 
 const router = Router();
 
-router.use('/focus', generalApiRateLimiter);
-router.use('/radar', generalApiRateLimiter);
-
 router.get('/focus/areas', getFocusAreas);
 router.post('/focus/override', requireAuth, validateBody(focusOverrideSchema), overrideFocus);
 router.get('/radar/signals', getRadarSignals);

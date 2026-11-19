@@ -68,10 +68,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const isSubmittingRef = React.useRef(false);
 
   // Handle Login Submit (Unified for Student, Entrepreneur, Admin)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || isSubmittingRef.current) return;
     setErrorMessage('');
 
     const cleanEmail = email.trim();
@@ -84,6 +86,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsLoading(true);
     try {
       const res = await login(cleanEmail, password);
@@ -103,6 +106,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     } catch {
       setErrorMessage("We couldn't sign you in right now. Please try again.");
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };
@@ -110,6 +114,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   // Handle 2FA Verification Submit
   const handleTotpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading || isSubmittingRef.current) return;
     setErrorMessage('');
 
     const cleanCode = totpCode.trim();
@@ -122,6 +127,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsLoading(true);
     try {
       const res = await verifyTotp(totpUserId, cleanCode, useBackupCode);
@@ -133,6 +139,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
     } catch {
       setErrorMessage('Unable to verify 2FA code right now. Please try again.');
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
     }
   };

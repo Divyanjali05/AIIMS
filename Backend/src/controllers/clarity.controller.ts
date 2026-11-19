@@ -725,8 +725,48 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
     if (isValidId(learnerId)) {
       const freshUser = await prisma.user.findUnique({ where: { id: learnerId } });
       if (freshUser) {
-        req.user = userRecordToIUser(freshUser);
-        currentXP = freshUser.xpPoints;
+        const userClarity = toRecord(freshUser.clarityData);
+        const userFocus = toRecord(freshUser.focusData);
+        const completed = Array.isArray(userClarity.completedTopics)
+          ? (userClarity.completedTopics as string[])
+          : [];
+        const updatedCompleted = completed.includes(assignment.topic)
+          ? completed
+          : [...completed, assignment.topic];
+        const prevScores = toRecord(userClarity.taskScores);
+        const topicScores = toRecord(prevScores[assignment.topic]);
+        const diffKey = String(assignment.level || 'easy').toLowerCase();
+
+        const updatedUser = await prisma.user.update({
+          where: { id: learnerId },
+          data: {
+            clarityData: toJsonInput({
+              ...defaultClarity(),
+              ...userClarity,
+              selectedTopic: assignment.topic,
+              completedTopics: updatedCompleted,
+              status: 'completed',
+              taskScores: {
+                ...prevScores,
+                [assignment.topic]: {
+                  ...topicScores,
+                  [diffKey]: {
+                    score,
+                    completedAt: submittedAt.toISOString(),
+                    attemptId,
+                  },
+                },
+              },
+            }),
+            focusData: toJsonInput({
+              ...defaultFocus(),
+              ...userFocus,
+              status: 'unlocked',
+            }),
+          },
+        });
+        req.user = userRecordToIUser(updatedUser);
+        currentXP = updatedUser.xpPoints;
       }
     }
 
@@ -1162,9 +1202,46 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
     const finalBal = ledgerResult.balance ?? (await creditsLedgerService.getBalance(userId));
 
     if (isValidId(userId)) {
+      const freshUser = await prisma.user.findUnique({ where: { id: userId } });
+      const userClarity = toRecord(freshUser?.clarityData);
+      const userFocus = toRecord(freshUser?.focusData);
+      const completed = Array.isArray(userClarity.completedTopics)
+        ? (userClarity.completedTopics as string[])
+        : [];
+      const updatedCompleted = completed.includes(topic)
+        ? completed
+        : [...completed, topic];
+      const prevScores = toRecord(userClarity.taskScores);
+      const topicScores = toRecord(prevScores[topic]);
+
       const updatedUser = await prisma.user.update({
         where: { id: userId },
-        data: { xpPoints: { increment: rewardXP } },
+        data: {
+          xpPoints: { increment: rewardXP },
+          clarityData: toJsonInput({
+            ...defaultClarity(),
+            ...userClarity,
+            selectedTopic: topic,
+            completedTopics: updatedCompleted,
+            status: 'completed',
+            taskScores: {
+              ...prevScores,
+              [topic]: {
+                ...topicScores,
+                [String(difficulty).toLowerCase()]: {
+                  score: req.body.score || 80,
+                  completedAt: new Date().toISOString(),
+                  taskId,
+                },
+              },
+            },
+          }),
+          focusData: toJsonInput({
+            ...defaultFocus(),
+            ...userFocus,
+            status: 'unlocked',
+          }),
+        },
       });
       req.user = userRecordToIUser(updatedUser);
       totalXP = updatedUser.xpPoints;

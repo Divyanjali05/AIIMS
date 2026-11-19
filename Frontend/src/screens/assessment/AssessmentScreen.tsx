@@ -85,6 +85,21 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
   const [returnToReview, setReturnToReview] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
+  // Authoritative assessment score & reward eligibility (>95% strictly required)
+  const overallAssessmentScore = useMemo(() => {
+    if (typeof learnerState.assessment.evaluationResult?.overallScore === 'number') {
+      return learnerState.assessment.evaluationResult.overallScore;
+    }
+    const answersMap = (learnerState.assessment.answers || {}) as Record<number, any>;
+    if (Object.keys(answersMap).length > 0) {
+      return evaluateAssessment(answersMap).overallScore;
+    }
+    return 0;
+  }, [learnerState.assessment.evaluationResult, learnerState.assessment.answers]);
+
+  const isEligibleForReward = overallAssessmentScore > 95;
+  const isRewardClaimed = isEligibleForReward && Boolean(learnerState.assessment.rewardClaimed);
+
   // Sync answers with learnerState
   useEffect(() => {
     setAnswers((learnerState.assessment.answers || {}) as Record<number, AnswerValue>);
@@ -709,7 +724,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                 color: '#059669',
               }}
             >
-              +50 AC Bounty · +100 XP Guaranteed
+              Bonus: +50 AC (Score &gt; 95%) · +100 XP Guaranteed
             </div>
           </div>
         </div>
@@ -908,7 +923,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                 {answeredQuestionsCount} / {totalQuestions} Challenges Answered
               </Badge>
               <Badge variant="cyan" icon={<Sparkles size={14} />}>
-                Bounty: +50 AC
+                Bonus: +50 AC (Score &gt; 95%)
               </Badge>
             </div>
           </div>
@@ -1187,7 +1202,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
             >
               {isSubmitting
                 ? 'Calibrating & Submitting...'
-                : 'Confirm & Submit Baseline Calibration (+50 AC) →'}
+                : 'Confirm & Submit Baseline Calibration →'}
             </Button>
           </div>
         </Surface>
@@ -1304,60 +1319,128 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '14px',
-              maxWidth: '560px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '16px',
+              maxWidth: '680px',
               margin: '0 auto 28px',
             }}
           >
+            {/* 1. Reward Eligibility Card */}
             <div
               style={{
-                backgroundColor: 'var(--aiims-card-mint-bg, rgba(16, 185, 129, 0.1))',
-                border: '1px solid var(--aiims-card-mint-border, rgba(52, 211, 153, 0.35))',
+                backgroundColor: isRewardClaimed
+                  ? 'var(--aiims-card-mint-bg, rgba(16, 185, 129, 0.1))'
+                  : isDarkMode
+                    ? 'rgba(245, 158, 11, 0.08)'
+                    : '#FFFBEB',
+                border: isRewardClaimed
+                  ? '1px solid var(--aiims-card-mint-border, rgba(52, 211, 153, 0.35))'
+                  : isDarkMode
+                    ? '1px solid rgba(245, 158, 11, 0.35)'
+                    : '1px solid #FDE68A',
                 borderRadius: '16px',
-                padding: '16px',
+                padding: '20px 18px',
                 textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
               }}
             >
-              <div
+              <div style={{ width: '100%' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    marginBottom: '8px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: isRewardClaimed
+                        ? 'var(--aiims-card-mint-text, #059669)'
+                        : isDarkMode
+                          ? '#FBBF24'
+                          : '#B45309',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.6px',
+                    }}
+                  >
+                    REWARD ELIGIBILITY
+                  </span>
+                  <Badge
+                    variant={isRewardClaimed ? 'success' : 'warning'}
+                    size="sm"
+                    icon={isRewardClaimed ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                  >
+                    {isRewardClaimed ? 'Reward Claimed' : 'Not Yet Eligible'}
+                  </Badge>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '30px',
+                    fontWeight: 800,
+                    color: isRewardClaimed
+                      ? 'var(--aiims-card-mint-text, #059669)'
+                      : isDarkMode
+                        ? '#FBBF24'
+                        : '#D97706',
+                    fontFamily: "'Fredoka', sans-serif",
+                    lineHeight: 1.1,
+                    margin: '6px 0 2px',
+                  }}
+                >
+                  +50 AC
+                </div>
+
+                <div
+                  style={{
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    color: isRewardClaimed
+                      ? 'var(--aiims-card-mint-text, #065f46)'
+                      : isDarkMode
+                        ? '#FCD34D'
+                        : '#92400E',
+                    marginBottom: '6px',
+                  }}
+                >
+                  Score above 95% required
+                  {overallAssessmentScore > 0 ? ` (Your Score: ${overallAssessmentScore}%)` : ''}
+                </div>
+              </div>
+
+              <p
                 style={{
-                  fontSize: '11px',
-                  color: 'var(--aiims-card-mint-text, #059669)',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  marginBottom: '4px',
+                  fontSize: '11.5px',
+                  color: 'var(--aiims-text-secondary, #475569)',
+                  margin: '8px 0 0',
+                  lineHeight: 1.45,
                 }}
               >
-                Reward Claimed
-              </div>
-              <div
-                style={{
-                  fontSize: '24px',
-                  fontWeight: 800,
-                  color: 'var(--aiims-card-mint-text, #059669)',
-                  fontFamily: "'Fredoka', sans-serif",
-                }}
-              >
-                +50 AC
-              </div>
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--aiims-card-mint-text, #065f46)',
-                  fontWeight: 500,
-                }}
-              >
-                Authoritative Milestone Grant
-              </div>
+                Achieve above 95% in your assessment to qualify for this 50 AC reward. Eligible rewards are credited to your AI Wallet.
+              </p>
             </div>
 
+            {/* 2. Current Wallet Balance Card */}
             <div
               style={{
                 backgroundColor: 'var(--aiims-card-banner-bg, rgba(99, 102, 241, 0.1))',
                 border: '1px solid var(--aiims-border-card, #c7d2fe)',
                 borderRadius: '16px',
-                padding: '16px',
+                padding: '20px 18px',
                 textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
               <div
@@ -1366,21 +1449,24 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                   color: 'var(--aiims-primary, #6366f1)',
                   fontWeight: 800,
                   textTransform: 'uppercase',
-                  marginBottom: '4px',
+                  marginBottom: '8px',
+                  letterSpacing: '0.6px',
                 }}
               >
                 Current Wallet Balance
               </div>
               <div
                 style={{
-                  fontSize: '24px',
+                  fontSize: '30px',
                   fontWeight: 800,
                   color: 'var(--aiims-text-heading, #0f172a)',
                   fontFamily: "'Fredoka', sans-serif",
+                  lineHeight: 1.1,
+                  margin: '6px 0 2px',
                 }}
               >
                 {learnerState.credits.balance}{' '}
-                <span style={{ fontSize: '13px', color: 'var(--aiims-primary, #6366f1)' }}>
+                <span style={{ fontSize: '14px', color: 'var(--aiims-primary, #6366f1)', fontWeight: 700 }}>
                   Credits
                 </span>
               </div>
@@ -1389,6 +1475,7 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                   fontSize: '11px',
                   color: 'var(--aiims-text-muted, #64748b)',
                   fontWeight: 500,
+                  marginTop: '4px',
                 }}
               >
                 Authoritative Total Balance
@@ -2707,8 +2794,8 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
               >
                 MILESTONE REWARD
               </div>
-              <Badge variant="success" size="sm">
-                +50 AC Claimable
+              <Badge variant="cyan" size="sm">
+                Bonus: +50 AC (Score &gt; 95%)
               </Badge>
             </div>
             <div
@@ -2729,8 +2816,8 @@ export const AssessmentScreen: React.FC<AssessmentScreenProps> = ({ onComplete, 
                 lineHeight: 1.45,
               }}
             >
-              Answer all 25 challenges to claim your +50 AC milestone grant and unlock full peer
-              comparisons, tailored AI Wallet tools, and active Focus tracks.
+              Answer all 25 challenges to establish your baseline profile. Achieve a score above 95%
+              to qualify for the +50 AC reward credited to your AI Wallet.
             </p>
           </Surface>
         </div>

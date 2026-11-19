@@ -40,6 +40,16 @@ export const registerSchema = z
         message: 'Track is required. Please select Student or Entrepreneur.',
       })
     ),
+    educationCategory: z
+      .enum([
+        'BELOW_10TH',
+        'CLASS_9_10',
+        'INTERMEDIATE',
+        'DIPLOMA',
+        'DEGREE',
+        'POSTGRADUATE',
+      ] as const)
+      .optional(),
     instituteId: z.string().optional(),
     instituteName: z.string().optional(),
     stream: z.enum(['TECH', 'NON_TECH'] as const).optional(),
@@ -78,72 +88,77 @@ export const registerSchema = z
 
     // 2. Track-specific Academic Requirements
     if (data.track === 'Student') {
-      if (!data.stream) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please select a valid academic stream.',
-          path: ['stream'],
-        });
-      }
-      if (!data.educationLevel) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please select a valid education level.',
-          path: ['educationLevel'],
-        });
-      }
-      if (!data.programId || data.programId.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please select your degree or program.',
-          path: ['programId'],
-        });
-      }
-      if (!data.specializationId || data.specializationId.trim().length === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Please select your branch or specialization.',
-          path: ['specializationId'],
-        });
-      }
+      const isBelow10th = data.educationCategory === 'BELOW_10TH';
+      const is9th10th = data.educationCategory === 'CLASS_9_10';
+      const isIntermediate = data.educationCategory === 'INTERMEDIATE';
+      const isDiploma = data.educationCategory === 'DIPLOMA';
 
-      const duration = data.programId ? getProgramDuration(data.programId) : 4;
-      if (
-        data.yearOfStudy === undefined ||
-        isNaN(data.yearOfStudy) ||
-        data.yearOfStudy < 1 ||
-        data.yearOfStudy > duration
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Please enter a valid year of study (1–${duration}) for this program.`,
-          path: ['yearOfStudy'],
-        });
-      }
+      // For Below 10th and 9th/10th: Do not request academic year, specialization, department, branch, degree-specific fields.
+      // For Intermediate and Diploma: Do not request degree-specific fields.
+      if (!isBelow10th && !is9th10th && !isIntermediate && !isDiploma) {
+        if (!data.stream && !data.educationCategory) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select a valid academic stream.',
+            path: ['stream'],
+          });
+        }
+        if (!data.educationLevel && !data.educationCategory) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select a valid education level.',
+            path: ['educationLevel'],
+          });
+        }
+        if (!data.programId && !data.educationCategory) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select your degree or program.',
+            path: ['programId'],
+          });
+        }
+        if (!data.specializationId && !data.educationCategory) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Please select your branch or specialization.',
+            path: ['specializationId'],
+          });
+        }
 
-      const currentYear = new Date().getFullYear();
-      if (
-        data.admissionYear === undefined ||
-        isNaN(data.admissionYear) ||
-        data.admissionYear < 1990 ||
-        data.admissionYear > currentYear + 1
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Please enter a valid admission year (up to ${currentYear + 1}).`,
-          path: ['admissionYear'],
-        });
-      }
-      if (
-        data.expectedGraduationYear === undefined ||
-        isNaN(data.expectedGraduationYear) ||
-        (data.admissionYear !== undefined && data.expectedGraduationYear <= data.admissionYear)
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Expected graduation year must be after admission year.',
-          path: ['expectedGraduationYear'],
-        });
+        const duration = data.programId ? getProgramDuration(data.programId) : 4;
+        if (
+          data.yearOfStudy !== undefined &&
+          (isNaN(data.yearOfStudy) || data.yearOfStudy < 1 || data.yearOfStudy > duration)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Please enter a valid year of study (1–${duration}) for this program.`,
+            path: ['yearOfStudy'],
+          });
+        }
+
+        const currentYear = new Date().getFullYear();
+        if (
+          data.admissionYear !== undefined &&
+          (isNaN(data.admissionYear) || data.admissionYear < 1990 || data.admissionYear > currentYear + 1)
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Please enter a valid admission year (up to ${currentYear + 1}).`,
+            path: ['admissionYear'],
+          });
+        }
+        if (
+          data.expectedGraduationYear !== undefined &&
+          data.admissionYear !== undefined &&
+          data.expectedGraduationYear <= data.admissionYear
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Expected graduation year must be after admission year.',
+            path: ['expectedGraduationYear'],
+          });
+        }
       }
 
       // Cross-track validation: reject entrepreneur-only fields if supplied on Student track
@@ -161,7 +176,8 @@ export const registerSchema = z
         data.educationLevel ||
         data.programId ||
         data.specializationId ||
-        data.yearOfStudy
+        data.yearOfStudy ||
+        data.educationCategory
       ) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

@@ -176,6 +176,11 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
   const isAlreadyCompleted =
     existingRow.assessmentStatus === 'completed' || existingAssessment.status === 'completed';
 
+  const qualifiesForBonus = overallScore > 95;
+  const isRewardClaimed =
+    qualifiesForBonus &&
+    (bonusAwarded || Boolean(bonusResult?.duplicate) || Boolean(existingAssessment.highScoreBonusClaimed));
+
   const nowIso = new Date().toISOString();
   const nextAssessmentData = {
     ...existingAssessment,
@@ -183,9 +188,9 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     answers: userAnswers,
     currentQuestionIndex: 25,
     completedAt: existingAssessment.completedAt || nowIso,
-    rewardClaimed: true,
+    rewardClaimed: isRewardClaimed,
     chargedFee: 100,
-    highScoreBonusClaimed: bonusAwarded || Boolean(bonusResult?.duplicate),
+    highScoreBonusClaimed: isRewardClaimed,
     scores: evaluationResult.legacyScores,
     evaluationResult,
   };
@@ -240,6 +245,7 @@ export const submitAssessment = async (req: AuthenticatedRequest, res: Response)
     bonusEarned: overallScore > 95 ? (bonusResult?.duplicate ? 0 : 50) : 0,
     overallScore,
     qualifiesForBonus: overallScore > 95,
+    rewardClaimed: isRewardClaimed,
     evaluationResult,
     scores: evaluationResult.legacyScores,
     topCapability: evaluationResult.strongestSkill.name,

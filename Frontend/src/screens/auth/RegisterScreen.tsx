@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   AlertCircle,
-  CheckCircle,
   ArrowLeft,
   ArrowRight,
   Check,
   GraduationCap,
-  Sparkles,
   User,
   Eye,
   EyeOff,
@@ -16,37 +14,25 @@ import {
   Sun,
   Moon,
   Briefcase,
+  BookOpen,
+  School,
+  Building,
 } from 'lucide-react';
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
 import { SUPPORT_EMAIL } from '../../config/appConfig';
 import {
-  STREAMS,
-  TECH_SUB_CATEGORIES,
-  NON_TECH_SUB_CATEGORIES,
-  EDUCATION_LEVELS,
   PROGRAMS,
   SPECIALIZATIONS,
-  AI_FAMILIARITY_OPTIONS,
-  AI_USAGE_CONTEXTS,
-  PRIMARY_GOAL_OPTIONS,
   Stream,
   EducationLevel,
   getProgramsForStreamAndLevel,
   getSpecializationsForProgram,
-  getYearsForLevel,
-  getProgramDuration,
   getStudyYearsForProgram,
-  getDynamicStartYears,
-  getDynamicGraduationYears,
   deriveExpectedGraduationYear,
   VENTURE_STAGES,
   VENTURE_INDUSTRIES,
-  ENTREPRENEUR_GOALS,
-  SKILLS_TO_DEVELOP,
-  BUSINESS_CHALLENGES,
-  PREFERRED_SUPPORT_AREAS,
 } from '../../config/academicTaxonomy';
 import { apiClient } from '../../api/client';
 import { calculatePasswordStrength, isCommonPassword } from '../../utils/passwordSecurity';
@@ -57,7 +43,15 @@ interface RegisterScreenProps {
   onNavigateToHome?: () => void;
 }
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2;
+
+export type EducationCategory =
+  | 'BELOW_10TH'
+  | 'CLASS_9_10'
+  | 'INTERMEDIATE'
+  | 'DIPLOMA'
+  | 'DEGREE'
+  | 'POSTGRADUATE';
 
 interface InstituteOption {
   _id: string;
@@ -68,11 +62,11 @@ interface InstituteOption {
   type?: string;
 }
 
-const STUDENT_STEP_LABELS = ['Account', 'Academics', 'AI Profile'];
-const STUDENT_STEP_ICONS = [User, GraduationCap, Sparkles];
+const STUDENT_STEP_LABELS = ['Account', 'Education'];
+const STUDENT_STEP_ICONS = [User, GraduationCap];
 
-const ENTREPRENEUR_STEP_LABELS = ['Account', 'Venture Info', 'Growth & Goals'];
-const ENTREPRENEUR_STEP_ICONS = [User, Briefcase, Sparkles];
+const ENTREPRENEUR_STEP_LABELS = ['Account', 'Venture Info'];
+const ENTREPRENEUR_STEP_ICONS = [User, Briefcase];
 
 // ─── Shared input style ─────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
@@ -116,7 +110,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [errorField, setErrorField] = useState('');
 
   // ── Step 1: Account ──────────────────────────────────────────────────────
-  const [track, setTrack] = useState<'Student' | 'Entrepreneur' | ''>('Student');
+  const [track, setTrack] = useState<'Student' | 'Entrepreneur'>('Student');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -124,14 +118,14 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Dynamic Stepper definitions
+  // Stepper metadata
   const stepLabels = track === 'Entrepreneur' ? ENTREPRENEUR_STEP_LABELS : STUDENT_STEP_LABELS;
   const stepIcons = track === 'Entrepreneur' ? ENTREPRENEUR_STEP_ICONS : STUDENT_STEP_ICONS;
 
   // Password strength
   const passwordStrength = calculatePasswordStrength(password);
 
-  // Step 1 validity guard (disables Continue when invalid)
+  // Step 1 validity guard
   const isStep1Valid = Boolean(
     track &&
     name.trim().length >= 2 &&
@@ -144,7 +138,33 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     confirmPassword === password
   );
 
-  // ── Step 2: Academics (Student) ───────────────────────────────────────────
+  // ── Step 2: Student Education Category ────────────────────────────────────
+  const [educationCategory, setEducationCategory] = useState<EducationCategory>('DEGREE');
+
+  // School fields (Below 10th & Class 9/10)
+  const [schoolClass, setSchoolClass] = useState<'Class 9' | 'Class 10'>('Class 10');
+  const [schoolName, setSchoolName] = useState('');
+
+  // Intermediate (+2) fields
+  const [intermediateGroup, setIntermediateGroup] = useState('MPC');
+  const [intermediateYear, setIntermediateYear] = useState<1 | 2>(2);
+  const [juniorCollegeName, setJuniorCollegeName] = useState('');
+
+  // Diploma fields
+  const [diplomaBranch, setDiplomaBranch] = useState('Computer Engineering');
+  const [diplomaYear, setDiplomaYear] = useState<1 | 2 | 3>(2);
+  const [polytechnicName, setPolytechnicName] = useState('');
+
+  // Degree & Postgraduate fields
+  const [stream, setStream] = useState<Stream>('TECH');
+  const [programId, setProgramId] = useState('btech');
+  const [specializationId, setSpecializationId] = useState('cs');
+  const [customSpecialization, setCustomSpecialization] = useState('');
+  const [yearOfStudy, setYearOfStudy] = useState<number>(3);
+  const [admissionYear, setAdmissionYear] = useState<number>(new Date().getFullYear() - 2);
+  const [expectedGraduationYear, setExpectedGraduationYear] = useState<number>(new Date().getFullYear() + 2);
+
+  // College search / custom college for Degree & PG
   const [instituteQuery, setInstituteQuery] = useState('');
   const [instituteOptions, setInstituteOptions] = useState<InstituteOption[]>([]);
   const [selectedInstitute, setSelectedInstitute] = useState<InstituteOption | null>(null);
@@ -153,103 +173,45 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [isCustomCollege, setIsCustomCollege] = useState(false);
   const [customCollegeName, setCustomCollegeName] = useState('');
 
-  const [stream, setStream] = useState<Stream | ''>('');
-  const [streamSubCategory, setStreamSubCategory] = useState('');
-  const [educationLevel, setEducationLevel] = useState<EducationLevel | ''>('');
-  const [programId, setProgramId] = useState('');
-  const [specializationId, setSpecializationId] = useState('');
-  const [yearOfStudy, setYearOfStudy] = useState<number | ''>('');
-  const [admissionYear, setAdmissionYear] = useState<number | ''>('');
-  const [expectedGraduationYear, setExpectedGraduationYear] = useState<number | ''>('');
-
-  // ── Step 2 & 3: Entrepreneur Specific Onboarding State ────────────────────
+  // ── Step 2: Entrepreneur Fields ──────────────────────────────────────────
   const [ventureName, setVentureName] = useState('');
-  const [isIdeationVenture, setIsIdeationVenture] = useState(false);
-  const [industry, setIndustry] = useState(VENTURE_INDUSTRIES[0]);
-  const [problemStatement, setProblemStatement] = useState('');
+  const [industry, setIndustry] = useState(VENTURE_INDUSTRIES[0] || 'Technology & Software');
   const [ventureStage, setVentureStage] = useState('exploring_idea');
 
-  const [entrepreneurGoal, setEntrepreneurGoal] = useState(ENTREPRENEUR_GOALS[0].value);
-  const [skillsToDevelop, setSkillsToDevelop] = useState<string[]>([SKILLS_TO_DEVELOP[0]]);
-  const [businessChallenges, setBusinessChallenges] = useState<string[]>([BUSINESS_CHALLENGES[0]]);
-  const [preferredSupport, setPreferredSupport] = useState<string[]>([PREFERRED_SUPPORT_AREAS[0]]);
+  // Derived programs & specializations for Degree & PG
+  const currentEduLevel: EducationLevel = educationCategory === 'POSTGRADUATE' ? 'POSTGRADUATE' : 'UNDERGRADUATE';
+  const availablePrograms = getProgramsForStreamAndLevel(stream, currentEduLevel);
+  const availableSpecializations = programId ? getSpecializationsForProgram(programId, stream) : [];
+  const availableYears = programId ? getStudyYearsForProgram(programId) : [1, 2, 3, 4];
 
-  const toggleSkill = (skill: string) => {
-    setSkillsToDevelop((prev) =>
-      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
-    );
-  };
+  // Auto-sync program & specialization defaults when category or stream changes
+  useEffect(() => {
+    if (educationCategory === 'POSTGRADUATE') {
+      const defaultPg = stream === 'TECH' ? 'mtech' : 'mba';
+      setProgramId(defaultPg);
+      setSpecializationId(stream === 'TECH' ? 'mtech_cs' : 'mba_general');
+      setYearOfStudy(1);
+    } else if (educationCategory === 'DEGREE') {
+      const defaultUg = stream === 'TECH' ? 'btech' : 'bcom';
+      setProgramId(defaultUg);
+      setSpecializationId(stream === 'TECH' ? 'cs' : 'commerce_general');
+      setYearOfStudy(2);
+    }
+  }, [educationCategory, stream]);
 
-  const toggleChallenge = (item: string) => {
-    setBusinessChallenges((prev) =>
-      prev.includes(item) ? prev.filter((c) => c !== item) : [...prev, item]
-    );
-  };
-
-  const toggleSupport = (item: string) => {
-    setPreferredSupport((prev) =>
-      prev.includes(item) ? prev.filter((s) => s !== item) : [...prev, item]
-    );
-  };
-
-  // Derived lists for Student
-  const subCategories = stream
-    ? stream === 'TECH'
-      ? TECH_SUB_CATEGORIES
-      : NON_TECH_SUB_CATEGORIES
-    : [];
-  const availablePrograms =
-    stream && educationLevel
-      ? getProgramsForStreamAndLevel(stream as Stream, educationLevel as EducationLevel)
-      : [];
-  const availableSpecializations =
-    programId && stream ? getSpecializationsForProgram(programId, stream as Stream) : [];
-  const availableYears = programId
-    ? getStudyYearsForProgram(programId)
-    : educationLevel
-      ? getYearsForLevel(educationLevel as EducationLevel)
-      : [1, 2, 3, 4];
-  const availableStartYears = getDynamicStartYears(programId || undefined);
-  const availableGraduationYears = getDynamicGraduationYears(
-    programId || undefined,
-    admissionYear ? Number(admissionYear) : undefined,
-    yearOfStudy ? Number(yearOfStudy) : undefined
-  );
-
-  // Auto-derive expected graduation year when programId or admissionYear changes
+  // Auto-derive expected graduation year
   useEffect(() => {
     if (admissionYear && programId) {
-      const derived = deriveExpectedGraduationYear(
-        Number(admissionYear),
-        programId,
-        yearOfStudy ? Number(yearOfStudy) : undefined
-      );
+      const derived = deriveExpectedGraduationYear(admissionYear, programId, yearOfStudy);
       setExpectedGraduationYear(derived);
     }
   }, [admissionYear, programId, yearOfStudy]);
 
-  // Reset downstream when stream/level changes
-  useEffect(() => {
-    setProgramId('');
-    setSpecializationId('');
-    setStreamSubCategory('');
-  }, [stream]);
-
-  useEffect(() => {
-    setProgramId('');
-    setSpecializationId('');
-  }, [educationLevel]);
-
-  useEffect(() => {
-    setSpecializationId('');
-  }, [programId]);
-
-  // Institute search
+  // Institute search autocomplete
   const instituteSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (instituteSearchTimeout.current) clearTimeout(instituteSearchTimeout.current);
     if (instituteQuery.length < 2) {
-      // Load initial list
       setIsLoadingInstitutes(true);
       apiClient
         .searchInstitutes('', 20)
@@ -268,23 +230,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
     }, 300);
   }, [instituteQuery]);
 
-  // ── Step 3: AI Context ────────────────────────────────────────────────────
-  const [aiFamiliarity, setAiFamiliarity] = useState('');
-  const [aiUsageContexts, setAiUsageContexts] = useState<string[]>([]);
-  const [primaryGoal, setPrimaryGoal] = useState('');
-
-  const toggleUsageContext = (val: string) => {
-    setAiUsageContexts((prev) =>
-      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
-    );
-  };
-
-  // ── Step validation ───────────────────────────────────────────────────────
+  // ── Validation ───────────────────────────────────────────────────────────
   const validateStep1 = (): string | null => {
-    if (!track || !['Student', 'Entrepreneur'].includes(track)) {
-      setErrorField('track');
-      return 'Please select your track (Student or Entrepreneur).';
-    }
     if (!name.trim() || name.trim().length < 2) {
       setErrorField('name');
       return 'Please enter your full name.';
@@ -314,80 +261,15 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   const validateStep2 = (): string | null => {
     if (track === 'Student') {
-      if (isCustomCollege) {
-        if (!customCollegeName.trim() || customCollegeName.trim().length < 2) {
-          setErrorField('college');
-          return 'Please enter your college or institute name.';
+      if (educationCategory === 'DEGREE' || educationCategory === 'POSTGRADUATE') {
+        if (!programId) {
+          setErrorField('programId');
+          return 'Please select your degree program.';
         }
-      } else {
-        if (!selectedInstitute && !customCollegeName.trim()) {
-          setErrorField('college');
-          return 'Please select your college or enter it manually.';
+        if (!specializationId && !customSpecialization.trim()) {
+          setErrorField('specializationId');
+          return 'Please select or enter your branch/specialization.';
         }
-      }
-      if (!stream) {
-        setErrorField('stream');
-        return 'Please select your academic stream.';
-      }
-      if (!educationLevel) {
-        setErrorField('educationLevel');
-        return 'Please select your education level.';
-      }
-      if (!programId) {
-        setErrorField('programId');
-        return 'Please select your degree or program.';
-      }
-      if (!specializationId) {
-        setErrorField('specializationId');
-        return 'Please select your branch or specialization.';
-      }
-      if (!yearOfStudy) {
-        setErrorField('yearOfStudy');
-        return 'Please select your current year of study.';
-      }
-      if (!admissionYear) {
-        setErrorField('admissionYear');
-        return 'Please select your admission year.';
-      }
-      if (!expectedGraduationYear) {
-        setErrorField('expectedGraduationYear');
-        return 'Please select your expected graduation year.';
-      }
-      if (Number(expectedGraduationYear) <= Number(admissionYear)) {
-        setErrorField('expectedGraduationYear');
-        return 'Expected graduation year must be after admission year.';
-      }
-    } else if (track === 'Entrepreneur') {
-      if (!isIdeationVenture && ventureName.trim().length > 0 && ventureName.trim().length < 2) {
-        setErrorField('ventureName');
-        return 'Venture name must be at least 2 characters long.';
-      }
-      if (!industry) {
-        setErrorField('industry');
-        return 'Please select your industry or sector.';
-      }
-      if (!ventureStage) {
-        setErrorField('ventureStage');
-        return 'Please select your current venture stage.';
-      }
-    }
-    return null;
-  };
-
-  const validateStep3 = (): string | null => {
-    if (track === 'Student') {
-      if (!aiFamiliarity) {
-        setErrorField('aiFamiliarity');
-        return 'Please describe your current AI experience.';
-      }
-      if (!primaryGoal) {
-        setErrorField('primaryGoal');
-        return 'Please select your primary learning goal.';
-      }
-    } else if (track === 'Entrepreneur') {
-      if (!entrepreneurGoal) {
-        setErrorField('primaryGoal');
-        return 'Please select your primary venture goal.';
       }
     }
     return null;
@@ -396,86 +278,125 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const handleNextStep = () => {
     setErrorMessage('');
     setErrorField('');
-    let err: string | null = null;
-    if (step === 1) err = validateStep1();
-    if (step === 2) err = validateStep2();
+    const err = validateStep1();
     if (err) {
       setErrorMessage(err);
       return;
     }
-    setStep((prev) => (prev < 3 ? ((prev + 1) as Step) : prev));
+    setStep(2);
   };
 
   const handlePrevStep = () => {
     setErrorMessage('');
     setErrorField('');
-    setStep((prev) => (prev > 1 ? ((prev - 1) as Step) : prev));
+    setStep(1);
   };
 
+  // ── Submit Registration ──────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (isLoading) return;
     setErrorMessage('');
     setErrorField('');
-    const err = validateStep3();
+
+    const err = validateStep2();
     if (err) {
       setErrorMessage(err);
       return;
     }
 
-    const selectedProgram = programId ? PROGRAMS.find((p) => p.id === programId) : undefined;
-    const selectedSpec = specializationId
-      ? SPECIALIZATIONS.find((s) => s.id === specializationId)
-      : undefined;
-
     let payload: RegistrationPayload;
 
     if (track === 'Student') {
-      const instituteNameFinal = isCustomCollege
-        ? customCollegeName.trim()
-        : selectedInstitute?.name || customCollegeName.trim() || 'Independent Learner';
+      if (educationCategory === 'BELOW_10TH') {
+        payload = {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          confirmPassword,
+          track: 'Student',
+          educationCategory: 'BELOW_10TH',
+          instituteName: schoolName.trim() || 'School Student',
+        };
+      } else if (educationCategory === 'CLASS_9_10') {
+        payload = {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          confirmPassword,
+          track: 'Student',
+          educationCategory: 'CLASS_9_10',
+          programName: schoolClass,
+          yearOfStudy: schoolClass === 'Class 10' ? 2 : 1,
+          instituteName: schoolName.trim() || 'Secondary School Student',
+        };
+      } else if (educationCategory === 'INTERMEDIATE') {
+        payload = {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          confirmPassword,
+          track: 'Student',
+          educationCategory: 'INTERMEDIATE',
+          specializationId: intermediateGroup.toLowerCase(),
+          specializationName: intermediateGroup,
+          yearOfStudy: intermediateYear,
+          instituteName: juniorCollegeName.trim() || 'Junior College Student',
+        };
+      } else if (educationCategory === 'DIPLOMA') {
+        payload = {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          confirmPassword,
+          track: 'Student',
+          educationCategory: 'DIPLOMA',
+          specializationId: diplomaBranch.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+          specializationName: diplomaBranch,
+          yearOfStudy: diplomaYear,
+          instituteName: polytechnicName.trim() || 'Polytechnic Student',
+        };
+      } else {
+        // DEGREE or POSTGRADUATE
+        const selectedProg = PROGRAMS.find((p) => p.id === programId);
+        const selectedSpec = SPECIALIZATIONS.find((s) => s.id === specializationId);
+        const collegeFinal = isCustomCollege
+          ? customCollegeName.trim()
+          : selectedInstitute?.name || customCollegeName.trim() || 'Independent Learner';
 
-      payload = {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password,
-        confirmPassword,
-        track: 'Student',
-        instituteId:
-          isCustomCollege || !selectedInstitute?._id || selectedInstitute._id.startsWith('inst-')
-            ? undefined
-            : selectedInstitute._id,
-        instituteName: instituteNameFinal,
-        stream: stream as string,
-        streamSubCategory: streamSubCategory || undefined,
-        educationLevel: educationLevel as string,
-        programId,
-        programName: selectedProgram?.label || programId,
-        specializationId,
-        specializationName: selectedSpec?.label || specializationId,
-        yearOfStudy: Number(yearOfStudy),
-        admissionYear: Number(admissionYear),
-        expectedGraduationYear: Number(expectedGraduationYear),
-        aiFamiliarity,
-        aiUsageContexts,
-        primaryGoal,
-      };
+        payload = {
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
+          password,
+          confirmPassword,
+          track: 'Student',
+          educationCategory,
+          stream,
+          educationLevel: currentEduLevel,
+          programId,
+          programName: selectedProg?.label || programId.toUpperCase(),
+          specializationId: specializationId || 'general',
+          specializationName: customSpecialization.trim() || selectedSpec?.label || specializationId,
+          yearOfStudy,
+          admissionYear,
+          expectedGraduationYear,
+          instituteId:
+            isCustomCollege || !selectedInstitute?._id || selectedInstitute._id.startsWith('inst-')
+              ? undefined
+              : selectedInstitute._id,
+          instituteName: collegeFinal,
+        };
+      }
     } else {
+      // Entrepreneur
       payload = {
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
         confirmPassword,
         track: 'Entrepreneur',
-        ventureName: isIdeationVenture
-          ? 'Ideation / Not started'
-          : ventureName.trim() || 'Ideation / Not started',
-        industry,
-        problemStatement: problemStatement.trim() || undefined,
-        ventureStage,
-        primaryGoal: entrepreneurGoal,
-        skillsToDevelop,
-        businessChallenges,
-        preferredSupport,
+        ventureName: ventureName.trim() || 'Ideation / Not started',
+        industry: industry || 'Technology & Software',
+        ventureStage: ventureStage || 'exploring_idea',
       };
     }
 
@@ -485,81 +406,55 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       if (res.success) {
         if (onSuccess) onSuccess();
       } else {
-        setErrorMessage(res.error || 'Registration failed. Please try again.');
-        if (res.field) setErrorField(res.field);
-        // Navigate back to the relevant step if error is field-specific
-        if (
-          res.field &&
-          ['name', 'email', 'password', 'confirmPassword', 'track'].includes(res.field)
-        )
-          setStep(1);
-        else if (
-          res.field &&
-          [
-            'stream',
-            'educationLevel',
-            'programId',
-            'specializationId',
-            'yearOfStudy',
-            'admissionYear',
-            'expectedGraduationYear',
-            'ventureName',
-            'industry',
-            'ventureStage',
-          ].includes(res.field)
-        )
-          setStep(2);
+        setErrorMessage(res.error || 'Registration failed. Please check your details and try again.');
+        if (res.field) {
+          setErrorField(res.field);
+          if (['name', 'email', 'password', 'confirmPassword', 'track'].includes(res.field)) {
+            setStep(1);
+          }
+        }
       }
+    } catch (submitErr: any) {
+      setErrorMessage(submitErr?.message || 'A network error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
+  // ── Common Button Styles ─────────────────────────────────────────────────
   const btnPrimary: React.CSSProperties = {
     background: '#5B4BFF',
-    color: '#fff',
-    border: '1px solid #5B4BFF',
-    borderRadius: '10px',
-    padding: '12px 20px',
-    fontSize: '14px',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '12px',
+    padding: '13px 24px',
+    fontSize: '15px',
     fontWeight: 700,
-    fontFamily: 'inherit',
     cursor: 'pointer',
-    width: '100%',
-    transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: '8px',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    fontFamily: 'inherit',
+    flex: 1,
   };
 
   const btnSecondary: React.CSSProperties = {
-    background: 'var(--aiims-bg-card)',
-    color: 'var(--aiims-text-heading)',
-    border: '1px solid var(--aiims-border-card)',
-    borderRadius: '10px',
-    padding: '12px 20px',
-    fontSize: '14px',
-    fontWeight: 600,
-    fontFamily: 'inherit',
+    background: 'transparent',
+    color: 'var(--aiims-text-secondary, #475569)',
+    border: '1.5px solid var(--aiims-border-card, #E2E8F0)',
+    borderRadius: '12px',
+    padding: '13px 20px',
+    fontSize: '15px',
+    fontWeight: 650,
     cursor: 'pointer',
-    width: '100%',
-    transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '8px',
-  };
-
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    appearance: 'none',
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'right 12px center',
-    paddingRight: '36px',
-    cursor: 'pointer',
+    gap: '6px',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
   };
 
   return (
@@ -567,107 +462,49 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       style={{
         minHeight: '100vh',
         width: '100%',
-        backgroundColor: 'var(--aiims-bg-page, #F8F9FE)',
-        backgroundImage: isDarkMode
-          ? 'radial-gradient(circle at 50% 15%, rgba(139, 92, 246, 0.14) 0%, transparent 60%)'
-          : 'radial-gradient(circle at 50% 15%, rgba(109, 93, 251, 0.08) 0%, transparent 60%)',
-        fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
-        color: 'var(--aiims-text-primary, #0F172A)',
+        backgroundColor: 'var(--aiims-bg-page, #F8FAFC)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '32px 16px 64px',
+        justifyContent: 'center',
+        padding: '32px 16px',
         boxSizing: 'border-box',
         position: 'relative',
+        fontFamily:
+          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       }}
     >
-      {/* Logged-out Theme Toggle */}
+      {/* Theme Toggle in top right */}
       <button
-        id="register-theme-toggle-btn"
         onClick={toggleTheme}
-        aria-label={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
-        title={isDarkMode ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
+        aria-label="Toggle Theme"
         style={{
           position: 'absolute',
           top: '20px',
-          right: '24px',
-          width: '38px',
-          height: '38px',
-          borderRadius: '50%',
-          backgroundColor: 'var(--aiims-bg-card, #ffffff)',
+          right: '20px',
+          background: 'var(--aiims-bg-card, #ffffff)',
           border: '1px solid var(--aiims-border-card, #E2E8F0)',
+          borderRadius: '10px',
+          padding: '8px 12px',
+          cursor: 'pointer',
+          color: 'var(--aiims-text-secondary, #64748B)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          cursor: 'pointer',
-          color: isDarkMode ? '#fbbf24' : '#4f46e5',
-          boxShadow: 'var(--aiims-shadow-card, 0 2px 8px rgba(0,0,0,0.06))',
-          transition: 'all 0.2s ease',
-          zIndex: 50,
+          gap: '6px',
+          fontSize: '13px',
+          fontWeight: 600,
         }}
       >
-        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+        {isDarkMode ? <Sun size={15} color="#F59E0B" /> : <Moon size={15} color="#5B4BFF" />}
+        {isDarkMode ? 'Light' : 'Dark'}
       </button>
+
       <style>{`
-        .reg-input:focus {
-          border-color: #5B4BFF !important;
-          box-shadow: 0 0 0 3px rgba(91, 75, 255, 0.12) !important;
-        }
-        .reg-select:focus {
-          border-color: #5B4BFF !important;
-          box-shadow: 0 0 0 3px rgba(91, 75, 255, 0.12) !important;
-          outline: none;
-        }
-        .reg-select option {
-          background-color: var(--aiims-bg-card, #ffffff);
-          color: var(--aiims-text-primary, #0F172A);
-        }
-        .reg-pill {
-          padding: 8px 14px;
-          border-radius: 100px;
-          border: 1.5px solid var(--aiims-border-card, #E2E8F0);
-          background: var(--aiims-bg-card, #fff);
-          font-size: 13px;
-          font-weight: 600;
-          color: var(--aiims-text-secondary, #475569);
-          cursor: pointer;
-          transition: all 0.15s;
-          font-family: inherit;
-        }
-        .reg-pill:hover {
-          border-color: #5B4BFF;
-          color: #5B4BFF;
-          background: rgba(91,75,255,0.05);
-        }
-        .reg-pill.selected {
-          border-color: #5B4BFF;
-          background: rgba(91,75,255,0.12);
-          color: var(--aiims-primary-text, #4338CA);
-        }
-        .reg-stream-card {
-          padding: 16px;
-          border-radius: 12px;
-          border: 2px solid var(--aiims-border-card, #E2E8F0);
-          background: var(--aiims-bg-card, #fff);
-          cursor: pointer;
-          transition: all 0.15s;
-          text-align: left;
-          font-family: inherit;
-          width: 100%;
-        }
-        .reg-stream-card:hover {
-          border-color: #5B4BFF;
-          background: rgba(91,75,255,0.06);
-        }
-        .reg-stream-card.selected {
-          border-color: #5B4BFF;
-          background: rgba(91,75,255,0.12);
-        }
         .reg-fade {
-          animation: regFade 0.25s ease forwards;
+          animation: regFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        @keyframes regFade {
-          from { opacity: 0; transform: translateY(8px); }
+        @keyframes regFadeIn {
+          from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
         }
         .institute-dropdown {
@@ -677,8 +514,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           background: var(--aiims-modal-bg, #fff);
           border: 1.5px solid var(--aiims-modal-border, #E2E8F0);
           border-radius: 10px;
-          box-shadow: var(--aiims-shadow-dropdown, 0 8px 24px -4px rgba(0,0,0,0.12));
-          max-height: 220px;
+          box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15);
+          max-height: 200px;
           overflow-y: auto;
           z-index: 100;
         }
@@ -692,11 +529,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         }
         .institute-item:last-child { border-bottom: none; }
         .institute-item:hover { background: var(--aiims-bg-card-hover, #F8FAFC); }
-        .institute-item.selected { background: rgba(91,75,255,0.12); color: var(--aiims-primary-text, #4338CA); font-weight: 600; }
+        .institute-item.selected { background: rgba(91,75,255,0.12); color: #5B4BFF; font-weight: 600; }
         .reg-btn-primary:hover:not(:disabled) {
-          background: #4338CA !important;
+          background: #4A3BE8 !important;
           transform: translateY(-1px);
-          box-shadow: 0 4px 14px rgba(91, 75, 255, 0.4);
+          box-shadow: 0 6px 16px rgba(91, 75, 255, 0.35);
         }
         .reg-btn-secondary:hover:not(:disabled) {
           background: var(--aiims-bg-card-hover, #F8FAFC) !important;
@@ -705,19 +542,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       `}</style>
 
       {/* Logo */}
-      <div style={{ marginBottom: '28px', cursor: 'pointer' }} onClick={onNavigateToHome}>
+      <div style={{ marginBottom: '24px', cursor: 'pointer' }} onClick={onNavigateToHome}>
         <AiimsLogo size="lg" showWordmark={true} />
       </div>
 
-      {/* Step Indicator */}
+      {/* Step Indicator (Minimal 2 Steps) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0',
-          marginBottom: '28px',
-          maxWidth: '480px',
+          maxWidth: '420px',
           width: '100%',
+          marginBottom: '24px',
         }}
       >
         {stepLabels.map((label, i) => {
@@ -728,9 +564,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
           return (
             <React.Fragment key={stepNum}>
-              <div
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}
-              >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                 <div
                   style={{
                     width: '36px',
@@ -741,7 +575,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       : isActive
                         ? '#5B4BFF'
                         : isDarkMode
-                          ? 'var(--aiims-border-card, #202b4d)'
+                          ? '#1E293B'
                           : '#E2E8F0',
                     display: 'flex',
                     alignItems: 'center',
@@ -751,17 +585,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   }}
                 >
                   {isComplete ? (
-                    <Check size={16} color="#fff" />
+                    <Check size={16} color="#ffffff" />
                   ) : (
                     <StepIcon
                       size={16}
-                      color={isActive ? '#fff' : isDarkMode ? '#64748B' : '#94A3B8'}
+                      color={isActive ? '#ffffff' : isDarkMode ? '#64748B' : '#94A3B8'}
                     />
                   )}
                 </div>
                 <span
                   style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: isActive ? 700 : 500,
                     color: isActive
                       ? '#5B4BFF'
@@ -784,7 +618,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                       step > i + 1
                         ? '#10B981'
                         : isDarkMode
-                          ? 'var(--aiims-border-card, #202b4d)'
+                          ? '#1E293B'
                           : '#E2E8F0',
                     marginBottom: '20px',
                     transition: 'all 0.3s',
@@ -796,7 +630,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         })}
       </div>
 
-      {/* Card */}
+      {/* Main Registration Card */}
       <div
         style={{
           maxWidth: '520px',
@@ -804,10 +638,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           backgroundColor: 'var(--aiims-bg-card, #ffffff)',
           borderRadius: '20px',
           border: '1px solid var(--aiims-border-card, #E2E8F0)',
-          padding: '36px 32px',
+          padding: '32px 28px',
           boxShadow: isDarkMode
             ? '0 20px 40px -15px rgba(0,0,0,0.5)'
-            : 'var(--aiims-shadow-card, 0 20px 40px -15px rgba(0,0,0,0.06))',
+            : '0 20px 40px -15px rgba(0,0,0,0.06)',
           boxSizing: 'border-box',
         }}
       >
@@ -830,7 +664,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           >
             <AlertCircle
               size={16}
-              style={{ flexShrink: 0, marginTop: '1px', color: isDarkMode ? '#EF4444' : '#DC2626' }}
+              style={{ flexShrink: 0, marginTop: '2px', color: isDarkMode ? '#EF4444' : '#DC2626' }}
             />
             <span>{errorMessage}</span>
           </div>
@@ -839,7 +673,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         {/* ─── STEP 1: ACCOUNT ─────────────────────────────────────────────── */}
         {step === 1 && (
           <div className="reg-fade">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '22px' }}>
               <h2
                 style={{
                   fontSize: '22px',
@@ -849,479 +683,304 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: '0 0 4px',
                 }}
               >
-                Create your AIIMS account
+                Create your AIIMS Account
               </h2>
               <p
                 style={{
-                  fontSize: '14px',
-                  color: 'var(--aiims-text-secondary, #64748B)',
+                  fontSize: '13px',
+                  color: 'var(--aiims-text-muted, #64748B)',
                   margin: 0,
                 }}
               >
-                Your journey into AI intelligence starts here.
+                Choose your track and set up your login credentials.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Mandatory Learner Track Selection */}
-              <div style={fieldGroupStyle}>
-                <label
+            {/* Track Selector */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={labelStyle}>I am registering as</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTrack('Student')}
                   style={{
-                    ...labelStyle,
+                    padding: '14px 12px',
+                    borderRadius: '12px',
+                    border:
+                      track === 'Student'
+                        ? '2px solid #5B4BFF'
+                        : '1.5px solid var(--aiims-input-border, #E2E8F0)',
+                    background:
+                      track === 'Student'
+                        ? isDarkMode
+                          ? 'rgba(91, 75, 255, 0.15)'
+                          : '#EEF2FF'
+                        : 'transparent',
+                    cursor: 'pointer',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                    fontFamily: 'inherit',
                   }}
                 >
-                  <span>
-                    Select Learner Track <span style={{ color: '#EF4444' }}>*</span>
+                  <GraduationCap
+                    size={22}
+                    color={track === 'Student' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'}
+                  />
+                  <span
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color:
+                        track === 'Student'
+                          ? '#5B4BFF'
+                          : 'var(--aiims-text-heading, #0F172A)',
+                    }}
+                  >
+                    Student
                   </span>
-                  {track && (
-                    <span style={{ fontSize: '11px', color: '#10B981', fontWeight: 650 }}>
-                      ✓ {track} Track Selected
-                    </span>
-                  )}
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  <button
-                    type="button"
-                    id="track-student-btn"
-                    onClick={() => {
-                      setTrack('Student');
-                      if (errorField === 'track') setErrorField('');
-                      setErrorMessage('');
-                    }}
+                  <span
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '6px',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.2s',
-                      border:
-                        track === 'Student'
-                          ? '2px solid #5B4BFF'
-                          : errorField === 'track'
-                            ? '1.5px solid #F87171'
-                            : isDarkMode
-                              ? '1.5px solid var(--aiims-input-border, #2c3b63)'
-                              : '1.5px solid #E2E8F0',
-                      backgroundColor:
-                        track === 'Student'
-                          ? isDarkMode
-                            ? 'rgba(91, 75, 255, 0.18)'
-                            : 'rgba(91, 75, 255, 0.08)'
-                          : isDarkMode
-                            ? 'var(--aiims-input-bg, #111a36)'
-                            : '#ffffff',
+                      fontSize: '11px',
+                      color: 'var(--aiims-text-muted, #64748B)',
+                      textAlign: 'center',
                     }}
                   >
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}
-                    >
-                      <GraduationCap
-                        size={18}
-                        color={track === 'Student' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'}
-                      />
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '14px',
-                          color:
-                            track === 'Student' ? '#5B4BFF' : 'var(--aiims-text-heading, #0F172A)',
-                        }}
-                      >
-                        Student
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--aiims-text-secondary, #64748B)',
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      College & university academics, career & AI skills
-                    </span>
-                  </button>
+                    School, Diploma, Degree or PG
+                  </span>
+                </button>
 
-                  <button
-                    type="button"
-                    id="track-entrepreneur-btn"
-                    onClick={() => {
-                      setTrack('Entrepreneur');
-                      if (errorField === 'track') setErrorField('');
-                      setErrorMessage('');
-                    }}
+                <button
+                  type="button"
+                  onClick={() => setTrack('Entrepreneur')}
+                  style={{
+                    padding: '14px 12px',
+                    borderRadius: '12px',
+                    border:
+                      track === 'Entrepreneur'
+                        ? '2px solid #5B4BFF'
+                        : '1.5px solid var(--aiims-input-border, #E2E8F0)',
+                    background:
+                      track === 'Entrepreneur'
+                        ? isDarkMode
+                          ? 'rgba(91, 75, 255, 0.15)'
+                          : '#EEF2FF'
+                        : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <Briefcase
+                    size={22}
+                    color={track === 'Entrepreneur' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'}
+                  />
+                  <span
                     style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                      gap: '6px',
-                      padding: '12px 14px',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontFamily: 'inherit',
-                      transition: 'all 0.2s',
-                      border:
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color:
                         track === 'Entrepreneur'
-                          ? '2px solid #5B4BFF'
-                          : errorField === 'track'
-                            ? '1.5px solid #F87171'
-                            : isDarkMode
-                              ? '1.5px solid var(--aiims-input-border, #2c3b63)'
-                              : '1.5px solid #E2E8F0',
-                      backgroundColor:
-                        track === 'Entrepreneur'
-                          ? isDarkMode
-                            ? 'rgba(91, 75, 255, 0.18)'
-                            : 'rgba(91, 75, 255, 0.08)'
-                          : isDarkMode
-                            ? 'var(--aiims-input-bg, #111a36)'
-                            : '#ffffff',
+                          ? '#5B4BFF'
+                          : 'var(--aiims-text-heading, #0F172A)',
                     }}
                   >
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}
-                    >
-                      <Briefcase
-                        size={18}
-                        color={
-                          track === 'Entrepreneur' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'
-                        }
-                      />
-                      <span
-                        style={{
-                          fontWeight: 700,
-                          fontSize: '14px',
-                          color:
-                            track === 'Entrepreneur'
-                              ? '#5B4BFF'
-                              : 'var(--aiims-text-heading, #0F172A)',
-                        }}
-                      >
-                        Entrepreneur
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: '12px',
-                        color: 'var(--aiims-text-secondary, #64748B)',
-                        lineHeight: 1.35,
-                      }}
-                    >
-                      Founders & innovators building and scaling ventures
-                    </span>
-                  </button>
-                </div>
+                    Entrepreneur
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--aiims-text-muted, #64748B)',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Founders, Startups & Builders
+                  </span>
+                </button>
               </div>
+            </div>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {/* Full Name */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Full Name</label>
+                <label style={labelStyle}>Full Name *</label>
                 <input
-                  id="reg-name"
-                  className="reg-input"
                   type="text"
+                  placeholder="e.g. Alex Johnson"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   style={{
                     ...inputStyle,
                     borderColor:
-                      errorField === 'name'
-                        ? '#F87171'
-                        : isDarkMode
-                          ? 'var(--aiims-input-border, #2c3b63)'
-                          : '#E2E8F0',
+                      errorField === 'name' ? '#EF4444' : 'var(--aiims-input-border, #E2E8F0)',
                   }}
-                  placeholder="Jane Doe"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    if (errorField === 'name') setErrorField('');
-                    if (errorMessage) setErrorMessage('');
-                  }}
-                  disabled={isLoading}
                 />
               </div>
 
               {/* Email */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle}>Email Address</label>
+                <label style={labelStyle}>Email Address *</label>
                 <input
-                  id="reg-email"
-                  className="reg-input"
                   type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   style={{
                     ...inputStyle,
                     borderColor:
-                      errorField === 'email'
-                        ? '#F87171'
-                        : isDarkMode
-                          ? 'var(--aiims-input-border, #2c3b63)'
-                          : '#E2E8F0',
+                      errorField === 'email' ? '#EF4444' : 'var(--aiims-input-border, #E2E8F0)',
                   }}
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errorField === 'email') setErrorField('');
-                    if (errorMessage) setErrorMessage('');
-                  }}
-                  disabled={isLoading}
                 />
               </div>
 
               {/* Password */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle} htmlFor="reg-password">Password</label>
+                <label style={labelStyle}>Password (min. 8 characters) *</label>
                 <div style={{ position: 'relative' }}>
                   <input
-                    id="reg-password"
-                    className="reg-input"
                     type={showPassword ? 'text' : 'password'}
+                    placeholder="Create a secure password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     style={{
                       ...inputStyle,
-                      paddingRight: '42px',
+                      paddingRight: '40px',
                       borderColor:
                         errorField === 'password'
-                          ? '#F87171'
-                          : password && isCommonPassword(password)
-                            ? '#F87171'
-                            : password && password.length >= 8
-                              ? '#10B981'
-                              : isDarkMode
-                                ? 'var(--aiims-input-border, #2c3b63)'
-                                : '#E2E8F0',
+                          ? '#EF4444'
+                          : 'var(--aiims-input-border, #E2E8F0)',
                     }}
-                    placeholder="At least 8 characters"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (errorField === 'password') setErrorField('');
-                      if (errorMessage) setErrorMessage('');
-                    }}
-                    disabled={isLoading}
-                    autoComplete="new-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     style={{
                       position: 'absolute',
-                      right: '10px',
+                      right: '12px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
-                      color: '#94A3B8',
                       cursor: 'pointer',
-                      padding: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      color: 'var(--aiims-text-muted, #94A3B8)',
+                      padding: 0,
                     }}
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-
-                {/* Password helper & validation status */}
-                {!password ? (
-                  <span
-                    style={{
-                      fontSize: '12px',
-                      color: 'var(--aiims-text-secondary, #64748B)',
-                      marginTop: '4px',
-                    }}
-                  >
-                    Must be at least 8 characters long
-                  </span>
-                ) : isCommonPassword(password) ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '5px',
-                      color: '#EF4444',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>This password is too common or easily guessed.</span>
-                  </div>
-                ) : password.length < 8 ? (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '5px',
-                      color: 'var(--aiims-text-secondary, #64748B)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <span>At least 8 characters required ({password.length}/8)</span>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      marginTop: '5px',
-                      color: '#10B981',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                    }}
-                  >
-                    <Check size={14} style={{ flexShrink: 0 }} />
-                    <span>At least 8 characters</span>
-                  </div>
-                )}
-
-                {/* Password strength indicator */}
-                {password && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{ display: 'flex', gap: '5px', marginBottom: '4px' }}>
-                      {[1, 2, 3].map((s) => (
-                        <div
-                          key={s}
-                          style={{
-                            flex: 1,
-                            height: '4px',
-                            borderRadius: '4px',
-                            background:
-                              s <= passwordStrength.score
-                                ? passwordStrength.color
-                                : isDarkMode
-                                  ? 'var(--aiims-border-card, #202b4d)'
-                                  : '#E2E8F0',
-                            transition: 'all 0.25s ease',
-                          }}
-                        />
-                      ))}
-                    </div>
-                    {passwordStrength.label && (
-                      <span
+                {/* Password strength bar */}
+                {password.length > 0 && (
+                  <div style={{ marginTop: '6px' }}>
+                    <div
+                      style={{
+                        height: '4px',
+                        background: 'var(--aiims-border-card, #E2E8F0)',
+                        borderRadius: '2px',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
                         style={{
-                          fontSize: '12px',
-                          color: passwordStrength.color,
-                          fontWeight: 600,
-                          transition: 'color 0.2s',
+                          height: '100%',
+                          width: `${(passwordStrength.score / 4) * 100}%`,
+                          background:
+                            passwordStrength.score <= 1
+                              ? '#EF4444'
+                              : passwordStrength.score === 2
+                                ? '#F59E0B'
+                                : passwordStrength.score === 3
+                                  ? '#3B82F6'
+                                  : '#10B981',
+                          transition: 'width 0.3s',
                         }}
-                      >
-                        {passwordStrength.label} password
-                      </span>
-                    )}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: passwordStrength.color,
+                        fontWeight: 600,
+                        marginTop: '2px',
+                        display: 'block',
+                      }}
+                    >
+                      {passwordStrength.label}
+                    </span>
                   </div>
                 )}
               </div>
 
               {/* Confirm Password */}
               <div style={fieldGroupStyle}>
-                <label style={labelStyle} htmlFor="reg-confirm-password">Confirm Password</label>
+                <label style={labelStyle}>Confirm Password *</label>
                 <div style={{ position: 'relative' }}>
                   <input
-                    id="reg-confirm-password"
-                    className="reg-input"
                     type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Repeat your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     style={{
                       ...inputStyle,
-                      paddingRight: '42px',
+                      paddingRight: '40px',
                       borderColor:
-                        !confirmPassword
-                          ? errorField === 'confirmPassword'
-                            ? '#F87171'
-                            : isDarkMode
-                              ? 'var(--aiims-input-border, #2c3b63)'
-                              : '#E2E8F0'
-                          : confirmPassword === password
-                            ? '#10B981'
-                            : '#EF4444',
+                        errorField === 'confirmPassword'
+                          ? '#EF4444'
+                          : 'var(--aiims-input-border, #E2E8F0)',
                     }}
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => {
-                      setConfirmPassword(e.target.value);
-                      if (errorField === 'confirmPassword') setErrorField('');
-                      if (errorMessage) setErrorMessage('');
-                    }}
-                    disabled={isLoading}
-                    autoComplete="new-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                     style={{
                       position: 'absolute',
-                      right: '10px',
+                      right: '12px',
                       top: '50%',
                       transform: 'translateY(-50%)',
                       background: 'none',
                       border: 'none',
-                      color: '#94A3B8',
                       cursor: 'pointer',
-                      padding: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      color: 'var(--aiims-text-muted, #94A3B8)',
+                      padding: 0,
                     }}
                   >
                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-
-                {/* Confirm Password match / mismatch indicator */}
-                {confirmPassword && (
-                  confirmPassword === password ? (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        marginTop: '6px',
-                        color: '#10B981',
-                        fontSize: '12px',
-                        fontWeight: 550,
-                      }}
-                    >
-                      <CheckCircle size={14} style={{ flexShrink: 0 }} />
-                      <span>Passwords match</span>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        marginTop: '6px',
-                        color: '#EF4444',
-                        fontSize: '12px',
-                        fontWeight: 550,
-                      }}
-                    >
-                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                      <span>Passwords do not match</span>
-                    </div>
-                  )
-                )}
               </div>
+            </div>
+
+            {/* Continue Button */}
+            <div style={{ marginTop: '28px' }}>
+              <button
+                type="button"
+                className="reg-btn-primary"
+                style={{
+                  ...btnPrimary,
+                  width: '100%',
+                  opacity: !isStep1Valid ? 0.6 : 1,
+                  cursor: !isStep1Valid ? 'not-allowed' : 'pointer',
+                }}
+                disabled={!isStep1Valid}
+                onClick={handleNextStep}
+              >
+                <span>{track === 'Student' ? 'Continue to Education' : 'Continue to Venture Details'}</span>
+                <ArrowRight size={17} />
+              </button>
             </div>
           </div>
         )}
 
-        {/* ─── STEP 2: ACADEMICS / VENTURE ─────────────────────────────────── */}
-        {step === 2 && (
+        {/* ─── STEP 2: EDUCATION (STUDENT) ─────────────────────────────────── */}
+        {step === 2 && track === 'Student' && (
           <div className="reg-fade">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '20px' }}>
               <h2
                 style={{
                   fontSize: '22px',
@@ -1331,591 +990,596 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: '0 0 4px',
                 }}
               >
-                {track === 'Entrepreneur'
-                  ? 'Venture & Startup Information'
-                  : 'Your Academic Identity'}
+                Select Education Level
               </h2>
               <p
                 style={{
-                  fontSize: '14px',
-                  color: 'var(--aiims-text-secondary, #64748B)',
+                  fontSize: '13px',
+                  color: 'var(--aiims-text-muted, #64748B)',
                   margin: 0,
                 }}
               >
-                {track === 'Entrepreneur'
-                  ? 'Tell us about your venture so AIIMS can tailor AI tool discovery, business diagnostics, and workflow templates.'
-                  : 'This powers accurate peer benchmarks and ensures your learning context is correct.'}
+                We tailor your diagnostic challenges and mentoring to your educational journey.
               </p>
             </div>
 
-            {track === 'Entrepreneur' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* Venture Name */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Venture / Startup Name{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      (Optional)
-                    </span>
-                  </label>
-                  <input
-                    id="reg-venture-name"
-                    type="text"
-                    style={{
-                      ...inputStyle,
-                      opacity: isIdeationVenture ? 0.6 : 1,
-                      backgroundColor: isIdeationVenture
-                        ? isDarkMode
-                          ? 'rgba(255,255,255,0.03)'
-                          : '#F8FAFC'
-                        : inputStyle.backgroundColor,
-                    }}
-                    disabled={isIdeationVenture}
-                    placeholder="e.g. Apex AI, Stealth Startup, or Leave Blank"
-                    value={isIdeationVenture ? 'Ideation / Not started' : ventureName}
-                    onChange={(e) => setVentureName(e.target.value)}
-                  />
-                  <label
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      marginTop: '6px',
-                      cursor: 'pointer',
-                      fontSize: '12.5px',
-                      color: 'var(--aiims-text-secondary, #475569)',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isIdeationVenture}
-                      onChange={(e) => {
-                        setIsIdeationVenture(e.target.checked);
-                        if (e.target.checked) setVentureName('');
-                      }}
-                      style={{
-                        width: '16px',
-                        height: '16px',
-                        accentColor: '#5B4BFF',
-                        cursor: 'pointer',
-                      }}
-                    />
-                    <span>Not started yet / Exploring startup ideas</span>
-                  </label>
-                </div>
-
-                {/* Industry / Sector */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Industry / Sector <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    id="reg-venture-industry"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={industry}
-                    onChange={(e) => setIndustry(e.target.value)}
-                  >
-                    {VENTURE_INDUSTRIES.map((ind) => (
-                      <option key={ind} value={ind}>
-                        {ind}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Problem Statement / Business Idea */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Problem Statement & Business Idea{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      (Optional)
-                    </span>
-                  </label>
-                  <textarea
-                    id="reg-problem-statement"
-                    rows={3}
-                    style={{
-                      ...inputStyle,
-                      resize: 'vertical',
-                      minHeight: '75px',
-                      lineHeight: 1.45,
-                    }}
-                    placeholder="Briefly describe the customer problem you're addressing, your proposed product/service concept, or target market..."
-                    value={problemStatement}
-                    onChange={(e) => setProblemStatement(e.target.value)}
-                  />
-                </div>
-
-                {/* Venture Stage Selection Cards */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Current Venture Stage <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      maxHeight: '260px',
-                      overflowY: 'auto',
-                      paddingRight: '4px',
-                    }}
-                  >
-                    {VENTURE_STAGES.map((stg) => {
-                      const isSelected = ventureStage === stg.value;
-                      return (
-                        <button
-                          key={stg.value}
-                          type="button"
-                          onClick={() => setVentureStage(stg.value)}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '10px',
-                            padding: '10px 12px',
-                            borderRadius: '10px',
-                            textAlign: 'left',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            transition: 'all 0.15s',
-                            border: isSelected
-                              ? '2px solid #5B4BFF'
-                              : isDarkMode
-                                ? '1.5px solid var(--aiims-border-card, #202b4d)'
-                                : '1.5px solid #E2E8F0',
-                            background: isSelected
-                              ? isDarkMode
-                                ? 'rgba(91, 75, 255, 0.18)'
-                                : 'rgba(91, 75, 255, 0.08)'
-                              : isDarkMode
-                                ? 'var(--aiims-bg-card, #111a36)'
-                                : '#ffffff',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              borderRadius: '50%',
-                              marginTop: '2px',
-                              flexShrink: 0,
-                              border: `2px solid ${isSelected ? '#5B4BFF' : isDarkMode ? '#475569' : '#CBD5E1'}`,
-                              background: isSelected ? '#5B4BFF' : 'transparent',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {isSelected && (
-                              <div
-                                style={{
-                                  width: '6px',
-                                  height: '6px',
-                                  borderRadius: '50%',
-                                  background: '#fff',
-                                }}
-                              />
-                            )}
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontSize: '13px',
-                                fontWeight: 700,
-                                color: isSelected
-                                  ? '#5B4BFF'
-                                  : 'var(--aiims-text-heading, #0F172A)',
-                              }}
-                            >
-                              {stg.label}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                color: 'var(--aiims-text-secondary, #64748B)',
-                                marginTop: '2px',
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              {stg.description}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {/* College / Institute with Free-text & Directory toggle */}
-                <div style={{ ...fieldGroupStyle, position: 'relative' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '4px',
-                    }}
-                  >
-                    <label style={{ ...labelStyle, marginBottom: 0 }}>
-                      College / University / Institute <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
+            {/* 6 Education Category Options */}
+            <div style={{ marginBottom: '22px' }}>
+              <label style={labelStyle}>Education Category</label>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                  gap: '8px',
+                }}
+              >
+                {(
+                  [
+                    { id: 'BELOW_10TH', label: 'Below 10th', sub: 'Class 1–8' },
+                    { id: 'CLASS_9_10', label: '9th / 10th', sub: 'Secondary' },
+                    { id: 'INTERMEDIATE', label: 'Intermediate', sub: '+2 / Jr. College' },
+                    { id: 'DIPLOMA', label: 'Diploma', sub: 'Polytechnic' },
+                    { id: 'DEGREE', label: 'Degree', sub: 'B.Tech / B.Sc / BA' },
+                    { id: 'POSTGRADUATE', label: 'Postgraduate', sub: 'M.Tech / MBA / PhD' },
+                  ] as const
+                ).map((cat) => {
+                  const isSelected = educationCategory === cat.id;
+                  return (
                     <button
+                      key={cat.id}
                       type="button"
-                      onClick={() => {
-                        setIsCustomCollege(!isCustomCollege);
-                        setSelectedInstitute(null);
-                        setInstituteDropdownOpen(false);
-                      }}
+                      onClick={() => setEducationCategory(cat.id)}
                       style={{
-                        background: 'none',
-                        border: 'none',
-                        color: '#5B4BFF',
-                        fontSize: '12px',
-                        fontWeight: 650,
+                        padding: '10px 8px',
+                        borderRadius: '10px',
+                        border: isSelected
+                          ? '2px solid #5B4BFF'
+                          : '1px solid var(--aiims-input-border, #E2E8F0)',
+                        background: isSelected
+                          ? isDarkMode
+                            ? 'rgba(91, 75, 255, 0.2)'
+                            : '#EEF2FF'
+                          : 'transparent',
                         cursor: 'pointer',
-                        padding: 0,
-                        textDecoration: 'underline',
+                        textAlign: 'center',
+                        transition: 'all 0.15s',
+                        fontFamily: 'inherit',
                       }}
                     >
-                      {isCustomCollege ? 'Search verified directory' : 'My college is not listed'}
+                      <div
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 700,
+                          color: isSelected ? '#5B4BFF' : 'var(--aiims-text-heading, #0F172A)',
+                        }}
+                      >
+                        {cat.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '10.5px',
+                          color: isSelected ? '#5B4BFF' : 'var(--aiims-text-muted, #64748B)',
+                          marginTop: '2px',
+                        }}
+                      >
+                        {cat.sub}
+                      </div>
                     </button>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                  {isCustomCollege ? (
-                    <div>
-                      <input
-                        id="reg-custom-college"
-                        className="reg-input"
-                        type="text"
-                        style={inputStyle}
-                        placeholder="Type your college or university full name..."
-                        value={customCollegeName}
-                        onChange={(e) => setCustomCollegeName(e.target.value)}
-                      />
-                      <span
-                        style={{
-                          fontSize: '11.5px',
-                          color: 'var(--aiims-text-muted, #94A3B8)',
-                          marginTop: '4px',
-                          display: 'block',
-                        }}
-                      >
-                        Enter your institution name manually. You will receive full access.
-                      </span>
-                    </div>
-                  ) : (
-                    <div style={{ position: 'relative' }}>
-                      <Search
-                        size={15}
-                        style={{
-                          position: 'absolute',
-                          left: '12px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          color: '#94A3B8',
-                        }}
-                      />
-                      <input
-                        id="reg-institute"
-                        className="reg-input"
-                        type="text"
-                        style={{ ...inputStyle, paddingLeft: '36px', paddingRight: '36px' }}
-                        placeholder="Search your college or university..."
-                        value={selectedInstitute ? selectedInstitute.name : instituteQuery}
-                        onChange={(e) => {
-                          setInstituteQuery(e.target.value);
-                          setSelectedInstitute(null);
-                          setInstituteDropdownOpen(true);
-                        }}
-                        onFocus={() => setInstituteDropdownOpen(true)}
-                        onBlur={() => setTimeout(() => setInstituteDropdownOpen(false), 200)}
-                      />
-                      {isLoadingInstitutes && (
-                        <Loader2
-                          size={15}
-                          style={{
-                            position: 'absolute',
-                            right: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#94A3B8',
-                            animation: 'spin 1s linear infinite',
-                          }}
-                        />
-                      )}
-                      {selectedInstitute && (
-                        <Check
-                          size={15}
-                          style={{
-                            position: 'absolute',
-                            right: '12px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#10B981',
-                          }}
-                        />
-                      )}
-                      {instituteDropdownOpen && (
-                        <div className="institute-dropdown">
-                          {instituteOptions.map((inst) => (
-                            <div
-                              key={inst._id}
-                              className={`institute-item ${selectedInstitute?._id === inst._id ? 'selected' : ''}`}
-                              onMouseDown={() => {
-                                setSelectedInstitute(inst);
-                                setInstituteQuery('');
-                                setInstituteDropdownOpen(false);
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 600,
-                                  fontSize: '13px',
-                                  color: 'var(--aiims-text-primary, #0F172A)',
-                                }}
-                              >
-                                {inst.name}
-                              </div>
-                              {inst.city && (
-                                <div
-                                  style={{ fontSize: '11px', color: '#94A3B8', marginTop: '1px' }}
-                                >
-                                  {inst.city}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                          <div
-                            className="institute-item"
-                            style={{
-                              color: '#5B4BFF',
-                              fontWeight: 600,
-                              borderTop: '1px dashed #CBD5E1',
-                            }}
-                            onMouseDown={() => {
-                              setIsCustomCollege(true);
-                              setSelectedInstitute(null);
-                              setInstituteDropdownOpen(false);
-                            }}
-                          >
-                            <Plus
-                              size={13}
-                              style={{ marginRight: '6px', verticalAlign: 'middle' }}
-                            />
-                            My college is not listed (enter manually)
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+            {/* ── Category A: Below 10th (Class 1–8) ────────────────────────── */}
+            {educationCategory === 'BELOW_10TH' && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  background: isDarkMode ? 'rgba(59, 130, 246, 0.08)' : '#F0F9FF',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <School size={18} color="#0284C7" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#0369A1' }}>
+                    Primary / Middle School Track
+                  </span>
                 </div>
-
-                {/* Stream Selection */}
+                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--aiims-text-secondary, #334155)', lineHeight: 1.5 }}>
+                  No branch, specialization, or graduation year required. AIIMS will adapt prompt engineering basics suitable for school level.
+                </p>
                 <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Stream <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {STREAMS.map((s) => (
+                  <label style={labelStyle}>School Name (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Kendriya Vidyalaya / Delhi Public School"
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Category B: Class 9th / 10th ─────────────────────────────── */}
+            {educationCategory === 'CLASS_9_10' && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '14px',
+                  background: isDarkMode ? 'rgba(59, 130, 246, 0.08)' : '#F0F9FF',
+                  padding: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <School size={18} color="#0284C7" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#0369A1' }}>
+                    Secondary School Track
+                  </span>
+                </div>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Current Class *</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {(['Class 9', 'Class 10'] as const).map((c) => (
                       <button
-                        key={s.value}
+                        key={c}
                         type="button"
-                        className={`reg-stream-card ${stream === s.value ? 'selected' : ''}`}
-                        onClick={() => setStream(s.value)}
+                        onClick={() => setSchoolClass(c)}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          borderRadius: '8px',
+                          border:
+                            schoolClass === c
+                              ? '2px solid #5B4BFF'
+                              : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background: schoolClass === c ? '#5B4BFF' : 'var(--aiims-bg-card, #ffffff)',
+                          color: schoolClass === c ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          fontWeight: 650,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
                       >
-                        <div
-                          style={{
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            color:
-                              stream === s.value
-                                ? isDarkMode
-                                  ? '#A5B4FC'
-                                  : '#4338CA'
-                                : 'var(--aiims-text-primary, #0F172A)',
-                            marginBottom: '2px',
-                          }}
-                        >
-                          {s.label}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: '11px',
-                            color: 'var(--aiims-text-muted, #64748B)',
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          {s.description}
-                        </div>
+                        {c}
                       </button>
                     ))}
                   </div>
                 </div>
-
-                {/* Sub-Category */}
-                {stream && (
-                  <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>Department / Field</label>
-                    <select
-                      id="reg-sub-category"
-                      className="reg-select"
-                      style={selectStyle}
-                      value={streamSubCategory}
-                      onChange={(e) => setStreamSubCategory(e.target.value)}
-                    >
-                      <option value="">Select department...</option>
-                      {subCategories.map((sc) => (
-                        <option key={sc.value} value={sc.value}>
-                          {sc.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Education Level */}
                 <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Education Level <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
+                  <label style={labelStyle}>School Name (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. St. Xavier's High School"
+                    value={schoolName}
+                    onChange={(e) => setSchoolName(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Category C: Intermediate (+2 / Junior College) ──────────── */}
+            {educationCategory === 'INTERMEDIATE' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Intermediate Stream / Group *</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {['MPC', 'BiPC', 'CEC', 'MEC', 'HEC', 'Other'].map((grp) => (
+                      <button
+                        key={grp}
+                        type="button"
+                        onClick={() => setIntermediateGroup(grp)}
+                        style={{
+                          padding: '9px',
+                          borderRadius: '8px',
+                          border:
+                            intermediateGroup === grp
+                              ? '2px solid #5B4BFF'
+                              : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background:
+                            intermediateGroup === grp ? '#5B4BFF' : 'transparent',
+                          color: intermediateGroup === grp ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {grp}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Year of Study *</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {[
+                      { val: 1, label: '1st Year (+1)' },
+                      { val: 2, label: '2nd Year (+2)' },
+                    ].map((y) => (
+                      <button
+                        key={y.val}
+                        type="button"
+                        onClick={() => setIntermediateYear(y.val as 1 | 2)}
+                        style={{
+                          flex: 1,
+                          padding: '9px',
+                          borderRadius: '8px',
+                          border:
+                            intermediateYear === y.val
+                              ? '2px solid #5B4BFF'
+                              : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background:
+                            intermediateYear === y.val ? '#5B4BFF' : 'transparent',
+                          color: intermediateYear === y.val ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          fontWeight: 650,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {y.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Junior College / Higher Secondary Name (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Narayana Junior College"
+                    value={juniorCollegeName}
+                    onChange={(e) => setJuniorCollegeName(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Category D: Diploma (Polytechnic) ─────────────────────────── */}
+            {educationCategory === 'DIPLOMA' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Diploma Branch *</label>
                   <select
-                    id="reg-education-level"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={educationLevel}
-                    onChange={(e) => setEducationLevel(e.target.value as EducationLevel)}
+                    value={diplomaBranch}
+                    onChange={(e) => setDiplomaBranch(e.target.value)}
+                    style={inputStyle}
                   >
-                    <option value="">Select level...</option>
-                    {EDUCATION_LEVELS.map((l) => (
-                      <option key={l.value} value={l.value}>
-                        {l.label}
+                    <option value="Computer Engineering">Computer Engineering</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                    <option value="Civil Engineering">Civil Engineering</option>
+                    <option value="Electrical & Electronics">Electrical & Electronics</option>
+                    <option value="Electronics & Communication">Electronics & Communication</option>
+                    <option value="Automobile Engineering">Automobile Engineering</option>
+                    <option value="Other">Other Diploma Discipline</option>
+                  </select>
+                </div>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Year of Study *</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    {[
+                      { val: 1, label: '1st Year' },
+                      { val: 2, label: '2nd Year' },
+                      { val: 3, label: '3rd Year' },
+                    ].map((y) => (
+                      <button
+                        key={y.val}
+                        type="button"
+                        onClick={() => setDiplomaYear(y.val as 1 | 2 | 3)}
+                        style={{
+                          flex: 1,
+                          padding: '9px',
+                          borderRadius: '8px',
+                          border:
+                            diplomaYear === y.val
+                              ? '2px solid #5B4BFF'
+                              : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background: diplomaYear === y.val ? '#5B4BFF' : 'transparent',
+                          color: diplomaYear === y.val ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          fontWeight: 650,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        {y.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Polytechnic / Institute Name (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Government Polytechnic College"
+                    value={polytechnicName}
+                    onChange={(e) => setPolytechnicName(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ── Category E & F: Degree & Postgraduate ─────────────────────── */}
+            {(educationCategory === 'DEGREE' || educationCategory === 'POSTGRADUATE') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Academic Stream */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Academic Stream *</label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStream('TECH')}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border:
+                          stream === 'TECH'
+                            ? '2px solid #5B4BFF'
+                            : '1px solid var(--aiims-input-border, #E2E8F0)',
+                        background: stream === 'TECH' ? '#5B4BFF' : 'transparent',
+                        color: stream === 'TECH' ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      Technology & Engineering
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStream('NON_TECH')}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border:
+                          stream === 'NON_TECH'
+                            ? '2px solid #5B4BFF'
+                            : '1px solid var(--aiims-input-border, #E2E8F0)',
+                        background: stream === 'NON_TECH' ? '#5B4BFF' : 'transparent',
+                        color: stream === 'NON_TECH' ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      Non-Technology & Commerce
+                    </button>
+                  </div>
+                </div>
+
+                {/* Degree Program */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Program / Degree *</label>
+                  <select
+                    value={programId}
+                    onChange={(e) => {
+                      setProgramId(e.target.value);
+                      const specs = getSpecializationsForProgram(e.target.value, stream);
+                      if (specs.length > 0) setSpecializationId(specs[0].id);
+                    }}
+                    style={inputStyle}
+                  >
+                    {availablePrograms.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Program with Duration Label */}
-                {educationLevel && stream && (
-                  <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>
-                      Program / Degree <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
+                {/* Specialization / Branch */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Branch / Specialization *</label>
+                  {availableSpecializations.length > 0 ? (
                     <select
-                      id="reg-program"
-                      className="reg-select"
-                      style={selectStyle}
-                      value={programId}
-                      onChange={(e) => setProgramId(e.target.value)}
-                    >
-                      <option value="">Select program...</option>
-                      {availablePrograms.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.label} ({p.normalDuration} {p.normalDuration === 1 ? 'Year' : 'Years'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Specialization */}
-                {programId && availableSpecializations.length > 0 && (
-                  <div style={fieldGroupStyle}>
-                    <label style={labelStyle}>
-                      Specialization / Branch <span style={{ color: '#EF4444' }}>*</span>
-                    </label>
-                    <select
-                      id="reg-specialization"
-                      className="reg-select"
-                      style={selectStyle}
                       value={specializationId}
                       onChange={(e) => setSpecializationId(e.target.value)}
+                      style={inputStyle}
                     >
-                      <option value="">Select specialization...</option>
                       {availableSpecializations.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.label}
                         </option>
                       ))}
                     </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="e.g. Computer Science & Engineering"
+                      value={customSpecialization}
+                      onChange={(e) => setCustomSpecialization(e.target.value)}
+                      style={inputStyle}
+                    />
+                  )}
+                </div>
+
+                {/* Year of Study */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>Current Year of Study *</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {availableYears.map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        onClick={() => setYearOfStudy(yr)}
+                        style={{
+                          flex: 1,
+                          padding: '9px',
+                          borderRadius: '8px',
+                          border:
+                            yearOfStudy === yr
+                              ? '2px solid #5B4BFF'
+                              : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background: yearOfStudy === yr ? '#5B4BFF' : 'transparent',
+                          color: yearOfStudy === yr ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          fontWeight: 700,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        Year {yr}
+                      </button>
+                    ))}
                   </div>
-                )}
+                </div>
 
-                {/* Dynamic Study Years, Dynamic Start Year & Dynamic Graduation Year */}
-                {educationLevel && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-                    <div style={fieldGroupStyle}>
-                      <label style={{ ...labelStyle, fontSize: '12px' }}>
-                        Current Year <span style={{ color: '#EF4444' }}>*</span>
-                      </label>
-                      <select
-                        id="reg-year-of-study"
-                        className="reg-select"
-                        style={{ ...selectStyle, fontSize: '13px' }}
-                        value={yearOfStudy}
-                        onChange={(e) => setYearOfStudy(Number(e.target.value))}
-                      >
-                        <option value="">Year</option>
-                        {availableYears.map((y) => (
-                          <option key={y} value={y}>
-                            Year {y}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                {/* College / Institute Selection */}
+                <div style={fieldGroupStyle}>
+                  <label style={labelStyle}>College or University *</label>
+                  {!isCustomCollege ? (
+                    <div style={{ position: 'relative' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ position: 'relative', flex: 1 }}>
+                          <input
+                            type="text"
+                            placeholder="Search your college or university..."
+                            value={
+                              selectedInstitute ? selectedInstitute.name : instituteQuery
+                            }
+                            onChange={(e) => {
+                              setSelectedInstitute(null);
+                              setInstituteQuery(e.target.value);
+                              setInstituteDropdownOpen(true);
+                            }}
+                            onFocus={() => setInstituteDropdownOpen(true)}
+                            style={{ ...inputStyle, paddingLeft: '36px' }}
+                          />
+                          <Search
+                            size={16}
+                            style={{
+                              position: 'absolute',
+                              left: '12px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              color: 'var(--aiims-text-muted, #94A3B8)',
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCustomCollege(true);
+                            setSelectedInstitute(null);
+                          }}
+                          style={{
+                            ...btnSecondary,
+                            padding: '0 12px',
+                            fontSize: '12px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <Plus size={14} /> Other
+                        </button>
+                      </div>
 
-                    <div style={fieldGroupStyle}>
-                      <label style={{ ...labelStyle, fontSize: '12px' }}>
-                        Start Year <span style={{ color: '#EF4444' }}>*</span>
-                      </label>
-                      <select
-                        id="reg-admission-year"
-                        className="reg-select"
-                        style={{ ...selectStyle, fontSize: '13px' }}
-                        value={admissionYear}
-                        onChange={(e) => setAdmissionYear(Number(e.target.value))}
-                      >
-                        <option value="">Year</option>
-                        {availableStartYears.map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
+                      {/* Dropdown Results */}
+                      {instituteDropdownOpen && instituteOptions.length > 0 && (
+                        <div className="institute-dropdown">
+                          {instituteOptions.map((opt) => (
+                            <div
+                              key={opt._id}
+                              className={`institute-item ${
+                                selectedInstitute?._id === opt._id ? 'selected' : ''
+                              }`}
+                              onClick={() => {
+                                setSelectedInstitute(opt);
+                                setInstituteDropdownOpen(false);
+                              }}
+                            >
+                              <div style={{ fontWeight: 600 }}>{opt.name}</div>
+                              {opt.city && (
+                                <div
+                                  style={{
+                                    fontSize: '11px',
+                                    color: 'var(--aiims-text-muted, #64748B)',
+                                  }}
+                                >
+                                  {opt.city}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-
-                    <div style={fieldGroupStyle}>
-                      <label style={{ ...labelStyle, fontSize: '12px' }}>
-                        Graduating <span style={{ color: '#EF4444' }}>*</span>
-                      </label>
-                      <select
-                        id="reg-graduation-year"
-                        className="reg-select"
-                        style={{ ...selectStyle, fontSize: '13px' }}
-                        value={expectedGraduationYear}
-                        onChange={(e) => setExpectedGraduationYear(Number(e.target.value))}
+                  ) : (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        type="text"
+                        placeholder="Type full college / university name"
+                        value={customCollegeName}
+                        onChange={(e) => setCustomCollegeName(e.target.value)}
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCollege(false)}
+                        style={{ ...btnSecondary, padding: '0 12px', fontSize: '12px' }}
                       >
-                        <option value="">Year</option>
-                        {availableGraduationYears.map((y) => (
-                          <option key={y} value={y}>
-                            {y}
-                          </option>
-                        ))}
-                      </select>
+                        Search list
+                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Navigation buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+              <button
+                type="button"
+                className="reg-btn-secondary"
+                style={btnSecondary}
+                onClick={handlePrevStep}
+                disabled={isLoading}
+              >
+                <ArrowLeft size={16} />
+                <span>Back</span>
+              </button>
+
+              <button
+                type="button"
+                className="reg-btn-primary"
+                style={{ ...btnPrimary, opacity: isLoading ? 0.7 : 1 }}
+                onClick={handleSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Complete Registration</span>
+                    <Check size={16} />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ─── STEP 3: AI PROFILE / ENTREPRENEUR GROWTH ────────────────────── */}
-        {step === 3 && (
+        {/* ─── STEP 2: VENTURE DETAILS (ENTREPRENEUR) ───────────────────────── */}
+        {step === 2 && track === 'Entrepreneur' && (
           <div className="reg-fade">
-            <div style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '22px' }}>
               <h2
                 style={{
                   fontSize: '22px',
@@ -1925,371 +1589,138 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   margin: '0 0 4px',
                 }}
               >
-                {track === 'Entrepreneur' ? 'Growth Goals & Support Areas' : 'Your AI Profile'}
+                Your Venture Profile
               </h2>
               <p
                 style={{
-                  fontSize: '14px',
-                  color: 'var(--aiims-text-secondary, #64748B)',
+                  fontSize: '13px',
+                  color: 'var(--aiims-text-muted, #64748B)',
                   margin: 0,
                 }}
               >
-                {track === 'Entrepreneur'
-                  ? 'Select your core growth priorities, skills to master, and preferred mentoring areas.'
-                  : 'This personalizes your learning journey. It does not affect your capability score.'}
+                Tell us about your startup or venture idea. All fields are optional.
               </p>
             </div>
 
-            {track === 'Entrepreneur' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* Primary Entrepreneur Goal */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Primary Venture Goal <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    id="reg-entrepreneur-goal"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={entrepreneurGoal}
-                    onChange={(e) => setEntrepreneurGoal(e.target.value)}
-                  >
-                    {ENTREPRENEUR_GOALS.map((g) => (
-                      <option key={g.value} value={g.value}>
-                        {g.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Venture Name */}
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>Venture or Project Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. HealthAI, NovaPay, or leave blank if exploring"
+                  value={ventureName}
+                  onChange={(e) => setVentureName(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
 
-                {/* Skills to Develop (multi-select pills) */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Skills You Want to Develop{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      Select all that apply
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {SKILLS_TO_DEVELOP.map((skill) => {
-                      const isSelected = skillsToDevelop.includes(skill);
-                      return (
-                        <button
-                          key={skill}
-                          type="button"
-                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
-                          onClick={() => toggleSkill(skill)}
-                        >
-                          {isSelected && (
-                            <Check
-                              size={12}
-                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
-                            />
-                          )}
-                          {skill}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              {/* Industry */}
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>Primary Industry / Sector</label>
+                <select
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  style={inputStyle}
+                >
+                  {VENTURE_INDUSTRIES.map((ind) => (
+                    <option key={ind} value={ind}>
+                      {ind}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                {/* Key Business Challenges (multi-select pills) */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Key Business Challenges{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      Select all that apply
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {BUSINESS_CHALLENGES.map((ch) => {
-                      const isSelected = businessChallenges.includes(ch);
-                      return (
-                        <button
-                          key={ch}
-                          type="button"
-                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
-                          onClick={() => toggleChallenge(ch)}
-                        >
-                          {isSelected && (
-                            <Check
-                              size={12}
-                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
-                            />
-                          )}
-                          {ch}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Preferred Support Areas (multi-select pills) */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    Preferred Support & Mentoring Areas{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      Select all that apply
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {PREFERRED_SUPPORT_AREAS.map((sup) => {
-                      const isSelected = preferredSupport.includes(sup);
-                      return (
-                        <button
-                          key={sup}
-                          type="button"
-                          className={`reg-pill ${isSelected ? 'selected' : ''}`}
-                          onClick={() => toggleSupport(sup)}
-                        >
-                          {isSelected && (
-                            <Check
-                              size={12}
-                              style={{ marginRight: '4px', verticalAlign: 'middle' }}
-                            />
-                          )}
-                          {sup}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Entrepreneur guidance banner */}
+              {/* Venture Stage */}
+              <div style={fieldGroupStyle}>
+                <label style={labelStyle}>Current Stage</label>
                 <div
                   style={{
-                    padding: '12px 14px',
-                    background: isDarkMode ? 'rgba(91, 75, 255, 0.15)' : 'rgba(91, 75, 255, 0.07)',
-                    border: isDarkMode
-                      ? '1px solid rgba(91, 75, 255, 0.35)'
-                      : '1px solid rgba(91, 75, 255, 0.2)',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    color: isDarkMode ? '#C7D2FE' : '#4338CA',
-                    lineHeight: 1.5,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
                   }}
                 >
-                  <strong>Founder Advantage:</strong> Your responses configure your AI Wallet tools,
-                  Clarity Task Lab challenges, and industry radars specifically for venture
-                  building.
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {/* AI Familiarity */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    How familiar are you with AI tools? <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {AI_FAMILIARITY_OPTIONS.map((opt) => (
+                  {VENTURE_STAGES.slice(0, 4).map((stg) => {
+                    const isSelected = ventureStage === stg.value;
+                    return (
                       <button
-                        key={opt.value}
+                        key={stg.value}
                         type="button"
-                        onClick={() => setAiFamiliarity(opt.value)}
+                        onClick={() => setVentureStage(stg.value)}
                         style={{
-                          padding: '12px 14px',
+                          padding: '10px 12px',
                           borderRadius: '10px',
-                          border: `1.5px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #202b4d)' : 'var(--aiims-border-card, #E2E8F0)'}`,
-                          background:
-                            aiFamiliarity === opt.value
-                              ? isDarkMode
-                                ? 'rgba(91,75,255,0.15)'
-                                : 'var(--aiims-accent-glow, rgba(91,75,255,0.07))'
-                              : 'var(--aiims-bg-card, #fff)',
+                          border: isSelected
+                            ? '2px solid #5B4BFF'
+                            : '1px solid var(--aiims-input-border, #E2E8F0)',
+                          background: isSelected
+                            ? isDarkMode
+                              ? 'rgba(91, 75, 255, 0.2)'
+                              : '#EEF2FF'
+                            : 'transparent',
+                          color: isSelected
+                            ? '#5B4BFF'
+                            : 'var(--aiims-text-heading, #0F172A)',
+                          fontSize: '12.5px',
+                          fontWeight: isSelected ? 700 : 550,
                           cursor: 'pointer',
                           textAlign: 'left',
-                          fontFamily: 'inherit',
                           transition: 'all 0.15s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
+                          fontFamily: 'inherit',
                         }}
                       >
-                        <div
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            borderRadius: '50%',
-                            flexShrink: 0,
-                            border: `2px solid ${aiFamiliarity === opt.value ? 'var(--aiims-accent-primary, #5B4BFF)' : isDarkMode ? 'var(--aiims-border-card, #2c3b63)' : '#CBD5E1'}`,
-                            background:
-                              aiFamiliarity === opt.value
-                                ? 'var(--aiims-accent-primary, #5B4BFF)'
-                                : 'transparent',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          {aiFamiliarity === opt.value && (
-                            <div
-                              style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                background: '#fff',
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <div
-                            style={{
-                              fontSize: '13px',
-                              fontWeight: 700,
-                              color:
-                                aiFamiliarity === opt.value
-                                  ? isDarkMode
-                                    ? '#A5B4FC'
-                                    : '#4338CA'
-                                  : 'var(--aiims-text-primary, #0F172A)',
-                            }}
-                          >
-                            {opt.label}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '11px',
-                              color: 'var(--aiims-text-muted, #94A3B8)',
-                              marginTop: '1px',
-                            }}
-                          >
-                            {opt.description}
-                          </div>
-                        </div>
+                        {stg.label}
                       </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* AI Usage Contexts */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    How do you use (or plan to use) AI?{' '}
-                    <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 400 }}>
-                      Select all that apply
-                    </span>
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {AI_USAGE_CONTEXTS.map((ctx) => (
-                      <button
-                        key={ctx.value}
-                        type="button"
-                        className={`reg-pill ${aiUsageContexts.includes(ctx.value) ? 'selected' : ''}`}
-                        onClick={() => toggleUsageContext(ctx.value)}
-                      >
-                        {aiUsageContexts.includes(ctx.value) && (
-                          <Check
-                            size={12}
-                            style={{ marginRight: '4px', verticalAlign: 'middle' }}
-                          />
-                        )}
-                        {ctx.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Primary Goal */}
-                <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>
-                    What's your primary goal with AIIMS? <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    id="reg-primary-goal"
-                    className="reg-select"
-                    style={selectStyle}
-                    value={primaryGoal}
-                    onChange={(e) => setPrimaryGoal(e.target.value)}
-                  >
-                    <option value="">Select your main goal...</option>
-                    {PRIMARY_GOAL_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Important note about AI context vs capability */}
-                <div
-                  style={{
-                    padding: '12px 14px',
-                    background: isDarkMode ? 'rgba(14, 165, 233, 0.15)' : '#F0F9FF',
-                    border: isDarkMode ? '1px solid rgba(14, 165, 233, 0.35)' : '1px solid #BAE6FD',
-                    borderRadius: '10px',
-                    fontSize: '12px',
-                    color: isDarkMode ? '#7DD3FC' : '#0369A1',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  <strong>Note:</strong> Your AI Profile is for personalization only. Your actual
-                  capability score is measured exclusively through the AIIMS Assessment — not by
-                  what you say here.
+                    );
+                  })}
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Navigation buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '28px' }}>
+              <button
+                type="button"
+                className="reg-btn-secondary"
+                style={btnSecondary}
+                onClick={handlePrevStep}
+                disabled={isLoading}
+              >
+                <ArrowLeft size={16} />
+                <span>Back</span>
+              </button>
+
+              <button
+                type="button"
+                className="reg-btn-primary"
+                style={{ ...btnPrimary, opacity: isLoading ? 0.7 : 1 }}
+                onClick={handleSubmit}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Complete Registration</span>
+                    <Check size={16} />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ─── Navigation Buttons ──────────────────────────────────────────── */}
-        <div style={{ marginTop: '28px', display: 'flex', gap: '12px' }}>
-          {step > 1 && (
-            <button
-              type="button"
-              className="reg-btn-secondary"
-              style={{ ...btnSecondary, flex: '0 0 auto', width: 'auto', padding: '12px 20px' }}
-              onClick={handlePrevStep}
-              disabled={isLoading}
-            >
-              <ArrowLeft size={16} /> Back
-            </button>
-          )}
-
-          {step < 3 ? (
-            <button
-              type="button"
-              className="reg-btn-primary"
-              style={{
-                ...btnPrimary,
-                opacity: (step === 1 && !isStep1Valid) || isLoading ? 0.6 : 1,
-                cursor: (step === 1 && !isStep1Valid) || isLoading ? 'not-allowed' : 'pointer',
-              }}
-              onClick={handleNextStep}
-              disabled={isLoading || (step === 1 && !isStep1Valid)}
-            >
-              Continue <ArrowRight size={16} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="reg-btn-primary"
-              style={{ ...btnPrimary, background: isLoading ? '#A5B4FC' : '#5B4BFF' }}
-              onClick={handleSubmit}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Creating
-                  Account...
-                </>
-              ) : (
-                <>
-                  <CheckCircle size={16} /> Create My Account
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* Sign in link */}
+        {/* Footer Link to Sign In */}
         <div
           style={{
-            marginTop: '20px',
+            marginTop: '24px',
             textAlign: 'center',
-            fontSize: '14px',
-            color: 'var(--aiims-text-secondary, #64748B)',
+            fontSize: '13px',
+            color: 'var(--aiims-text-muted, #64748B)',
           }}
         >
           Already have an account?{' '}
@@ -2303,83 +1734,32 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               fontWeight: 700,
               cursor: 'pointer',
               padding: 0,
-              fontSize: 'inherit',
               fontFamily: 'inherit',
+              textDecoration: 'underline',
             }}
           >
             Sign In
           </button>
         </div>
+      </div>
 
-        {/* Store-Required Legal & Support Links */}
-        <div
-          style={{
-            marginTop: '28px',
-            paddingTop: '16px',
-            borderTop: '1px solid var(--aiims-border-subtle, #E2E8F0)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            fontSize: '12px',
-            color: 'var(--aiims-text-muted, #94A3B8)',
-            flexWrap: 'wrap',
-          }}
+      {/* Support text */}
+      <div
+        style={{
+          marginTop: '20px',
+          fontSize: '12px',
+          color: 'var(--aiims-text-muted, #94A3B8)',
+          textAlign: 'center',
+        }}
+      >
+        Need assistance? Contact{' '}
+        <a
+          href={`mailto:${SUPPORT_EMAIL}`}
+          style={{ color: '#5B4BFF', textDecoration: 'none', fontWeight: 600 }}
         >
-          <a
-            href="/privacy"
-            onClick={(e) => {
-              e.preventDefault();
-              window.history.pushState(null, '', '/privacy');
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            }}
-            style={{ color: 'inherit', textDecoration: 'none' }}
-            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
-            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
-          >
-            Privacy Policy
-          </a>
-          <span>•</span>
-          <a
-            href="/terms"
-            onClick={(e) => {
-              e.preventDefault();
-              window.history.pushState(null, '', '/terms');
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            }}
-            style={{ color: 'inherit', textDecoration: 'none' }}
-            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
-            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
-          >
-            Terms of Service
-          </a>
-          <span>•</span>
-          <a
-            href="/refunds"
-            onClick={(e) => {
-              e.preventDefault();
-              window.history.pushState(null, '', '/refunds');
-              window.dispatchEvent(new PopStateEvent('popstate'));
-            }}
-            style={{ color: 'inherit', textDecoration: 'none' }}
-            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
-            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
-          >
-            Refunds
-          </a>
-          <span>•</span>
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            style={{ color: 'inherit', textDecoration: 'none' }}
-            onMouseOver={(e) => (e.currentTarget.style.color = '#5B4BFF')}
-            onMouseOut={(e) => (e.currentTarget.style.color = 'inherit')}
-          >
-            Support
-          </a>
-        </div>
+          {SUPPORT_EMAIL}
+        </a>
       </div>
     </div>
   );
 };
-
-export default RegisterScreen;

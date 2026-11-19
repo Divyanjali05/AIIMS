@@ -299,6 +299,7 @@ export interface RegistrationPayload {
   password: string;
   confirmPassword?: string;
   track: 'Student' | 'Entrepreneur';
+  educationCategory?: string;
   // Step 2: Academics (Student track)
   instituteId?: string;
   instituteName?: string;
@@ -852,7 +853,10 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           ...prev.assessment,
           status: 'completed',
           completedAt: nowStr,
-          rewardClaimed: true,
+          rewardClaimed:
+            typeof serverRes?.rewardClaimed === 'boolean'
+              ? serverRes.rewardClaimed
+              : finalEvalResult.overallScore > 95 && bonusEarned > 0,
           scores: finalEvalResult.legacyScores,
           evaluationResult: finalEvalResult,
         },
@@ -1771,15 +1775,25 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         },
       };
 
+      const updatedCompleted = prev.clarity.completedTopics.includes(topicName)
+        ? prev.clarity.completedTopics
+        : [...prev.clarity.completedTopics, topicName];
+
       return {
         ...prev,
         clarity: {
           ...prev.clarity,
-          status: 'in_progress',
+          status: 'completed',
+          selectedTopic: topicName,
+          completedTopics: updatedCompleted,
           taskScores: {
             ...prevScores,
             [topicName]: updatedTopicScores,
           },
+        },
+        focus: {
+          ...prev.focus,
+          status: prev.focus.status === 'locked' ? 'unlocked' : prev.focus.status,
         },
       };
     });
@@ -1929,7 +1943,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
           success: false,
           error:
             data?.error ||
-            `Unable to connect to AIIMS server (HTTP ${res.status}). Please verify that the backend is running.`,
+            (res.status === 429
+              ? 'Too many login attempts. Please wait a moment before trying again.'
+              : `Unable to connect to AIIMS server (HTTP ${res.status}). Please verify that the backend is running.`),
         };
       }
       if (!data) {

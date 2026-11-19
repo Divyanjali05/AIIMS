@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { rateLimit, MemoryStore } from 'express-rate-limit';
 import { config, resolveLoginRateLimitConfig, type LoginRateLimitConfig } from '../config/env';
+import { loginSecurityService } from '../services/loginSecurity.service';
 
 /**
  * Registry of active in-memory stores for testing teardown and cleanup.
@@ -8,7 +9,7 @@ import { config, resolveLoginRateLimitConfig, type LoginRateLimitConfig } from '
 const activeStores: MemoryStore[] = [];
 
 /**
- * Resets all in-memory rate limit stores (used for test teardown and cleanup).
+ * Resets all in-memory rate limit stores and security trackers (used for test teardown and cleanup).
  */
 export const clearRateLimitStore = (): void => {
   for (const store of activeStores) {
@@ -16,6 +17,7 @@ export const clearRateLimitStore = (): void => {
       store.resetAll();
     }
   }
+  loginSecurityService.resetState();
 };
 
 export interface RateLimitOptions {
@@ -24,6 +26,7 @@ export interface RateLimitOptions {
   message?: string;
   statusCode?: number;
   skipSuccessfulRequests?: boolean;
+  skip?: (req: Request, res: Response) => boolean;
 }
 
 /**
@@ -37,6 +40,7 @@ export const createRateLimiter = (options: RateLimitOptions) => {
     message = 'Too many requests, please try again later.',
     statusCode = 429,
     skipSuccessfulRequests = false,
+    skip,
   } = options;
 
   const store = new MemoryStore();
@@ -50,6 +54,7 @@ export const createRateLimiter = (options: RateLimitOptions) => {
     legacyHeaders: true,
     validate: false,
     skipSuccessfulRequests,
+    skip,
     keyGenerator: (req: Request) => {
       const forwarded = req.headers['x-forwarded-for'];
       const ip =
@@ -72,18 +77,19 @@ export const createRateLimiter = (options: RateLimitOptions) => {
   });
 };
 
-// 1. Auth Rate Limiter: configurable window and max requests per IP (defaults: 15 per 15 minutes)
+// 1. Auth Rate Limiter: configurable window and max requests per IP (defaults: 300 per 15 minutes)
 // Only failed authentication attempts increment the rate limit counter (skipSuccessfulRequests: true)
 export const authRateLimiter = createRateLimiter({
   windowMs: config.authRateLimitWindowMs || 15 * 60 * 1000,
-  max: config.authRateLimitMax || 15,
+  max: config.authRateLimitMax || 300,
   message: 'Too many authentication attempts. Please try again later.',
   skipSuccessfulRequests: true,
 });
 
 /**
- * Factory for dedicated login rate limiter so unit tests can instantiate
- * isolated environment-specific limiters cleanly without mutating production config.
+ * Factory for dedicated login rate limiter.
+ * Enables skipSuccessfulRequests: true so that legitimate concurrent users from
+ * shared institutional IPs (colleges, labs, offices) do not deplete the quota.
  */
 export const createLoginRateLimiter = (
   envOrConfig: NodeJS.ProcessEnv | LoginRateLimitConfig = {
@@ -101,10 +107,11 @@ export const createLoginRateLimiter = (
     windowMs: resolved.windowMs,
     max: resolved.max,
     message: 'Too many authentication attempts. Please try again later.',
+    skipSuccessfulRequests: true,
   });
 };
 
-// 1a. Dedicated Login Rate Limiter: 30/15m in explicit local development, 15/15m in production
+// 1a. Dedicated Login Rate Limiter: 500/15m in development, 300/15m in production (skipSuccessfulRequests: true)
 export const loginRateLimiter = createLoginRateLimiter();
 
 // 1b. Registration Rate Limiter: dedicated limit (default: 15 attempts per hour per IP)
@@ -164,9 +171,21 @@ export const aiExecutionRateLimiter = createRateLimiter({
     'AI task execution rate limit reached. Please wait a moment before sending another prompt.',
 });
 
-// 9. General API Rate Limiter: max 300 requests per 15 minutes per IP
+// 9. General API Rate Limiter: relaxed for institutional multi-user usage (default: 1500 per 15 minutes per IP)
+// Skips login, logout, health, and public config so general browsing never starves authentication
 export const generalApiRateLimiter = createRateLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
+  windowMs: config.generalApiRateLimitWindowMs || 15 * 60 * 1000,
+  max: config.generalApiRateLimitMax || 1500,
   message: 'Too many requests. Please try again later.',
+  skip: (req: Request) => {
+    const p = req.path || req.originalUrl || '';
+    return (
+      p === '/auth/login' ||
+      p.endsWith('/auth/login') ||
+      p === '/auth/logout' ||
+      p.endsWith('/auth/logout') ||
+      p.includes('/config/public') ||
+      p.includes('/health')
+    );
+  },
 });

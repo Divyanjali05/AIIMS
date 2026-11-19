@@ -13,8 +13,6 @@ import {
 
 const router = Router();
 
-router.use(generalApiRateLimiter);
-
 // Learner state
 router.get('/learner/state', requireAuth, getLearnerState);
 router.put('/learner/state', requireAuth, updateLearnerState);

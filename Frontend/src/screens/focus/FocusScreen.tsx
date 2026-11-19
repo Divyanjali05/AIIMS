@@ -75,6 +75,7 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
   const isClarityExplored =
     state.clarity.status === 'completed' ||
     state.clarity.status === 'in_progress' ||
+    state.clarity.status === 'unlocked' ||
     state.focus.status === 'unlocked' ||
     state.focus.status === 'active' ||
     Boolean(state.focus.selectedTrack) ||
@@ -82,7 +83,11 @@ export const FocusScreen: React.FC<FocusScreenProps> = ({ setActiveTab }) => {
     (state.clarity.selectedAreas && state.clarity.selectedAreas.length > 0) ||
     state.clarity.selectedTopic !== null ||
     Object.keys(state.clarity.taskScores || {}).length > 0 ||
-    Object.keys(state.clarity.reflections || {}).length > 0;
+    Object.keys(state.clarity.reflections || {}).length > 0 ||
+    Boolean(
+      state.credits.claimedActions &&
+        state.credits.claimedActions.some((a) => a.includes('clarity') || a.includes('CLARITY'))
+    );
 
   const activeFocusTrack = state.focus.selectedTrack;
   const isFocusActive = state.focus.status === 'active';

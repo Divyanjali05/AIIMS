@@ -125,8 +125,8 @@ export function getValidatedJwtSecret(): string {
 }
 
 export const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-export const PRODUCTION_LOGIN_RATE_LIMIT_MAX = 15;
-export const LOCAL_DEV_LOGIN_RATE_LIMIT_MAX = 30;
+export const PRODUCTION_LOGIN_RATE_LIMIT_MAX = 300;
+export const LOCAL_DEV_LOGIN_RATE_LIMIT_MAX = 500;
 
 export type LoginRateLimitEnvironment = 'development' | 'test' | 'production';
 
@@ -138,8 +138,8 @@ export interface LoginRateLimitConfig {
 
 /**
  * Resolves login rate-limit policy exclusively from server-side process.env.NODE_ENV.
- * Fails closed to strict production defaults (15 attempts / 15 minutes) unless
- * NODE_ENV is explicitly 'development' (30 / 15 minutes) or 'test' (isolated test config).
+ * Configured with generous institutional defaults (300 attempts / 15 minutes in production,
+ * 500 in development) to support shared campus, lab, and office NAT IP addresses.
  * Never inspects request headers, query params, or client-supplied values.
  */
 export function resolveLoginRateLimitConfig(
@@ -147,20 +147,33 @@ export function resolveLoginRateLimitConfig(
 ): LoginRateLimitConfig {
   const rawEnv = (env.NODE_ENV || '').trim().toLowerCase();
 
-  // Production or any missing/unknown NODE_ENV must strictly enforce 15 attempts / 15 min
+  const customMax = Number(env.LOGIN_RATE_LIMIT_MAX || env.AUTH_RATE_LIMIT_MAX);
+  const customWindow = Number(env.LOGIN_RATE_LIMIT_WINDOW_MS || env.AUTH_RATE_LIMIT_WINDOW_MS);
+
+  // Production or any missing/unknown NODE_ENV enforces institutional defaults (300 attempts / 15 min)
   if (rawEnv === 'production' || (rawEnv !== 'development' && rawEnv !== 'test')) {
     return {
       environment: 'production',
-      max: PRODUCTION_LOGIN_RATE_LIMIT_MAX,
-      windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+      max:
+        Number.isFinite(customMax) && customMax > 0
+          ? Math.floor(customMax)
+          : PRODUCTION_LOGIN_RATE_LIMIT_MAX,
+      windowMs:
+        Number.isFinite(customWindow) && customWindow > 0
+          ? Math.floor(customWindow)
+          : LOGIN_RATE_LIMIT_WINDOW_MS,
     };
   }
 
   // Isolated automated testing configuration
   if (rawEnv === 'test') {
-    const rawTestMax = Number(env.TEST_LOGIN_RATE_LIMIT_MAX || env.AUTH_RATE_LIMIT_MAX);
+    const rawTestMax = Number(
+      env.TEST_LOGIN_RATE_LIMIT_MAX || env.LOGIN_RATE_LIMIT_MAX || env.AUTH_RATE_LIMIT_MAX
+    );
     const rawTestWindow = Number(
-      env.TEST_LOGIN_RATE_LIMIT_WINDOW_MS || env.AUTH_RATE_LIMIT_WINDOW_MS
+      env.TEST_LOGIN_RATE_LIMIT_WINDOW_MS ||
+        env.LOGIN_RATE_LIMIT_WINDOW_MS ||
+        env.AUTH_RATE_LIMIT_WINDOW_MS
     );
     return {
       environment: 'test',
@@ -178,8 +191,14 @@ export function resolveLoginRateLimitConfig(
   // Explicit local development only (NODE_ENV === 'development')
   return {
     environment: 'development',
-    max: LOCAL_DEV_LOGIN_RATE_LIMIT_MAX,
-    windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+    max:
+      Number.isFinite(customMax) && customMax > 0
+        ? Math.floor(customMax)
+        : LOCAL_DEV_LOGIN_RATE_LIMIT_MAX,
+    windowMs:
+      Number.isFinite(customWindow) && customWindow > 0
+        ? Math.floor(customWindow)
+        : LOGIN_RATE_LIMIT_WINDOW_MS,
   };
 }
 
@@ -245,11 +264,14 @@ export const config = {
   loginRateLimitEnvironment: initialLoginRateLimit.environment,
   loginRateLimitMax: initialLoginRateLimit.max,
   loginRateLimitWindowMs: initialLoginRateLimit.windowMs,
-  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 15,
+  authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 300,
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  registrationRateLimitMax: Number(process.env.REGISTRATION_RATE_LIMIT_MAX) || 15,
+  registrationRateLimitMax: Number(process.env.REGISTRATION_RATE_LIMIT_MAX) || 30,
   registrationRateLimitWindowMs:
     Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS) || 60 * 60 * 1000,
+  generalApiRateLimitMax: Number(process.env.GENERAL_API_RATE_LIMIT_MAX) || 1500,
+  generalApiRateLimitWindowMs:
+    Number(process.env.GENERAL_API_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   /** 64-char hex string → 32-byte AES-256 key for encrypting TOTP secrets at rest. */
   totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY || '',
   /** Support contact email (placeholder read from SUPPORT_EMAIL) */

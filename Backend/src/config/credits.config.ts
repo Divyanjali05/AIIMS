@@ -155,20 +155,31 @@ export const formatUserState = (dbUser: IUser) => {
       aiimsCredits: dbUser.aiimsCredits,
       deviceBinding: dbUser.deviceBinding,
     },
-    assessment: dbUser.assessment || {
-      status: 'not_started',
-      answers: {},
-      currentQuestionIndex: 0,
-      completedAt: null,
-      rewardClaimed: false,
-      scores: {
-        usageFrequency: 0,
-        evaluationCapability: 0,
-        workflowDesign: 0,
-        strategicVision: 0,
-        mentorshipReadiness: 0,
-      },
-    },
+    assessment: dbUser.assessment
+      ? {
+          ...dbUser.assessment,
+          rewardClaimed:
+            typeof dbUser.assessment.evaluationResult?.overallScore === 'number'
+              ? dbUser.assessment.evaluationResult.overallScore > 95 &&
+                Boolean(dbUser.assessment.rewardClaimed)
+              : Boolean(
+                  dbUser.assessment.rewardClaimed && dbUser.assessment.highScoreBonusClaimed
+                ),
+        }
+      : {
+          status: 'not_started',
+          answers: {},
+          currentQuestionIndex: 0,
+          completedAt: null,
+          rewardClaimed: false,
+          scores: {
+            usageFrequency: 0,
+            evaluationCapability: 0,
+            workflowDesign: 0,
+            strategicVision: 0,
+            mentorshipReadiness: 0,
+          },
+        },
     analysis: dbUser.analysis || {
       status: 'locked',
       topCapability: 'AI Evaluation & Critical Assessment',

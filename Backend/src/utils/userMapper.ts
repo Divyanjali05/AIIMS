@@ -50,6 +50,7 @@ export function defaultAssessment(): IUser['assessment'] {
     currentQuestionIndex: 0,
     completedAt: null,
     rewardClaimed: false,
+    highScoreBonusClaimed: false,
     scores: {
       usageFrequency: 0,
       evaluationCapability: 0,
@@ -231,7 +232,7 @@ export function userRecordToIUser(row: PrismaUser): IUser {
       status:
         Array.isArray(clarityRaw.completedTopics) && clarityRaw.completedTopics.length > 0
           ? 'completed'
-          : clarityRaw.status === 'locked' &&
+          : (!clarityRaw.status || clarityRaw.status === 'locked') &&
             (row.assessmentStatus === 'completed' ||
               analysisRaw.status === 'generated' ||
               Boolean(analysisRaw.aiProfile))
@@ -246,10 +247,13 @@ export function userRecordToIUser(row: PrismaUser): IUser {
       ...defFocus,
       ...focusRaw,
       status:
-        focusRaw.status === 'locked' &&
-        (row.assessmentStatus === 'completed' ||
-          analysisRaw.status === 'generated' ||
-          Boolean(analysisRaw.aiProfile))
+        (Array.isArray(clarityRaw.completedTopics) && clarityRaw.completedTopics.length > 0) ||
+        clarityRaw.status === 'completed'
+          ? 'unlocked'
+          : (!focusRaw.status || focusRaw.status === 'locked') &&
+            (row.assessmentStatus === 'completed' ||
+              analysisRaw.status === 'generated' ||
+              Boolean(analysisRaw.aiProfile))
           ? 'unlocked'
           : focusRaw.status || 'locked',
       history: Array.isArray(focusRaw.history) ? focusRaw.history : [],

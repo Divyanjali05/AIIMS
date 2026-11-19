@@ -10,9 +10,6 @@ import {
 
 const router = Router();
 
-// Rate limit learner question endpoints
-router.use('/questions', generalApiRateLimiter);
-
 // Learner Question Delivery & Attempt Lifecycle
 router.post('/questions/serve', requireAuth, serveQuestionHandler);
 router.get('/questions/current', requireAuth, getCurrentQuestionHandler);
