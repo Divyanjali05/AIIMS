@@ -120,9 +120,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           isAssessmentDone ? '✓' : 'Start'
         ),
         createNavItem('analysis', 'My AI Profile', BarChart3),
-        createNavItem('wallet', 'AI Wallet', Wallet),
         createNavItem('clarity', 'Clarity', Compass),
         createNavItem('focus', 'Focus', Target),
+        createNavItem('wallet', 'AI Wallet', Wallet),
       ],
     },
     {
