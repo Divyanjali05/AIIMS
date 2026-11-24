@@ -57,6 +57,7 @@ import { MarketCatalogView } from '../catalog/MarketCatalogView';
 import { MarketTierBadge } from '../../components/wallet/MarketTierBadge';
 import { ConfirmRemoveModal } from '../../components/wallet/ConfirmRemoveModal';
 import { ToolComparisonView } from '../../components/wallet/ToolComparisonView';
+import { LearnAISection } from './LearnAISection';
 
 /**
  * Startup Toolkit Gaps — capability categories identified as essential
@@ -131,7 +132,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   );
 
   const [activeSection, setActiveSection] = useState<
-    'credits' | 'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'admin'
+    'credits' | 'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'learn' | 'admin'
   >('credits');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -803,11 +804,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           },
           { id: 'compare', label: '5. Task Comparison', icon: ArrowRightLeft, badge: undefined },
           { id: 'gaps', label: '6. Toolkit Gaps', icon: BarChart2, badge: undefined },
+          { id: 'learn', label: '7. Learn AI', icon: BookOpen, badge: undefined },
           ...(state.profile?.role === 'admin'
             ? [
                 {
                   id: 'admin',
-                  label: '7. Pipeline',
+                  label: '8. Pipeline',
                   icon: ShieldCheck,
                   badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
                 },
@@ -2421,7 +2423,19 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 5: PIPELINE ADMIN & OBSERVABILITY */}
+      {/* SECTION 7: LEARN AI (RESOURCES, TUTORIALS & CASE STUDIES) */}
+      {/* ========================================================================= */}
+      {activeSection === 'learn' && (
+        <LearnAISection
+          currentAudienceMode={currentAudienceMode}
+          onAddTool={handleAddToolWithFeedback}
+          userToolIds={userTools.map((t) => t.toolId)}
+          catalog={catalog}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 8: PIPELINE ADMIN & OBSERVABILITY */}
       {/* ========================================================================= */}
       {activeSection === 'admin' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

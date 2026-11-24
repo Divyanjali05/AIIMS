@@ -21,6 +21,7 @@ import { runHomeAndDesignSystemTestSuite } from '../../../Frontend/src/services/
 import { runAndroidAndMobileExperienceTests } from '../../../Frontend/src/services/__tests__/androidAndMobileExperience.test';
 import { runPasswordSecurityTestSuite } from '../../../Frontend/src/services/__tests__/passwordSecurity.test';
 import { runLearnerStateSyncTestSuite } from '../../../Frontend/src/services/__tests__/learnerStateSync.test';
+import { runLearnAITestSuite } from '../../../Frontend/src/services/__tests__/learnAI.test';
 
 interface SuiteResult {
   id: string;
@@ -188,6 +189,19 @@ const suiteDefinitions: SuiteDefinition[] = [
           passed: r.passed,
           detail: r.detail,
         })),
+      };
+    },
+  },
+  {
+    id: 'learnAI',
+    name: 'Learn AI Resources, Multilingual Coverage & Invariants',
+    execute: () => {
+      const res = runLearnAITestSuite();
+      return {
+        passedCount: res.passedCount,
+        failedCount: res.failedCount,
+        totalCount: res.totalCount,
+        details: res.results,
       };
     },
   },
