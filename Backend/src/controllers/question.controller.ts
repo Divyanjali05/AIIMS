@@ -15,7 +15,12 @@ import { aiQuestionGeneratorService } from '../services/aiQuestionGenerator.serv
 import { creditsLedgerService } from '../services/creditsLedger.service';
 import { IQuestionBank } from '../types/models';
 import { isValidId, toArray, withLegacyId } from '../utils/id';
-import { toJsonInput } from '../utils/userMapper';
+import { toJsonInput, defaultClarity, defaultFocus } from '../utils/userMapper';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  getCompletedQuestionsCount,
+  isWalletUnlocked,
+} from '../config/walletUnlock.config';
 
 function isDbUnavailableError(err: unknown): boolean {
   if (!err || typeof err !== 'object') return false;
@@ -162,6 +167,17 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
 
     const currentBalance = await creditsLedgerService.getBalance(learnerId);
 
+    // Update completedQuestionIds on req.user idempotently
+    if (!Array.isArray(req.user.completedQuestionIds)) {
+      req.user.completedQuestionIds = [];
+    }
+    const qId = result.attempt.questionId || assignmentId;
+    if (qId && !req.user.completedQuestionIds.includes(qId)) {
+      req.user.completedQuestionIds.push(qId);
+    }
+    const completedQuestionsCount = getCompletedQuestionsCount(req.user);
+    const walletUnlocked = isWalletUnlocked(req.user);
+
     return res.status(200).json({
       success: true,
       attemptId: result.attempt.attemptId,
@@ -171,6 +187,10 @@ export const submitAttemptHandler = async (req: AuthenticatedRequest, res: Respo
       submittedAt: result.attempt.submittedAt,
       reward: (result as any).reward,
       currentBalance,
+      completedQuestionsCount,
+      requiredThreshold: MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+      walletUnlocked,
+      progress: `${Math.min(completedQuestionsCount, MIN_COMPLETED_QUESTIONS_FOR_WALLET)} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions completed`,
     });
   } catch (err: any) {
     if (isDbUnavailableError(err)) {
@@ -562,5 +582,83 @@ export const adminTriggerAIGenerationHandler = async (req: AuthenticatedRequest,
       });
     }
     return res.status(500).json({ error: err.message || 'AI generation failed' });
+  }
+};
+
+/**
+ * POST /api/questions/record-attempt
+ * Records a completed question attempt across Clarity or Focus, guaranteeing idempotent counting.
+ */
+export const recordQuestionAttemptHandler = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { questionId, module: targetModule, topic, score, answer } = req.body;
+    if (!questionId || typeof questionId !== 'string') {
+      return res.status(400).json({ error: 'questionId is required', code: 'INVALID_QUESTION_ID' });
+    }
+
+    const cleanQuestionId = questionId.trim();
+
+    // Idempotently add to completedQuestionIds on req.user
+    if (!Array.isArray(req.user.completedQuestionIds)) {
+      req.user.completedQuestionIds = [];
+    }
+    if (!req.user.completedQuestionIds.includes(cleanQuestionId)) {
+      req.user.completedQuestionIds.push(cleanQuestionId);
+    }
+
+    // Update module-specific state
+    if (targetModule === 'clarity') {
+      if (!req.user.clarity) req.user.clarity = defaultClarity();
+      if (!Array.isArray(req.user.clarity.completedQuestionIds)) {
+        req.user.clarity.completedQuestionIds = [];
+      }
+      if (!req.user.clarity.completedQuestionIds.includes(cleanQuestionId)) {
+        req.user.clarity.completedQuestionIds.push(cleanQuestionId);
+      }
+    } else if (targetModule === 'focus') {
+      if (!req.user.focus) req.user.focus = defaultFocus();
+      if (!Array.isArray(req.user.focus.completedQuestionIds)) {
+        req.user.focus.completedQuestionIds = [];
+      }
+      if (!req.user.focus.completedQuestionIds.includes(cleanQuestionId)) {
+        req.user.focus.completedQuestionIds.push(cleanQuestionId);
+      }
+    }
+
+    // Persist to user record in database if connected
+    const learnerId = String(req.user.id || req.user._id);
+    if (isValidId(learnerId) && isDatabaseConnected()) {
+      try {
+        await prisma.user.update({
+          where: { id: learnerId },
+          data: {
+            clarityData: toJsonInput(req.user.clarity || {}),
+            focusData: toJsonInput(req.user.focus || {}),
+          },
+        });
+      } catch (dbErr) {
+        console.warn('[QuestionController] Non-fatal DB update for question attempt:', dbErr);
+      }
+    }
+
+    const completedCount = getCompletedQuestionsCount(req.user);
+    const unlocked = isWalletUnlocked(req.user);
+
+    return res.status(200).json({
+      success: true,
+      questionId: cleanQuestionId,
+      module: targetModule || 'clarity',
+      completedQuestionsCount: completedCount,
+      requiredThreshold: MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+      walletUnlocked: unlocked,
+      progress: `${Math.min(completedCount, MIN_COMPLETED_QUESTIONS_FOR_WALLET)} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions completed`,
+    });
+  } catch (err: any) {
+    console.error('[QuestionController] recordQuestionAttempt error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to record question attempt' });
   }
 };

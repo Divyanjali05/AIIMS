@@ -276,4 +276,15 @@ export const config = {
   totpEncryptionKey: process.env.TOTP_ENCRYPTION_KEY || '',
   /** Support contact email (placeholder read from SUPPORT_EMAIL) */
   supportEmail: process.env.SUPPORT_EMAIL || 'support@aiims.education',
+  /** Centralized feature flag: locks Entrepreneur mode globally when false. */
+  entrepreneurModeEnabled: process.env.ENTREPRENEUR_MODE_ENABLED === 'true',
+  /** SMTP email delivery configuration for Email OTP verification */
+  smtpHost: process.env.SMTP_HOST || '',
+  smtpPort: Number(process.env.SMTP_PORT) || 587,
+  smtpSecure: process.env.SMTP_SECURE === 'true',
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'AIIMS Authentication <noreply@aiims.education>',
+  /** Email OTP feature enabled flag */
+  emailOtpEnabled: process.env.EMAIL_OTP_ENABLED !== 'false',
 };

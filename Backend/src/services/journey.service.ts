@@ -27,6 +27,11 @@ import {
 import { FocusSessionService } from './focusSession.service';
 import { isValidId, toArray, toRecord, withLegacyId } from '../utils/id';
 import { userRecordToIUser } from '../utils/userMapper';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  isWalletUnlocked,
+  getCompletedQuestionsCount,
+} from '../config/walletUnlock.config';
 
 export interface MilestoneItem {
   id: string;
@@ -222,6 +227,12 @@ export class JourneyService {
       focusDaily.totalCompletedSessions > 0 ||
       !!learner.focus?.selectedTrack;
 
+    // AI Wallet unlock and completion logic
+    const walletUnlocked = isWalletUnlocked(learner);
+    const completedQuestionsCount = getCompletedQuestionsCount(learner);
+    const isWalletCompleted =
+      walletUnlocked && (walletCount >= 3 || (learner.aiWallet as any)?.status === 'completed');
+
     // Other advanced stages
     const isRadarDone = (learner.radar?.investigatedSignalIds?.length || 0) > 0;
     const isRelevanceDone = learner.relevance?.status === 'completed';
@@ -229,7 +240,7 @@ export class JourneyService {
     const isBuildDone = (learner.build?.projects?.length || 0) > 0;
     const isMentorAvailable = isAssessmentDone;
 
-    // Canonical 10-Stage Milestones
+    // Canonical 10-Stage Milestones (Single Source of Truth)
     const milestones: MilestoneItem[] = [
       {
         id: 'understand',
@@ -277,23 +288,11 @@ export class JourneyService {
           : undefined,
       },
       {
-        id: 'wallet',
-        order: 3,
-        name: 'AI Wallet',
-        subtitle: 'Intelligent Tool Stack',
-        status: isWalletExplored ? 'completed' : isAnalysisUnlocked ? 'current' : 'upcoming',
-        description:
-          'Curate your active AI toolkit with natural-language matching and credit ledger tracking.',
-        targetTab: 'wallet',
-        actionLabel: isWalletExplored ? 'Manage Wallet' : 'Explore AI Tools',
-        highlight: `${walletCount} Tools Bookmarked`,
-      },
-      {
         id: 'clarity',
-        order: 4,
+        order: 3,
         name: 'Clarity Lab',
         subtitle: 'Deliberate AI Practice',
-        status: isClarityCompleted ? 'completed' : isWalletExplored ? 'current' : 'upcoming',
+        status: isClarityCompleted ? 'completed' : isAnalysisViewed ? 'current' : 'locked',
         description: 'Solve real AI workflow challenges with multi-criteria rubric evaluations.',
         targetTab: 'clarity',
         actionLabel: isClarityCompleted ? 'Continue Clarity' : 'Enter Clarity Lab',
@@ -301,10 +300,10 @@ export class JourneyService {
       },
       {
         id: 'focus',
-        order: 5,
+        order: 4,
         name: 'Focus Track',
-        subtitle: 'Deep Work & Pomodoro Cycles',
-        status: isFocusSelected ? 'completed' : isClarityCompleted ? 'current' : 'upcoming',
+        subtitle: 'Deep Work & Specialization',
+        status: isFocusSelected ? 'completed' : isClarityCompleted ? 'current' : 'locked',
         description:
           'Execute focused study blocks on chosen AI capability tracks with authoritative timekeeping.',
         targetTab: 'focus',
@@ -315,15 +314,39 @@ export class JourneyService {
             : 'Concentrate on high-priority track',
       },
       {
+        id: 'wallet',
+        order: 5,
+        name: 'AI Wallet',
+        subtitle: 'Personalized AI Tools',
+        status: !walletUnlocked
+          ? 'locked'
+          : isWalletCompleted
+            ? 'completed'
+            : isFocusSelected
+              ? 'current'
+              : 'upcoming',
+        description:
+          'Curate your active AI toolkit with natural-language matching and verified tool evaluation.',
+        targetTab: 'wallet',
+        actionLabel: !walletUnlocked
+          ? `Locked (${completedQuestionsCount}/${MIN_COMPLETED_QUESTIONS_FOR_WALLET} Questions)`
+          : isWalletCompleted
+            ? 'Manage Wallet'
+            : 'Explore AI Tools',
+        highlight: !walletUnlocked
+          ? `Complete ${Math.max(0, MIN_COMPLETED_QUESTIONS_FOR_WALLET - completedQuestionsCount)} more question(s) to unlock`
+          : `${walletCount} Tools Bookmarked`,
+      },
+      {
         id: 'radar',
         order: 6,
         name: 'AI Radar',
         subtitle: 'Emerging AI Breakthroughs',
-        status: isRadarDone ? 'completed' : isFocusSelected ? 'upcoming' : 'locked',
+        status: isRadarDone ? 'completed' : isWalletCompleted ? 'current' : 'locked',
         description:
           'Continuous intelligence feed of foundation model releases and technical tool breakthroughs.',
         targetTab: 'radar',
-        actionLabel: isFocusSelected ? 'Investigate Signals' : 'Locked (Complete Focus)',
+        actionLabel: isWalletCompleted ? 'Investigate Signals' : 'Locked (Prerequisites)',
         highlight: isRadarDone
           ? `${learner.radar?.investigatedSignalIds?.length} Signals Investigated`
           : undefined,
@@ -333,7 +356,7 @@ export class JourneyService {
         order: 7,
         name: 'AI Relevance',
         subtitle: 'Personal Impact Synthesis',
-        status: isRelevanceDone ? 'completed' : isRadarDone ? 'upcoming' : 'locked',
+        status: isRelevanceDone ? 'completed' : isRadarDone ? 'current' : 'locked',
         description:
           'Map emerging AI capabilities directly to your academic and professional workflow.',
         targetTab: 'relevance',
@@ -344,7 +367,7 @@ export class JourneyService {
         order: 8,
         name: 'Problem Solver',
         subtitle: 'AI Workflow Architecture',
-        status: isSolverDone ? 'completed' : isRelevanceDone ? 'upcoming' : 'locked',
+        status: isSolverDone ? 'completed' : isRelevanceDone ? 'current' : 'locked',
         description:
           'Architect multi-agent and tool-routing workflows for complex business problems.',
         targetTab: 'solver',
@@ -355,7 +378,7 @@ export class JourneyService {
         order: 9,
         name: 'Projects Workspace',
         subtitle: 'Production Scaffolding',
-        status: isBuildDone ? 'completed' : isSolverDone ? 'upcoming' : 'locked',
+        status: isBuildDone ? 'completed' : isSolverDone ? 'current' : 'locked',
         description: 'Translate architecture blueprints into production codebase templates.',
         targetTab: 'build',
         actionLabel: isSolverDone ? 'Open Projects' : 'Locked (Prerequisites)',
@@ -386,9 +409,11 @@ export class JourneyService {
     const nextBestAction = this.computeNextBestAction(
       isAssessmentDone,
       isAnalysisViewed,
-      isWalletExplored,
       isClarityCompleted,
       isFocusSelected,
+      walletUnlocked,
+      completedQuestionsCount,
+      isWalletCompleted,
       highestLevel
     );
 
@@ -424,9 +449,11 @@ export class JourneyService {
   private static computeNextBestAction(
     isAssessmentDone: boolean,
     isAnalysisViewed: boolean,
-    isWalletExplored: boolean,
     isClarityCompleted: boolean,
     isFocusSelected: boolean,
+    walletUnlocked: boolean,
+    completedQuestionsCount: number,
+    isWalletCompleted: boolean,
     clarityLevel: string
   ) {
     if (!isAssessmentDone) {
@@ -451,17 +478,6 @@ export class JourneyService {
       };
     }
 
-    if (!isWalletExplored) {
-      return {
-        actionTitle: 'Curate Your AI Wallet',
-        actionReason:
-          'Discover and bookmark verified AI tools matching your specific tasks and academic discipline.',
-        targetTab: 'wallet',
-        actionButtonLabel: 'Explore AI Wallet',
-        isLocked: false,
-      };
-    }
-
     if (!isClarityCompleted) {
       return {
         actionTitle: 'Practice in Clarity Lab',
@@ -480,6 +496,27 @@ export class JourneyService {
           'Concentrate on your chosen capability track with authoritative Pomodoro cycles and zero distractions.',
         targetTab: 'focus',
         actionButtonLabel: 'Start Focus Session',
+        isLocked: false,
+      };
+    }
+
+    if (!walletUnlocked) {
+      return {
+        actionTitle: 'Complete Clarity & Focus Practice',
+        actionReason: `Complete at least ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions across Clarity and Focus to unlock your AI Wallet (${completedQuestionsCount} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} completed).`,
+        targetTab: 'clarity',
+        actionButtonLabel: 'Practice in Clarity',
+        isLocked: false,
+      };
+    }
+
+    if (!isWalletCompleted) {
+      return {
+        actionTitle: 'Curate Your AI Wallet',
+        actionReason:
+          'Discover and bookmark verified AI tools matching your specific tasks and academic discipline.',
+        targetTab: 'wallet',
+        actionButtonLabel: 'Explore AI Wallet',
         isLocked: false,
       };
     }

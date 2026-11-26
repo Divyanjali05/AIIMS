@@ -698,6 +698,13 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
         };
 
         const currentFocus = toRecord(existingUser?.focusData);
+        const prevClarityQIds = Array.isArray(currentClarity.completedQuestionIds)
+          ? (currentClarity.completedQuestionIds as string[])
+          : [];
+        const updatedClarityQIds = prevClarityQIds.includes(question.questionId)
+          ? prevClarityQIds
+          : [...prevClarityQIds, question.questionId];
+
         await tx.user.update({
           where: { id: learnerId },
           data: {
@@ -707,6 +714,7 @@ export const submitClarityTask = async (req: AuthenticatedRequest, res: Response
               ...currentClarity,
               selectedTopic: assignment.topic,
               completedTopics: updatedCompleted,
+              completedQuestionIds: updatedClarityQIds,
               status: 'completed',
               taskScores: updatedTaskScores,
             }),
@@ -1208,9 +1216,7 @@ export const saveTaskScore = async (req: AuthenticatedRequest, res: Response) =>
       const completed = Array.isArray(userClarity.completedTopics)
         ? (userClarity.completedTopics as string[])
         : [];
-      const updatedCompleted = completed.includes(topic)
-        ? completed
-        : [...completed, topic];
+      const updatedCompleted = completed.includes(topic) ? completed : [...completed, topic];
       const prevScores = toRecord(userClarity.taskScores);
       const topicScores = toRecord(prevScores[topic]);
 

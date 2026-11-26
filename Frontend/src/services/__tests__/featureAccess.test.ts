@@ -307,16 +307,9 @@ export function runFeatureAccessTestSuite(): {
   );
 
   // ---------------------------------------------------------------------------
-  // 6. Core Always-Accessible Features
+  // 6. Core Always-Accessible Features & AI Wallet 3-Question Gate
   // ---------------------------------------------------------------------------
-  const alwaysOpenFeatures: FeatureId[] = [
-    'home',
-    'assessment',
-    'wallet',
-    'credits',
-    'settings',
-    'journey',
-  ];
+  const alwaysOpenFeatures: FeatureId[] = ['home', 'assessment', 'credits', 'settings', 'journey'];
   alwaysOpenFeatures.forEach((fid) => {
     const acc = getFeatureAccess(fid, freshState);
     assert(
@@ -324,6 +317,38 @@ export function runFeatureAccessTestSuite(): {
       acc.unlocked === true && acc.visible === true
     );
   });
+
+  // 6B: AI Wallet 3-Question Unlock Gate
+  const walletFresh = getFeatureAccess('wallet', freshState);
+  assert('6B-1: AI Wallet is locked with 0 attempts', walletFresh.unlocked === false);
+  assert(
+    '6B-2: AI Wallet lock reason explains 3-question requirement',
+    typeof walletFresh.reason === 'string' && walletFresh.reason.includes('3 questions')
+  );
+
+  const state1Attempt = createMockLearnerState({
+    completedQuestionIds: ['q-1'],
+  });
+  assert(
+    '6B-3: AI Wallet remains locked with 1 attempt',
+    getFeatureAccess('wallet', state1Attempt).unlocked === false
+  );
+
+  const state2Attempts = createMockLearnerState({
+    completedQuestionIds: ['q-1', 'q-2'],
+  });
+  assert(
+    '6B-4: AI Wallet remains locked with 2 attempts',
+    getFeatureAccess('wallet', state2Attempts).unlocked === false
+  );
+
+  const state3Attempts = createMockLearnerState({
+    completedQuestionIds: ['q-1', 'q-2', 'q-3'],
+  });
+  assert(
+    '6B-5: AI Wallet unlocks with 3 attempts',
+    getFeatureAccess('wallet', state3Attempts).unlocked === true
+  );
 
   // ---------------------------------------------------------------------------
   // 7. Journey Stages Status Synchronization
@@ -339,7 +364,21 @@ export function runFeatureAccessTestSuite(): {
     freshJourney.journeyStages[1].status === 'locked'
   );
   assert(
-    '7D: Stage 6-10 (Radar, Relevance, Solver, Build, Improve) are locked',
+    '7D-1: Stage 3 is CLARITY',
+    freshJourney.journeyStages[2].id === 'clarity' && freshJourney.journeyStages[2].number === 3
+  );
+  assert(
+    '7D-2: Stage 4 is FOCUS',
+    freshJourney.journeyStages[3].id === 'focus' && freshJourney.journeyStages[3].number === 4
+  );
+  assert(
+    '7D-3: Stage 5 is AI WALLET (locked on fresh account)',
+    freshJourney.journeyStages[4].id === 'wallet' &&
+      freshJourney.journeyStages[4].number === 5 &&
+      freshJourney.journeyStages[4].status === 'locked'
+  );
+  assert(
+    '7D-4: Stage 6-10 (Radar, Relevance, Solver, Build, Improve) are locked',
     freshJourney.journeyStages.slice(5).every((s) => s.status === 'locked')
   );
 
@@ -658,12 +697,11 @@ if (typeof describe === 'function') {
       });
     });
 
-    describe('6. Core Always-Accessible Features', () => {
+    describe('6. Core Always-Accessible Features & AI Wallet Unlock Gate', () => {
       const freshState = createMockLearnerState();
       const alwaysOpenFeatures: FeatureId[] = [
         'home',
         'assessment',
-        'wallet',
         'credits',
         'settings',
         'journey',
@@ -675,6 +713,25 @@ if (typeof describe === 'function') {
           expect(acc.unlocked).toBe(true);
           expect(acc.visible).toBe(true);
         });
+      });
+
+      it('6B: AI Wallet is locked with 0 attempts', () => {
+        expect(getFeatureAccess('wallet', freshState).unlocked).toBe(false);
+      });
+
+      it('6C: AI Wallet remains locked with 1 attempt', () => {
+        const s1 = createMockLearnerState({ completedQuestionIds: ['q1'] });
+        expect(getFeatureAccess('wallet', s1).unlocked).toBe(false);
+      });
+
+      it('6D: AI Wallet remains locked with 2 attempts', () => {
+        const s2 = createMockLearnerState({ completedQuestionIds: ['q1', 'q2'] });
+        expect(getFeatureAccess('wallet', s2).unlocked).toBe(false);
+      });
+
+      it('6E: AI Wallet unlocks with 3 attempts', () => {
+        const s3 = createMockLearnerState({ completedQuestionIds: ['q1', 'q2', 'q3'] });
+        expect(getFeatureAccess('wallet', s3).unlocked).toBe(true);
       });
     });
 
@@ -717,7 +774,26 @@ if (typeof describe === 'function') {
         expect(freshJourney.journeyStages[1].status).toBe('locked');
       });
 
-      it('7D: Stage 6-10 (Radar, Relevance, Solver, Build, Improve) are locked', () => {
+      it('7D-1: Stage 3 is CLARITY', () => {
+        const freshJourney = resolveLearnerNextAction(freshState);
+        expect(freshJourney.journeyStages[2].id).toBe('clarity');
+        expect(freshJourney.journeyStages[2].number).toBe(3);
+      });
+
+      it('7D-2: Stage 4 is FOCUS', () => {
+        const freshJourney = resolveLearnerNextAction(freshState);
+        expect(freshJourney.journeyStages[3].id).toBe('focus');
+        expect(freshJourney.journeyStages[3].number).toBe(4);
+      });
+
+      it('7D-3: Stage 5 is AI WALLET (locked on fresh account)', () => {
+        const freshJourney = resolveLearnerNextAction(freshState);
+        expect(freshJourney.journeyStages[4].id).toBe('wallet');
+        expect(freshJourney.journeyStages[4].number).toBe(5);
+        expect(freshJourney.journeyStages[4].status).toBe('locked');
+      });
+
+      it('7D-4: Stage 6-10 (Radar, Relevance, Solver, Build, Improve) are locked', () => {
         const freshJourney = resolveLearnerNextAction(freshState);
         expect(freshJourney.journeyStages.slice(5).every((s) => s.status === 'locked')).toBe(true);
       });

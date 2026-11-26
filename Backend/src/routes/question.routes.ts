@@ -6,6 +6,7 @@ import {
   getCurrentQuestionHandler,
   submitAttemptHandler,
   getAttemptHistoryHandler,
+  recordQuestionAttemptHandler,
 } from '../controllers/question.controller';
 
 const router = Router();
@@ -15,5 +16,6 @@ router.post('/questions/serve', requireAuth, serveQuestionHandler);
 router.get('/questions/current', requireAuth, getCurrentQuestionHandler);
 router.post('/questions/submit', requireAuth, submitAttemptHandler);
 router.get('/questions/history', requireAuth, getAttemptHistoryHandler);
+router.post('/questions/record-attempt', requireAuth, recordQuestionAttemptHandler);
 
 export default router;

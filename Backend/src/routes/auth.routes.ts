@@ -28,6 +28,8 @@ import {
   totpVerifyLogin,
   deleteAccount,
   getPublicConfig,
+  verifyEmailOtp,
+  resendEmailOtp,
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -37,6 +39,8 @@ router.get('/config/public', getPublicConfig);
 
 router.post('/auth/login', loginRateLimiter, validateBody(loginSchema), login);
 router.post('/auth/register', registrationRateLimiter, validateBody(registerSchema), register);
+router.post('/auth/otp/verify', authRateLimiter, verifyEmailOtp);
+router.post('/auth/otp/resend', authRateLimiter, resendEmailOtp);
 router.post('/auth/logout', authenticateStudent, logout);
 router.post('/auth/set-password', authRateLimiter, setPassword);
 
@@ -62,12 +66,7 @@ router.post(
 router.get('/auth/me', authenticateStudent, requireAuth, getMe);
 
 router.get('/users/profile', requireAuth, getProfile);
-router.put(
-  '/users/profile',
-  requireAuth,
-  validateBody(updateProfileSchema),
-  updateProfile
-);
+router.put('/users/profile', requireAuth, validateBody(updateProfileSchema), updateProfile);
 
 // ── TOTP 2FA endpoints ────────────────────────────────────────────────────────
 // Setup: authenticated staff only

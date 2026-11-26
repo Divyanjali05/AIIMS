@@ -46,7 +46,11 @@ const below10thPayload = {
   instituteName: 'Delhi Public School',
 };
 const res1 = registerSchema.safeParse(below10thPayload);
-assert('Student Below 10th succeeds without academic year, branch, or degree fields', res1.success, res1.error?.message);
+assert(
+  'Student Below 10th succeeds without academic year, branch, or degree fields',
+  res1.success,
+  res1.error?.message
+);
 
 // 2. Class 9 / 10 Student Registration
 const class9_10Payload = {
@@ -60,7 +64,11 @@ const class9_10Payload = {
   yearOfStudy: 1, // Class 9
 };
 const res2 = registerSchema.safeParse(class9_10Payload);
-assert('Student Class 9/10 succeeds without specialization or degree fields', res2.success, res2.error?.message);
+assert(
+  'Student Class 9/10 succeeds without specialization or degree fields',
+  res2.success,
+  res2.error?.message
+);
 
 // 3. Intermediate Student Registration
 const intermediatePayload = {
@@ -73,7 +81,7 @@ const intermediatePayload = {
   specializationId: 'mpc',
   specializationName: 'MPC (Maths, Physics, Chemistry)',
   yearOfStudy: 2,
-  instituteName: 'Narayana Junior College',
+  instituteName: 'Apex Junior College',
 };
 const res3 = registerSchema.safeParse(intermediatePayload);
 assert('Student Intermediate succeeds with group and year', res3.success, res3.error?.message);
@@ -143,7 +151,11 @@ const entrepreneurPayload = {
   track: 'Entrepreneur',
 };
 const res7 = registerSchema.safeParse(entrepreneurPayload);
-assert('Entrepreneur succeeds with only account credentials (no education details)', res7.success, res7.error?.message);
+assert(
+  'Entrepreneur succeeds with only account credentials (no education details)',
+  res7.success,
+  res7.error?.message
+);
 
 // 8. Entrepreneur with optional venture fields
 const entrepreneurWithVenturePayload = {
@@ -157,7 +169,11 @@ const entrepreneurWithVenturePayload = {
   ventureStage: 'mvp_development',
 };
 const res8 = registerSchema.safeParse(entrepreneurWithVenturePayload);
-assert('Entrepreneur succeeds with optional venture name and stage', res8.success, res8.error?.message);
+assert(
+  'Entrepreneur succeeds with optional venture name and stage',
+  res8.success,
+  res8.error?.message
+);
 
 // 9. Cross-track isolation: Reject Student academic fields on Entrepreneur
 const invalidEntrepreneurPayload = {
@@ -201,7 +217,11 @@ const legacyStudentPayload = {
   expectedGraduationYear: 2028,
 };
 const res11 = registerSchema.safeParse(legacyStudentPayload);
-assert('Preserves backward compatibility for legacy Student registrations without educationCategory', res11.success, res11.error?.message);
+assert(
+  'Preserves backward compatibility for legacy Student registrations without educationCategory',
+  res11.success,
+  res11.error?.message
+);
 
 console.log('\n===============================================================');
 console.log(`SUMMARY: ${passed} PASSED / ${failed} FAILED`);

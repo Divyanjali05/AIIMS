@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import { requireWalletUnlock } from '../middleware/walletUnlock.middleware';
 import { aiExecutionRateLimiter, generalApiRateLimiter } from '../middleware/rateLimit.middleware';
 import { validateBody } from '../middleware/validate.middleware';
 import {
@@ -31,6 +32,7 @@ import {
   getToolHistory,
   getIntelligenceStatus,
   getDiscoveryStatus,
+  getWalletUnlockStatus,
   getUserWallet,
   getRecommendations,
   addToWallet,
@@ -69,11 +71,26 @@ router.get('/wallet/tools/:id/history', getToolHistory);
 router.get('/wallet/intelligence/status', getIntelligenceStatus);
 router.get('/wallet/discovery/status', getDiscoveryStatus);
 
-// Authenticated Wallet User routes
-router.get('/wallet/user', requireAuth, getUserWallet);
-router.get('/wallet/recommendations', requireAuth, getRecommendations);
-router.post('/wallet/add', requireAuth, validateBody(addToWalletSchema), addToWallet);
-router.post('/wallet/remove', requireAuth, validateBody(removeFromWalletSchema), removeFromWallet);
+// Wallet status & lock verification
+router.get('/wallet/status', requireAuth, getWalletUnlockStatus);
+
+// Authenticated Wallet User routes (Gated by minimum 3 question attempts in Clarity & Focus)
+router.get('/wallet/user', requireAuth, requireWalletUnlock, getUserWallet);
+router.get('/wallet/recommendations', requireAuth, requireWalletUnlock, getRecommendations);
+router.post(
+  '/wallet/add',
+  requireAuth,
+  requireWalletUnlock,
+  validateBody(addToWalletSchema),
+  addToWallet
+);
+router.post(
+  '/wallet/remove',
+  requireAuth,
+  requireWalletUnlock,
+  validateBody(removeFromWalletSchema),
+  removeFromWallet
+);
 router.post(
   '/wallet/tools/:id/report',
   requireAuth,
@@ -83,29 +100,38 @@ router.post(
 router.post(
   '/wallet/update-familiarity',
   requireAuth,
+  requireWalletUnlock,
   validateBody(updateFamiliaritySchema),
   updateFamiliarity
 );
 router.post(
   '/wallet/operate',
   requireAuth,
+  requireWalletUnlock,
   validateBody(walletOperationSchema),
   executeWalletOperation
 );
 router.post(
   '/wallet/confirm-usage',
   requireAuth,
+  requireWalletUnlock,
   validateBody(confirmUsageSchema),
   confirmToolUsage
 );
-router.get('/wallet/confirmations', requireAuth, getUserConfirmations);
+router.get('/wallet/confirmations', requireAuth, requireWalletUnlock, getUserConfirmations);
 router.post(
   '/wallet/personalized-match',
   requireAuth,
+  requireWalletUnlock,
   validateBody(personalizedMatchSchema),
   getPersonalizedToolMatching
 );
-router.get('/wallet/personalized-matching', requireAuth, getPersonalizedToolMatching);
+router.get(
+  '/wallet/personalized-matching',
+  requireAuth,
+  requireWalletUnlock,
+  getPersonalizedToolMatching
+);
 router.post('/wallet/discover/trigger', requireAuth, aiExecutionRateLimiter, triggerDiscovery);
 
 // Admin-Only Discovery & Tool Management routes

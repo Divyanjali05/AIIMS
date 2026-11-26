@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Eye, EyeOff, AlertCircle, ArrowLeft, Sun, Moon, Loader2, ShieldCheck } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ArrowLeft,
+  Sun,
+  Moon,
+  Loader2,
+  ShieldCheck,
+  Mail,
+  CheckCircle2,
+  Clock,
+  Lock,
+} from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
 import { RegisterScreen } from './RegisterScreen';
 import { PublicHeroScreen } from '../home/PublicHeroScreen';
-import { SUPPORT_EMAIL } from '../../config/appConfig';
+import { SUPPORT_EMAIL, ENTREPRENEUR_MODE_ENABLED } from '../../config/appConfig';
 
 interface LoginScreenProps {
   onSuccess?: (role?: string) => void;
@@ -13,7 +26,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode }) => {
-  const { login, verifyTotp } = useLearner();
+  const { login, verifyTotp, verifyEmailOtp, resendEmailOtp } = useLearner();
   const { isDarkMode, toggleTheme } = useTheme();
 
   // Determine view based on URL pathname or prop
@@ -64,17 +77,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
   const [totpCode, setTotpCode] = useState('');
   const [useBackupCode, setUseBackupCode] = useState(false);
 
+  // Email OTP State (for Student and standard accounts)
+  const [isEmailOtpStep, setIsEmailOtpStep] = useState(false);
+  const [otpChallengeId, setOtpChallengeId] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [otpExpiresInSeconds, setOtpExpiresInSeconds] = useState(300);
+  const [resendCooldown, setResendCooldown] = useState(60);
+  const [resendSuccessMessage, setResendSuccessMessage] = useState('');
+
   // UI State
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const isSubmittingRef = React.useRef(false);
 
+  // Countdown timer for OTP expiry and resend cooldown
+  useEffect(() => {
+    if (!isEmailOtpStep) return;
+    const interval = setInterval(() => {
+      setOtpExpiresInSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isEmailOtpStep]);
+
   // Handle Login Submit (Unified for Student, Entrepreneur, Admin)
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLoading || isSubmittingRef.current) return;
     setErrorMessage('');
+    setResendSuccessMessage('');
 
     const cleanEmail = email.trim();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -98,6 +131,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
         setErrorMessage('');
         return;
       }
+      // Email OTP verification required
+      if (res.otpRequired && res.challengeId) {
+        setOtpChallengeId(res.challengeId);
+        setMaskedEmail(res.maskedEmail || cleanEmail);
+        setOtpExpiresInSeconds(res.expiresInSeconds || 300);
+        setResendCooldown(res.resendCooldownSeconds || 60);
+        setIsEmailOtpStep(true);
+        setErrorMessage('');
+        return;
+      }
       if (res.success) {
         if (onSuccess) onSuccess(res.user?.role || res.role);
       } else {
@@ -107,6 +150,59 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
       setErrorMessage("We couldn't sign you in right now. Please try again.");
     } finally {
       isSubmittingRef.current = false;
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Email OTP Verification Submit
+  const handleEmailOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLoading || isSubmittingRef.current) return;
+    setErrorMessage('');
+    setResendSuccessMessage('');
+
+    const cleanCode = emailOtpCode.trim();
+    if (!cleanCode || cleanCode.length !== 6) {
+      setErrorMessage('Please enter the 6-digit verification code sent to your email.');
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setIsLoading(true);
+    try {
+      const res = await verifyEmailOtp(otpChallengeId, cleanCode);
+      if (res.success) {
+        if (onSuccess) onSuccess(res.user?.role || res.role);
+      } else {
+        setErrorMessage(res.error || 'Invalid or expired OTP code.');
+      }
+    } catch {
+      setErrorMessage('Unable to verify OTP right now. Please try again.');
+    } finally {
+      isSubmittingRef.current = false;
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Resend Email OTP
+  const handleResendEmailOtp = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setErrorMessage('');
+    setResendSuccessMessage('');
+    setIsLoading(true);
+    try {
+      const res = await resendEmailOtp(otpChallengeId);
+      if (res.success) {
+        setOtpExpiresInSeconds(res.expiresInSeconds || 300);
+        setResendCooldown(res.resendCooldownSeconds || 60);
+        setEmailOtpCode('');
+        setResendSuccessMessage('A new verification code has been sent to your email.');
+      } else {
+        setErrorMessage(res.error || 'Failed to resend verification code.');
+      }
+    } catch {
+      setErrorMessage('Network error while resending verification code.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -359,7 +455,261 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
             boxSizing: 'border-box',
           }}
         >
-          {!isTotpStep ? (
+          {isEmailOtpStep ? (
+            <>
+              {/* Email OTP Verification View */}
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    borderRadius: '14px',
+                    backgroundColor: isDarkMode ? 'rgba(91, 75, 255, 0.2)' : '#EEF2FF',
+                    color: '#5B4BFF',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 12px auto',
+                  }}
+                >
+                  <Mail size={28} />
+                </div>
+                <h2
+                  style={{
+                    fontSize: '22px',
+                    fontWeight: 800,
+                    color: 'var(--aiims-text-heading, #0F172A)',
+                    letterSpacing: '-0.5px',
+                    margin: '0 0 6px 0',
+                  }}
+                >
+                  Verify Your Email
+                </h2>
+                <p
+                  style={{
+                    fontSize: '13.5px',
+                    color: 'var(--aiims-text-secondary, #64748B)',
+                    margin: '0 0 4px 0',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  We sent a 6-digit verification code to
+                </p>
+                <div
+                  style={{
+                    display: 'inline-block',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    color: 'var(--aiims-text-heading, #0F172A)',
+                    backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#F1F5F9',
+                    padding: '4px 12px',
+                    borderRadius: '6px',
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  {maskedEmail || email}
+                </div>
+              </div>
+
+              {/* Resend Confirmation Banner */}
+              {resendSuccessMessage && (
+                <div
+                  style={{
+                    backgroundColor: isDarkMode ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
+                    border: isDarkMode ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid #A7F3D0',
+                    color: isDarkMode ? '#6EE7B7' : '#065F46',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                  <span>{resendSuccessMessage}</span>
+                </div>
+              )}
+
+              {/* Error Notification */}
+              {errorMessage && (
+                <div
+                  style={{
+                    backgroundColor: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
+                    border: isDarkMode ? '1px solid rgba(239, 68, 68, 0.35)' : '1px solid #FCA5A5',
+                    color: isDarkMode ? '#FCA5A5' : '#991B1B',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  <AlertCircle
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      flexShrink: 0,
+                      color: isDarkMode ? '#EF4444' : '#DC2626',
+                    }}
+                  />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
+              <form
+                onSubmit={handleEmailOtpSubmit}
+                style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+              >
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <label
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 650,
+                        color: 'var(--aiims-text-secondary, #334155)',
+                      }}
+                    >
+                      6-Digit Security Code
+                    </label>
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        color:
+                          otpExpiresInSeconds <= 60
+                            ? '#EF4444'
+                            : 'var(--aiims-text-muted, #64748B)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <Clock size={12} />
+                      {otpExpiresInSeconds > 0
+                        ? `Expires in ${Math.floor(otpExpiresInSeconds / 60)}:${(otpExpiresInSeconds % 60).toString().padStart(2, '0')}`
+                        : 'Code expired'}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    className="aiims-input"
+                    autoFocus
+                    placeholder="123456"
+                    value={emailOtpCode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setEmailOtpCode(val);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    disabled={isLoading || otpExpiresInSeconds <= 0}
+                    maxLength={6}
+                    style={{
+                      textAlign: 'center',
+                      fontSize: '22px',
+                      letterSpacing: '8px',
+                      fontWeight: 800,
+                    }}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="aiims-btn-primary"
+                  disabled={
+                    isLoading || emailOtpCode.trim().length !== 6 || otpExpiresInSeconds <= 0
+                  }
+                  style={{
+                    width: '100%',
+                    padding: '13px',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    marginTop: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 size={16} style={{ animation: 'aiimsSpin 1s linear infinite' }} />
+                      Verifying code...
+                    </>
+                  ) : (
+                    'Verify & Sign In'
+                  )}
+                </button>
+
+                {/* Resend OTP Button */}
+                <div style={{ textAlign: 'center', marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleResendEmailOtp}
+                    disabled={resendCooldown > 0 || isLoading}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: resendCooldown > 0 ? 'var(--aiims-text-muted, #94A3B8)' : '#5B4BFF',
+                      fontSize: '12.5px',
+                      fontWeight: 650,
+                      cursor: resendCooldown > 0 ? 'not-allowed' : 'pointer',
+                      padding: '4px',
+                      transition: 'color 0.2s',
+                    }}
+                  >
+                    {resendCooldown > 0
+                      ? `Resend code in ${resendCooldown}s`
+                      : "Didn't receive code? Resend OTP"}
+                  </button>
+                </div>
+
+                {/* Back to Login Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEmailOtpStep(false);
+                    setEmailOtpCode('');
+                    setErrorMessage('');
+                    setResendSuccessMessage('');
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--aiims-text-secondary, #64748B)',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    padding: '4px',
+                    textAlign: 'center',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    marginTop: '8px',
+                  }}
+                >
+                  <ArrowLeft size={13} /> Back to Email & Password
+                </button>
+              </form>
+            </>
+          ) : !isTotpStep ? (
             <>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                 <h2
@@ -398,7 +748,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess, initialMode
                 >
                   <span>Student</span>
                   <span style={{ opacity: 0.5 }}>•</span>
-                  <span>Entrepreneur</span>
+                  {!ENTREPRENEUR_MODE_ENABLED ? (
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        color: '#D97706',
+                        fontWeight: 700,
+                      }}
+                      title="Entrepreneur mode is currently unavailable"
+                    >
+                      <Lock size={10} /> Entrepreneur (Locked)
+                    </span>
+                  ) : (
+                    <span>Entrepreneur</span>
+                  )}
                   <span style={{ opacity: 0.5 }}>•</span>
                   <span>Admin</span>
                 </div>

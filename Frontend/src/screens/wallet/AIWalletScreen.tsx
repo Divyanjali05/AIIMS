@@ -24,9 +24,14 @@ import {
   GraduationCap,
   Rocket,
   Search,
-  Coins,
+  Lock,
 } from 'lucide-react';
 import { useLearner, resolveAudienceMode } from '../../context/LearnerContext';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  isWalletUnlocked,
+  getCompletedQuestionsCount,
+} from '../../config/canonicalCurriculum';
 import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -47,12 +52,10 @@ import { generateWalletRecommendations } from '../../services/recommendationEngi
 import { trackLearningLoopEvent } from '../../services/learningLoop';
 import { getAssessmentToolInsights } from '../../services/assessmentToolMatcher';
 import { AssessmentPromptSuggestions } from './AssessmentPromptSuggestions';
-import { CreditsLedgerSection } from './CreditsLedgerSection';
 import { IntelligentToolMatchingSection } from './IntelligentToolMatchingSection';
 import { DomainCardsSection } from './DomainCardsSection';
 import { UsageConfirmationModal } from './UsageConfirmationModal';
 import { PersonalizedDomainMatchingView } from './PersonalizedDomainMatchingView';
-import { WalletOperationCard } from './WalletOperationCard';
 import { MarketCatalogView } from '../catalog/MarketCatalogView';
 import { MarketTierBadge } from '../../components/wallet/MarketTierBadge';
 import { ConfirmRemoveModal } from '../../components/wallet/ConfirmRemoveModal';
@@ -126,14 +129,17 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
     setAudienceMode,
   } = useLearner();
 
+  const walletUnlocked = isWalletUnlocked(state);
+  const completedQuestionsCount = getCompletedQuestionsCount(state);
+
   const currentAudienceMode: AudienceMode = resolveAudienceMode(
     state.aiWallet?.audienceMode,
     state.academicProfile?.primaryGoal || state.profile?.targetGoal
   );
 
   const [activeSection, setActiveSection] = useState<
-    'credits' | 'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'learn' | 'admin'
-  >('credits');
+    'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'learn' | 'admin'
+  >('matching');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -281,9 +287,10 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   const _recommendations: ToolRecommendation[] = generateWalletRecommendations(state, catalog);
   const assessmentInsights = getAssessmentToolInsights(state, catalog);
 
-  // Auto-provision AI tools based on assessment prompts if wallet is currently empty
+  // Auto-provision AI tools based on assessment prompts ONLY if wallet is unlocked and currently empty
   useEffect(() => {
     if (
+      walletUnlocked &&
       !loading &&
       catalog.length > 0 &&
       userTools.length === 0 &&
@@ -292,7 +299,14 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
     ) {
       addMultipleToolsToWallet(assessmentInsights.autoAddTools);
     }
-  }, [loading, catalog.length, userTools.length, assessmentInsights, addMultipleToolsToWallet]);
+  }, [
+    walletUnlocked,
+    loading,
+    catalog.length,
+    userTools.length,
+    assessmentInsights,
+    addMultipleToolsToWallet,
+  ]);
 
   const categories: TaskCategory[] = [
     'Reasoning & Writing',
@@ -508,6 +522,135 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   const newAndUpdatedTools = catalog.filter(
     (t) => t.status === 'NEW' || t.status === 'RECENTLY_UPDATED' || t.status === 'UPDATED'
   );
+
+  if (!walletUnlocked) {
+    const progressPercent = Math.min(
+      100,
+      Math.round((completedQuestionsCount / MIN_COMPLETED_QUESTIONS_FOR_WALLET) * 100)
+    );
+    return (
+      <div
+        style={{
+          maxWidth: '840px',
+          margin: '40px auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          gap: '24px',
+          padding: '40px 24px',
+        }}
+      >
+        <div
+          style={{
+            width: '72px',
+            height: '72px',
+            borderRadius: '50%',
+            background: 'rgba(239, 68, 68, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#EF4444',
+          }}
+        >
+          <Lock size={36} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '540px' }}>
+          <Badge variant="warning" style={{ alignSelf: 'center' }}>
+            Stage 05 • Locked Workspace
+          </Badge>
+          <h2
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              margin: 0,
+              color: 'var(--aiims-text-heading)',
+            }}
+          >
+            AI Wallet is Locked
+          </h2>
+          <p
+            style={{
+              fontSize: '14px',
+              color: 'var(--aiims-text-muted)',
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            To unlock your personalized AI Wallet, complete at least{' '}
+            {MIN_COMPLETED_QUESTIONS_FOR_WALLET} question attempts across Clarity and Focus.
+            Questions must be submitted and recorded inside Clarity or Focus topics.
+          </p>
+        </div>
+
+        {/* Progress Card */}
+        <Surface
+          variant="bordered"
+          style={{
+            width: '100%',
+            maxWidth: '500px',
+            padding: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            borderRadius: '16px',
+            border: '1px solid var(--aiims-border-subtle)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span
+              style={{ fontSize: '13px', fontWeight: 700, color: 'var(--aiims-text-secondary)' }}
+            >
+              Unlock Progress
+            </span>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: '#5B4BFF' }}>
+              {completedQuestionsCount} of {MIN_COMPLETED_QUESTIONS_FOR_WALLET} Questions Completed
+            </span>
+          </div>
+
+          <div
+            style={{
+              width: '100%',
+              height: '10px',
+              borderRadius: '999px',
+              background: 'var(--aiims-bg-subtle, #F1F5F9)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${progressPercent}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #5B4BFF 0%, #7C3AED 100%)',
+                borderRadius: '999px',
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+
+          <p style={{ fontSize: '12px', color: 'var(--aiims-text-muted)', margin: 0 }}>
+            {MIN_COMPLETED_QUESTIONS_FOR_WALLET - completedQuestionsCount > 0
+              ? `Complete ${MIN_COMPLETED_QUESTIONS_FOR_WALLET - completedQuestionsCount} more question attempt(s) to automatically unlock AI Wallet.`
+              : 'Threshold reached! Wallet is ready to unlock.'}
+          </p>
+        </Surface>
+
+        {/* Action CTAs */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button variant="primary" onClick={() => _setActiveTab('clarity')}>
+            Go to Clarity
+          </Button>
+          <Button variant="outline" onClick={() => _setActiveTab('focus')}>
+            Go to Focus
+          </Button>
+          <Button variant="ghost" onClick={() => _setActiveTab('home')}>
+            Back to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -781,35 +924,34 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
       >
         {[
           {
-            id: 'credits',
-            label: '1. AI Credits & Ledger',
-            icon: Coins,
-            badge: undefined,
-          },
-          {
             id: 'matching',
-            label: '2. Personalized Tool Matching',
+            label: '1. Personalized Tool Matching',
             icon: Sparkles,
             badge: undefined,
           },
-          { id: 'wallet', label: '3. My Tool Stack', icon: Wallet, badge: `${userTools.length}` },
+          { id: 'wallet', label: '2. My Tool Stack', icon: Wallet, badge: `${userTools.length}` },
           {
             id: 'discover',
             label:
               state.profile?.role === 'admin'
-                ? '4. 13 Domain Cards & Catalog'
-                : '4. 13 Domain Cards',
+                ? '3. 13 Domain Cards & Catalog'
+                : '3. 13 Domain Cards',
             icon: Compass,
             badge: `${catalog.length}`,
           },
-          { id: 'compare', label: '5. Task Comparison', icon: ArrowRightLeft, badge: undefined },
-          { id: 'gaps', label: '6. Toolkit Gaps', icon: BarChart2, badge: undefined },
-          { id: 'learn', label: '7. Learn AI', icon: BookOpen, badge: undefined },
+          { id: 'compare', label: '4. Task Comparison', icon: ArrowRightLeft, badge: undefined },
+          {
+            id: 'gaps',
+            label: '5. Toolkit Gaps',
+            icon: Layers,
+            badge: gapData?.toolGaps ? `${gapData.toolGaps.length}` : undefined,
+          },
+          { id: 'learn', label: '6. Learn AI', icon: BookOpen, badge: undefined },
           ...(state.profile?.role === 'admin'
             ? [
                 {
                   id: 'admin',
-                  label: '8. Pipeline',
+                  label: '7. Pipeline',
                   icon: ShieldCheck,
                   badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
                 },
@@ -862,21 +1004,6 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           );
         })}
       </div>
-
-      {/* ========================================================================= */}
-      {/* SECTION: AI CREDITS & AUTHORITATIVE LEDGER */}
-      {/* ========================================================================= */}
-      {activeSection === 'credits' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <WalletOperationCard
-            balance={state.credits?.balance || 0}
-            onOperationComplete={() => {
-              // Balance updated
-            }}
-          />
-          <CreditsLedgerSection onNavigateToMatching={() => setActiveSection('matching')} />
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* SECTION: INTELLIGENT TOOL MATCHING */}

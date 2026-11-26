@@ -71,6 +71,7 @@ export interface IUser {
   stage: string;
   xpPoints: number;
   aiimsCredits: number;
+  completedQuestionIds?: string[];
   assessment: {
     status: string;
     answers: Record<string, any>;
@@ -102,6 +103,7 @@ export interface IUser {
     selectedAreas: string[];
     selectedTopic: string | null;
     completedTopics: string[];
+    completedQuestionIds?: string[];
     reflections: Record<string, string>;
     taskScores?: Record<string, any>;
     trialRunsUsed?: number;
@@ -109,6 +111,7 @@ export interface IUser {
   focus: {
     status: string;
     selectedTrack: string | null;
+    completedQuestionIds?: string[];
     history: string[];
     activatedAt?: string | null;
     sessionHistory?: any[];

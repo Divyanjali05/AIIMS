@@ -48,6 +48,8 @@ import {
   hashBackupCode,
   findMatchingBackupCodeIndex,
 } from '../services/totp.service';
+import { isEmailConfigured, sendOtpEmail } from '../services/email.service';
+import { emailOtpService } from '../services/emailOtp.service';
 
 /** 7-day cookie / token lifetime */
 const COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -323,6 +325,42 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Email OTP Verification: when active, generate OTP challenge and require verification before session issuance
+    if (config.emailOtpEnabled) {
+      if (!isEmailConfigured()) {
+        return res.status(503).json({
+          error:
+            'Email delivery service is currently not configured on this server. Please contact support.',
+          code: 'EMAIL_SERVICE_UNCONFIGURED',
+        });
+      }
+
+      const challenge = emailOtpService.createChallenge({
+        id: String(dbUser.id),
+        email: dbUser.email,
+        role: dbUser.role,
+        track: dbUser.track,
+      });
+
+      try {
+        await sendOtpEmail(dbUser.email, challenge.plainOtp);
+      } catch (err: unknown) {
+        emailOtpService.deleteChallenge(challenge.challengeId);
+        return res.status(500).json({
+          error: 'Failed to send OTP verification email. Please try again later.',
+          code: 'EMAIL_DELIVERY_FAILED',
+        });
+      }
+
+      return res.status(200).json({
+        otpRequired: true,
+        challengeId: challenge.challengeId,
+        maskedEmail: challenge.maskedEmail,
+        expiresInSeconds: challenge.expiresInSeconds,
+        resendCooldownSeconds: challenge.resendCooldownSeconds,
+      });
+    }
+
     const deviceResult = await verifyAndBindDevice(dbUser, req, res);
     if (!deviceResult.success) {
       return;
@@ -415,6 +453,15 @@ export const register = async (req: Request, res: Response) => {
     });
   }
 
+  // Global feature flag enforcement: Entrepreneur mode is locked
+  if (!config.entrepreneurModeEnabled && normalizedTrack === 'Entrepreneur') {
+    return res.status(403).json({
+      error: 'Entrepreneur mode is currently unavailable. Please register as a Student.',
+      code: 'ENTREPRENEUR_MODE_LOCKED',
+      field: 'track',
+    });
+  }
+
   // Account validation
   if (!email || !email.trim() || !email.includes('@') || !email.includes('.')) {
     return res.status(400).json({
@@ -484,7 +531,9 @@ export const register = async (req: Request, res: Response) => {
         }
         if (
           !educationLevel ||
-          !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(educationLevel)
+          !['SCHOOL', 'UNDERGRADUATE', 'POSTGRADUATE', 'RESEARCH', 'GRADUATE'].includes(
+            educationLevel
+          )
         ) {
           return res.status(400).json({
             error: 'Please select a valid education level.',
@@ -647,7 +696,8 @@ export const register = async (req: Request, res: Response) => {
     finalStreamSubCategory = 'GENERAL';
     finalEducationLevel = 'SCHOOL';
     finalProgramId = 'school_general';
-    finalProgramName = programName || (yearOfStudy === 2 ? 'Class 10' : 'Class 9') || 'Class 9 / 10';
+    finalProgramName =
+      programName || (yearOfStudy === 2 ? 'Class 10' : 'Class 9') || 'Class 9 / 10';
     finalSpecializationId = 'general';
     finalSpecializationName = 'General Secondary Education';
     finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
@@ -661,10 +711,13 @@ export const register = async (req: Request, res: Response) => {
     finalProgramId = 'intermediate';
     finalProgramName = programName || 'Intermediate (+2)';
     finalSpecializationId = specializationId || 'mpc';
-    finalSpecializationName = specializationName || (specializationId ? specializationId.toUpperCase() : 'MPC');
+    finalSpecializationName =
+      specializationName || (specializationId ? specializationId.toUpperCase() : 'MPC');
     finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
     finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
-    finalGraduationYear = expectedGraduationYear ? Number(expectedGraduationYear) : finalAdmissionYear + 2;
+    finalGraduationYear = expectedGraduationYear
+      ? Number(expectedGraduationYear)
+      : finalAdmissionYear + 2;
   } else if (educationCategory === 'DIPLOMA') {
     finalStream = stream || 'TECH';
     finalStreamSubCategory = 'DIPLOMA';
@@ -675,10 +728,13 @@ export const register = async (req: Request, res: Response) => {
     finalSpecializationName = specializationName || specInfo?.label || 'Diploma in Engineering';
     finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
     finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
-    finalGraduationYear = expectedGraduationYear ? Number(expectedGraduationYear) : finalAdmissionYear + 3;
+    finalGraduationYear = expectedGraduationYear
+      ? Number(expectedGraduationYear)
+      : finalAdmissionYear + 3;
   } else if (educationCategory === 'DEGREE') {
     finalStream = stream || 'TECH';
-    finalStreamSubCategory = streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE');
+    finalStreamSubCategory =
+      streamSubCategory || (finalStream === 'TECH' ? 'CS_IT' : 'COMMERCE_FINANCE');
     finalEducationLevel = 'UNDERGRADUATE';
     finalProgramId = programId || 'btech';
     finalProgramName = programName || programInfo?.label || 'B.Tech / Engineering';
@@ -696,7 +752,8 @@ export const register = async (req: Request, res: Response) => {
     finalProgramId = programId || 'mtech';
     finalProgramName = programName || programInfo?.label || 'M.Tech / Post-Graduate';
     finalSpecializationId = specializationId || 'mtech_cs';
-    finalSpecializationName = specializationName || specInfo?.label || 'Computer Science & Engineering';
+    finalSpecializationName =
+      specializationName || specInfo?.label || 'Computer Science & Engineering';
     finalYearOfStudy = yearOfStudy ? Number(yearOfStudy) : 1;
     finalAdmissionYear = admissionYear ? Number(admissionYear) : currentCalendarYear;
     finalGraduationYear = expectedGraduationYear
@@ -1266,7 +1323,12 @@ export const setPassword = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
   }
   if (isCommonPassword(newPassword)) {
-    return res.status(400).json({ error: 'This password is too common or easily guessed. Please choose a more secure password.' });
+    return res
+      .status(400)
+      .json({
+        error:
+          'This password is too common or easily guessed. Please choose a more secure password.',
+      });
   }
 
   const normalizedEmail = (typeof email === 'string' ? email : '').toLowerCase().trim();
@@ -1688,10 +1750,182 @@ export const deleteAccount = async (req: AuthenticatedRequest, res: Response) =>
 };
 
 /**
- * Public configuration endpoint for clients (support email, etc.)
+ * Public configuration endpoint for clients (support email, feature flags, etc.)
  */
 export const getPublicConfig = (_req: Request, res: Response) => {
   return res.json({
     supportEmail: config.supportEmail,
+    entrepreneurModeEnabled: config.entrepreneurModeEnabled,
+    emailOtpEnabled: config.emailOtpEnabled,
+  });
+};
+
+/**
+ * Verifies a 6-digit Email OTP and completes authentication by binding device
+ * and issuing JWT auth cookies / session tokens.
+ */
+export const verifyEmailOtp = async (req: Request, res: Response) => {
+  const { challengeId, otp } = req.body;
+
+  if (!challengeId || typeof challengeId !== 'string') {
+    return res.status(400).json({
+      error: 'Invalid or missing challenge ID. Please sign in again.',
+      code: 'INVALID_INPUT',
+    });
+  }
+
+  if (!otp || typeof otp !== 'string' || !/^\d{6}$/.test(otp.trim())) {
+    return res.status(400).json({
+      error: 'Please enter a valid 6-digit verification code.',
+      code: 'INVALID_INPUT',
+    });
+  }
+
+  const verification = emailOtpService.verifyOtp(challengeId, otp.trim());
+
+  if (!verification.success) {
+    if (verification.reason === 'EXPIRED') {
+      return res.status(400).json({
+        error: 'Verification code has expired. Please request a new code.',
+        code: 'OTP_EXPIRED',
+      });
+    }
+    if (verification.reason === 'MAX_ATTEMPTS') {
+      return res.status(429).json({
+        error:
+          'Too many incorrect attempts. Please sign in again to request a new verification code.',
+        code: 'OTP_MAX_ATTEMPTS',
+      });
+    }
+    if (verification.reason === 'NOT_FOUND') {
+      return res.status(400).json({
+        error: 'Verification session has expired or is invalid. Please sign in again.',
+        code: 'OTP_INVALID',
+      });
+    }
+    return res.status(400).json({
+      error: `Incorrect verification code. ${verification.attemptsRemaining} attempt(s) remaining.`,
+      code: 'OTP_INCORRECT',
+      attemptsRemaining: verification.attemptsRemaining,
+    });
+  }
+
+  // OTP verified successfully: issue authenticated session
+  const userId = verification.userId!;
+
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  try {
+    const row = await prisma.user.findUnique({ where: { id: userId } });
+    if (!row) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    if (row.isActive === false) {
+      return res.status(403).json({
+        error: 'Account has been disabled. Please contact support.',
+        code: 'ACCOUNT_DISABLED',
+      });
+    }
+
+    const dbUser = userRecordToIUser(row);
+    const mobile = isMobileClient(req);
+
+    const deviceResult = await verifyAndBindDevice(dbUser, req, res);
+    if (!deviceResult.success) {
+      return;
+    }
+
+    const token = generateAuthToken(
+      String(dbUser.id),
+      dbUser.email,
+      dbUser.role,
+      deviceResult.sessionId,
+      deviceResult.deviceIdHash
+    );
+    setAuthCookie(res, token, req);
+    const userState = formatUserState(dbUser);
+    let academicProfile: any = undefined;
+    let entrepreneurProfile: any = undefined;
+    try {
+      const uid = String(dbUser.id);
+      if (dbUser.track === 'Entrepreneur' && config.entrepreneurModeEnabled) {
+        const ep = await prisma.entrepreneurProfile.findUnique({ where: { userId: uid } });
+        if (ep) entrepreneurProfile = ep;
+      } else {
+        const sp = await prisma.studentProfile.findUnique({ where: { userId: uid } });
+        if (sp) academicProfile = sp;
+      }
+    } catch {}
+
+    return res.json({
+      ...(mobile ? { token } : {}),
+      user: {
+        ...userState.profile,
+        track: config.entrepreneurModeEnabled ? dbUser.track : 'Student',
+      },
+      state: {
+        ...userState,
+        ...(academicProfile ? { academicProfile } : {}),
+        ...(entrepreneurProfile ? { entrepreneurProfile } : {}),
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res
+      .status(500)
+      .json({ error: 'Authentication failed due to a database error.', details: msg });
+  }
+};
+
+/**
+ * Resends an Email OTP challenge enforcing 60s cooldown and invalidating the previous OTP.
+ */
+export const resendEmailOtp = async (req: Request, res: Response) => {
+  const { challengeId } = req.body;
+
+  if (!challengeId || typeof challengeId !== 'string') {
+    return res.status(400).json({
+      error: 'Invalid or missing challenge ID. Please sign in again.',
+      code: 'INVALID_INPUT',
+    });
+  }
+
+  const resendResult = emailOtpService.resendOtp(challengeId);
+
+  if (!resendResult.success) {
+    if (resendResult.reason === 'COOLDOWN') {
+      res.setHeader('Retry-After', resendResult.retryAfterSeconds || 60);
+      return res.status(429).json({
+        error: `Please wait ${resendResult.retryAfterSeconds} second(s) before requesting a new verification code.`,
+        code: 'RESEND_COOLDOWN',
+        retryAfterSeconds: resendResult.retryAfterSeconds,
+      });
+    }
+    return res.status(400).json({
+      error: 'Verification session has expired or is invalid. Please sign in again.',
+      code: 'OTP_EXPIRED',
+    });
+  }
+
+  try {
+    await sendOtpEmail(resendResult.email!, resendResult.plainOtp!);
+  } catch (err: unknown) {
+    return res.status(500).json({
+      error: 'Failed to resend verification email. Please try again.',
+      code: 'EMAIL_DELIVERY_FAILED',
+    });
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'A new 6-digit verification code has been sent to your email address.',
+    expiresInSeconds: 300,
+    resendCooldownSeconds: 60,
   });
 };

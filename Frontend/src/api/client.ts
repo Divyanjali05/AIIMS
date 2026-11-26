@@ -1399,6 +1399,37 @@ export const apiClient = {
     return res.json();
   },
 
+  /** Verifies 6-digit email OTP and receives authenticated session or JWT. */
+  async verifyEmailOtp(challengeId: string, otp: string) {
+    const res = await apiFetch(`${API_BASE}/auth/otp/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId, otp }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'Verification failed. Please check your code and try again.');
+    }
+    return data;
+  },
+
+  /** Resends an email OTP challenge, enforcing 60s cooldown. */
+  async resendEmailOtp(challengeId: string) {
+    const res = await apiFetch(`${API_BASE}/auth/otp/resend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err: any = new Error(data.error || 'Failed to resend verification code.');
+      err.code = data.code;
+      err.retryAfterSeconds = data.retryAfterSeconds;
+      throw err;
+    }
+    return data;
+  },
+
   // ── QUESTION BANK & AI QUESTION GENERATION ─────────────────────────────────
 
   /** Serves an unrepeated, eligible question to the authenticated learner. */

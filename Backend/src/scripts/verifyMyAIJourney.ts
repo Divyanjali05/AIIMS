@@ -423,9 +423,9 @@ async function runVerification() {
     const expectedCanonicalIds = [
       'understand',
       'profile',
-      'wallet',
       'clarity',
       'focus',
+      'wallet',
       'radar',
       'relevance',
       'solver',

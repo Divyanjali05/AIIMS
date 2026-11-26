@@ -1,6 +1,12 @@
 import { LearnerState } from '../context/LearnerContext';
 import { buildLearnerProfileContext } from './learnerProfileContext';
 import { getFeatureAccess } from './featureAccessService';
+import {
+  CANONICAL_CURRICULUM_STAGES,
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  isWalletUnlocked,
+  getCompletedQuestionsCount,
+} from '../config/canonicalCurriculum';
 
 export interface JourneyStageItem {
   id: string;
@@ -16,9 +22,9 @@ export interface LearnerNextAction {
   currentStageKey:
     | 'assessment'
     | 'analysis'
-    | 'wallet'
     | 'clarity'
     | 'focus'
+    | 'wallet'
     | 'radar'
     | 'relevance'
     | 'solver'
@@ -80,10 +86,20 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     state.analysis?.status === 'viewed' ||
     state.analysis?.status === 'generated' ||
     Boolean(state.analysis?.aiProfile);
-  const isWalletExplored = (state.aiWallet?.userTools?.length || 0) >= 1;
   const isClarityCompleted =
     (state.clarity?.completedTopics?.length || 0) > 0 || state.clarity?.status === 'completed';
-  const isFocusSelected = state.focus?.status === 'active' && state.focus?.selectedTrack !== null;
+  const isFocusSelected =
+    (state.focus?.status === 'active' && state.focus?.selectedTrack !== null) ||
+    state.focus?.status === 'completed';
+
+  // AI Wallet unlock and completion logic
+  const completedQuestionsCount = getCompletedQuestionsCount(state);
+  const walletUnlocked = isWalletUnlocked(state);
+  const isWalletCompleted =
+    walletUnlocked &&
+    ((state.aiWallet?.userTools?.length || 0) >= 3 ||
+      (state.aiWallet as any)?.status === 'completed');
+
   const isRadarInvestigated =
     (state.radar?.investigatedSignalIds?.length || 0) > 0 ||
     state.investigation?.status === 'completed';
@@ -119,43 +135,84 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     targetTab = 'analysis';
     actionButtonLabel = 'View Your AI Profile';
     progressPercent = 20;
-  } else if (!isWalletExplored) {
-    currentStageKey = 'wallet';
-    currentStageTitle = '3. AI WALLET';
-    nextActionTitle = 'Explore AI tools';
-    nextActionReason =
-      'Discover AI tools that match your role and profile. Learn which tools you should know or use.';
-    targetTab = 'wallet';
-    actionButtonLabel = 'Explore AI Tools';
-    progressPercent = 30;
   } else if (!isClarityCompleted) {
     currentStageKey = 'clarity';
-    currentStageTitle = '4. CLARITY';
+    currentStageTitle = '3. CLARITY';
     nextActionTitle = 'Clarify your AI goals';
     nextActionReason =
-      'Define what you actually want AI to help you accomplish in your work and projects.';
+      'Define what you actually want AI to help you accomplish and practice topic concepts.';
     targetTab = 'clarity';
     actionButtonLabel = 'Clarify Your Goals';
-    progressPercent = 40;
+    progressPercent = 30;
   } else if (!isFocusSelected) {
     currentStageKey = 'focus';
-    currentStageTitle = '5. FOCUS';
-    nextActionTitle = 'Choose your focus';
+    currentStageTitle = '4. FOCUS';
+    nextActionTitle = 'Choose your focus track';
     nextActionReason =
-      'Select what area you want to concentrate on right now to personalize your radar opportunities.';
+      'Select what area you want to concentrate on right now to personalize your learning track.';
     targetTab = 'focus';
     actionButtonLabel = 'Choose Focus Track';
-    progressPercent = 50;
-  } else {
-    // Advanced stages 6-10 (Radar, Relevance, Problem Solver, Projects, Mentor) are locked for now
+    progressPercent = 40;
+  } else if (!walletUnlocked) {
+    currentStageKey = 'clarity';
+    currentStageTitle = 'PRACTICE CLARITY & FOCUS';
+    nextActionTitle = `Complete ${MIN_COMPLETED_QUESTIONS_FOR_WALLET - completedQuestionsCount} more question(s) to unlock AI Wallet`;
+    nextActionReason = `AI Wallet unlocks after completing at least ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions across Clarity and Focus (${completedQuestionsCount} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} completed).`;
+    targetTab = 'clarity';
+    actionButtonLabel = 'Practice in Clarity';
+    progressPercent = 45;
+  } else if (!isWalletCompleted) {
     currentStageKey = 'wallet';
-    currentStageTitle = 'DEVELOP & EXPLORE';
-    nextActionTitle = 'Curate AI Wallet & Deepen Clarity';
+    currentStageTitle = '5. AI WALLET';
+    nextActionTitle = 'Explore your personalized AI tools';
     nextActionReason =
-      'You have selected your Focus Track! Advanced workspaces (AI Radar, Relevance, Problem Solver, Projects, Mentor) will unlock as you complete learning activities.';
+      'Your AI Wallet is unlocked! Curate your personalized tool stack and discover recommended AI tools matching your role.';
     targetTab = 'wallet';
     actionButtonLabel = 'Explore AI Wallet';
-    progressPercent = 55;
+    progressPercent = 50;
+  } else if (!isRadarInvestigated) {
+    currentStageKey = 'radar';
+    currentStageTitle = '6. AI RADAR';
+    nextActionTitle = 'Discover AI opportunities';
+    nextActionReason =
+      'Investigate emerging signals and discover new foundation model capabilities.';
+    targetTab = 'radar';
+    actionButtonLabel = 'Investigate Radar';
+    progressPercent = 60;
+  } else if (!isRelevanceCompleted) {
+    currentStageKey = 'relevance';
+    currentStageTitle = '7. AI RELEVANCE';
+    nextActionTitle = 'Synthesize personal relevance';
+    nextActionReason =
+      'Connect investigated signals to your daily tasks and understand why they matter.';
+    targetTab = 'relevance';
+    actionButtonLabel = 'Synthesize Relevance';
+    progressPercent = 70;
+  } else if (!hasSolvedWorkflow) {
+    currentStageKey = 'solver';
+    currentStageTitle = '8. PROBLEM SOLVER';
+    nextActionTitle = 'Solve a real problem';
+    nextActionReason = 'Apply AI tools to architect workflows for complex domain tasks.';
+    targetTab = 'solver';
+    actionButtonLabel = 'Open Problem Solver';
+    progressPercent = 80;
+  } else if (!hasBuildProject) {
+    currentStageKey = 'build';
+    currentStageTitle = '9. BUILD';
+    nextActionTitle = 'Create a project';
+    nextActionReason = 'Scaffold and build your solved workflow into a working project.';
+    targetTab = 'build';
+    actionButtonLabel = 'Open Projects';
+    progressPercent = 90;
+  } else {
+    currentStageKey = 'mentor';
+    currentStageTitle = '10. IMPROVE';
+    nextActionTitle = 'Continuous AI mastery';
+    nextActionReason =
+      'Review your updated insights, mentor feedback, and calibrated capability scores.';
+    targetTab = 'mentor';
+    actionButtonLabel = 'View Mentorship Insights';
+    progressPercent = 100;
   }
 
   // Canonical 10-Stage Journey Statuses aligned with featureAccessService
@@ -194,24 +251,15 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       targetTab: 'analysis',
     },
     {
-      id: 'wallet',
-      number: 3,
-      name: 'AI WALLET',
-      subtitle: 'Your AI Tools',
-      status: isWalletExplored ? 'completed' : isAnalysisViewed ? 'current' : 'upcoming',
-      description: 'Discover and evaluate tools suited to your profile.',
-      targetTab: 'wallet',
-    },
-    {
       id: 'clarity',
-      number: 4,
+      number: 3,
       name: 'CLARITY',
       subtitle: 'Your AI Goals',
       status: isClarityCompleted
         ? 'completed'
         : !clarityAccess.unlocked
           ? 'locked'
-          : isWalletExplored
+          : isAnalysisViewed
             ? 'current'
             : 'upcoming',
       description: 'Define what you actually want AI to help you accomplish.',
@@ -219,7 +267,7 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
     },
     {
       id: 'focus',
-      number: 5,
+      number: 4,
       name: 'FOCUS',
       subtitle: 'Your Focus Track',
       status: isFocusSelected
@@ -233,11 +281,32 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       targetTab: 'focus',
     },
     {
+      id: 'wallet',
+      number: 5,
+      name: 'AI WALLET',
+      subtitle: 'Your Personalized AI Tools',
+      status: !walletUnlocked
+        ? 'locked'
+        : isWalletCompleted
+          ? 'completed'
+          : isFocusSelected
+            ? 'current'
+            : 'upcoming',
+      description: 'Discover, evaluate, and curate tools tailored to your tasks and profile.',
+      targetTab: 'wallet',
+    },
+    {
       id: 'radar',
       number: 6,
       name: 'AI RADAR',
-      subtitle: "What's Changing in AI",
-      status: !radarAccess.unlocked ? 'locked' : isRadarInvestigated ? 'completed' : 'upcoming',
+      subtitle: 'Discover AI opportunities',
+      status: !radarAccess.unlocked
+        ? 'locked'
+        : isRadarInvestigated
+          ? 'completed'
+          : isWalletCompleted
+            ? 'current'
+            : 'upcoming',
       description: 'Discover AI opportunities and tech shifts (Activity-Gated).',
       targetTab: 'radar',
     },
@@ -250,7 +319,9 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
         ? 'locked'
         : isRelevanceCompleted
           ? 'completed'
-          : 'upcoming',
+          : isRadarInvestigated
+            ? 'current'
+            : 'upcoming',
       description: 'Understand why emerging opportunities matter to your work (Activity-Gated).',
       targetTab: 'relevance',
     },
@@ -259,7 +330,13 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 8,
       name: 'PROBLEM SOLVER',
       subtitle: 'Solve a Real Problem',
-      status: !solverAccess.unlocked ? 'locked' : hasSolvedWorkflow ? 'completed' : 'upcoming',
+      status: !solverAccess.unlocked
+        ? 'locked'
+        : hasSolvedWorkflow
+          ? 'completed'
+          : isRelevanceCompleted
+            ? 'current'
+            : 'upcoming',
       description: 'Apply AI tools to derive workflows for real tasks (Activity-Gated).',
       targetTab: 'solver',
     },
@@ -268,7 +345,13 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       number: 9,
       name: 'BUILD',
       subtitle: 'Create a Project',
-      status: !buildAccess.unlocked ? 'locked' : hasBuildProject ? 'completed' : 'upcoming',
+      status: !buildAccess.unlocked
+        ? 'locked'
+        : hasBuildProject
+          ? 'completed'
+          : hasSolvedWorkflow
+            ? 'current'
+            : 'upcoming',
       description: 'Turn your solved workflows into reusable projects (Activity-Gated).',
       targetTab: 'build',
     },
@@ -276,8 +359,8 @@ export const resolveLearnerNextAction = (state: LearnerState): LearnerNextAction
       id: 'improve',
       number: 10,
       name: 'IMPROVE',
-      subtitle: 'What AIIMS Learned',
-      status: !mentorAccess.unlocked ? 'locked' : 'upcoming',
+      subtitle: 'Continuous Improvement',
+      status: !mentorAccess.unlocked ? 'locked' : hasBuildProject ? 'current' : 'upcoming',
       description: 'Review updated insights and continuous growth guidance (Activity-Gated).',
       targetTab: 'mentor',
     },
@@ -372,55 +455,83 @@ export const resolveJourneyState = (state: LearnerState): ResolvedJourney => {
     actionButtonLabel = 'View Relevance Payoff';
   }
 
+  const completedQuestionsCount = getCompletedQuestionsCount(state);
+  const walletUnlocked = isWalletUnlocked(state);
+  const isWalletCompleted =
+    walletUnlocked &&
+    ((state.aiWallet?.userTools?.length || 0) >= 3 ||
+      (state.aiWallet as any)?.status === 'completed');
+
   const stagesDefinition = [
     {
       key: 'understand',
       label: 'Understand',
-      sublabel: 'Baseline Diagnostic',
+      sublabel: 'Baseline Assessment',
       targetTab: 'assessment',
       isCompleted: isAssessmentCompleted,
     },
     {
       key: 'learn',
-      label: 'Learn',
-      sublabel: 'Profile Report',
+      label: 'Profile',
+      sublabel: 'Your AI Skills',
       targetTab: 'analysis',
       isCompleted: isAnalysisViewed,
     },
     {
-      key: 'discover',
-      label: 'Discover',
-      sublabel: 'Clarity Hub',
+      key: 'clarity',
+      label: 'Clarity',
+      sublabel: 'Your AI Goals',
       targetTab: 'clarity',
       isCompleted: isClarityCompleted,
     },
     {
-      key: 'choose',
-      label: 'Choose',
-      sublabel: 'Focus Track',
+      key: 'focus',
+      label: 'Focus',
+      sublabel: 'Your Focus Track',
       targetTab: 'focus',
       isCompleted: isFocusActive,
     },
     {
-      key: 'solve',
-      label: 'Solve',
-      sublabel: 'AI Radar',
+      key: 'wallet',
+      label: 'Wallet',
+      sublabel: 'Personalized AI Tools',
+      targetTab: 'wallet',
+      isCompleted: isWalletCompleted,
+    },
+    {
+      key: 'radar',
+      label: 'Radar',
+      sublabel: 'Discover AI Opportunities',
       targetTab: 'radar',
       isCompleted: hasInvestigatedSignal,
     },
     {
+      key: 'relevance',
+      label: 'Relevance',
+      sublabel: 'Why This Matters',
+      targetTab: 'relevance',
+      isCompleted: isRelevanceUnlocked,
+    },
+    {
+      key: 'solver',
+      label: 'Solver',
+      sublabel: 'Solve a Problem',
+      targetTab: 'solver',
+      isCompleted: !!state.solver?.latestWorkflow,
+    },
+    {
       key: 'build',
       label: 'Build',
-      sublabel: 'Investigation',
-      targetTab: 'radar',
-      isCompleted: isInvestigationCompleted,
+      sublabel: 'Create a Project',
+      targetTab: 'build',
+      isCompleted: (state.build?.projects?.length || 0) > 0,
     },
     {
       key: 'improve',
       label: 'Improve',
-      sublabel: 'Relevance Synthesis',
-      targetTab: 'relevance',
-      isCompleted: isInvestigationCompleted && isRelevanceUnlocked,
+      sublabel: 'Continuous Mastery',
+      targetTab: 'mentor',
+      isCompleted: false,
     },
   ];
 

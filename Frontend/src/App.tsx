@@ -40,7 +40,9 @@ import {
   Mail,
   Loader2,
   X,
+  Lock,
 } from 'lucide-react';
+import { ENTREPRENEUR_MODE_ENABLED } from './config/appConfig';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -1260,39 +1262,80 @@ const SettingsView: React.FC<SettingsViewProps> = ({ onNavigateTab }) => {
           </div>
 
           <div
-            onClick={() => setAudienceMode('entrepreneur')}
+            onClick={() => {
+              if (ENTREPRENEUR_MODE_ENABLED) {
+                setAudienceMode('entrepreneur');
+              }
+            }}
             style={{
               padding: '16px',
               borderRadius: '12px',
               border:
-                currentAudience === 'entrepreneur'
+                currentAudience === 'entrepreneur' && ENTREPRENEUR_MODE_ENABLED
                   ? '2px solid var(--aiims-primary)'
                   : '1px solid var(--aiims-border-subtle)',
-              backgroundColor:
-                currentAudience === 'entrepreneur'
+              backgroundColor: !ENTREPRENEUR_MODE_ENABLED
+                ? 'var(--aiims-bg-subtle)'
+                : currentAudience === 'entrepreneur'
                   ? 'var(--aiims-bg-card)'
                   : 'var(--aiims-bg-subtle)',
-              cursor: 'pointer',
-              boxShadow: currentAudience === 'entrepreneur' ? 'var(--aiims-shadow-card)' : 'none',
+              cursor: !ENTREPRENEUR_MODE_ENABLED ? 'not-allowed' : 'pointer',
+              opacity: !ENTREPRENEUR_MODE_ENABLED ? 0.68 : 1,
+              boxShadow:
+                currentAudience === 'entrepreneur' && ENTREPRENEUR_MODE_ENABLED
+                  ? 'var(--aiims-shadow-card)'
+                  : 'none',
               transition: 'all 0.15s ease',
             }}
           >
             <div
-              style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '8px',
+              }}
             >
-              <Briefcase
-                size={20}
-                color={
-                  currentAudience === 'entrepreneur'
-                    ? 'var(--aiims-primary)'
-                    : 'var(--aiims-text-muted)'
-                }
-              />
-              <div
-                style={{ fontSize: '15px', fontWeight: 800, color: 'var(--aiims-text-heading)' }}
-              >
-                Entrepreneur / Builder Lens
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Briefcase
+                  size={20}
+                  color={
+                    !ENTREPRENEUR_MODE_ENABLED
+                      ? 'var(--aiims-text-muted)'
+                      : currentAudience === 'entrepreneur'
+                        ? 'var(--aiims-primary)'
+                        : 'var(--aiims-text-muted)'
+                  }
+                />
+                <div
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 800,
+                    color: !ENTREPRENEUR_MODE_ENABLED
+                      ? 'var(--aiims-text-muted)'
+                      : 'var(--aiims-text-heading)',
+                  }}
+                >
+                  Entrepreneur / Builder Lens
+                </div>
               </div>
+              {!ENTREPRENEUR_MODE_ENABLED && (
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: '#d97706',
+                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Lock size={11} /> Currently Unavailable
+                </span>
+              )}
             </div>
             <p
               style={{

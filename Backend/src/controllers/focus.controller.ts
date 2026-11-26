@@ -9,6 +9,12 @@ import {
   adminCreateFocusQuestionSchema,
   adminUpdateFocusStatusSchema,
 } from '../schemas/focus.schema';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  getCompletedQuestionsCount,
+  isWalletUnlocked,
+} from '../config/walletUnlock.config';
+import { defaultFocus } from '../utils/userMapper';
 import { logger } from '../utils/logger';
 
 function isDbUnavailable(error: unknown): boolean {
@@ -695,9 +701,32 @@ export const submitFocusTaskAttemptHandler = async (req: AuthenticatedRequest, r
       idempotencyKey,
     });
 
+    // Idempotently record completed question attempt
+    if (!Array.isArray(req.user.completedQuestionIds)) {
+      req.user.completedQuestionIds = [];
+    }
+    const qId = (result as any)?.assignment?.questionId || assignmentId;
+    if (qId && !req.user.completedQuestionIds.includes(qId)) {
+      req.user.completedQuestionIds.push(qId);
+    }
+    if (!req.user.focus) req.user.focus = defaultFocus();
+    if (!Array.isArray(req.user.focus.completedQuestionIds)) {
+      req.user.focus.completedQuestionIds = [];
+    }
+    if (qId && !req.user.focus.completedQuestionIds.includes(qId)) {
+      req.user.focus.completedQuestionIds.push(qId);
+    }
+
+    const completedQuestionsCount = getCompletedQuestionsCount(req.user);
+    const walletUnlocked = isWalletUnlocked(req.user);
+
     return res.status(200).json({
       ...result,
       isLocked: true,
+      completedQuestionsCount,
+      requiredThreshold: MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+      walletUnlocked,
+      progress: `${Math.min(completedQuestionsCount, MIN_COMPLETED_QUESTIONS_FOR_WALLET)} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions completed`,
     });
   } catch (err: any) {
     if (isDbUnavailable(err)) {

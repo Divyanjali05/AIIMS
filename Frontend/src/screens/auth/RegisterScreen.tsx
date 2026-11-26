@@ -17,11 +17,12 @@ import {
   BookOpen,
   School,
   Building,
+  Lock,
 } from 'lucide-react';
 import { useLearner, RegistrationPayload } from '../../context/LearnerContext';
 import { useTheme } from '../../context/ThemeContext';
 import { AiimsLogo } from '../../components/common/AiimsLogo';
-import { SUPPORT_EMAIL } from '../../config/appConfig';
+import { SUPPORT_EMAIL, ENTREPRENEUR_MODE_ENABLED } from '../../config/appConfig';
 import {
   PROGRAMS,
   SPECIALIZATIONS,
@@ -46,12 +47,7 @@ interface RegisterScreenProps {
 type Step = 1 | 2;
 
 export type EducationCategory =
-  | 'BELOW_10TH'
-  | 'CLASS_9_10'
-  | 'INTERMEDIATE'
-  | 'DIPLOMA'
-  | 'DEGREE'
-  | 'POSTGRADUATE';
+  'BELOW_10TH' | 'CLASS_9_10' | 'INTERMEDIATE' | 'DIPLOMA' | 'DEGREE' | 'POSTGRADUATE';
 
 interface InstituteOption {
   _id: string;
@@ -162,7 +158,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [customSpecialization, setCustomSpecialization] = useState('');
   const [yearOfStudy, setYearOfStudy] = useState<number>(3);
   const [admissionYear, setAdmissionYear] = useState<number>(new Date().getFullYear() - 2);
-  const [expectedGraduationYear, setExpectedGraduationYear] = useState<number>(new Date().getFullYear() + 2);
+  const [expectedGraduationYear, setExpectedGraduationYear] = useState<number>(
+    new Date().getFullYear() + 2
+  );
 
   // College search / custom college for Degree & PG
   const [instituteQuery, setInstituteQuery] = useState('');
@@ -179,7 +177,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [ventureStage, setVentureStage] = useState('exploring_idea');
 
   // Derived programs & specializations for Degree & PG
-  const currentEduLevel: EducationLevel = educationCategory === 'POSTGRADUATE' ? 'POSTGRADUATE' : 'UNDERGRADUATE';
+  const currentEduLevel: EducationLevel =
+    educationCategory === 'POSTGRADUATE' ? 'POSTGRADUATE' : 'UNDERGRADUATE';
   const availablePrograms = getProgramsForStreamAndLevel(stream, currentEduLevel);
   const availableSpecializations = programId ? getSpecializationsForProgram(programId, stream) : [];
   const availableYears = programId ? getStudyYearsForProgram(programId) : [1, 2, 3, 4];
@@ -232,6 +231,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
   // ── Validation ───────────────────────────────────────────────────────────
   const validateStep1 = (): string | null => {
+    if (!ENTREPRENEUR_MODE_ENABLED && track === 'Entrepreneur') {
+      setErrorField('track');
+      return 'Entrepreneur registration is currently unavailable. Please register as a Student.';
+    }
     if (!name.trim() || name.trim().length < 2) {
       setErrorField('name');
       return 'Please enter your full name.';
@@ -375,7 +378,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           programId,
           programName: selectedProg?.label || programId.toUpperCase(),
           specializationId: specializationId || 'general',
-          specializationName: customSpecialization.trim() || selectedSpec?.label || specializationId,
+          specializationName:
+            customSpecialization.trim() || selectedSpec?.label || specializationId,
           yearOfStudy,
           admissionYear,
           expectedGraduationYear,
@@ -406,7 +410,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       if (res.success) {
         if (onSuccess) onSuccess();
       } else {
-        setErrorMessage(res.error || 'Registration failed. Please check your details and try again.');
+        setErrorMessage(
+          res.error || 'Registration failed. Please check your details and try again.'
+        );
         if (res.field) {
           setErrorField(res.field);
           if (['name', 'email', 'password', 'confirmPassword', 'track'].includes(res.field)) {
@@ -564,7 +570,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
           return (
             <React.Fragment key={stepNum}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}
+              >
                 <div
                   style={{
                     width: '36px',
@@ -614,12 +622,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   style={{
                     flex: 1,
                     height: '2px',
-                    background:
-                      step > i + 1
-                        ? '#10B981'
-                        : isDarkMode
-                          ? '#1E293B'
-                          : '#E2E8F0',
+                    background: step > i + 1 ? '#10B981' : isDarkMode ? '#1E293B' : '#E2E8F0',
                     marginBottom: '20px',
                     transition: 'all 0.3s',
                   }}
@@ -733,10 +736,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     style={{
                       fontSize: '14px',
                       fontWeight: 700,
-                      color:
-                        track === 'Student'
-                          ? '#5B4BFF'
-                          : 'var(--aiims-text-heading, #0F172A)',
+                      color: track === 'Student' ? '#5B4BFF' : 'var(--aiims-text-heading, #0F172A)',
                     }}
                   >
                     Student
@@ -754,54 +754,102 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setTrack('Entrepreneur')}
+                  disabled={!ENTREPRENEUR_MODE_ENABLED}
+                  onClick={() => {
+                    if (ENTREPRENEUR_MODE_ENABLED) {
+                      setTrack('Entrepreneur');
+                    }
+                  }}
                   style={{
                     padding: '14px 12px',
                     borderRadius: '12px',
                     border:
-                      track === 'Entrepreneur'
+                      track === 'Entrepreneur' && ENTREPRENEUR_MODE_ENABLED
                         ? '2px solid #5B4BFF'
                         : '1.5px solid var(--aiims-input-border, #E2E8F0)',
-                    background:
-                      track === 'Entrepreneur'
+                    background: !ENTREPRENEUR_MODE_ENABLED
+                      ? isDarkMode
+                        ? 'rgba(148, 163, 184, 0.06)'
+                        : '#F8FAFC'
+                      : track === 'Entrepreneur'
                         ? isDarkMode
                           ? 'rgba(91, 75, 255, 0.15)'
                           : '#EEF2FF'
                         : 'transparent',
-                    cursor: 'pointer',
+                    cursor: !ENTREPRENEUR_MODE_ENABLED ? 'not-allowed' : 'pointer',
+                    opacity: !ENTREPRENEUR_MODE_ENABLED ? 0.72 : 1,
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     gap: '6px',
                     transition: 'all 0.2s',
                     fontFamily: 'inherit',
+                    position: 'relative',
                   }}
+                  title={
+                    !ENTREPRENEUR_MODE_ENABLED
+                      ? 'Entrepreneur mode is currently unavailable'
+                      : undefined
+                  }
                 >
-                  <Briefcase
-                    size={22}
-                    color={track === 'Entrepreneur' ? '#5B4BFF' : isDarkMode ? '#94A3B8' : '#64748B'}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Briefcase
+                      size={20}
+                      color={
+                        !ENTREPRENEUR_MODE_ENABLED
+                          ? isDarkMode
+                            ? '#64748B'
+                            : '#94A3B8'
+                          : track === 'Entrepreneur'
+                            ? '#5B4BFF'
+                            : isDarkMode
+                              ? '#94A3B8'
+                              : '#64748B'
+                      }
+                    />
+                    {!ENTREPRENEUR_MODE_ENABLED && <Lock size={14} color="#D97706" />}
+                  </div>
                   <span
                     style={{
                       fontSize: '14px',
                       fontWeight: 700,
-                      color:
-                        track === 'Entrepreneur'
+                      color: !ENTREPRENEUR_MODE_ENABLED
+                        ? 'var(--aiims-text-muted, #64748B)'
+                        : track === 'Entrepreneur'
                           ? '#5B4BFF'
                           : 'var(--aiims-text-heading, #0F172A)',
                     }}
                   >
                     Entrepreneur
                   </span>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      color: 'var(--aiims-text-muted, #64748B)',
-                      textAlign: 'center',
-                    }}
-                  >
-                    Founders, Startups & Builders
-                  </span>
+                  {!ENTREPRENEUR_MODE_ENABLED ? (
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 7px',
+                        borderRadius: '6px',
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        color: '#D97706',
+                        fontWeight: 700,
+                        letterSpacing: '0.2px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                      }}
+                    >
+                      Currently Unavailable
+                    </span>
+                  ) : (
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--aiims-text-muted, #64748B)',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Founders, Startups & Builders
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
@@ -970,7 +1018,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 disabled={!isStep1Valid}
                 onClick={handleNextStep}
               >
-                <span>{track === 'Student' ? 'Continue to Education' : 'Continue to Venture Details'}</span>
+                <span>
+                  {track === 'Student' ? 'Continue to Education' : 'Continue to Venture Details'}
+                </span>
                 <ArrowRight size={17} />
               </button>
             </div>
@@ -1089,14 +1139,21 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     Primary / Middle School Track
                   </span>
                 </div>
-                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--aiims-text-secondary, #334155)', lineHeight: 1.5 }}>
-                  No branch, specialization, or graduation year required. AIIMS will adapt prompt engineering basics suitable for school level.
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '12.5px',
+                    color: 'var(--aiims-text-secondary, #334155)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  No branch, specialization, or graduation year required. AIIMS will adapt prompt
+                  engineering basics suitable for school level.
                 </p>
                 <div style={fieldGroupStyle}>
                   <label style={labelStyle}>School Name (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Kendriya Vidyalaya / Delhi Public School"
                     value={schoolName}
                     onChange={(e) => setSchoolName(e.target.value)}
                     style={inputStyle}
@@ -1140,8 +1197,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                             schoolClass === c
                               ? '2px solid #5B4BFF'
                               : '1px solid var(--aiims-input-border, #E2E8F0)',
-                          background: schoolClass === c ? '#5B4BFF' : 'var(--aiims-bg-card, #ffffff)',
-                          color: schoolClass === c ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          background:
+                            schoolClass === c ? '#5B4BFF' : 'var(--aiims-bg-card, #ffffff)',
+                          color:
+                            schoolClass === c ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
                           fontWeight: 650,
                           fontSize: '13px',
                           cursor: 'pointer',
@@ -1157,7 +1216,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <label style={labelStyle}>School Name (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. St. Xavier's High School"
                     value={schoolName}
                     onChange={(e) => setSchoolName(e.target.value)}
                     style={inputStyle}
@@ -1171,7 +1229,9 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div style={fieldGroupStyle}>
                   <label style={labelStyle}>Intermediate Stream / Group *</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  <div
+                    style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}
+                  >
                     {['MPC', 'BiPC', 'CEC', 'MEC', 'HEC', 'Other'].map((grp) => (
                       <button
                         key={grp}
@@ -1184,9 +1244,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                             intermediateGroup === grp
                               ? '2px solid #5B4BFF'
                               : '1px solid var(--aiims-input-border, #E2E8F0)',
-                          background:
-                            intermediateGroup === grp ? '#5B4BFF' : 'transparent',
-                          color: intermediateGroup === grp ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          background: intermediateGroup === grp ? '#5B4BFF' : 'transparent',
+                          color:
+                            intermediateGroup === grp
+                              ? '#ffffff'
+                              : 'var(--aiims-text-heading, #0F172A)',
                           fontWeight: 700,
                           fontSize: '13px',
                           cursor: 'pointer',
@@ -1217,9 +1279,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                             intermediateYear === y.val
                               ? '2px solid #5B4BFF'
                               : '1px solid var(--aiims-input-border, #E2E8F0)',
-                          background:
-                            intermediateYear === y.val ? '#5B4BFF' : 'transparent',
-                          color: intermediateYear === y.val ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          background: intermediateYear === y.val ? '#5B4BFF' : 'transparent',
+                          color:
+                            intermediateYear === y.val
+                              ? '#ffffff'
+                              : 'var(--aiims-text-heading, #0F172A)',
                           fontWeight: 650,
                           fontSize: '13px',
                           cursor: 'pointer',
@@ -1232,10 +1296,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   </div>
                 </div>
                 <div style={fieldGroupStyle}>
-                  <label style={labelStyle}>Junior College / Higher Secondary Name (Optional)</label>
+                  <label style={labelStyle}>
+                    Junior College / Higher Secondary Name (Optional)
+                  </label>
                   <input
                     type="text"
-                    placeholder="e.g. Narayana Junior College"
                     value={juniorCollegeName}
                     onChange={(e) => setJuniorCollegeName(e.target.value)}
                     style={inputStyle}
@@ -1285,7 +1350,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                               ? '2px solid #5B4BFF'
                               : '1px solid var(--aiims-input-border, #E2E8F0)',
                           background: diplomaYear === y.val ? '#5B4BFF' : 'transparent',
-                          color: diplomaYear === y.val ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          color:
+                            diplomaYear === y.val
+                              ? '#ffffff'
+                              : 'var(--aiims-text-heading, #0F172A)',
                           fontWeight: 650,
                           fontSize: '13px',
                           cursor: 'pointer',
@@ -1301,7 +1369,6 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   <label style={labelStyle}>Polytechnic / Institute Name (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Government Polytechnic College"
                     value={polytechnicName}
                     onChange={(e) => setPolytechnicName(e.target.value)}
                     style={inputStyle}
@@ -1350,7 +1417,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                             ? '2px solid #5B4BFF'
                             : '1px solid var(--aiims-input-border, #E2E8F0)',
                         background: stream === 'NON_TECH' ? '#5B4BFF' : 'transparent',
-                        color: stream === 'NON_TECH' ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                        color:
+                          stream === 'NON_TECH' ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
                         fontWeight: 700,
                         fontSize: '13px',
                         cursor: 'pointer',
@@ -1426,7 +1494,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                               ? '2px solid #5B4BFF'
                               : '1px solid var(--aiims-input-border, #E2E8F0)',
                           background: yearOfStudy === yr ? '#5B4BFF' : 'transparent',
-                          color: yearOfStudy === yr ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
+                          color:
+                            yearOfStudy === yr ? '#ffffff' : 'var(--aiims-text-heading, #0F172A)',
                           fontWeight: 700,
                           fontSize: '13px',
                           cursor: 'pointer',
@@ -1449,9 +1518,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                           <input
                             type="text"
                             placeholder="Search your college or university..."
-                            value={
-                              selectedInstitute ? selectedInstitute.name : instituteQuery
-                            }
+                            value={selectedInstitute ? selectedInstitute.name : instituteQuery}
                             onChange={(e) => {
                               setSelectedInstitute(null);
                               setInstituteQuery(e.target.value);
@@ -1659,9 +1726,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                               ? 'rgba(91, 75, 255, 0.2)'
                               : '#EEF2FF'
                             : 'transparent',
-                          color: isSelected
-                            ? '#5B4BFF'
-                            : 'var(--aiims-text-heading, #0F172A)',
+                          color: isSelected ? '#5B4BFF' : 'var(--aiims-text-heading, #0F172A)',
                           fontSize: '12.5px',
                           fontWeight: isSelected ? 700 : 550,
                           cursor: 'pointer',

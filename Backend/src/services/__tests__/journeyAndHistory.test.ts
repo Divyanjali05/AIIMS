@@ -83,6 +83,14 @@ describe('AIIMS My AI Journey & Assessment History Module', () => {
       const m1 = overview.milestones.find((m) => m.id === 'understand');
       expect(m1?.status).toBe('completed');
       expect(m1?.score).toBe(80);
+
+      // Verify canonical order: Clarity is Stage 3, Focus is Stage 4, Wallet is Stage 5
+      expect(overview.milestones[0].id).toBe('understand');
+      expect(overview.milestones[1].id).toBe('profile');
+      expect(overview.milestones[2].id).toBe('clarity');
+      expect(overview.milestones[3].id).toBe('focus');
+      expect(overview.milestones[4].id).toBe('wallet');
+      expect(overview.milestones[5].id).toBe('radar');
     });
 
     it('identifies fresh unassessed learner with 0% progress and Understand AI stage', async () => {

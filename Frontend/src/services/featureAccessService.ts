@@ -1,4 +1,9 @@
 import { LearnerState } from '../context/LearnerContext';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  isWalletUnlocked,
+  getCompletedQuestionsCount,
+} from '../config/canonicalCurriculum';
 
 /**
  * Stable internal feature identifiers for AIIMS.
@@ -208,7 +213,24 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
     }
 
     case 'wallet':
-    case 'discover':
+    case 'discover': {
+      const unlocked = isWalletUnlocked(state);
+      const completedCount = getCompletedQuestionsCount(state);
+      if (!unlocked) {
+        return {
+          featureId: 'wallet',
+          name: 'AI Wallet',
+          level: 'Level 1',
+          visible: true,
+          unlocked: false,
+          reason: `AI Wallet unlocks after completing at least ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions across Clarity and Focus (${completedCount} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} completed).`,
+          unlockAction: 'Practice in Clarity',
+          targetTab: 'clarity',
+          requiredConditions: [
+            `At least ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} question attempts in Clarity and Focus (${completedCount}/${MIN_COMPLETED_QUESTIONS_FOR_WALLET})`,
+          ],
+        };
+      }
       return {
         featureId: 'wallet',
         name: 'AI Wallet',
@@ -216,6 +238,7 @@ export function getFeatureAccess(rawFeatureId: string, state: LearnerState): Fea
         visible: true,
         unlocked: true,
       };
+    }
 
     case 'clarity':
       if (!isAssessmentCompleted) {

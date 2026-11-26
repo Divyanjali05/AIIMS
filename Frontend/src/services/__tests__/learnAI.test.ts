@@ -20,6 +20,12 @@ import {
   LearnAIResource,
 } from '../../data/learnAIResources';
 
+type TestFn = (name: string, fn: () => void | Promise<void>) => void;
+type ExpectMatcher = { [key: string]: (...args: unknown[]) => unknown };
+declare const describe: TestFn & { [key: string]: unknown };
+declare const it: TestFn & { [key: string]: unknown };
+declare const expect: (actual: unknown) => ExpectMatcher;
+
 export function runLearnAITestSuite(): {
   passedCount: number;
   failedCount: number;
@@ -55,7 +61,10 @@ export function runLearnAITestSuite(): {
       r.url.startsWith('https://') &&
       r.keyTakeaways.length > 0
   );
-  assert('1.2: All resources have non-empty id, title, description, https URL, and takeaways', allHaveValidFields);
+  assert(
+    '1.2: All resources have non-empty id, title, description, https URL, and takeaways',
+    allHaveValidFields
+  );
 
   // 2. Language Coverage & Accurate Counts
   const counts = getLanguageCounts(LEARN_AI_RESOURCES);
@@ -176,4 +185,15 @@ export function runLearnAITestSuite(): {
     totalCount: passedCount + failedCount,
     results,
   };
+}
+
+if (typeof describe === 'function') {
+  describe('Learn AI Quality & Regression Test Suite', () => {
+    const suite = runLearnAITestSuite();
+    suite.results.forEach((r) => {
+      it(r.name, () => {
+        expect(r.passed).toBe(true);
+      });
+    });
+  });
 }

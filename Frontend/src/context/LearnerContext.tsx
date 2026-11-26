@@ -19,6 +19,7 @@ import { buildWritableLearnerStatePayload } from '../utils/learnerStateSync';
 import { evaluateAssessment, AssessmentEvaluationResult } from '../services/assessmentScoring';
 import { playSessionCompleteSound, playBreakCompleteSound } from '../utils/focusAudio';
 import { sendFocusNotification } from '../utils/focusNotifications';
+import { ENTREPRENEUR_MODE_ENABLED } from '../config/appConfig';
 
 export interface CreditTransactionItem {
   id: string;
@@ -39,6 +40,9 @@ export interface AppNotification {
 }
 
 export const resolveAudienceMode = (savedMode?: any, primaryGoal?: string): AudienceMode => {
+  if (!ENTREPRENEUR_MODE_ENABLED) {
+    return 'student';
+  }
   if (savedMode === 'student' || savedMode === 'entrepreneur') {
     return savedMode;
   }
@@ -401,6 +405,11 @@ interface LearnerContextType {
     user?: any;
     error?: string;
     totpRequired?: boolean;
+    otpRequired?: boolean;
+    challengeId?: string;
+    maskedEmail?: string;
+    expiresInSeconds?: number;
+    resendCooldownSeconds?: number;
     userId?: string;
     role?: string;
   }>;
@@ -409,6 +418,18 @@ interface LearnerContextType {
     code: string,
     isBackupCode?: boolean
   ) => Promise<{ success: boolean; user?: any; error?: string; warning?: string }>;
+  verifyEmailOtp: (
+    challengeId: string,
+    otp: string
+  ) => Promise<{ success: boolean; user?: any; role?: string; error?: string }>;
+  resendEmailOtp: (challengeId: string) => Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    retryAfterSeconds?: number;
+    expiresInSeconds?: number;
+    resendCooldownSeconds?: number;
+  }>;
   register: (
     data: RegistrationPayload
   ) => Promise<{ success: boolean; error?: string; code?: string; field?: string }>;
@@ -1930,6 +1951,11 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
     totpRequired?: boolean;
     userId?: string;
     role?: string;
+    otpRequired?: boolean;
+    challengeId?: string;
+    maskedEmail?: string;
+    expiresInSeconds?: number;
+    resendCooldownSeconds?: number;
   }> => {
     try {
       const res = await apiFetch(`${getApiBaseUrl()}/auth/login`, {
@@ -1957,6 +1983,17 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Staff accounts with 2FA enabled — return challenge without setting session
       if (data.totpRequired) {
         return { success: true, totpRequired: true, userId: data.userId, role: data.role };
+      }
+      // Email OTP required — return challenge metadata without setting session
+      if (data.otpRequired) {
+        return {
+          success: true,
+          otpRequired: true,
+          challengeId: data.challengeId,
+          maskedEmail: data.maskedEmail,
+          expiresInSeconds: data.expiresInSeconds,
+          resendCooldownSeconds: data.resendCooldownSeconds,
+        };
       }
       if (data.token) {
         setAuthToken(data.token);
@@ -2043,6 +2080,72 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return {
         success: false,
         error: err?.message || '2FA verification failed. Please try again.',
+      };
+    }
+  };
+
+  const verifyEmailOtp = async (
+    challengeId: string,
+    otp: string
+  ): Promise<{ success: boolean; user?: any; role?: string; error?: string }> => {
+    try {
+      const data = await apiClient.verifyEmailOtp(challengeId, otp);
+      if (data.token) {
+        setAuthToken(data.token);
+      }
+      if (data.error) {
+        return { success: false, error: data.error };
+      }
+      isHydratingRef.current = false;
+      const userObj = data.user || data.state?.profile;
+      if (data.state) {
+        lastSyncedPayloadRef.current = JSON.stringify(buildWritableLearnerStatePayload(data.state));
+        setIsAuthenticated(true);
+        setState(data.state);
+      } else if (data.user) {
+        setIsAuthenticated(true);
+        setState((prev) => ({
+          ...prev,
+          profile: {
+            ...prev.profile,
+            ...data.user,
+          },
+        }));
+      } else {
+        setIsAuthenticated(true);
+      }
+      return { success: true, user: userObj, role: data.user?.role || data.role };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Email verification failed. Please try again.',
+      };
+    }
+  };
+
+  const resendEmailOtp = async (
+    challengeId: string
+  ): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    retryAfterSeconds?: number;
+    expiresInSeconds?: number;
+    resendCooldownSeconds?: number;
+  }> => {
+    try {
+      const data = await apiClient.resendEmailOtp(challengeId);
+      return {
+        success: true,
+        message: data.message,
+        expiresInSeconds: data.expiresInSeconds,
+        resendCooldownSeconds: data.resendCooldownSeconds,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Failed to resend code.',
+        retryAfterSeconds: err?.retryAfterSeconds,
       };
     }
   };
@@ -2152,6 +2255,9 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const setAudienceMode = (mode: AudienceMode) => {
+    if (!ENTREPRENEUR_MODE_ENABLED && mode === 'entrepreneur') {
+      return;
+    }
     setState((prev) => ({
       ...prev,
       aiWallet: {
@@ -2318,6 +2424,8 @@ export const LearnerProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isAuthLoading,
         login,
         verifyTotp,
+        verifyEmailOtp,
+        resendEmailOtp,
         register,
         logout,
         saveAssessmentAnswer,

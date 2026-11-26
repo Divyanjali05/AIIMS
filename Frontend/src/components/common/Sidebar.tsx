@@ -25,6 +25,11 @@ import {
 } from 'lucide-react';
 import { useLearner } from '../../context/LearnerContext';
 import { getFeatureAccess } from '../../services/featureAccessService';
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  isWalletUnlocked,
+  getCompletedQuestionsCount,
+} from '../../config/canonicalCurriculum';
 import { AiimsLogo } from './AiimsLogo';
 
 export interface SidebarProps {
@@ -73,6 +78,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const isAssessmentDone = state?.assessment?.status === 'completed';
   const userName = state?.profile?.name ? state.profile.name.split(' ')[0] : 'Learner';
   const userStage = state?.profile?.stage || 'Explorer';
+  const walletUnlocked = isWalletUnlocked(state);
+  const completedQuestionsCount = getCompletedQuestionsCount(state);
 
   const createNavItem = (id: string, label: string, icon: any, customBadge?: string): NavItem => {
     const access = getFeatureAccess(id, state);
@@ -122,14 +129,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         createNavItem('analysis', 'My AI Profile', BarChart3),
         createNavItem('clarity', 'Clarity', Compass),
         createNavItem('focus', 'Focus', Target),
-        createNavItem('wallet', 'AI Wallet', Wallet),
+        createNavItem(
+          'wallet',
+          'AI Wallet',
+          Wallet,
+          !walletUnlocked
+            ? `${completedQuestionsCount}/${MIN_COMPLETED_QUESTIONS_FOR_WALLET}`
+            : undefined
+        ),
       ],
     },
     {
       group: 'LEVEL 2: DISCOVER & INVESTIGATE',
       items: [
         createNavItem('radar', 'AI Radar', Radar),
-        createNavItem('investigation', 'Investigation', Search),
         createNavItem('relevance', 'AI Relevance', Sparkles),
       ],
     },
@@ -137,7 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       group: 'LEVEL 3: BUILD & SOLVE',
       items: [
         createNavItem('solver', 'Problem Solver', Wrench),
-        createNavItem('build', 'Projects', Layers),
+        createNavItem('build', 'Projects / Build', Layers),
       ],
     },
     {

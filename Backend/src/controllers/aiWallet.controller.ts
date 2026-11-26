@@ -443,6 +443,31 @@ export const getDiscoveryStatus = (_req: Request, res: Response) => {
   });
 };
 
+import {
+  MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+  getCompletedQuestionsCount,
+  isWalletUnlocked,
+} from '../config/walletUnlock.config';
+
+/**
+ * GET /wallet/status
+ * Returns current lock status, completed question count, and progress towards threshold.
+ */
+export const getWalletUnlockStatus = (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required', code: 'UNAUTHORIZED' });
+  }
+  const completedCount = getCompletedQuestionsCount(req.user);
+  const unlocked = isWalletUnlocked(req.user);
+  return res.json({
+    success: true,
+    unlocked,
+    completedQuestionsCount: completedCount,
+    requiredThreshold: MIN_COMPLETED_QUESTIONS_FOR_WALLET,
+    progress: `${Math.min(completedCount, MIN_COMPLETED_QUESTIONS_FOR_WALLET)} of ${MIN_COMPLETED_QUESTIONS_FOR_WALLET} questions completed`,
+  });
+};
+
 /**
  * GET /wallet/user
  */
