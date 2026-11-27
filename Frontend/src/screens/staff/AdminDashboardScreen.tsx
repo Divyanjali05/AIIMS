@@ -19,8 +19,9 @@ import { Surface } from '../../components/common/Surface';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { ToolReportsQAView } from './ToolReportsQAView';
+import { AdminSubmissionsReviewView } from './AdminSubmissionsReviewView';
 
-type AdminTab = 'reports' | 'evaluators' | 'tasks' | 'audit' | 'toolReports';
+type AdminTab = 'reports' | 'evaluators' | 'tasks' | 'audit' | 'toolReports' | 'submissions';
 
 export const AdminDashboardScreen: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('reports');
@@ -499,6 +500,32 @@ export const AdminDashboardScreen: React.FC = () => {
         >
           <FileText size={16} />
           Tool Reports QA
+        </button>
+
+        <button
+          onClick={() => setActiveTab('submissions')}
+          style={{
+            padding: '10px 16px',
+            border: 'none',
+            background: 'none',
+            borderBottom:
+              activeTab === 'submissions'
+                ? '3px solid var(--aiims-primary, #6366f1)'
+                : '3px solid transparent',
+            color:
+              activeTab === 'submissions'
+                ? 'var(--aiims-primary, #6366f1)'
+                : 'var(--aiims-text-secondary, #64748b)',
+            fontWeight: 800,
+            fontSize: '14px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          <CheckCircle2 size={16} />
+          Submissions Review
         </button>
       </div>
 
@@ -1428,6 +1455,9 @@ export const AdminDashboardScreen: React.FC = () => {
 
       {/* TAB 5: AI TOOL REPORTS QA */}
       {activeTab === 'toolReports' && <ToolReportsQAView />}
+
+      {/* TAB 6: SUBMISSIONS REVIEW */}
+      {activeTab === 'submissions' && <AdminSubmissionsReviewView />}
     </div>
   );
 };

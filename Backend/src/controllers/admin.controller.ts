@@ -17,7 +17,7 @@ import {
   defaultAiWallet,
   toJsonInput,
 } from '../utils/userMapper';
-import { isSafeKey, isValidId, withLegacyId, toRecord } from '../utils/id';
+import { isSafeKey, isValidId, withLegacyId, toRecord, toArray } from '../utils/id';
 import { ToolCatalogService } from '../services/wallet/toolCatalog.service';
 import { updateToolReportStatusSchema } from '../schemas/wallet.schema';
 
@@ -1117,6 +1117,311 @@ export const adminUpdateToolReportStatus = async (req: AuthenticatedRequest, res
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({
       error: 'Failed to update tool report review status.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+// ============================================================================
+// Admin Prompt Submissions & Review Workflow
+// ============================================================================
+
+/**
+ * GET /admin/submissions/stats
+ * Aggregates submission counts across statuses.
+ */
+export const adminGetSubmissionStats = async (_req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  try {
+    const total = await prisma.submission.count();
+    const pending = await prisma.submission.count({
+      where: { status: { in: ['submitted', 'in_review'] } },
+    });
+    const approved = await prisma.submission.count({
+      where: { status: 'accepted' },
+    });
+    const rejected = await prisma.submission.count({
+      where: { status: { in: ['revision_requested', 'rejected'] } },
+    });
+
+    return res.json({
+      success: true,
+      stats: {
+        total,
+        pending,
+        approved,
+        rejected,
+      },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to retrieve submission statistics.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+/**
+ * GET /admin/submissions
+ * Searchable, filterable list of submissions for Admin review.
+ * Filters: status (all, pending, approved, rejected), module (all, Clarity, Focus), topic, search.
+ */
+export const adminListSubmissions = async (req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { status, module: moduleFilter, topic: topicFilter, search } = req.query;
+
+  try {
+    const where: any = {};
+
+    if (status && status !== 'all') {
+      if (status === 'pending') {
+        where.status = { in: ['submitted', 'in_review'] };
+      } else if (status === 'approved') {
+        where.status = 'accepted';
+      } else if (status === 'rejected') {
+        where.status = { in: ['revision_requested', 'rejected'] };
+      }
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim();
+      where.OR = [
+        { learnerName: { contains: q, mode: 'insensitive' } },
+        { learnerEmail: { contains: q, mode: 'insensitive' } },
+        { taskTitle: { contains: q, mode: 'insensitive' } },
+        { taskId: { contains: q, mode: 'insensitive' } },
+        { answerContent: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const rows = await prisma.submission.findMany({
+      where,
+      orderBy: { submittedAt: 'desc' },
+      take: 200,
+    });
+
+    let mapped = rows.map((row) => {
+      const meta = toRecord(row.rubricScores);
+      return withLegacyId({
+        ...row,
+        learner: row.learnerId,
+        evaluator: row.evaluatorId ?? null,
+        rubricScores: meta,
+        statusHistory: toArray(row.statusHistory),
+        module: meta.module || (row.taskId?.toLowerCase().includes('focus') ? 'Focus' : 'Clarity'),
+        topic: meta.topic || meta.topicId || '',
+        userPrompt: meta.userPrompt || row.answerContent,
+        aiOutput: meta.aiOutput || '',
+        modelUsed: meta.modelUsed || '',
+        executionTimeMs: meta.executionTimeMs || null,
+        promptHistory: toArray(meta.promptHistory),
+      });
+    });
+
+    // In-memory module filter if requested
+    if (moduleFilter && moduleFilter !== 'all') {
+      mapped = mapped.filter(
+        (sub) => String(sub.module).toLowerCase() === String(moduleFilter).toLowerCase()
+      );
+    }
+
+    // In-memory topic filter if requested
+    if (topicFilter && topicFilter !== 'all') {
+      mapped = mapped.filter((sub) =>
+        String(sub.topic).toLowerCase().includes(String(topicFilter).toLowerCase())
+      );
+    }
+
+    return res.json({
+      success: true,
+      count: mapped.length,
+      submissions: mapped,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to list submissions for admin review.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+/**
+ * GET /admin/submissions/:id
+ * Detailed submission view for Admin review.
+ */
+export const adminGetSubmissionById = async (req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(404).json({ error: 'Submission not found.', code: 'NOT_FOUND' });
+  }
+
+  try {
+    const row = await prisma.submission.findUnique({ where: { id } });
+    if (!row) {
+      return res.status(404).json({ error: 'Submission not found.', code: 'NOT_FOUND' });
+    }
+
+    const meta = toRecord(row.rubricScores);
+    const dto = withLegacyId({
+      ...row,
+      learner: row.learnerId,
+      evaluator: row.evaluatorId ?? null,
+      rubricScores: meta,
+      statusHistory: toArray(row.statusHistory),
+      module: meta.module || (row.taskId?.toLowerCase().includes('focus') ? 'Focus' : 'Clarity'),
+      topic: meta.topic || meta.topicId || '',
+      userPrompt: meta.userPrompt || row.answerContent,
+      aiOutput: meta.aiOutput || '',
+      modelUsed: meta.modelUsed || '',
+      executionTimeMs: meta.executionTimeMs || null,
+      promptHistory: toArray(meta.promptHistory),
+    });
+
+    return res.json({
+      success: true,
+      submission: dto,
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to retrieve submission.',
+      code: 'DATABASE_ERROR',
+      details: msg,
+    });
+  }
+};
+
+/**
+ * POST /admin/submissions/:id/review
+ * Admin records decision ('accepted', 'revision_requested', 'rejected') and feedback.
+ */
+export const adminReviewSubmission = async (req: AuthenticatedRequest, res: Response) => {
+  if (!isDatabaseConnected()) {
+    return res.status(503).json({
+      error: 'Database service unavailable. PostgreSQL connection is required.',
+      code: 'DATABASE_UNAVAILABLE',
+    });
+  }
+
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    return res.status(404).json({ error: 'Submission not found.', code: 'NOT_FOUND' });
+  }
+
+  const user = req.user!;
+  const adminId = String(user.id || user._id);
+  const now = new Date();
+
+  const { decision, feedback } = req.body;
+  const validDecisions = ['accepted', 'revision_requested', 'rejected'];
+  if (!decision || !validDecisions.includes(decision)) {
+    return res.status(400).json({
+      error: `Invalid review decision. Permitted decisions: 'accepted', 'revision_requested', or 'rejected'.`,
+      code: 'INVALID_DECISION',
+    });
+  }
+
+  if (typeof feedback !== 'string' || feedback.trim().length === 0) {
+    return res.status(400).json({
+      error: 'Review feedback is required.',
+      code: 'FEEDBACK_REQUIRED',
+    });
+  }
+
+  try {
+    const existing = await prisma.submission.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Submission not found.', code: 'NOT_FOUND' });
+    }
+
+    const nextHistory = [
+      ...toArray(existing.statusHistory),
+      {
+        changedBy: adminId,
+        changedByName: user.name,
+        changedAt: now,
+        fromStatus: existing.status,
+        toStatus: decision,
+        note: `Admin review completed by ${user.name}: ${decision.toUpperCase()}`,
+        feedback: feedback.trim(),
+      },
+    ];
+
+    const updated = await prisma.submission.update({
+      where: { id },
+      data: {
+        status: decision,
+        writtenFeedback: feedback.trim(),
+        evaluatorId: adminId,
+        evaluatorName: user.name,
+        reviewedAt: now,
+        statusHistory: toJsonInput(nextHistory),
+      },
+    });
+
+    await writeAuditLog({
+      actor: adminId,
+      actorName: user.name,
+      actorRole: 'admin',
+      action: 'ADMIN_REVIEW_SUBMISSION',
+      target: String(updated.id),
+      targetType: 'Submission',
+      details: {
+        taskId: updated.taskId,
+        learnerId: updated.learnerId,
+        decision,
+        feedback: feedback.trim(),
+      },
+    });
+
+    const meta = toRecord(updated.rubricScores);
+    return res.json({
+      success: true,
+      message: `Submission ${decision === 'accepted' ? 'approved' : 'reviewed'} successfully.`,
+      submission: withLegacyId({
+        ...updated,
+        learner: updated.learnerId,
+        evaluator: updated.evaluatorId ?? null,
+        rubricScores: meta,
+        statusHistory: toArray(updated.statusHistory),
+        module:
+          meta.module || (updated.taskId?.toLowerCase().includes('focus') ? 'Focus' : 'Clarity'),
+        topic: meta.topic || meta.topicId || '',
+        userPrompt: meta.userPrompt || updated.answerContent,
+        aiOutput: meta.aiOutput || '',
+        modelUsed: meta.modelUsed || '',
+        executionTimeMs: meta.executionTimeMs || null,
+        promptHistory: toArray(meta.promptHistory),
+      }),
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({
+      error: 'Failed to record admin review.',
       code: 'DATABASE_ERROR',
       details: msg,
     });

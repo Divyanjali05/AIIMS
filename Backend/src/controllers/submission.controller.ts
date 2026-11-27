@@ -48,7 +48,9 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
   const { taskId } = req.body;
   const rawAnswer =
     req.body.answerContent ||
-    (req.body.userPrompt ? `${req.body.userPrompt}\n\n${req.body.aiResponse || ''}` : '');
+    (req.body.userPrompt
+      ? `${req.body.userPrompt}${req.body.aiOutput || req.body.aiResponse ? `\n\n[AI Output]:\n${req.body.aiOutput || req.body.aiResponse}` : ''}`
+      : '');
   const answerContent = typeof rawAnswer === 'string' ? rawAnswer.trim() : '';
 
   if (!taskId || typeof taskId !== 'string' || taskId.trim().length === 0) {
@@ -61,10 +63,67 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
 
   const user = req.user;
   const userId = String(user.id || user._id);
-  const taskTitle = await resolveTaskTitle(taskId.trim());
+  const taskTitle = req.body.taskTitle || (await resolveTaskTitle(taskId.trim()));
   const now = new Date();
 
+  // Structured metadata storing module, prompt execution, AI output, model, latency, and prompt history
+  const metadata = {
+    module: req.body.module || 'Clarity',
+    topicId: req.body.topicId || '',
+    topic: req.body.topic || '',
+    userPrompt: req.body.userPrompt || '',
+    aiOutput: req.body.aiOutput || req.body.aiResponse || '',
+    modelUsed: req.body.modelUsed || '',
+    executionTimeMs: req.body.executionTimeMs || null,
+    promptHistory: req.body.promptHistory || [],
+    submittedAt: now.toISOString(),
+  };
+
   try {
+    // Prevent duplicate pending submissions: if a submission is already pending review, update it cleanly
+    const existingPending = await prisma.submission.findFirst({
+      where: {
+        learnerId: userId,
+        taskId: taskId.trim(),
+        status: { in: ['submitted', 'in_review'] },
+      },
+    });
+
+    if (existingPending) {
+      const nextHistory = [
+        ...toArray(existingPending.statusHistory),
+        {
+          changedBy: userId,
+          changedByName: user.name,
+          changedAt: now,
+          fromStatus: existingPending.status,
+          toStatus: 'submitted',
+          note: 'Updated prompt submission for review',
+        },
+      ];
+
+      const updated = await prisma.submission.update({
+        where: { id: existingPending.id },
+        data: {
+          taskTitle,
+          answerContent: answerContent.trim(),
+          rubricScores: toJsonInput({
+            ...toRecord(existingPending.rubricScores),
+            ...metadata,
+          }),
+          status: 'submitted',
+          statusHistory: toJsonInput(nextHistory),
+          submittedAt: now,
+        },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Task submission updated successfully for Admin review.',
+        submission: submissionToDTO(updated),
+      });
+    }
+
     const created = await prisma.submission.create({
       data: {
         learnerId: userId,
@@ -76,7 +135,7 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
         status: 'submitted',
         evaluatorId: null,
         evaluatorName: null,
-        rubricScores: toJsonInput({}),
+        rubricScores: toJsonInput(metadata),
         writtenFeedback: '',
         revisionCount: 0,
         statusHistory: toJsonInput([
@@ -86,7 +145,7 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
             changedAt: now,
             fromStatus: 'none',
             toStatus: 'submitted',
-            note: 'Initial task submission',
+            note: 'Initial prompt submission for Admin review',
           },
         ]),
         submittedAt: now,
@@ -95,7 +154,7 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Task submitted successfully.',
+      message: 'Task submitted successfully for Admin review.',
       submission: submissionToDTO(created),
     });
   } catch (err: any) {
@@ -106,7 +165,7 @@ export const submitTask = async (req: AuthenticatedRequest, res: Response) => {
 
 /**
  * GET /submissions
- * Learner lists all their own submissions.
+ * Learner lists all their own submissions. Supports ?taskId=... filtering.
  */
 export const getMySubmissions = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
@@ -120,10 +179,16 @@ export const getMySubmissions = async (req: AuthenticatedRequest, res: Response)
   }
 
   const userId = String(req.user.id || req.user._id);
+  const taskIdFilter = typeof req.query.taskId === 'string' ? req.query.taskId.trim() : undefined;
 
   try {
+    const where: any = { learnerId: userId };
+    if (taskIdFilter) {
+      where.taskId = taskIdFilter;
+    }
+
     const submissions = await prisma.submission.findMany({
-      where: { learnerId: userId },
+      where,
       orderBy: { submittedAt: 'desc' },
     });
 

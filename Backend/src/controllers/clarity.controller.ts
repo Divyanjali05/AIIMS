@@ -258,32 +258,12 @@ export const runTask = async (req: AuthenticatedRequest, res: Response) => {
     ...toRecord(freshUserRow.clarityData),
   };
 
-  const CLARITY_TASK_COST = 10;
-  const trialRunsUsed = Number(clarityState.trialRunsUsed || 0);
-  let isFreeTrial = trialRunsUsed === 0;
-  let costDeducted = isFreeTrial ? 0 : CLARITY_TASK_COST;
+  // PART D Rule: Running a prompt is a preview operation.
+  // Running a preview must not automatically submit an assessment attempt, and must not award or deduct AC/XP.
+  const costDeducted = 0;
+  const isFreeTrial = true;
 
-  if (isFreeTrial) {
-    // Atomically claim the first-free trial via CreditLedger to prevent concurrent race conditions
-    const claimResult = await creditsLedgerService.executeTransaction({
-      userId,
-      type: 'EARN',
-      category: 'REWARD',
-      amount: 0,
-      reason: 'Clarity First-Free Trial Grant',
-      source: 'CLARITY',
-      sourceId: `first-free-${userId}`,
-      idempotencyKey: `clarity-first-free-${userId}`,
-      relatedTaskId: operationId,
-    });
-
-    if (claimResult.duplicate || claimResult.conflict) {
-      isFreeTrial = false;
-      costDeducted = CLARITY_TASK_COST;
-    }
-  }
-
-  // 2. Server-side credit authorization & atomic pre-deduction
+  // 2. Server-side credit authorization & atomic pre-deduction (bypassed for zero-cost preview)
   if (costDeducted > 0) {
     const spendResult = await creditsLedgerService.executeTransaction({
       userId,

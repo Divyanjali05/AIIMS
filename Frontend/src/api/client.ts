@@ -1204,7 +1204,20 @@ export const apiClient = {
   },
 
   // 13. Task Submissions & Learner Review
-  async submitTask(params: { taskId: string; taskTitle?: string; answerContent: string }) {
+  async submitTask(params: {
+    taskId: string;
+    taskTitle?: string;
+    module?: string;
+    topicId?: string;
+    topic?: string;
+    userPrompt?: string;
+    aiOutput?: string;
+    aiResponse?: string;
+    modelUsed?: string;
+    executionTimeMs?: number;
+    promptHistory?: any[];
+    answerContent?: string;
+  }) {
     const res = await apiFetch(`${API_BASE}/submissions`, {
       method: 'POST',
       headers: getAuthHeaders(),
@@ -1213,8 +1226,9 @@ export const apiClient = {
     return res.json();
   },
 
-  async getMySubmissions() {
-    const res = await apiFetch(`${API_BASE}/submissions`, {
+  async getMySubmissions(params?: { taskId?: string }) {
+    const qs = params?.taskId ? `?taskId=${encodeURIComponent(params.taskId)}` : '';
+    const res = await apiFetch(`${API_BASE}/submissions${qs}`, {
       headers: getAuthHeaders(),
     });
     return res.json();
@@ -1229,6 +1243,54 @@ export const apiClient = {
 
   async resubmitTask(id: string, params: { answerContent: string; note?: string }) {
     const res = await apiFetch(`${API_BASE}/submissions/${id}/resubmit`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(params),
+    });
+    return res.json();
+  },
+
+  // Admin Submissions & Review Workflow
+  async adminGetSubmissionStats() {
+    const res = await apiFetch(`${API_BASE}/admin/submissions/stats`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminListSubmissions(filters?: {
+    status?: string;
+    module?: string;
+    topic?: string;
+    search?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.module) params.append('module', filters.module);
+    if (filters?.topic) params.append('topic', filters.topic);
+    if (filters?.search) params.append('search', filters.search);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const res = await apiFetch(`${API_BASE}/admin/submissions${qs}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminGetSubmissionById(id: string) {
+    const res = await apiFetch(`${API_BASE}/admin/submissions/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return res.json();
+  },
+
+  async adminReviewSubmission(
+    id: string,
+    params: {
+      decision: 'accepted' | 'revision_requested' | 'rejected';
+      feedback: string;
+    }
+  ) {
+    const res = await apiFetch(`${API_BASE}/admin/submissions/${id}/review`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify(params),

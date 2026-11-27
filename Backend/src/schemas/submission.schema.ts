@@ -4,6 +4,9 @@ export const createSubmissionSchema = z
   .object({
     taskId: z.string().trim().min(1, 'Valid taskId is required').max(100),
     taskTitle: z.string().trim().max(200).optional(),
+    module: z.string().trim().max(50).optional(),
+    topicId: z.string().trim().max(100).optional(),
+    topic: z.string().trim().max(200).optional(),
     answerContent: z
       .string()
       .trim()
@@ -11,7 +14,11 @@ export const createSubmissionSchema = z
       .max(50000)
       .optional(),
     userPrompt: z.string().trim().max(5000).optional(),
-    aiResponse: z.string().trim().max(20000).optional(),
+    aiResponse: z.string().trim().max(50000).optional(),
+    aiOutput: z.string().trim().max(50000).optional(),
+    modelUsed: z.string().trim().max(100).optional(),
+    executionTimeMs: z.number().optional(),
+    promptHistory: z.array(z.any()).optional(),
     selfReflection: z.string().trim().max(5000).optional(),
   })
   .refine(

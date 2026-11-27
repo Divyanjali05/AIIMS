@@ -928,6 +928,14 @@ export interface SubmissionItem {
   updatedAt: string;
   waitingTimeMs?: number;
   waitingTimeFormatted?: string;
+  module?: string;
+  topic?: string;
+  topicId?: string;
+  userPrompt?: string;
+  aiOutput?: string;
+  modelUsed?: string;
+  executionTimeMs?: number;
+  promptHistory?: any[];
 }
 
 export interface TaskItem {

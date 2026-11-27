@@ -38,12 +38,17 @@ import {
   adminCreateFocusQuestionHandler,
   adminUpdateFocusStatusHandler,
 } from '../controllers/focus.controller';
+import { runTask } from '../controllers/clarity.controller';
 
 const router = Router();
 
 // ============================================================================
 // 1. Focus Tasks & Challenges (Phase 5 Practice Environment)
 // ============================================================================
+
+// Preview Execution Endpoint (Real AI Prompt preview without attempt lock or credit deduction)
+router.post('/focus/run', requireAuth, runTask);
+router.post('/focus/run-task', requireAuth, runTask);
 
 // Categories & Question Bank Browsing
 router.get('/focus/categories', getFocusCategoriesHandler);

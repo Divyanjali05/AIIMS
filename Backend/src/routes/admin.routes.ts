@@ -16,6 +16,10 @@ import {
   adminListToolReports,
   adminGetToolReportById,
   adminUpdateToolReportStatus,
+  adminGetSubmissionStats,
+  adminListSubmissions,
+  adminGetSubmissionById,
+  adminReviewSubmission,
 } from '../controllers/admin.controller';
 import {
   adminListQuestionsHandler,
@@ -106,6 +110,17 @@ router.patch(
   requireAuth,
   requireRole('admin'),
   adminUpdateStatusHandler
+);
+
+// Admin Prompt Submissions Review Management
+router.get('/admin/submissions/stats', requireAuth, requireRole('admin'), adminGetSubmissionStats);
+router.get('/admin/submissions', requireAuth, requireRole('admin'), adminListSubmissions);
+router.get('/admin/submissions/:id', requireAuth, requireRole('admin'), adminGetSubmissionById);
+router.post(
+  '/admin/submissions/:id/review',
+  requireAuth,
+  requireRole('admin'),
+  adminReviewSubmission
 );
 
 export default router;
