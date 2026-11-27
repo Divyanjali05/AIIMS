@@ -285,6 +285,11 @@ export const config = {
   smtpUser: process.env.SMTP_USER || '',
   smtpPass: process.env.SMTP_PASS || '',
   smtpFrom: process.env.SMTP_FROM || 'AIIMS Authentication <noreply@aiims.education>',
-  /** Email OTP feature enabled flag */
-  emailOtpEnabled: process.env.EMAIL_OTP_ENABLED !== 'false',
+  /** Email OTP feature enabled flag: in development, bypassed when unconfigured or EMAIL_OTP_ENABLED=false; strictly enforced in production */
+  emailOtpEnabled:
+    process.env.NODE_ENV === 'production'
+      ? process.env.EMAIL_OTP_ENABLED !== 'false'
+      : process.env.EMAIL_OTP_ENABLED === 'true' ||
+        (process.env.EMAIL_OTP_ENABLED !== 'false' &&
+          Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS)),
 };
