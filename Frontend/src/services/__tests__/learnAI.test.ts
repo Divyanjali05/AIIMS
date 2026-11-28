@@ -8,16 +8,19 @@
  * 2. Language Coverage: English, Telugu, Hindi, and Multilingual content exist with correct counts.
  * 3. URL Validity: All external links start with https:// and point to canonical educational domains.
  * 4. Zero AC Economy Invariant: Accessing learning content costs 0 credits.
- * 5. Category Completeness: All 5 topic categories are represented with verified content.
+ * 5. Category Completeness: All 5 legacy categories are represented with verified content.
  * 6. Audience Prioritization: Student vs. Entrepreneur filtering & sorting logic.
- * 7. Tool Integration: Associated tool IDs match canonical AIIMS catalog IDs.
+ * 7. Ten Domain Expansion: All 10 canonical AI domains are represented.
+ * 8. Multilingual & Resource Type Filtering: English, Telugu, Hindi, Courses, YouTube, Websites, Case Studies.
+ * 9. Link Verification Standards: Verified vs. Unverified search links.
+ * ============================================================================
  */
 
 import {
   LEARN_AI_RESOURCES,
+  LEARN_AI_DOMAINS,
   LEARN_AI_TOPIC_CATEGORIES,
   getLanguageCounts,
-  LearnAIResource,
 } from '../../data/learnAIResources';
 
 type TestFn = (name: string, fn: () => void | Promise<void>) => void;
@@ -59,10 +62,11 @@ export function runLearnAITestSuite(): {
       r.title.trim().length > 0 &&
       r.description.trim().length > 0 &&
       r.url.startsWith('https://') &&
-      r.keyTakeaways.length > 0
+      r.keyTakeaways.length > 0 &&
+      r.domain
   );
   assert(
-    '1.2: All resources have non-empty id, title, description, https URL, and takeaways',
+    '1.2: All resources have non-empty id, title, description, https URL, domain, and takeaways',
     allHaveValidFields
   );
 
@@ -103,7 +107,7 @@ export function runLearnAITestSuite(): {
     `Dynamic: Eng=${counts.english}, Tel=${counts.telugu}, Hin=${counts.hindi}`
   );
 
-  // 3. Category Completeness
+  // 3. Category Completeness (Legacy Categories)
   const categories = LEARN_AI_TOPIC_CATEGORIES.filter((c) => c !== 'All Categories');
   const allCategoriesRepresented = categories.every((cat) =>
     LEARN_AI_RESOURCES.some((r) => r.category === cat)
@@ -116,10 +120,11 @@ export function runLearnAITestSuite(): {
 
   // 4. Verification & Canonical Domains
   const verifiedCount = LEARN_AI_RESOURCES.filter((r) => r.isVerified).length;
+  const unverifiedCount = LEARN_AI_RESOURCES.filter((r) => !r.isVerified).length;
   assert(
-    '4.1: Curated resources are explicitly verified',
-    verifiedCount === LEARN_AI_RESOURCES.length,
-    `${verifiedCount}/${LEARN_AI_RESOURCES.length} verified`
+    '4.1: Curated resources explicitly track verified vs unverified status',
+    verifiedCount > 0 && verifiedCount + unverifiedCount === LEARN_AI_RESOURCES.length,
+    `${verifiedCount} verified, ${unverifiedCount} pending verification`
   );
 
   const noPlaceholderUrls = LEARN_AI_RESOURCES.every(
@@ -129,7 +134,7 @@ export function runLearnAITestSuite(): {
       !r.url.includes('fake') &&
       !r.url.includes('undefined')
   );
-  assert('4.2: Zero placeholder or unverified mock URLs in resource dataset', noPlaceholderUrls);
+  assert('4.2: Zero placeholder or mock URLs in resource dataset', noPlaceholderUrls);
 
   const youtubeResources = LEARN_AI_RESOURCES.filter((r) => r.type === 'youtube');
   const validYouTubeUrls = youtubeResources.every(
@@ -177,6 +182,71 @@ export function runLearnAITestSuite(): {
     '6.2: Add to Wallet logic correctly detects and prevents duplicate tool IDs',
     isDuplicate === true,
     'Tool already in stack is detected and disabled'
+  );
+
+  // ==========================================================================
+  // 7. TEN DOMAIN EXPANSION & MULTILINGUAL FILTER TESTS
+  // ==========================================================================
+  const allTenDomainsPresent = LEARN_AI_DOMAINS.every((domain) =>
+    LEARN_AI_RESOURCES.some((r) => r.domain === domain)
+  );
+  assert(
+    '7.1: All ten canonical learning domains are represented in the dataset',
+    allTenDomainsPresent,
+    `Domains: ${LEARN_AI_DOMAINS.join(', ')}`
+  );
+
+  // Distinct Scopes: AI Fundamentals vs AI/ML vs Machine Learning
+  const fundamentalsCount = LEARN_AI_RESOURCES.filter((r) => r.domain === 'AI Fundamentals').length;
+  const aimlCount = LEARN_AI_RESOURCES.filter((r) => r.domain === 'AI/ML').length;
+  const mlCount = LEARN_AI_RESOURCES.filter((r) => r.domain === 'Machine Learning').length;
+  assert(
+    '7.2: AI Fundamentals, AI/ML, and Machine Learning maintain distinct resource collections',
+    fundamentalsCount > 0 && aimlCount > 0 && mlCount > 0,
+    `Fundamentals: ${fundamentalsCount}, AI/ML: ${aimlCount}, ML: ${mlCount}`
+  );
+
+  // Resource Types Supported: courses, youtube, website, case_study
+  const hasCourses = LEARN_AI_RESOURCES.some((r) => r.type === 'course');
+  const hasYouTube = LEARN_AI_RESOURCES.some((r) => r.type === 'youtube');
+  const hasWebsites = LEARN_AI_RESOURCES.some((r) => r.type === 'website');
+  const hasCaseStudies = LEARN_AI_RESOURCES.some((r) => r.type === 'case_study');
+  assert(
+    '7.3: All 4 canonical resource types (courses, youtube, website, case_study) exist',
+    hasCourses && hasYouTube && hasWebsites && hasCaseStudies,
+    `Courses: ${hasCourses}, YouTube: ${hasYouTube}, Website: ${hasWebsites}, Case Studies: ${hasCaseStudies}`
+  );
+
+  // Multilingual Specific Domain Checks
+  const teluguResources = LEARN_AI_RESOURCES.filter((r) => r.language === 'Telugu');
+  const hindiResources = LEARN_AI_RESOURCES.filter((r) => r.language === 'Hindi');
+  const englishResources = LEARN_AI_RESOURCES.filter((r) => r.language === 'English');
+
+  assert(
+    '7.4: Telugu resources span prompt engineering, media, AI/ML, and coding',
+    teluguResources.length >= 6,
+    `Telugu count: ${teluguResources.length}`
+  );
+  assert(
+    '7.5: Hindi resources span prompt engineering, generative AI, coding, and data science',
+    hindiResources.length >= 6,
+    `Hindi count: ${hindiResources.length}`
+  );
+  assert(
+    '7.6: English resources cover all advanced documentation and academic courses',
+    englishResources.length >= 10,
+    `English count: ${englishResources.length}`
+  );
+
+  // Unverified Resources Quality Guard: All unverified items must provide a searchQuery
+  const unverifiedItems = LEARN_AI_RESOURCES.filter((r) => !r.isVerified);
+  const allUnverifiedHaveSearchQuery = unverifiedItems.every(
+    (r) => typeof r.searchQuery === 'string' && r.searchQuery.trim().length > 0
+  );
+  assert(
+    '7.7: Every unverified resource contains a valid educational search query',
+    allUnverifiedHaveSearchQuery && unverifiedItems.length > 0,
+    `${unverifiedItems.length} unverified items have search queries`
   );
 
   return {

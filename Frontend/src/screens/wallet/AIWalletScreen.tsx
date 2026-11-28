@@ -61,6 +61,7 @@ import { MarketTierBadge } from '../../components/wallet/MarketTierBadge';
 import { ConfirmRemoveModal } from '../../components/wallet/ConfirmRemoveModal';
 import { ToolComparisonView } from '../../components/wallet/ToolComparisonView';
 import { LearnAISection } from './LearnAISection';
+import { PromptToolAnalysisSection } from './PromptToolAnalysisSection';
 
 /**
  * Startup Toolkit Gaps — capability categories identified as essential
@@ -138,7 +139,7 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
   );
 
   const [activeSection, setActiveSection] = useState<
-    'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'learn' | 'admin'
+    'matching' | 'wallet' | 'discover' | 'compare' | 'gaps' | 'learn' | 'analyze' | 'admin'
   >('matching');
   const [catalog, setCatalog] = useState<AITool[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -947,11 +948,12 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
             badge: gapData?.toolGaps ? `${gapData.toolGaps.length}` : undefined,
           },
           { id: 'learn', label: '6. Learn AI', icon: BookOpen, badge: undefined },
+          { id: 'analyze', label: '7. Prompt Analysis', icon: Sparkles, badge: undefined },
           ...(state.profile?.role === 'admin'
             ? [
                 {
                   id: 'admin',
-                  label: '7. Pipeline',
+                  label: '8. Pipeline',
                   icon: ShieldCheck,
                   badge: adminDashboard ? `${adminDashboard.pendingCandidates || 0}` : undefined,
                 },
@@ -2559,6 +2561,13 @@ export const AIWalletScreen: React.FC<AIWalletScreenProps> = ({ setActiveTab: _s
           userToolIds={userTools.map((t) => t.toolId)}
           catalog={catalog}
         />
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 7B: PROMPT ANALYSIS & AI TOOL MATCHING */}
+      {/* ========================================================================= */}
+      {activeSection === 'analyze' && (
+        <PromptToolAnalysisSection catalog={catalog} userToolIds={userTools.map((t) => t.toolId)} />
       )}
 
       {/* ========================================================================= */}

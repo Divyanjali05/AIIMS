@@ -5,25 +5,24 @@ import {
   ExternalLink,
   Youtube,
   Globe,
-  FileText,
   Clock,
   CheckCircle2,
   Plus,
-  Sparkles,
   GraduationCap,
   Briefcase,
   X,
   Languages,
   Check,
+  HelpCircle,
+  Layers,
 } from 'lucide-react';
 import { Surface } from '../../components/common/Surface';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import {
   LEARN_AI_RESOURCES,
-  LEARN_AI_TOPIC_CATEGORIES,
+  LEARN_AI_DOMAINS,
   LEARN_AI_LANGUAGES,
-  LearnAIResource,
   ResourceType,
   ResourceLanguage,
   DifficultyLevel,
@@ -44,7 +43,8 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
   catalog = [],
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All Categories');
+  const [selectedDomain, setSelectedDomain] = useState<string>('All Domains');
+  const [selectedType, setSelectedType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
 
@@ -82,23 +82,32 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
         }
       }
 
-      // 2. Category filter
-      if (selectedCategory !== 'All Categories' && resource.category !== selectedCategory) {
+      // 2. Domain filter (10 domains)
+      if (selectedDomain !== 'All Domains' && resource.domain !== selectedDomain) {
         return false;
       }
 
-      // 3. Difficulty filter
-      if (selectedDifficulty !== 'all' && resource.difficulty.toLowerCase() !== selectedDifficulty) {
+      // 3. Resource Type filter
+      if (selectedType !== 'all' && resource.type !== selectedType) {
         return false;
       }
 
-      // 4. Text search
+      // 4. Difficulty filter
+      if (
+        selectedDifficulty !== 'all' &&
+        resource.difficulty.toLowerCase() !== selectedDifficulty
+      ) {
+        return false;
+      }
+
+      // 5. Text search
       if (q) {
         const matchTitle = resource.title.toLowerCase().includes(q);
         const matchDesc = resource.description.toLowerCase().includes(q);
         const matchAuthor = (resource.channelOrAuthor || '').toLowerCase().includes(q);
         const matchTakeaways = resource.keyTakeaways.some((t) => t.toLowerCase().includes(q));
-        if (!matchTitle && !matchDesc && !matchAuthor && !matchTakeaways) {
+        const matchDomain = (resource.domain || '').toLowerCase().includes(q);
+        if (!matchTitle && !matchDesc && !matchAuthor && !matchTakeaways && !matchDomain) {
           return false;
         }
       }
@@ -114,7 +123,14 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
         b.targetAudience === currentAudienceMode ? 2 : b.targetAudience === 'all' ? 1 : 0;
       return bMatchesAudience - aMatchesAudience;
     });
-  }, [selectedLanguage, selectedCategory, selectedDifficulty, searchQuery, currentAudienceMode]);
+  }, [
+    selectedLanguage,
+    selectedDomain,
+    selectedType,
+    selectedDifficulty,
+    searchQuery,
+    currentAudienceMode,
+  ]);
 
   // Type-specific badge and icon renderers
   const renderTypeIcon = (type: ResourceType) => {
@@ -125,6 +141,8 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
         return <Globe size={14} style={{ color: '#0284c7' }} />;
       case 'case_study':
         return <Briefcase size={14} style={{ color: '#8b5cf6' }} />;
+      case 'course':
+        return <GraduationCap size={14} style={{ color: '#059669' }} />;
       case 'interactive_guide':
       default:
         return <BookOpen size={14} style={{ color: '#059669' }} />;
@@ -134,11 +152,23 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
   const getDifficultyBadge = (level: DifficultyLevel) => {
     switch (level) {
       case 'Beginner':
-        return <Badge variant="success" size="sm">Beginner</Badge>;
+        return (
+          <Badge variant="success" size="sm">
+            Beginner
+          </Badge>
+        );
       case 'Intermediate':
-        return <Badge variant="cyan" size="sm">Intermediate</Badge>;
+        return (
+          <Badge variant="cyan" size="sm">
+            Intermediate
+          </Badge>
+        );
       case 'Advanced':
-        return <Badge variant="purple" size="sm">Advanced</Badge>;
+        return (
+          <Badge variant="purple" size="sm">
+            Advanced
+          </Badge>
+        );
       default:
         return null;
     }
@@ -216,7 +246,8 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
 
   const handleResetFilters = () => {
     setSelectedLanguage('all');
-    setSelectedCategory('All Categories');
+    setSelectedDomain('All Domains');
+    setSelectedType('all');
     setSelectedDifficulty('all');
     setSearchQuery('');
   };
@@ -271,7 +302,7 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                   letterSpacing: '-0.3px',
                 }}
               >
-                Learn AI
+                Learn AI — Ten Domain Curriculum
               </h1>
               <Badge variant="cyan" size="sm">
                 Free • 0 AC
@@ -285,7 +316,8 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                 fontWeight: 500,
               }}
             >
-              Discover trusted resources and build practical AI skills.
+              Curated educational resources spanning 10 AI domains across English, Telugu, and
+              Hindi.
             </p>
           </div>
 
@@ -326,7 +358,7 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
       </Surface>
 
       {/* ===================================================================== */}
-      {/* 2. FILTER CONTROLS: LANGUAGE & CATEGORIES & SEARCH */}
+      {/* 2. FILTER CONTROLS: LANGUAGE & TEN DOMAINS & SEARCH */}
       {/* ===================================================================== */}
       <Surface
         variant="bordered"
@@ -341,7 +373,7 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
           gap: '14px',
         }}
       >
-        {/* Row A: Language Filter Bar */}
+        {/* Row A: Language Filter Bar (Preserved on domain switch) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <div
             style={{
@@ -422,17 +454,24 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
         {/* Divider */}
         <div style={{ height: '1px', backgroundColor: '#f1f5f9' }} />
 
-        {/* Row B: Search & Topic Categories */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          {/* Topic Category Pills */}
+        {/* Row B: 10 Domain Filter Chips */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#475569',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+            }}
+          >
+            <Layers size={14} style={{ color: 'var(--aiims-primary, #6366f1)' }} />
+            <span>Select Learning Domain</span>
+          </div>
+
           <div
             style={{
               display: 'flex',
@@ -441,13 +480,21 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
               alignItems: 'center',
             }}
           >
-            {LEARN_AI_TOPIC_CATEGORIES.map((cat) => {
-              const isSelected = selectedCategory === cat;
+            {['All Domains', ...LEARN_AI_DOMAINS].map((domain) => {
+              const isSelected = selectedDomain === domain;
+              const domainCount =
+                domain === 'All Domains'
+                  ? LEARN_AI_RESOURCES.length
+                  : LEARN_AI_RESOURCES.filter((r) => r.domain === domain).length;
+
               return (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  key={domain}
+                  onClick={() => setSelectedDomain(domain)}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     padding: '6px 12px',
                     borderRadius: '6px',
                     border: isSelected
@@ -465,7 +512,66 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  {cat}
+                  <span>{domain}</span>
+                  <span
+                    style={{
+                      fontSize: '10.5px',
+                      opacity: 0.75,
+                      fontWeight: 700,
+                    }}
+                  >
+                    ({domainCount})
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: '1px', backgroundColor: '#f1f5f9' }} />
+
+        {/* Row C: Resource Type Filter & Search Box */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          {/* Resource Type Pills */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>Type:</span>
+            {[
+              { id: 'all', label: 'All Types' },
+              { id: 'course', label: 'Courses' },
+              { id: 'youtube', label: 'YouTube' },
+              { id: 'website', label: 'Websites' },
+              { id: 'case_study', label: 'Case Studies' },
+            ].map((typeItem) => {
+              const isSelected = selectedType === typeItem.id;
+              return (
+                <button
+                  key={typeItem.id}
+                  onClick={() => setSelectedType(typeItem.id)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: isSelected
+                      ? '1px solid var(--aiims-primary, #6366f1)'
+                      : '1px solid var(--aiims-border-card, #e2e8f0)',
+                    backgroundColor: isSelected
+                      ? 'var(--aiims-token-lavender-bg, #f5f3ff)'
+                      : '#ffffff',
+                    color: isSelected ? 'var(--aiims-primary, #6366f1)' : '#64748b',
+                    fontSize: '12px',
+                    fontWeight: isSelected ? 700 : 500,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {typeItem.label}
                 </button>
               );
             })}
@@ -569,18 +675,20 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
               margin: 0,
             }}
           >
-            No matching learning resources found
+            No resources found for the selected criteria
           </h3>
           <p
             style={{
               fontSize: '13px',
               color: 'var(--aiims-text-muted, #64748b)',
-              maxWidth: '420px',
+              maxWidth: '480px',
               margin: 0,
+              lineHeight: 1.5,
             }}
           >
-            No verified resources matched your active language, category, or search filters. We
-            only present vetted, canonical educational links.
+            {selectedLanguage !== 'all' && selectedDomain !== 'All Domains'
+              ? `No verified ${selectedLanguage.toUpperCase()} resources are currently catalogued for "${selectedDomain}". Try switching to English or All Languages to view verified curriculum.`
+              : 'No verified educational resources matched your active filters. We only present vetted, canonical educational links without fabricated entries.'}
           </p>
           <Button variant="secondary" size="sm" onClick={handleResetFilters}>
             Reset All Filters
@@ -595,8 +703,7 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
           }}
         >
           {filteredResources.map((resource) => {
-            const isAudienceSpotlight =
-              resource.targetAudience === currentAudienceMode;
+            const isAudienceSpotlight = resource.targetAudience === currentAudienceMode;
 
             return (
               <div
@@ -654,7 +761,7 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {getDifficultyBadge(resource.difficulty)}
-                      {resource.isVerified && (
+                      {resource.isVerified ? (
                         <span
                           title="Verified Canonical Resource"
                           style={{
@@ -669,8 +776,34 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                           <CheckCircle2 size={13} />
                           <span>Verified</span>
                         </span>
+                      ) : (
+                        <span
+                          title="Link to be verified"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            color: '#b45309',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            backgroundColor: 'rgba(217, 119, 6, 0.1)',
+                            border: '1px solid rgba(217, 119, 6, 0.25)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          <HelpCircle size={12} />
+                          <span>Link to be verified</span>
+                        </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Domain Tag */}
+                  <div style={{ marginBottom: '6px' }}>
+                    <Badge variant="purple" size="sm">
+                      {resource.domain}
+                    </Badge>
                   </div>
 
                   {/* Title & Author */}
@@ -735,6 +868,23 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                     {resource.description}
                   </p>
 
+                  {/* Search Query Notice if Unverified */}
+                  {!resource.isVerified && resource.searchQuery && (
+                    <div
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--aiims-token-sunshine-bg, #fffbeb)',
+                        border: '1px solid var(--aiims-token-sunshine-border, #fef3c7)',
+                        fontSize: '11.5px',
+                        color: 'var(--aiims-token-sunshine-text, #92400e)',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      Search Query: <strong>"{resource.searchQuery}"</strong>
+                    </div>
+                  )}
+
                   {/* Key Takeaways */}
                   {resource.keyTakeaways.length > 0 && (
                     <div
@@ -768,7 +918,12 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                         }}
                       >
                         {resource.keyTakeaways.map((takeaway, idx) => (
-                          <li key={idx} style={{ marginBottom: idx === resource.keyTakeaways.length - 1 ? 0 : '4px' }}>
+                          <li
+                            key={idx}
+                            style={{
+                              marginBottom: idx === resource.keyTakeaways.length - 1 ? 0 : '4px',
+                            }}
+                          >
                             {takeaway}
                           </li>
                         ))}
@@ -790,12 +945,16 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                   }}
                 >
                   {/* Tool Integration: Add to Wallet */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}
+                  >
                     {resource.associatedToolIds &&
                       resource.associatedToolIds.map((toolId) => {
                         const inWallet = userToolIds.includes(toolId);
                         const matchedTool = catalog.find((t) => t.id === toolId);
-                        const toolName = matchedTool ? matchedTool.name : toolId.replace('tool-', '');
+                        const toolName = matchedTool
+                          ? matchedTool.name
+                          : toolId.replace('tool-', '');
 
                         return (
                           <button
@@ -806,7 +965,11 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                                 onAddTool(matchedTool);
                               }
                             }}
-                            title={inWallet ? 'Already in your Tool Stack' : `Add ${toolName} to My Tool Stack`}
+                            title={
+                              inWallet
+                                ? 'Already in your Tool Stack'
+                                : `Add ${toolName} to My Tool Stack`
+                            }
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -853,11 +1016,12 @@ export const LearnAISection: React.FC<LearnAISectionProps> = ({
                       e.currentTarget.style.color = '#ffffff';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'var(--aiims-bg-card-subtle, #f8fafc)';
+                      e.currentTarget.style.backgroundColor =
+                        'var(--aiims-bg-card-subtle, #f8fafc)';
                       e.currentTarget.style.color = 'var(--aiims-text-heading, #0f172a)';
                     }}
                   >
-                    <span>Open Resource</span>
+                    <span>{resource.isVerified ? 'Open Resource' : 'Open Search Link'}</span>
                     <ExternalLink size={13} />
                   </a>
                 </div>

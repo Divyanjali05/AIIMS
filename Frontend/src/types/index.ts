@@ -1258,3 +1258,14 @@ export interface FocusHistoryItem {
   overallFeedback: string;
   suggestedTool: string;
 }
+
+export type {
+  PromptGrade,
+  CriterionDetail,
+  PromptScoreBreakdown,
+  PromptAnalysisResult,
+  SupportedToolName,
+  ToolRecommendationItem,
+  ToolkitGapItem,
+  ToolSuggestionResult,
+} from '../services/promptToolAnalysis';
